@@ -11811,33 +11811,19 @@
       "signature": null,
       "value_preview": "os.path.join(_REPO_ROOT, 'Optimization', 'schemas')"
     },
+    "Optimization/runschema/contract.py::_STORE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_ContractStore(tree_dir=_TREE_DIR, shape_of=lambda doc: _shape_only(doc), sources=SHAPE_SOURCES, source_dirs=SHAPE_SOURCE_DIRS, repo_root=_REPO_ROOT, short_len=SHORT_LEN, what='run-tree', refresh_c..."
+    },
     "Optimization/runschema/contract.py::_TREE_DIR": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "os.path.join(_SCHEMA_DIR, 'run_tree')"
-    },
-    "Optimization/runschema/contract.py::_git_head": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "() -> str"
-    },
-    "Optimization/runschema/contract.py::_now": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "() -> str"
-    },
-    "Optimization/runschema/contract.py::_sha": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(payload: bytes) -> str"
     },
     "Optimization/runschema/contract.py::_shape_only": {
       "decorators": [],
@@ -11848,7 +11834,7 @@
     },
     "Optimization/runschema/contract.py::adopt": {
       "decorators": [],
-      "doc": "Store `doc` and make it the head, recording its provenance.  Returns its schema id.\n\nIdempotent: adopting the current head only refreshes the mutable `source_fingerprint`.  The\nprevious head becomes the new entry's `parent`, which is what restores the ordering that hashes\ninherently lack.",
+      "doc": "Store `doc` and make it the head, recording its provenance.  Returns its schema id.\n\nIdempotent: adopting the current head only refreshes the mutable `source_fingerprint`.  The\nprevious head becomes the new entry's `parent`, which is what restores the ordering that\nhashes inherently lack, and `diff_shape` fills the entry's `changes`.",
       "is_async": false,
       "kind": "function",
       "signature": "(doc: dict, *, label: str | None=None, source_fp: str | None=None, commit: str | None=None, created: str | None=None) -> str"
@@ -11925,14 +11911,21 @@
     },
     "Optimization/runschema/contract.py::source_fingerprint": {
       "decorators": [],
-      "doc": "Hash of every shape-defining source file (path + content), in declared order.\n\nLine endings are NORMALISED to \\n before hashing.  On Windows a checkout, stash/pop, or\nautocrlf change rewrites CRLF<->LF without touching a single statement; hashing raw bytes made\nthat look like a structural change and cost a needless canary pair.  Content changes still\nregister, which is the whole point.\n\nA missing file contributes its path plus a MISSING marker rather than being skipped, so\nDELETING a shape source is detected instead of silently matching.\n\n`SHAPE_SOURCE_DIRS` is then hashed by NAME LIST and content, which is how an\nADDED file registers -- a path tuple can only ever describe files someone already\nthought of, and `simconfig/configs/` is auto-discovered.",
+      "doc": "Hash of every shape-defining source file (path + content), in declared order, PLUS the\nauto-discovered directories.\n\n`Schema.fingerprint` owns the algorithm and this is the only store with a directory half:\na path tuple can only describe files someone already thought of, and `simconfig/configs/` is\nauto-discovered.  That asymmetry is 100% of why this store's fingerprint differs from the two\nfile-only ones on shared input (`architecture-drift/05`).\n\nLine endings are normalised and a missing file contributes a MISSING marker; see the helper\nfor why each of those cost someone something.",
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> str"
     },
+    "Optimization/runschema/contract.py::stale_reasons": {
+      "decorators": [],
+      "doc": "Cheap staleness findings, for the Stop hook.\n\nNEW HERE (ticket 13): this module had none, so `runschema/hook_check.py` re-implemented it\ninline -- a fourth partial copy, one level up from the three this ticket collapsed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> list[str]"
+    },
     "Optimization/runschema/contract.py::verify_store": {
       "decorators": [],
-      "doc": "Integrity of the whole committed store.  Empty list = sound.\n\nChecks the properties that make content addressing trustworthy without any registry:\n  * every stored document re-hashes to its own `schema_id` AND to its filename;\n  * the index head resolves to a stored document;\n  * every `parent` link resolves (or is null), with exactly one root.",
+      "doc": "Integrity of the whole committed store.  Empty list = sound.\n\nFour properties, and they apply to the profiles tree too now that both stores are one object.\nDoing so immediately found two DELETED documents there whose INDEX entries survived --\nexactly what the two-check copy could not see.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> list[str]"
@@ -16040,6 +16033,158 @@
       "kind": "function",
       "signature": "(path: str, *, timeout: float=_BUSY_TIMEOUT, tuned: bool=False)"
     },
+    "Schema/contractstore.py": {
+      "decorators": [],
+      "doc": "contractstore \u2014 the content-addressed document store that three modules implemented twice.\n\n`Optimization/runschema/contract.py` and `Schema/profile_tree.py` both keep the same thing: a\ndirectory of IMMUTABLE JSON documents named by the short form of their own sha256, plus a mutable\n`INDEX.json` carrying `head`, `source_fingerprint` and a provenance chain. Eight operations, and\neach module had its own copy of every one.\n\n## The layering objection, and why the conclusion was backwards\n\nBoth modules argue in their own docstrings that the duplication is forced: `schema -> optimization`\nis a declared boundary (\"shape identity must not depend on the run harness\"), so `Schema/` cannot\nimport the run-tree implementation. **The constraint is real and the conclusion is inverted.** The\nshared machinery belongs in `Schema/` -- the stdlib-only leaf -- and `runschema/contract.py`\nimports DOWN. Satisfied by direction, not by copying.\n\n## What is shared, and what deliberately is not\n\nShared: the STORE. A content-addressed JSON directory is identical whatever it holds.\n\nNot shared: the DECLARATIONS. `shape_of` -- the projection that defines what a document IS -- is\ninjected, and so are the sources, the tree directory and the refresh command. An abstraction that\nalso served two contracts' features, levels and artifacts would be exactly the coupling both\nmodules were built to avoid, and that half of their objection is correct.\n\n## The copy had already drifted toward weaker invariants\n\n`contract.verify_store()` checked FOUR properties; `profile_tree.verify_store()` checked two --\nno filename check, and no parent-chain check even though its own `adopt` writes a `parent` field.\nThe honesty test meant to keep the two aligned pinned only `source_fingerprint`; nothing pinned\n`verify_store`, `adopt`, `write` or `load_all`. One store now means one set of invariants, and the\nfour apply to both.\n\n`source_fingerprint` was the first operation to come back together (`Schema/fingerprint.py`,\n`architecture-drift/05`); this module is the rest of it.",
+      "kind": "module",
+      "signature": null
+    },
+    "Schema/contractstore.py::ContractStore": {
+      "decorators": [],
+      "doc": "One content-addressed schema store: immutable documents plus a mutable index.\n\n    store = ContractStore(\n        tree_dir=..., shape_of=_shape_only, sources=SHAPE_SOURCES,\n        refresh_cmd='python -m Schema.profile_tree --write', what='profile-tree')\n\nEvery method that used to be a module-level function in two places is here once. The caller\nkeeps its DECLARATION -- what a document contains, and how to build one.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Schema/contractstore.py::ContractStore.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, tree_dir: str, shape_of, sources, repo_root: str, refresh_cmd: str, what: str, source_dirs=(), short_len: int=12, diff=None) -> None"
+    },
+    "Schema/contractstore.py::ContractStore.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.adopt": {
+      "decorators": [],
+      "doc": "Store `doc`, make it the head, record its provenance. Returns its id.\n\nIdempotent: adopting the current head refreshes the mutable `source_fingerprint` and\nnothing else. The previous head becomes the new entry's `parent`, which is what restores\nthe ordering that hashes inherently lack.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, doc: dict, *, label: str='', source_fp: str | None=None, commit: str | None=None, created: str | None=None) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.head": {
+      "decorators": [],
+      "doc": "The id a NEW artifact stamps. A named pointer, because hashes have no natural order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str | None"
+    },
+    "Schema/contractstore.py::ContractStore.load": {
+      "decorators": [],
+      "doc": "The committed document for an id (full or short), or None when absent.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sid: str) -> dict | None"
+    },
+    "Schema/contractstore.py::ContractStore.load_all": {
+      "decorators": [],
+      "doc": "Every committed document, keyed by full id.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict[str, dict]"
+    },
+    "Schema/contractstore.py::ContractStore.path_for": {
+      "decorators": [],
+      "doc": "Where the document for an id lives. Accepts a full id or an already-short form.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sid: str) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.read_index": {
+      "decorators": [],
+      "doc": "The index, or an empty skeleton when it does not exist yet.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Schema/contractstore.py::ContractStore.rebased": {
+      "decorators": [],
+      "doc": "The same store, pointed at a different directory.\n\nTHE SEAM FOR A THROWAWAY STORE. Redirection used to be done by monkeypatching two module\nglobals (`_TREE_DIR`, `_INDEX`), which worked only while every operation re-read them --\nand silently stopped working the moment they were read once at construction. A test that\npatches a global the code no longer consults does not fail; it runs against the REAL\ncommitted store, which for a test that calls `adopt` is the worst possible outcome.\n\nSo the redirection is an operation rather than a convention, and it carries `shape_of` and\n`diff` with it: a throwaway store that hashed a different projection would prove nothing\nabout this one.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, tree_dir: str) -> 'ContractStore'"
+    },
+    "Schema/contractstore.py::ContractStore.schema_id": {
+      "decorators": [],
+      "doc": "The content-addressed identity: sha256 over the canonical shape, nothing else.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, doc: dict) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.short_id": {
+      "decorators": [],
+      "doc": "`'sha256:a412c613ba76\u2026' -> 'a412c613ba76'` \u2014 the display and FILENAME form.\n\nThe full id contains a colon, which is an illegal filename character on Windows, so the\nshort form names files and the full id lives inside the document.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, sid: str) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.source_fingerprint": {
+      "decorators": [],
+      "doc": "Hash of every shape-defining source, and of any auto-discovered directory.\n\n`Schema.fingerprint` owns the algorithm; see `architecture-drift/05` for the copy that\ndrifted and what it cost.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, repo_root: str | None=None) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.stale_reasons": {
+      "decorators": [],
+      "doc": "Cheap staleness findings for the Stop hook -- file hashes and stats only.\n\n`build` is the caller's declaration-to-document function, taken as an argument rather than\nheld, so this module never needs to know what a document contains.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, build) -> list[str]"
+    },
+    "Schema/contractstore.py::ContractStore.verify_store": {
+      "decorators": [],
+      "doc": "Integrity of the whole committed store. Empty list = sound.\n\nTHE FOUR PROPERTIES that make content addressing trustworthy with no registry:\n\n  1. every stored document re-hashes to its own `schema_id`;\n  2. its FILENAME equals `short(schema_id)`;\n  3. the index head resolves to a stored document;\n  4. every `parent` link resolves, with exactly one root.\n\nThe profiles-tree copy checked only 1 and 3 -- it did not check filenames, and it did not\ncheck the parent chain although its own `adopt` writes `parent`. That is what a copy\nnothing compares does, and it is why these live here once.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list[str]"
+    },
+    "Schema/contractstore.py::ContractStore.write": {
+      "decorators": [],
+      "doc": "Write a document to its versioned path, atomically. Returns the path.\n\nTwo refusals rather than a silent overwrite: a document whose stated id is not its own\nhash is not content-addressed at all, and a SHORT-PREFIX COLLISION would put a different\nschema under this filename -- astronomically unlikely at 48 bits and unrecoverable if it\never happened.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, doc: dict) -> str"
+    },
+    "Schema/contractstore.py::ContractStore.write_index": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, index: dict) -> str"
+    },
+    "Schema/contractstore.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['ContractStore']"
+    },
+    "Schema/contractstore.py::_git_head": {
+      "decorators": [],
+      "doc": "Best-effort provenance: the short commit, or '' when git is unavailable.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str) -> str"
+    },
+    "Schema/contractstore.py::_now": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> str"
+    },
+    "Schema/contractstore.py::_sha": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(payload: bytes) -> str"
+    },
     "Schema/dataset.py": {
       "decorators": [],
       "doc": "dataset.py \u2014 bind a database file to its OWN schema version, and read it by NAME.\n\nThe read-side half of runtime versioning.  ``compat.py`` answers \"may this consumer read that\nfamily\"; this module answers the next question \u2014 \"read THIS file, whatever vintage it is\" \u2014\nwithout the consumer writing SQL, probing PRAGMAs, or branching on a version anywhere.\n\n    ds = dataset.bind(path, 'sim_db', requires=REQUIRES)\n    for row in ds.query('batch_frame', run_id=7):\n        row['thr_batch']            # a LOGICAL column name \u2014 stable across every vintage\n\nThree layers, and where each lives:\n\n  MACHINERY (this module, stdlib + Schema only)\n      `bind()` resolves the file's own id (stamped -> pinned -> derived), loads THAT shape from\n      the committed store, and returns a `Dataset` whose every read is validated against the\n      bound shape.  `Query`/`register_query`/`override` are the registry types.\n  VOCABULARY (beside each family's DDL \u2014 the PUBLISHER side)\n      Named queries with a stable LOGICAL output column set, e.g. sim_db's in\n      `Optimization/persistence/Picking_Data.py`.  The publisher dictates shapes, so the\n      publisher's module is where physical->logical mapping lives.\n  OVERRIDES (small per-vintage modules beside the family)\n      A vintage whose physical schema differs (renamed column, absent table) registers a variant\n      for its schema id \u2014 the same dispatch `Visualization/readers/` proves with `SCHEMA_IDS`.\n      Consumers never see any of it.\n\nWHY LOGICAL COLUMNS ARE THE CONTRACT\n------------------------------------\nA column rename is the quietest schema change: `SELECT *` + `row.keys()` guards turn it into a\ndefault 0.0 on a published figure.  Naming the OUTPUT vocabulary decouples every consumer from\nthe physical schema: canonical SQL aliases physical->logical (`SELECT completion_rate AS\nthr_batch`), an override for an old vintage re-aliases its OWN physical names to the SAME logical\nnames, and the registry enforces that every variant of a query yields the same logical set.  The\nrepo already hand-rolled this twice before it was a system (the loaders' legacy-alias branches,\n`_bdf`'s completion_rate->thr_batch mirror); those become registrations instead of special cases.\n\nSQL POLICY\n----------\nIdentifier positions (tables, columns) are GENERATED from validated names; predicate/aggregate\ntext is HUMAN-WRITTEN and parameterized \u2014 generating the drift-prone part, never the expressive\npart.  `Dataset.read()` builds simple selections; `Query.sql` carries arbitrary hand-written SQL\n(joins, aggregates) whose output columns are the declared logical set; `.con` remains the\ndocumented escape hatch, with the rule that escape-hatch reads still appear in a `Requires`.",
@@ -16555,6 +16700,13 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(_HERE, '..'))"
     },
+    "Schema/profile_tree.py::_STORE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_ContractStore(tree_dir=_TREE_DIR, shape_of=_shape_only, sources=SHAPE_SOURCES, repo_root=_REPO_ROOT, short_len=SHORT_LEN, what='profile-tree', refresh_cmd='python -m Schema.profile_tree --write')"
+    },
     "Schema/profile_tree.py::_TREE_DIR": {
       "decorators": [],
       "doc": null,
@@ -16564,7 +16716,7 @@
     },
     "Schema/profile_tree.py::_sha": {
       "decorators": [],
-      "doc": null,
+      "doc": "sha256 of raw bytes, for `params_digest` -- a FILE digest, not a schema id.\n\nKept when the store moved out: a schema id is the hash of a canonical PROJECTION and belongs\nto the store; this is the hash of a file exactly as it sits on disk, and the two only look\nalike.",
       "is_async": false,
       "kind": "function",
       "signature": "(blob: bytes) -> str"
@@ -16585,7 +16737,7 @@
     },
     "Schema/profile_tree.py::adopt": {
       "decorators": [],
-      "doc": "Store `doc`, set it as head, record provenance + the current source fingerprint.",
+      "doc": "Store `doc`, set it as head, record provenance + the current source fingerprint.\n\nReturns the PATH (not the id): `main` prints it, and that is this module's long-standing\ncontract.  The store returns the id, which is why this is not a bare delegation.",
       "is_async": false,
       "kind": "function",
       "signature": "(doc: dict, *, label: str='') -> str"
@@ -16676,7 +16828,7 @@
     },
     "Schema/profile_tree.py::source_fingerprint": {
       "decorators": [],
-      "doc": "Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).\n\nTHE ALGORITHM IS SHARED NOW, not copied: `Schema.fingerprint.of_files` is the one\nimplementation, and `runschema.contract` folds the same helper into the first half of its\nown fingerprint.  It was a copy until `architecture-drift/05`, and it had already drifted --\n`contract` grew a SECOND input class (`SHAPE_SOURCE_DIRS`, for auto-discovered files) and\nthis copy did not, which is what made the honesty test fail.\n\nTHIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree\nhas no auto-discovered directory in its shape.  A directory half here would hash nothing and\nread as parity.",
+      "doc": "Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).\n\nTHE ALGORITHM IS SHARED, not copied (`Schema.fingerprint`, via the store).  It WAS a copy,\nand it had drifted: `runschema.contract` grew a second input class -- auto-discovered\ndirectories -- and this one did not (`architecture-drift/05`).\n\nTHIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree\nhas no auto-discovered directory in its shape, so its `source_dirs` is empty.",
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> str"
@@ -16690,7 +16842,7 @@
     },
     "Schema/profile_tree.py::verify_store": {
       "decorators": [],
-      "doc": "Findings for the committed store, empty when clean (id-vs-filename, head present).",
+      "doc": "Findings for the committed store, empty when clean.\n\nFOUR checks now, not two.  This copy checked that each document hashes to its own id and that\nthe head resolves; it did NOT check filenames, and it did NOT check the parent chain even\nthough its own `adopt` writes a `parent` field.  One store means one set of invariants.",
       "is_async": false,
       "kind": "function",
       "signature": "() -> list"
@@ -16926,7 +17078,7 @@
     },
     "Schema/store_index.py": {
       "decorators": [],
-      "doc": "store_index.py \u2014 the mutable head of the committed shape store, and its change trigger.\n\n`Schema/shapes/<family>/<short>.json` documents are IMMUTABLE (filename = content hash).  Mutable\nstate \u2014 which declared id each family currently has, and a cheap trigger for \"did a DDL source\nchange since the store was last synced\" \u2014 needs somewhere else to live.  This is that somewhere:\n``Schema/shapes/INDEX.json``, the exact division of labour ``Optimization/schemas/run_tree/``\nuses (immutable documents + a mutable INDEX carrying `head` and `source_fingerprint`).\n\nTwo consumers, with opposite budgets:\n\n  * ``scripts/schema_report.py --sync`` \u2014 the ONLY writer.  It has every family imported, so it\n    can compute declared ids; it records them plus the fingerprint after committing shapes.\n  * ``Schema/hook_check.py`` \u2014 a Stop hook that must NOT import the writers (importing them pulls\n    ~1350 modules, matplotlib and pandas included).  It compares the fingerprint and stats the\n    per-family documents, nothing more.  The fingerprint is a cheap TRIGGER, not proof: a\n    docstring edit trips it, and the nag says \"run --sync\", which is idempotent and settles it.\n\nWHY THE FINGERPRINT IS COPIED, NOT IMPORTED\n-------------------------------------------\n``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, but importing it\nhere is `schema -> optimization` \u2014 forbidden by `context/architecture.yml`, and enforced by\n`Tests/architecture/test_schema_compatibility.py::test_the_schema_package_imports_nothing_above_its_own_layer`.\nPaths-as-strings are data, not imports (the precedent is `contract.SHAPE_SOURCES` itself, which\nlists files across four layers).  A test keeps the copy honest by comparing the two algorithms on\nidentical input.",
+      "doc": "store_index.py \u2014 the mutable head of the committed shape store, and its change trigger.\n\n`Schema/shapes/<family>/<short>.json` documents are IMMUTABLE (filename = content hash).  Mutable\nstate \u2014 which declared id each family currently has, and a cheap trigger for \"did a DDL source\nchange since the store was last synced\" \u2014 needs somewhere else to live.  This is that somewhere:\n``Schema/shapes/INDEX.json``, the exact division of labour ``Optimization/schemas/run_tree/``\nuses (immutable documents + a mutable INDEX carrying `head` and `source_fingerprint`).\n\nTwo consumers, with opposite budgets:\n\n  * ``scripts/schema_report.py --sync`` \u2014 the ONLY writer.  It has every family imported, so it\n    can compute declared ids; it records them plus the fingerprint after committing shapes.\n  * ``Schema/hook_check.py`` \u2014 a Stop hook that must NOT import the writers (importing them pulls\n    ~1350 modules, matplotlib and pandas included).  It compares the fingerprint and stats the\n    per-family documents, nothing more.  The fingerprint is a cheap TRIGGER, not proof: a\n    docstring edit trips it, and the nag says \"run --sync\", which is idempotent and settles it.\n\nTHE FINGERPRINT IS SHARED, NOT COPIED (it was a copy until `architecture-drift/05`)\n----------------------------------------------------------------------------------\n``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, and importing IT\nhere would be `schema -> optimization` \u2014 forbidden by `context/architecture.yml` and enforced by\n`Tests/architecture/test_schema_compatibility.py`.  The conclusion drawn from that was backwards:\nthe shared half lives in `Schema.fingerprint`, the stdlib-only leaf, and `runschema/contract.py`\nimports DOWN.  Satisfied by DIRECTION rather than by copying.  The copy had already drifted --\n`contract` grew an auto-discovered-directory half and neither copy did.\n\nWHY THIS STORE IS NOT A `ContractStore` (ticket 13 expected it to become one)\n-----------------------------------------------------------------------------\n`Schema/contractstore.py` collapsed the run-tree and profiles-tree stores, and ticket 13 reads\nthis file as \"the third adapter over the family-keyed variant\".  It is not the same concept, and\na variant is exactly the wrong way to say so:\n\n  * its documents live per FAMILY (`shapes/<family>/<short>.json`), not in one flat tree;\n  * its INDEX is `{source_fingerprint, families}` \u2014 there is no `head`, because \"which id is\n    current\" is a question PER FAMILY, and no provenance chain, because a family's history is its\n    committed shapes rather than a parent pointer;\n  * it has no `adopt`, no `build` and no `schema_id`: it does not MINT anything.\n    ``scripts/schema_report.py --sync`` is the only writer and it arrives holding the ids.\n\nA `ContractStore` variant serving both would need a family dimension on every path and a flag\nturning off head, adopt, the parent chain and the document hash \u2014 an interface as complex as the\ntwo implementations under it, which is the failure this whole effort exists to remove.  What this\nfile genuinely shares is the fingerprint, and it shares it.",
       "kind": "module",
       "signature": null
     },

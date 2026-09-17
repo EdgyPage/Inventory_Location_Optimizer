@@ -32,14 +32,32 @@ Two consumers, with opposite budgets:
     per-family documents, nothing more.  The fingerprint is a cheap TRIGGER, not proof: a
     docstring edit trips it, and the nag says &quot;run --sync&quot;, which is idempotent and settles it.
 
-WHY THE FINGERPRINT IS COPIED, NOT IMPORTED
--------------------------------------------
-``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, but importing it
-here is `schema -&gt; optimization` — forbidden by `context/architecture.yml`, and enforced by
-`Tests/architecture/test_schema_compatibility.py::test_the_schema_package_imports_nothing_above_its_own_layer`.
-Paths-as-strings are data, not imports (the precedent is `contract.SHAPE_SOURCES` itself, which
-lists files across four layers).  A test keeps the copy honest by comparing the two algorithms on
-identical input.</section>
+THE FINGERPRINT IS SHARED, NOT COPIED (it was a copy until `architecture-drift/05`)
+----------------------------------------------------------------------------------
+``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, and importing IT
+here would be `schema -&gt; optimization` — forbidden by `context/architecture.yml` and enforced by
+`Tests/architecture/test_schema_compatibility.py`.  The conclusion drawn from that was backwards:
+the shared half lives in `Schema.fingerprint`, the stdlib-only leaf, and `runschema/contract.py`
+imports DOWN.  Satisfied by DIRECTION rather than by copying.  The copy had already drifted --
+`contract` grew an auto-discovered-directory half and neither copy did.
+
+WHY THIS STORE IS NOT A `ContractStore` (ticket 13 expected it to become one)
+-----------------------------------------------------------------------------
+`Schema/contractstore.py` collapsed the run-tree and profiles-tree stores, and ticket 13 reads
+this file as &quot;the third adapter over the family-keyed variant&quot;.  It is not the same concept, and
+a variant is exactly the wrong way to say so:
+
+  * its documents live per FAMILY (`shapes/&lt;family&gt;/&lt;short&gt;.json`), not in one flat tree;
+  * its INDEX is `{source_fingerprint, families}` — there is no `head`, because &quot;which id is
+    current&quot; is a question PER FAMILY, and no provenance chain, because a family&#x27;s history is its
+    committed shapes rather than a parent pointer;
+  * it has no `adopt`, no `build` and no `schema_id`: it does not MINT anything.
+    ``scripts/schema_report.py --sync`` is the only writer and it arrives holding the ids.
+
+A `ContractStore` variant serving both would need a family dimension on every path and a flag
+turning off head, adopt, the parent chain and the document hash — an interface as complex as the
+two implementations under it, which is the failure this whole effort exists to remove.  What this
+file genuinely shares is the fingerprint, and it shares it.</section>
 <section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nSchema_fingerprint_py.html"><code>Schema.fingerprint</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nSchema_hook_check_py.html"><code>Schema.hook_check</code></a> <span class="dim">Schema/hook_check.py</span></li><li><a href="nscripts_schema_report_py.html"><code>scripts.schema_report</code></a> <span class="dim">scripts/schema_report.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(8)</span></h2><ul><li><a href="nSchema_store_index_py__DDL_SOURCES.html"><code>DDL_SOURCES</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py__INDEX_PATH.html"><code>INDEX_PATH</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py___HERE.html"><code>_HERE</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py__read_index.html"><code>read_index</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py__source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py__stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py__write_index.html"><code>write_index</code></a> <span class="dim">Schema/store_index.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_store_index_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/store_index.py">Source ↗</a></p>
 </article>

@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from Schema import fingerprint as _fingerprint
+from Schema.contractstore import ContractStore as _ContractStore
 import json
 import os
 import sys
@@ -115,8 +115,18 @@ SHAPE_SOURCE_DIRS = (
 )
 
 
-def _sha(payload: bytes) -> str:
-    return 'sha256:' + hashlib.sha256(payload).hexdigest()
+#: THE STORE, shared with `Schema/profile_tree.py` (ticket 13).  What stays HERE is the
+#: DECLARATION -- `SHAPE_SOURCES`, `_shape_only`, `build`, `diff_shape` -- because an
+#: abstraction serving two contracts' levels and artifacts would be exactly the coupling both
+#: modules were built to avoid.  What moved is the content-addressed JSON directory, identical
+#: whatever it holds.  `Schema/` may not import `Optimization/`; the shared half therefore lives
+#: THERE and this module imports DOWN, which satisfies the boundary by DIRECTION rather than by
+#: copying -- the conclusion this module's own docstring used to draw the other way round.
+_STORE = _ContractStore(
+    tree_dir=_TREE_DIR, shape_of=lambda doc: _shape_only(doc), sources=SHAPE_SOURCES,
+    source_dirs=SHAPE_SOURCE_DIRS, repo_root=_REPO_ROOT, short_len=SHORT_LEN,
+    what='run-tree', refresh_cmd='python -m Optimization.runschema.contract --write',
+    diff=lambda a, b: diff_shape(a, b))
 
 
 def short_id(schema_id: str) -> str:
@@ -125,42 +135,26 @@ def short_id(schema_id: str) -> str:
     NB the full id contains a colon, which is an illegal filename character on Windows, so the
     short form is what names files; the full id lives inside the document.
     """
-    return schema_id.split(':', 1)[-1][:SHORT_LEN]
+    return _STORE.short_id(schema_id)
 
 
 def contract_path(schema_id: str) -> str:
     """Where the document for a schema id lives.  Accepts a full id or an already-short form."""
-    return os.path.join(_TREE_DIR, f'{short_id(schema_id)}.json')
-
+    return _STORE.path_for(schema_id)
 
 def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
-    """Hash of every shape-defining source file (path + content), in declared order.
+    """Hash of every shape-defining source file (path + content), in declared order, PLUS the
+    auto-discovered directories.
 
-    Line endings are NORMALISED to \\n before hashing.  On Windows a checkout, stash/pop, or
-    autocrlf change rewrites CRLF<->LF without touching a single statement; hashing raw bytes made
-    that look like a structural change and cost a needless canary pair.  Content changes still
-    register, which is the whole point.
+    `Schema.fingerprint` owns the algorithm and this is the only store with a directory half:
+    a path tuple can only describe files someone already thought of, and `simconfig/configs/` is
+    auto-discovered.  That asymmetry is 100% of why this store's fingerprint differs from the two
+    file-only ones on shared input (`architecture-drift/05`).
 
-    A missing file contributes its path plus a MISSING marker rather than being skipped, so
-    DELETING a shape source is detected instead of silently matching.
-
-    `SHAPE_SOURCE_DIRS` is then hashed by NAME LIST and content, which is how an
-    ADDED file registers -- a path tuple can only ever describe files someone already
-    thought of, and `simconfig/configs/` is auto-discovered.
+    Line endings are normalised and a missing file contributes a MISSING marker; see the helper
+    for why each of those cost someone something.
     """
-    h = hashlib.sha256()
-    # THE FILES HALF IS SHARED (`Schema.fingerprint`), and it folds into THIS hash rather than
-    # returning a digest -- which is what keeps the value emitted here byte-identical across the
-    # extraction.  A helper that returned a digest for re-hashing would invalidate every recorded
-    # `source_fingerprint` and force a canary re-prove for a pure code move.
-    _fingerprint.update_files(h, SHAPE_SOURCES, repo_root)
-    # THE DIRECTORY HALF IS THIS STORE'S ALONE, and it is the whole reason the two file-only
-    # stores disagree with this one on shared input: a path tuple can only describe files someone
-    # already thought of, and `simconfig/configs/` is auto-discovered.  Neither of the other two
-    # has an auto-discovered input, so neither grew one (`architecture-drift/05`).
-    _fingerprint.update_dirs(h, SHAPE_SOURCE_DIRS, repo_root)
-    return 'sha256:' + h.hexdigest()
-
+    return _STORE.source_fingerprint(repo_root)
 
 def _shape_only(doc: dict) -> dict:
     """The projection that DEFINES the tree — the exact material `schema_id` hashes.
@@ -193,7 +187,7 @@ def _shape_only(doc: dict) -> dict:
 
 def schema_id(doc: dict) -> str:
     """The content-addressed identity of a contract: sha256 over its canonical shape."""
-    return _sha(json.dumps(_shape_only(doc), sort_keys=True, separators=(',', ':')).encode('utf-8'))
+    return _STORE.schema_id(doc)
 
 
 def build(repo_root: str = _REPO_ROOT) -> dict:
@@ -224,79 +218,33 @@ def build(repo_root: str = _REPO_ROOT) -> dict:
 
 def load(sid: str) -> dict | None:
     """The committed document for a schema id (full or short), or None when absent."""
-    p = contract_path(sid)
-    if not os.path.exists(p):
-        return None
-    try:
-        with open(p, encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
+    return _STORE.load(sid)
 
 
 def load_all() -> dict[str, dict]:
     """Every committed contract document, keyed by full schema id."""
-    out: dict[str, dict] = {}
-    if not os.path.isdir(_TREE_DIR):
-        return out
-    for fn in sorted(os.listdir(_TREE_DIR)):
-        if not fn.endswith('.json') or fn == 'INDEX.json':
-            continue
-        try:
-            with open(os.path.join(_TREE_DIR, fn), encoding='utf-8') as f:
-                doc = json.load(f)
-            out[doc['schema_id']] = doc
-        except (json.JSONDecodeError, OSError, KeyError):
-            continue
-    return out
+    return _STORE.load_all()
 
 
 # ── INDEX.json — the mutable side: head pointer, change trigger, provenance chain ─
 
 def read_index() -> dict:
     """The schema store's index, or an empty skeleton when it doesn't exist yet."""
-    try:
-        with open(_INDEX, encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {'head': None, 'source_fingerprint': None, 'schemas': {}}
+    return _STORE.read_index()
 
 
 def write_index(index: dict) -> str:
-    os.makedirs(_TREE_DIR, exist_ok=True)
-    tmp = f'{_INDEX}.tmp.{os.getpid()}'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(index, f, indent=2)
-        f.write('\n')
-    os.replace(tmp, _INDEX)
-    return _INDEX
+    return _STORE.write_index(index)
 
 
 def head() -> str | None:
     """The schema id a NEW run stamps.  A named pointer, because hashes have no natural order."""
-    return read_index().get('head')
+    return _STORE.head()
 
 
 def write(doc: dict) -> str:
     """Write a contract document to its versioned path, atomically.  Returns the path."""
-    os.makedirs(_TREE_DIR, exist_ok=True)
-    sid = doc['schema_id']
-    assert sid == schema_id(doc), 'refusing to write a document whose schema_id is not its own hash'
-    path = contract_path(sid)
-    # Short-prefix collision: a DIFFERENT schema already occupies this filename.  Astronomically
-    # unlikely at 48 bits, but silently overwriting another schema would be unrecoverable.
-    existing = load(sid)
-    if existing is not None and existing.get('schema_id') != sid:
-        raise RuntimeError(
-            f'short-id collision on {short_id(sid)}: {existing.get("schema_id")} != {sid}. '
-            f'Raise contract.SHORT_LEN and regenerate the store.')
-    tmp = f'{path}.tmp.{os.getpid()}'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(doc, f, indent=2, sort_keys=False)
-        f.write('\n')
-    os.replace(tmp, path)
-    return path
-
+    return _STORE.write(doc)
 
 def diff_shape(a: dict, b: dict) -> list[str]:
     """Human-readable differences between two contracts' SHAPES (a = old, b = new).
@@ -361,91 +309,30 @@ def adopt(doc: dict, *, label: str | None = None, source_fp: str | None = None,
     """Store `doc` and make it the head, recording its provenance.  Returns its schema id.
 
     Idempotent: adopting the current head only refreshes the mutable `source_fingerprint`.  The
-    previous head becomes the new entry's `parent`, which is what restores the ordering that hashes
-    inherently lack.
+    previous head becomes the new entry's `parent`, which is what restores the ordering that
+    hashes inherently lack, and `diff_shape` fills the entry's `changes`.
     """
-    sid = doc['schema_id']
-    index = read_index()
-    prev = index.get('head')
-    write(doc)
-    entry = index['schemas'].get(sid, {})
-    if sid not in index['schemas']:
-        entry = {
-            'short': short_id(sid),
-            'parent': prev,
-            'created': created or _now(),
-            'commit': commit or _git_head(),
-            'label': label or '',
-            'changes': diff_shape(load(prev), doc) if prev and load(prev) else ['initial schema'],
-        }
-    index['schemas'][sid] = entry
-    index['head'] = sid
-    if source_fp is not None:
-        index['source_fingerprint'] = source_fp
-    write_index(index)
-    return sid
-
-
-def _now() -> str:
-    from datetime import datetime
-    return datetime.now().isoformat(timespec='seconds')
-
-
-def _git_head() -> str:
-    import subprocess
-    try:
-        r = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], cwd=_REPO_ROOT,
-                           capture_output=True, text=True, timeout=15)
-        return r.stdout.strip() if r.returncode == 0 else ''
-    except Exception:                                          # noqa: BLE001 - provenance is best-effort
-        return ''
+    return _STORE.adopt(doc, label=label or '', source_fp=source_fp,
+                        commit=commit, created=created)
 
 
 def verify_store() -> list[str]:
     """Integrity of the whole committed store.  Empty list = sound.
 
-    Checks the properties that make content addressing trustworthy without any registry:
-      * every stored document re-hashes to its own `schema_id` AND to its filename;
-      * the index head resolves to a stored document;
-      * every `parent` link resolves (or is null), with exactly one root.
+    Four properties, and they apply to the profiles tree too now that both stores are one object.
+    Doing so immediately found two DELETED documents there whose INDEX entries survived --
+    exactly what the two-check copy could not see.
     """
-    problems: list[str] = []
-    docs = load_all()
-    if os.path.isdir(_TREE_DIR):
-        for fn in sorted(os.listdir(_TREE_DIR)):
-            if not fn.endswith('.json') or fn == 'INDEX.json':
-                continue
-            p = os.path.join(_TREE_DIR, fn)
-            try:
-                with open(p, encoding='utf-8') as f:
-                    doc = json.load(f)
-            except (json.JSONDecodeError, OSError) as exc:
-                problems.append(f'{fn}: unreadable ({exc})')
-                continue
-            recomputed = schema_id(doc)
-            if doc.get('schema_id') != recomputed:
-                problems.append(f'{fn}: content does not hash to its stated schema_id '
-                                f'({doc.get("schema_id")} != {recomputed})')
-            if fn != f'{short_id(recomputed)}.json':
-                problems.append(f'{fn}: filename != short(schema_id) ({short_id(recomputed)}.json)')
+    return _STORE.verify_store()
 
-    index = read_index()
-    hd = index.get('head')
-    if hd and hd not in docs:
-        problems.append(f'INDEX head {short_id(hd)} has no stored document')
-    roots = 0
-    for sid, meta in (index.get('schemas') or {}).items():
-        if sid not in docs:
-            problems.append(f'INDEX lists {short_id(sid)} but no document is stored')
-        parent = meta.get('parent')
-        if parent is None:
-            roots += 1
-        elif parent not in (index.get('schemas') or {}):
-            problems.append(f'{short_id(sid)}: parent {short_id(parent)} is not in the INDEX')
-    if index.get('schemas') and roots != 1:
-        problems.append(f'INDEX has {roots} root schema(s); expected exactly 1')
-    return problems
 
+def stale_reasons() -> list[str]:
+    """Cheap staleness findings, for the Stop hook.
+
+    NEW HERE (ticket 13): this module had none, so `runschema/hook_check.py` re-implemented it
+    inline -- a fourth partial copy, one level up from the three this ticket collapsed.
+    """
+    return _STORE.stale_reasons(build)
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(

@@ -41,6 +41,7 @@ import pytest
 # Importing the declaration, not the resolver: the ratchet tokens come straight from
 # profile_tree's ARTIFACTS table so a renamed artifact re-derives its tokens with no edit here.
 from Schema import profile_tree as _decl
+from Schema.contractstore import ContractStore
 
 # The run-tree implementation the honesty test pins against.  `profile_tree` COPIES its hashing
 # rather than importing it (schema→optimization is forbidden), which is exactly why the two must
@@ -213,26 +214,35 @@ def test_the_tokens_are_still_derived_and_distinctive():
 # ── the committed store ─────────────────────────────────────────────────────────
 
 
-def test_the_store_holds_exactly_the_head_document():
-    """One document, and it is the head, and it hashes to its own filename.
+def test_the_store_holds_the_head_AND_every_indexed_ancestor():
+    """Every document the INDEX names is committed, and each hashes to its own filename.
 
-    The store is content-addressed: the filename IS the short schema id, so a document that does
-    not hash to its own name has been hand-edited or half-merged — and it would be believed
-    silently by every generator that stamps `head()` into a descriptor.
+    THIS TEST USED TO ASSERT THE OPPOSITE, and that is why a real defect survived. It read
+    `set(docs) == {head}` -- "exactly the head document (its whole history is one schema so far)
+    should be committed" -- which was written after commit `6adf378e` deleted two of the three
+    documents and left their INDEX entries behind. The store's history was never one schema; the
+    test had been taught the damage and then defended it.
+
+    The store is content-addressed and IMMUTABLE. An ancestor is not clutter: an archived
+    catalogue stamped with it cannot be validated once its document is gone, and the provenance
+    chain cannot be walked. So the invariant is "every indexed id resolves", never "only the
+    current one is kept".
     """
     head = _decl.head()
     assert head is not None, 'the profile-tree store has no head; run: python -m Schema.profile_tree --write'
 
     docs = _decl.load_all()
-    assert set(docs) == {head}, (
-        f'the store holds {sorted(_decl.short_id(s) for s in docs)} but the head is '
-        f'{_decl.short_id(head)} — exactly the head document (its whole history is one schema '
-        f'so far) should be committed')
+    indexed = set(_decl.read_index()['schemas'])
+    assert head in docs, f'the head {_decl.short_id(head)} has no committed document'
+    assert indexed <= set(docs), (
+        f'the INDEX names {sorted(_decl.short_id(s) for s in indexed - set(docs))} with no '
+        f'committed document -- an immutable store lost a document')
 
-    stored = sorted(fn for fn in os.listdir(_decl._TREE_DIR)
+    stored = sorted(fn for fn in os.listdir(_decl._STORE.tree_dir)
                     if fn.endswith('.json') and fn != 'INDEX.json')
-    assert stored == [f'{_decl.short_id(head)}.json'], (
-        f'store files {stored} != [{_decl.short_id(head)}.json]')
+    assert stored == sorted(f'{_decl.short_id(s)}.json' for s in docs), (
+        f'store files {stored} do not match the documents they hold')
+    assert not _decl.verify_store(), _decl.verify_store()
     assert _decl.schema_id(docs[head]) == head, (
         f'{_decl.short_id(head)}.json holds a document that hashes to '
         f'{_decl.short_id(_decl.schema_id(docs[head]))}, not to its own filename')
@@ -264,12 +274,13 @@ def test_the_committed_store_is_clean_and_current_now():
 def test_stale_reasons_flag_an_empty_store(tmp_path, monkeypatch):
     """An empty store must SAY so, not answer "clean" — on a throwaway store, never the real one.
 
-    Both module paths are monkeypatched to an empty tmp dir; the real committed store is never
-    read or written here.  The message must carry the mint command, because "the store is stale"
-    without a remedy costs the next person the archaeology this module exists to end.
+    The STORE is redirected to an empty tmp dir (`rebased`), not the two module globals it used
+    to be: those are read once when the store is built, so patching them would quietly leave this
+    running against the real committed store.  The message must carry the mint command, because
+    "the store is stale" without a remedy costs the next person the archaeology this module
+    exists to end.
     """
-    monkeypatch.setattr(_decl, '_TREE_DIR', str(tmp_path))
-    monkeypatch.setattr(_decl, '_INDEX', os.path.join(str(tmp_path), 'INDEX.json'))
+    monkeypatch.setattr(_decl, '_STORE', _decl._STORE.rebased(str(tmp_path)))
 
     # NON-VACUITY: the patch really redirected the store — the head is gone under it.
     assert _decl.head() is None, 'the monkeypatched store still resolves a head'
@@ -299,15 +310,16 @@ def test_the_three_stores_share_ONE_fingerprint_implementation(tmp_path, monkeyp
     from Schema import fingerprint as _fp
     from Schema import store_index as _si
 
+    # Two of the three reach the helper THROUGH `ContractStore` (ticket 13); `store_index` calls
+    # it directly, because it is not a ContractStore (see its docstring for why).
     src = {'profile_tree': inspect.getsource(_decl.source_fingerprint),
            'store_index': inspect.getsource(_si.source_fingerprint),
-           'contract': inspect.getsource(_runtree.source_fingerprint)}
+           'contract': inspect.getsource(_runtree.source_fingerprint),
+           'ContractStore': inspect.getsource(ContractStore.source_fingerprint)}
     for name, body in src.items():
-        assert '_fingerprint.' in body, (
-            f'{name}.source_fingerprint no longer calls the shared helper -- it has grown its '
+        assert ('_fingerprint.' in body or '_STORE.source_fingerprint' in body), (
+            f'{name}.source_fingerprint no longer reaches the shared helper -- it has grown its '
             f'own copy back, which is the exact failure this test exists for')
-        assert 'hashlib.sha256()' not in body or name == 'contract', (
-            f'{name} mints its own hash again')
         assert "replace(b'\\r\\n'" not in body, (
             f'{name} re-implements the CRLF normalisation instead of using the helper')
 
@@ -318,6 +330,8 @@ def test_the_three_stores_share_ONE_fingerprint_implementation(tmp_path, monkeyp
     real = _fp.update_files
     monkeypatch.setattr(_fp, 'update_files',
                         lambda h, rels, root: (calls.append(tuple(rels)), real(h, rels, root))[1])
+    monkeypatch.setattr('Schema.contractstore._fingerprint.update_files',
+                        _fp.update_files, raising=False)
     _decl.source_fingerprint(str(tmp_path))
     _si.source_fingerprint(str(tmp_path))
     _runtree.source_fingerprint(str(tmp_path))
@@ -343,8 +357,11 @@ def test_the_files_half_agrees_and_the_directory_half_is_contracts_alone(tmp_pat
     (tmp_path / 'sub').mkdir()
     (tmp_path / 'fp_a.py').write_bytes(b'alpha = 1\nbeta = 2\n')
     (tmp_path / 'sub' / 'fp_b.py').write_bytes(b'gamma = 3\n')
-    monkeypatch.setattr(_decl, 'SHAPE_SOURCES', sources)
-    monkeypatch.setattr(_runtree, 'SHAPE_SOURCES', sources)
+    # The STORE holds the declaration now, so that is what a test redirects. Patching the module
+    # constant would leave both fingerprints reading the real source tree and this test asserting
+    # nothing -- the same trap `rebased` exists for.
+    monkeypatch.setattr(_decl._STORE, 'sources', sources)
+    monkeypatch.setattr(_runtree._STORE, 'sources', sources)
 
     # As shipped: they DIFFER, and that is correct.
     assert _decl.source_fingerprint(root) != _runtree.source_fingerprint(root), (
@@ -352,7 +369,7 @@ def test_the_files_half_agrees_and_the_directory_half_is_contracts_alone(tmp_pat
         'registers nowhere, which is the input class a path tuple cannot describe')
 
     # With the one declared asymmetry removed, they are IDENTICAL.
-    monkeypatch.setattr(_runtree, 'SHAPE_SOURCE_DIRS', ())
+    monkeypatch.setattr(_runtree._STORE, 'source_dirs', ())
     base_p, base_r = _decl.source_fingerprint(root), _runtree.source_fingerprint(root)
     assert base_p == base_r, (
         f'the files half disagrees, which the shared helper makes impossible unless a caller '
@@ -389,8 +406,8 @@ def test_the_directory_half_registers_an_added_file(tmp_path, monkeypatch):
     cfg = tmp_path / 'cfgs'
     cfg.mkdir()
     (cfg / 'one.py').write_bytes(b'A = 1\n')
-    monkeypatch.setattr(_runtree, 'SHAPE_SOURCES', ())
-    monkeypatch.setattr(_runtree, 'SHAPE_SOURCE_DIRS', ('cfgs',))
+    monkeypatch.setattr(_runtree._STORE, 'sources', ())
+    monkeypatch.setattr(_runtree._STORE, 'source_dirs', ('cfgs',))
     base = _runtree.source_fingerprint(root)
 
     (cfg / 'two.py').write_bytes(b'B = 2\n')

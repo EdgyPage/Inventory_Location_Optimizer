@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schema.contractstore · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_contractstore_py" data-id="Schema/contractstore.py">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <span class="here"><code>Schema/contractstore.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Schema.contractstore</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_contractstore_py.html"><code>Schema/contractstore.py</code></a></p>
+
+<pre class="sig"><code>Schema.contractstore</code></pre>
+<section class="doc">contractstore — the content-addressed document store that three modules implemented twice.
+
+`Optimization/runschema/contract.py` and `Schema/profile_tree.py` both keep the same thing: a
+directory of IMMUTABLE JSON documents named by the short form of their own sha256, plus a mutable
+`INDEX.json` carrying `head`, `source_fingerprint` and a provenance chain. Eight operations, and
+each module had its own copy of every one.
+
+## The layering objection, and why the conclusion was backwards
+
+Both modules argue in their own docstrings that the duplication is forced: `schema -&gt; optimization`
+is a declared boundary (&quot;shape identity must not depend on the run harness&quot;), so `Schema/` cannot
+import the run-tree implementation. **The constraint is real and the conclusion is inverted.** The
+shared machinery belongs in `Schema/` -- the stdlib-only leaf -- and `runschema/contract.py`
+imports DOWN. Satisfied by direction, not by copying.
+
+## What is shared, and what deliberately is not
+
+Shared: the STORE. A content-addressed JSON directory is identical whatever it holds.
+
+Not shared: the DECLARATIONS. `shape_of` -- the projection that defines what a document IS -- is
+injected, and so are the sources, the tree directory and the refresh command. An abstraction that
+also served two contracts&#x27; features, levels and artifacts would be exactly the coupling both
+modules were built to avoid, and that half of their objection is correct.
+
+## The copy had already drifted toward weaker invariants
+
+`contract.verify_store()` checked FOUR properties; `profile_tree.verify_store()` checked two --
+no filename check, and no parent-chain check even though its own `adopt` writes a `parent` field.
+The honesty test meant to keep the two aligned pinned only `source_fingerprint`; nothing pinned
+`verify_store`, `adopt`, `write` or `load_all`. One store now means one set of invariants, and the
+four apply to both.
+
+`source_fingerprint` was the first operation to come back together (`Schema/fingerprint.py`,
+`architecture-drift/05`); this module is the rest of it.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nSchema_fingerprint_py.html"><code>Schema.fingerprint</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py.html"><code>Optimization.runschema.contract</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nSchema_profile_tree_py.html"><code>Schema.profile_tree</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(21)</span></h2><ul><li><a href="nSchema_contractstore_py__ContractStore.html"><code>ContractStore</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py____all__.html"><code>__all__</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore___init__.html"><code>__init__</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore___repr__.html"><code>__repr__</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py___git_head.html"><code>_git_head</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py___now.html"><code>_now</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py___sha.html"><code>_sha</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_adopt.html"><code>adopt</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_head.html"><code>head</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_load.html"><code>load</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_load_all.html"><code>load_all</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_path_for.html"><code>path_for</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_read_index.html"><code>read_index</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_rebased.html"><code>rebased</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_schema_id.html"><code>schema_id</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_short_id.html"><code>short_id</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_source_fingerprint.html"><code>source_fingerprint</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_verify_store.html"><code>verify_store</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_write.html"><code>write</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_write_index.html"><code>write_index</code></a> <span class="dim">Schema/contractstore.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_contractstore_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/contractstore.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

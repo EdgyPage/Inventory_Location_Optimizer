@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>verify_store · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_contractstore_py__ContractStore_verify_store" data-id="Schema/contractstore.py::ContractStore.verify_store">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_contractstore_py.html"><code>Schema/contractstore.py</code></a> <span class="sep">›</span> <a href="nSchema_contractstore_py__ContractStore.html"><code>ContractStore</code></a> <span class="sep">›</span> <span class="here"><code>verify_store</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>verify_store</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_contractstore_py.html"><code>Schema/contractstore.py</code></a></p>
+
+<pre class="sig"><code>def verify_store(self) -&gt; list[str]</code></pre>
+<section class="doc">Integrity of the whole committed store. Empty list = sound.
+
+THE FOUR PROPERTIES that make content addressing trustworthy with no registry:
+
+  1. every stored document re-hashes to its own `schema_id`;
+  2. its FILENAME equals `short(schema_id)`;
+  3. the index head resolves to a stored document;
+  4. every `parent` link resolves, with exactly one root.
+
+The profiles-tree copy checked only 1 and 3 -- it did not check filenames, and it did not
+check the parent chain although its own `adopt` writes `parent`. That is what a copy
+nothing compares does, and it is why these live here once.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nSchema_contractstore_py__ContractStore_load_all.html"><code>load_all</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_read_index.html"><code>read_index</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_schema_id.html"><code>schema_id</code></a> <span class="dim">Schema/contractstore.py</span></li><li><a href="nSchema_contractstore_py__ContractStore_short_id.html"><code>short_id</code></a> <span class="dim">Schema/contractstore.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nSchema_contractstore_py__ContractStore_stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/contractstore.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_contractstore_py__ContractStore_verify_store">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/contractstore.py#:~:text=def%20verify_store">Source ↗</a></p>
+</article>
+</main>
+</body></html>

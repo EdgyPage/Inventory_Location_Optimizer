@@ -1189,6 +1189,7 @@ files:
       - {name: "diff_shape", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "adopt", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "verify_store", file: "Optimization/runschema/contract.py", kind: "function"}
+      - {name: "stale_reasons", file: "Optimization/runschema/contract.py", kind: "function"}
       - {name: "main", file: "Optimization/runschema/contract.py", kind: "function"}
     notes: ""
   "Optimization/runschema/hook_check.py":
@@ -1563,6 +1564,12 @@ files:
       - {name: "bulk_writer", file: "Schema/connect.py", kind: "function"}
       - {name: "close", file: "Schema/connect.py", kind: "function"}
     notes: ""
+  "Schema/contractstore.py":
+    purpose: "ContractStore: the immutable-documents-plus-mutable-INDEX store that runschema/contract.py and Schema/profile_tree.py each implemented in full -- eight operations, two copies, and the only one anything compared was source_fingerprint, so the copy drifted to a two-check verify_store that saw neither filenames nor the parent chain; the DECLARATION (shape_of, sources, diff) is injected so the two contracts stay apart, and `rebased` makes redirecting to a throwaway store an operation rather than a monkeypatched global."
+    layer: "schema"
+    key_symbols:
+      - {name: "ContractStore", file: "Schema/contractstore.py", kind: "class"}
+    notes: ""
   "Schema/dataset.py":
     purpose: "bind a database file to its OWN schema version, and read it by NAME."
     layer: "schema"
@@ -1928,7 +1935,7 @@ files:
       - {name: "test_the_baseline_is_armed", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_no_new_handwritten_profile_paths", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_the_tokens_are_still_derived_and_distinctive", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
-      - {name: "test_the_store_holds_exactly_the_head_document", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
+      - {name: "test_the_store_holds_the_head_AND_every_indexed_ancestor", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_the_committed_store_is_clean_and_current_now", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_stale_reasons_flag_an_empty_store", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
       - {name: "test_the_three_stores_share_ONE_fingerprint_implementation", file: "Tests/architecture/test_profiletree_consumption.py", kind: "function"}
@@ -3776,6 +3783,36 @@ files:
       - {name: "test_the_real_leak_is_contained", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
       - {name: "test_and_the_leak_did_not_escape_the_test_above", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
       - {name: "test_the_parser_still_builds_which_is_what_actually_broke", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_contractstore.py":
+    purpose: "Fences ContractStore over a throwaway store AND over both real adapters: id is the shape and not the prose, write refuses a lying id and a short-id collision, adopt chains parents and is idempotent, and all FOUR verify_store invariants fire (tampered, renamed, deleted-with-surviving-index-entry, broken parent, two roots) -- the third of which found two profiles-tree documents deleted by 6adf378e; plus that each module really delegates, so the suite is not exercising a surviving copy."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_id_is_the_shape_and_nothing_else", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_id_is_insensitive_to_key_ORDER_but_not_to_content", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_filename_is_the_short_id_because_a_colon_is_illegal_on_windows", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_writing_a_document_whose_id_is_not_its_own_hash_is_refused", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_a_short_id_collision_is_refused_not_overwritten", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_write_is_atomic_and_leaves_no_temp_file", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_an_absent_index_reads_as_a_skeleton_not_a_crash", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_adopt_sets_the_head_and_chains_the_parent", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_re_adopting_the_head_is_idempotent_and_does_not_reparent_it", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_adopt_records_changes_only_when_the_store_keeps_a_change_log", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_source_fingerprint_is_recorded_only_when_handed_in", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_a_tampered_document_is_caught", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_a_renamed_document_is_caught", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_a_deleted_document_with_a_surviving_index_entry_is_caught", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_a_broken_parent_link_is_caught", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_two_roots_are_caught", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_stale_reasons_names_an_empty_store_and_its_remedy", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_stale_reasons_sees_a_moved_declaration_and_a_moved_source", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_stale_reasons_reports_store_integrity_too", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "ADAPTERS", file: "Tests/unit/test_contractstore.py", kind: "const"}
+      - {name: "test_the_real_stores_are_sound", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_real_head_is_what_the_declaration_hashes_to", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_real_parent_chain_resolves_end_to_end", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_adapter_really_delegates", file: "Tests/unit/test_contractstore.py", kind: "function"}
+      - {name: "test_the_two_adapters_are_separate_stores", file: "Tests/unit/test_contractstore.py", kind: "function"}
     notes: ""
   "Tests/unit/test_couple_channels_param.py":
     purpose: "The five seams of `--couple-channels`, the site-dock switch. Pins that the fifth seam is STRUCTURAL -- a worker reads no coupling flag, its payload either carries `leaves` or does not -- that the switch is DECLARED rather than derived from the inbound flag (the campaign couples its inbound-off pole), and that the run-tree marker is declared in both the JSON schema and the artifact catalogue."

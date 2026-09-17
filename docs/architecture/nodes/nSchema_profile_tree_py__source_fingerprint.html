@@ -13,20 +13,17 @@
 <nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_profile_tree_py.html"><code>Schema/profile_tree.py</code></a> <span class="sep">›</span> <span class="here"><code>source_fingerprint</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>source_fingerprint</code></h1>
 <p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_profile_tree_py.html"><code>Schema/profile_tree.py</code></a></p>
-
+<div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def source_fingerprint(repo_root: str=_REPO_ROOT) -&gt; str</code></pre>
 <section class="doc">Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).
 
-THE ALGORITHM IS SHARED NOW, not copied: `Schema.fingerprint.of_files` is the one
-implementation, and `runschema.contract` folds the same helper into the first half of its
-own fingerprint.  It was a copy until `architecture-drift/05`, and it had already drifted --
-`contract` grew a SECOND input class (`SHAPE_SOURCE_DIRS`, for auto-discovered files) and
-this copy did not, which is what made the honesty test fail.
+THE ALGORITHM IS SHARED, not copied (`Schema.fingerprint`, via the store).  It WAS a copy,
+and it had drifted: `runschema.contract` grew a second input class -- auto-discovered
+directories -- and this one did not (`architecture-drift/05`).
 
 THIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree
-has no auto-discovered directory in its shape.  A directory half here would hash nothing and
-read as parity.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nSchema_fingerprint_py__of_files.html"><code>of_files</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_tree_py__adopt.html"><code>adopt</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nSchema_profile_tree_py__stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section>
+has no auto-discovered directory in its shape, so its `source_dirs` is empty.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_profile_tree_py__source_fingerprint">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/profile_tree.py#:~:text=def%20source_fingerprint">Source ↗</a></p>
 </article>
 </main>

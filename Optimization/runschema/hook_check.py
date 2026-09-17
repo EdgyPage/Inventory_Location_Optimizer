@@ -26,30 +26,25 @@ def main() -> int:
     try:
         from Optimization.runschema import contract, preflight
 
-        head = contract.head()
-        if head is None:
-            print('[schema] the run-tree schema store is empty — mint it: '
-                  'python -m Optimization.runschema.contract --write')
+        # ONE CALL, not a fourth partial copy.  This block re-implemented `stale_reasons`
+        # inline -- empty store, head mismatch, store integrity -- because `contract.py` had
+        # none, which put a fourth copy one level above the three ticket 13 collapsed.  It
+        # prints the FIRST reason and stops, as it always has: a nag hook that lists everything
+        # is a nag hook people learn to scroll past.
+        reasons = contract.stale_reasons()
+        if reasons:
+            print(f'[schema] {reasons[0]}'
+                  + (f' ({len(reasons)} finding(s))' if len(reasons) > 1 else ''))
             return 0
 
-        fresh = contract.build()
-        if fresh['schema_id'] != head:
-            n = len(contract.diff_shape(contract.load(head) or {}, fresh))
-            print(f'[schema] runschema/schema.py now hashes to '
-                  f'{contract.short_id(fresh["schema_id"])} but the head is '
-                  f'{contract.short_id(head)} ({n} shape diff(s)) — adopt it: '
-                  f'python -m Optimization.runschema.contract --write')
-            return 0
-
-        problems = contract.verify_store()
-        if problems:
-            print(f'[schema] run-tree schema store integrity: {problems[0]} '
-                  f'({len(problems)} problem(s)) — see '
-                  f'python -m Optimization.runschema.contract --check')
-            return 0
-
+        # NOT part of `stale_reasons`, and deliberately: every reason above is about the STORE
+        # (is the committed contract the one the declaration hashes to). This is about the
+        # OUTPUT TREE -- whether a source that decides the tree's SHAPE moved since the
+        # fingerprint was recorded -- which is answered by running the canaries, not by reading
+        # the store.
         changed, _old, _new = preflight.sources_changed()
         if changed:
+            head = contract.head()
             print(f'[schema] shape-defining source changed since the fingerprint recorded for '
                   f'run-tree schema {contract.short_id(head)}. The output tree may have moved — '
                   f'validate BEFORE the next run: python -m Optimization.runschema.preflight')

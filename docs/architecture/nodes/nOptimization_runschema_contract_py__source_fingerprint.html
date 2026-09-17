@@ -13,22 +13,19 @@
 <nav class="crumbs"><a href="../layers.html">opt_runschema</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_contract_py.html"><code>Optimization/runschema/contract.py</code></a> <span class="sep">›</span> <span class="here"><code>source_fingerprint</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>source_fingerprint</code></h1>
 <p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema_contract_py.html"><code>Optimization/runschema/contract.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def source_fingerprint(repo_root: str=_REPO_ROOT) -&gt; str</code></pre>
-<section class="doc">Hash of every shape-defining source file (path + content), in declared order.
+<section class="doc">Hash of every shape-defining source file (path + content), in declared order, PLUS the
+auto-discovered directories.
 
-Line endings are NORMALISED to \n before hashing.  On Windows a checkout, stash/pop, or
-autocrlf change rewrites CRLF&lt;-&gt;LF without touching a single statement; hashing raw bytes made
-that look like a structural change and cost a needless canary pair.  Content changes still
-register, which is the whole point.
+`Schema.fingerprint` owns the algorithm and this is the only store with a directory half:
+a path tuple can only describe files someone already thought of, and `simconfig/configs/` is
+auto-discovered.  That asymmetry is 100% of why this store&#x27;s fingerprint differs from the two
+file-only ones on shared input (`architecture-drift/05`).
 
-A missing file contributes its path plus a MISSING marker rather than being skipped, so
-DELETING a shape source is detected instead of silently matching.
-
-`SHAPE_SOURCE_DIRS` is then hashed by NAME LIST and content, which is how an
-ADDED file registers -- a path tuple can only ever describe files someone already
-thought of, and `simconfig/configs/` is auto-discovered.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nSchema_fingerprint_py__update_dirs.html"><code>update_dirs</code></a> <span class="dim">Schema/fingerprint.py</span></li><li><a href="nSchema_fingerprint_py__update_files.html"><code>update_files</code></a> <span class="dim">Schema/fingerprint.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_preflight_py__sources_changed.html"><code>sources_changed</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li></ul></section>
+Line endings are normalised and a missing file contributes a MISSING marker; see the helper
+for why each of those cost someone something.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_contract_py__main.html"><code>main</code></a> <span class="dim">Optimization/runschema/contract.py</span></li><li><a href="nOptimization_runschema_preflight_py__sources_changed.html"><code>sources_changed</code></a> <span class="dim">Optimization/runschema/preflight.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_contract_py__source_fingerprint">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/contract.py#:~:text=def%20source_fingerprint">Source ↗</a></p>
 </article>
 </main>

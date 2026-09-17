@@ -38,7 +38,7 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import hashlib
-from Schema import fingerprint as _fingerprint
+from Schema.contractstore import ContractStore as _ContractStore
 import json
 import os
 import sys
@@ -149,15 +149,21 @@ SHAPE_SOURCES = (
 # ── identity ────────────────────────────────────────────────────────────────────
 
 def _sha(blob: bytes) -> str:
+    """sha256 of raw bytes, for `params_digest` -- a FILE digest, not a schema id.
+
+    Kept when the store moved out: a schema id is the hash of a canonical PROJECTION and belongs
+    to the store; this is the hash of a file exactly as it sits on disk, and the two only look
+    alike.
+    """
     return 'sha256:' + hashlib.sha256(blob).hexdigest()
 
 
 def short_id(sid: str) -> str:
-    return sid.split(':', 1)[-1][:SHORT_LEN]
+    return _STORE.short_id(sid)
 
 
 def contract_path(sid: str) -> str:
-    return os.path.join(_TREE_DIR, f'{short_id(sid)}.json')
+    return _STORE.path_for(sid)
 
 
 def _shape_only(doc: dict) -> dict:
@@ -180,8 +186,20 @@ def _shape_only(doc: dict) -> dict:
     }
 
 
+#: THE STORE, shared with the run-tree contract (ticket 13).  What stays HERE is the
+#: DECLARATION -- `FEATURES`, `LEVELS`, `ARTIFACTS`, `_shape_only`, `build` -- because an
+#: abstraction serving two contracts' levels and artifacts would be exactly the coupling both
+#: modules were built to avoid.  What moved is the content-addressed JSON directory, which is
+#: identical whatever it holds.  `Schema/` may not import `Optimization/`, and does not need to:
+#: the shared half lives HERE and `runschema/contract.py` imports down.
+_STORE = _ContractStore(
+    tree_dir=_TREE_DIR, shape_of=_shape_only, sources=SHAPE_SOURCES, repo_root=_REPO_ROOT,
+    short_len=SHORT_LEN, what='profile-tree',
+    refresh_cmd='python -m Schema.profile_tree --write')
+
+
 def schema_id(doc: dict) -> str:
-    return _sha(json.dumps(_shape_only(doc), sort_keys=True, separators=(',', ':')).encode('utf-8'))
+    return _STORE.schema_id(doc)
 
 
 def build(repo_root: str = _REPO_ROOT) -> dict:
@@ -208,132 +226,61 @@ def build(repo_root: str = _REPO_ROOT) -> dict:
 # ── the committed store (immutable docs + mutable INDEX; the run-tree layout) ───
 
 def load(sid: str) -> dict | None:
-    p = contract_path(sid)
-    if not os.path.exists(p):
-        return None
-    try:
-        with open(p, encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return None
+    return _STORE.load(sid)
 
 
 def load_all() -> dict:
-    out: dict = {}
-    if not os.path.isdir(_TREE_DIR):
-        return out
-    for fn in sorted(os.listdir(_TREE_DIR)):
-        if not fn.endswith('.json') or fn == 'INDEX.json':
-            continue
-        try:
-            with open(os.path.join(_TREE_DIR, fn), encoding='utf-8') as f:
-                doc = json.load(f)
-            out[doc['schema_id']] = doc
-        except (json.JSONDecodeError, OSError, KeyError):
-            continue
-    return out
+    return _STORE.load_all()
 
 
 def read_index() -> dict:
-    try:
-        with open(_INDEX, encoding='utf-8') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {'head': None, 'source_fingerprint': None, 'schemas': {}}
+    return _STORE.read_index()
 
 
 def _write_index(index: dict) -> str:
-    os.makedirs(_TREE_DIR, exist_ok=True)
-    tmp = f'{_INDEX}.tmp.{os.getpid()}'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(index, f, indent=2)
-        f.write('\n')
-    os.replace(tmp, _INDEX)
-    return _INDEX
+    return _STORE.write_index(index)
 
 
 def head() -> str | None:
     """The schema id a NEW catalogue stamps.  A named pointer — hashes have no order."""
-    return read_index().get('head')
+    return _STORE.head()
 
 
 def source_fingerprint(repo_root: str = _REPO_ROOT) -> str:
     """Hash of every shape-defining source (path + content, CRLF-normalised, MISSING-marked).
 
-    THE ALGORITHM IS SHARED NOW, not copied: `Schema.fingerprint.of_files` is the one
-    implementation, and `runschema.contract` folds the same helper into the first half of its
-    own fingerprint.  It was a copy until `architecture-drift/05`, and it had already drifted --
-    `contract` grew a SECOND input class (`SHAPE_SOURCE_DIRS`, for auto-discovered files) and
-    this copy did not, which is what made the honesty test fail.
+    THE ALGORITHM IS SHARED, not copied (`Schema.fingerprint`, via the store).  It WAS a copy,
+    and it had drifted: `runschema.contract` grew a second input class -- auto-discovered
+    directories -- and this one did not (`architecture-drift/05`).
 
     THIS STORE HASHES FILES ONLY, and that is correct rather than an omission: the profiles tree
-    has no auto-discovered directory in its shape.  A directory half here would hash nothing and
-    read as parity.
+    has no auto-discovered directory in its shape, so its `source_dirs` is empty.
     """
-    return _fingerprint.of_files(SHAPE_SOURCES, repo_root)
-
+    return _STORE.source_fingerprint(repo_root)
 
 def adopt(doc: dict, *, label: str = '') -> str:
-    """Store `doc`, set it as head, record provenance + the current source fingerprint."""
-    sid = doc['schema_id']
-    assert sid == schema_id(doc), 'refusing to adopt a document whose schema_id is not its own hash'
-    existing = load(sid)
-    if existing is not None and existing.get('schema_id') != sid:
-        raise RuntimeError(f'short-id collision on {short_id(sid)} — raise SHORT_LEN.')
-    os.makedirs(_TREE_DIR, exist_ok=True)
-    tmp = f'{contract_path(sid)}.tmp.{os.getpid()}'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(doc, f, indent=2, sort_keys=False)
-        f.write('\n')
-    os.replace(tmp, contract_path(sid))
+    """Store `doc`, set it as head, record provenance + the current source fingerprint.
 
-    index = read_index()
-    prev = index.get('head')
-    entry = index.setdefault('schemas', {}).setdefault(sid, {
-        'short': short_id(sid),
-        'parent': prev if prev != sid else index['schemas'].get(sid, {}).get('parent'),
-        'created': _dt.datetime.now().replace(microsecond=0).isoformat(),
-        'commit': repo_provenance().get('repo_commit', 'unknown'),
-        'label': label,
-    })
-    if label and not entry.get('label'):
-        entry['label'] = label
-    index['head'] = sid
-    index['source_fingerprint'] = source_fingerprint()
-    _write_index(index)
-    return contract_path(sid)
+    Returns the PATH (not the id): `main` prints it, and that is this module's long-standing
+    contract.  The store returns the id, which is why this is not a bare delegation.
+    """
+    _STORE.adopt(doc, label=label, source_fp=_STORE.source_fingerprint())
+    return contract_path(doc['schema_id'])
 
 
 def verify_store() -> list:
-    """Findings for the committed store, empty when clean (id-vs-filename, head present)."""
-    out = []
-    for sid, doc in load_all().items():
-        if schema_id(doc) != sid:
-            out.append(f'{short_id(sid)}.json does not hash to its own schema_id')
-    h = head()
-    if h is not None and load(h) is None:
-        out.append(f'head {short_id(h)} has no committed document')
-    return out
+    """Findings for the committed store, empty when clean.
+
+    FOUR checks now, not two.  This copy checked that each document hashes to its own id and that
+    the head resolves; it did NOT check filenames, and it did NOT check the parent chain even
+    though its own `adopt` writes a `parent` field.  One store means one set of invariants.
+    """
+    return _STORE.verify_store()
 
 
 def stale_reasons() -> list:
     """Cheap staleness findings for the Stop hook — file hashes and stats only."""
-    idx = read_index()
-    if idx.get('head') is None:
-        return ['the profile-tree schema store is empty - mint it: '
-                'python -m Schema.profile_tree --write']
-    out = []
-    fresh = build()
-    if fresh['schema_id'] != idx['head']:
-        out.append(f'Schema/profile_tree.py now hashes to {short_id(fresh["schema_id"])} but the '
-                   f'head is {short_id(idx["head"])} - adopt it: '
-                   f'python -m Schema.profile_tree --write')
-    if idx.get('source_fingerprint') != source_fingerprint():
-        out.append('a profiles-tree shape source changed since the store was last synced - '
-                   'refresh: python -m Schema.profile_tree --write')
-    out.extend(f'profile-tree store integrity: {p}' for p in verify_store())
-    return out
-
+    return _STORE.stale_reasons(build)
 
 # ── the descriptor writer (every generator calls this) ──────────────────────────
 

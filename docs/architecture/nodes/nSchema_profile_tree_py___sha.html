@@ -15,8 +15,12 @@
 <p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_profile_tree_py.html"><code>Schema/profile_tree.py</code></a></p>
 
 <pre class="sig"><code>def _sha(blob: bytes) -&gt; str</code></pre>
-<section class="doc empty">No docstring.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nSchema_profile_tree_py__params_digest.html"><code>params_digest</code></a> <span class="dim">Schema/profile_tree.py</span></li><li><a href="nSchema_profile_tree_py__schema_id.html"><code>schema_id</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section>
+<section class="doc">sha256 of raw bytes, for `params_digest` -- a FILE digest, not a schema id.
+
+Kept when the store moved out: a schema id is the hash of a canonical PROJECTION and belongs
+to the store; this is the hash of a file exactly as it sits on disk, and the two only look
+alike.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nSchema_profile_tree_py__params_digest.html"><code>params_digest</code></a> <span class="dim">Schema/profile_tree.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_profile_tree_py___sha">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/profile_tree.py#:~:text=def%20_sha">Source ↗</a></p>
 </article>
 </main>

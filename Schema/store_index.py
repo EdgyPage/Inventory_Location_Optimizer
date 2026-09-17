@@ -15,21 +15,39 @@ Two consumers, with opposite budgets:
     per-family documents, nothing more.  The fingerprint is a cheap TRIGGER, not proof: a
     docstring edit trips it, and the nag says "run --sync", which is idempotent and settles it.
 
-WHY THE FINGERPRINT IS COPIED, NOT IMPORTED
--------------------------------------------
-``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, but importing it
-here is `schema -> optimization` — forbidden by `context/architecture.yml`, and enforced by
-`Tests/architecture/test_schema_compatibility.py::test_the_schema_package_imports_nothing_above_its_own_layer`.
-Paths-as-strings are data, not imports (the precedent is `contract.SHAPE_SOURCES` itself, which
-lists files across four layers).  A test keeps the copy honest by comparing the two algorithms on
-identical input.
+THE FINGERPRINT IS SHARED, NOT COPIED (it was a copy until `architecture-drift/05`)
+----------------------------------------------------------------------------------
+``Optimization/runschema/contract.source_fingerprint`` is the same ~15 lines, and importing IT
+here would be `schema -> optimization` — forbidden by `context/architecture.yml` and enforced by
+`Tests/architecture/test_schema_compatibility.py`.  The conclusion drawn from that was backwards:
+the shared half lives in `Schema.fingerprint`, the stdlib-only leaf, and `runschema/contract.py`
+imports DOWN.  Satisfied by DIRECTION rather than by copying.  The copy had already drifted --
+`contract` grew an auto-discovered-directory half and neither copy did.
+
+WHY THIS STORE IS NOT A `ContractStore` (ticket 13 expected it to become one)
+-----------------------------------------------------------------------------
+`Schema/contractstore.py` collapsed the run-tree and profiles-tree stores, and ticket 13 reads
+this file as "the third adapter over the family-keyed variant".  It is not the same concept, and
+a variant is exactly the wrong way to say so:
+
+  * its documents live per FAMILY (`shapes/<family>/<short>.json`), not in one flat tree;
+  * its INDEX is `{source_fingerprint, families}` — there is no `head`, because "which id is
+    current" is a question PER FAMILY, and no provenance chain, because a family's history is its
+    committed shapes rather than a parent pointer;
+  * it has no `adopt`, no `build` and no `schema_id`: it does not MINT anything.
+    ``scripts/schema_report.py --sync`` is the only writer and it arrives holding the ids.
+
+A `ContractStore` variant serving both would need a family dimension on every path and a flag
+turning off head, adopt, the parent chain and the document hash — an interface as complex as the
+two implementations under it, which is the failure this whole effort exists to remove.  What this
+file genuinely shares is the fingerprint, and it shares it.
 """
 from __future__ import annotations
 
-import hashlib
-from Schema import fingerprint as _fingerprint
 import json
 import os
+
+from Schema import fingerprint as _fingerprint
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.normpath(os.path.join(_HERE, '..'))

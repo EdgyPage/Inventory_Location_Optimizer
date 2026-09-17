@@ -405,8 +405,11 @@ def test_adopt_is_idempotent_and_chains(tmp_path, monkeypatch):
     previous head as its parent — that is what gives hashes an order."""
     store = tmp_path / 'run_tree'
     store.mkdir()
-    monkeypatch.setattr(contract, '_TREE_DIR', str(store))
-    monkeypatch.setattr(contract, '_INDEX', str(store / 'INDEX.json'))
+    # REDIRECTED AS AN OPERATION, not by patching two module globals. Those globals are read
+    # once now, when the store is built, so patching them would leave this test running against
+    # the REAL committed store -- and this one calls `adopt`.
+    monkeypatch.setattr(contract, '_STORE', contract._STORE.rebased(str(store)))
+    assert contract.head() is None, 'the redirect did not take; this would write the real store'
 
     first = contract.build()
     contract.adopt(first, source_fp='sha256:aaa')
@@ -429,7 +432,8 @@ def test_write_refuses_a_document_whose_id_is_not_its_hash(tmp_path, monkeypatch
     """The store's core invariant: a filename is a claim about content, and must be true."""
     store = tmp_path / 'run_tree'
     store.mkdir()
-    monkeypatch.setattr(contract, '_TREE_DIR', str(store))
+    monkeypatch.setattr(contract, '_STORE', contract._STORE.rebased(str(store)))
+    assert contract.head() is None, 'the redirect did not take'
     doc = contract.build()
     doc['artifacts']['sim_db']['path'] = 'tampered/{strategy}.db'   # id no longer matches content
     with pytest.raises(AssertionError):
