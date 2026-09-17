@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apply_cli_overrides · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_sim_config_py__apply_cli_overrides" data-id="Optimization/config/sim_config.py::apply_cli_overrides">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a> <span class="sep">›</span> <span class="here"><code>apply_cli_overrides</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>apply_cli_overrides</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def apply_cli_overrides(args) -&gt; None</code></pre>
+<section class="doc">Write every declared knob&#x27;s CLI value back onto CONFIG[&#x27;global&#x27;].
+
+THE write-back.  Replaces ~35 hand-typed assignments plus two family loops; a knob that
+is declared above cannot now be accepted at the command line and then silently ignored
+for the whole run, which is the defect this registry exists to make unrepresentable.
+
+CONFIG is mutated in place and never rebound (see the module head): every accessor reads
+at call time, so this reaches the warehouse build, the channel build and every worker
+payload built after it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__apply_cli_overrides">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20apply_cli_overrides">Source ↗</a></p>
+</article>
+</main>
+</body></html>

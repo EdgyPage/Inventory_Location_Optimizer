@@ -816,6 +816,9 @@ files:
       - {name: "seed_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "n_batches", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "aisle_geometry", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "Knob", file: "Optimization/config/sim_config.py", kind: "class"}
+      - {name: "apply_cli_overrides", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "run_spec_record", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "channel_pickers", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "channel_demand", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "min_headroom", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -4435,6 +4438,21 @@ files:
       - {name: "test_absent_scipy_reports_itself_distinctly", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_the_probe_is_off_by_default_and_changes_no_result", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
       - {name: "test_stats_are_populated_without_a_probe", file: "Tests/unit/test_inventory_optimal_solver.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_knob_registry.py":
+    purpose: "one declaration per knob, and every seam derived from it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_registry_covers_config_global_exactly", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_knob_names_are_unique", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_the_two_family_tuples_are_derived", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_every_field_takes_a_declared_value", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_every_recorded_knob_is_restored_on_resume", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_every_recorded_knob_is_restored_by_the_analysis_seam_or_exempted", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_every_exemption_names_a_recorded_knob_and_gives_a_reason", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_write_back_respects_if_set_and_never_truthiness", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_write_back_coerces_and_skips_parent_only_knobs", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+      - {name: "test_run_spec_record_reads_each_knob_from_its_declared_source", file: "Tests/unit/test_knob_registry.py", kind: "function"}
     notes: ""
   "Tests/unit/test_lead_aware_coverage.py":
     purpose: "the coverage record is declared AT the order-to-shelf lead."

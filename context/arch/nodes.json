@@ -7911,6 +7911,14 @@
       "signature": null,
       "value_preview": "[dict(s.cfg) for s in _ACTIVE_PICK_CONFIGS if s.channel == 'fulfillment']"
     },
+    "Optimization/config/sim_config.py::Knob": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One tunable of CONFIG['global'], declared once.",
+      "kind": "class",
+      "signature": ""
+    },
     "Optimization/config/sim_config.py::REGRESSION_CONFIGS": {
       "decorators": [],
       "doc": null,
@@ -7945,6 +7953,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']"
+    },
+    "Optimization/config/sim_config.py::_COERCERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{None: lambda v: v, 'bool': bool, 'or_one': lambda v: v or 1}"
     },
     "Optimization/config/sim_config.py::_DEFAULT_PROFILES_DIR": {
       "decorators": [],
@@ -8016,6 +8031,13 @@
       "kind": "function",
       "signature": "(raw)"
     },
+    "Optimization/config/sim_config.py::_knobs": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(names, **kw)"
+    },
     "Optimization/config/sim_config.py::_setup_logging": {
       "decorators": [],
       "doc": null,
@@ -8029,6 +8051,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> tuple[int, int]"
+    },
+    "Optimization/config/sim_config.py::apply_cli_overrides": {
+      "decorators": [],
+      "doc": "Write every declared knob's CLI value back onto CONFIG['global'].\n\nTHE write-back.  Replaces ~35 hand-typed assignments plus two family loops; a knob that\nis declared above cannot now be accepted at the command line and then silently ignored\nfor the whole run, which is the defect this registry exists to make unrepresentable.\n\nCONFIG is mutated in place and never rebound (see the module head): every accessor reads\nat call time, so this reaches the warehouse build, the channel build and every worker\npayload built after it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args) -> None"
     },
     "Optimization/config/sim_config.py::channel_demand": {
       "decorators": [],
@@ -8141,6 +8170,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> dict"
+    },
+    "Optimization/config/sim_config.py::run_spec_record": {
+      "decorators": [],
+      "doc": "Every declared knob a run records, each from the source it declares.\n\n`spec_from='config'` reads POST-overlay so a value that came from CONFIG rather than the\ncommand line is recorded too -- otherwise two runs with different docks look identical\nafter the fact.  `spec_from='args'` reads the namespace, because a few knobs are recorded\nas TYPED rather than as resolved (`workers` resolves to 1 in CONFIG and records None).\n\nThe caller adds the entries that are not plain knobs: argv, the sizing caps (which live on\n`args` and never in CONFIG), the era-conditional per-channel fills, the store composition,\nthe nested staffing record, and the CLI-only run shaping.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args) -> dict"
     },
     "Optimization/config/sim_config.py::seed_batches": {
       "decorators": [],

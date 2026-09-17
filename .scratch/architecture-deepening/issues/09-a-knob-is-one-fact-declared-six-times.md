@@ -1,7 +1,7 @@
 # 09 - a knob is one fact, declared six times
 
 Type: refactor
-Status: needs-triage
+Status: resolved
 
 ## Context
 
@@ -79,3 +79,76 @@ is untouched.
   knowledge has 11 recorded sites, bulk in `whatif_config.py`. This work should move the count
   DOWN, which the ratchet permits; confirm rather than assume.
 - Gates 1, 2, 4 (if `SHAPE_SOURCES` moves), 8, 10.
+
+## Answer -- RESOLVED (2026-09-16)
+
+`sim_config.KNOBS` is the declaration: one `Knob` record per tunable, covering
+`CONFIG['global']` **exactly** -- 70 declared against 70 actual, verified in both directions
+and pinned by `Tests/unit/test_knob_registry.py`.
+
+### Derived from it
+
+| site | before | after |
+|---|---|---|
+| CONFIG write-back | ~35 hand-typed assignments + 2 family loops | `apply_cli_overrides(args)` |
+| `run_spec.json` record | 49 hand-written entries | `**_run_spec_record(args)` |
+| resume restore | a ~50-name tuple + 2 splices | `*SPEC_KNOB_NAMES` + the CLI-only names |
+| `STAFFING_KEYS` / `INBOUND_KEYS` | two hand-kept tuples | derived from `family` |
+
+### `spec_from` is a SOURCE, not a boolean, and that was not optional
+
+`workers`, `keyframe_interval`, `aisle_columns` and `aisle_levels` are recorded from `args`,
+not from `g`. `g['workers']` is `args.workers or 1`, so recording it from CONFIG would write
+**1** where the run recorded **None** -- silently pinning every resumed flag-less run to one
+process. A bool `in_spec` would have shipped that. The registry's flags were cross-checked
+against what the recorder actually writes, programmatically, before anything was rewired.
+
+### NOT derived: `_apply_run_shape`, the sixth seam
+
+Every key there carries a bespoke absence rule encoding what a PRE-FIELD spec means for that
+one knob -- `or 'v1'`, `bool(...)`, `or 0`, a plain `.get` that must never be an `or` because a
+declared `0.0` is a real configuration, a skip-if-None. Flattening those into an enum would
+risk exactly the silent wrong-regime re-analysis the rules exist to prevent.
+
+So the registry guards the SET instead of the semantics: `ANALYSIS_EXEMPT` names the knobs that
+seam deliberately skips, with reasons, and a recorded knob that is neither restored nor exempted
+fails `test_every_recorded_knob_is_restored_by_the_analysis_seam_or_exempted`.
+
+**Both exemptions were checked, not assumed.** `couple_channels` looked like a real gap. It is
+not: its own docstring records that coupling reaches the analysis through `run_layout.json`'s
+`coupled`, and `couple_channels()` has exactly two callers, both of which build the run and
+neither of which executes during a standalone re-analysis. `workers` is pool size.
+
+### The twelve tests that failed, and why that was the point
+
+Twelve per-knob tests asserted the MECHANISM -- `src.count("'seed_world'") >= 2`, counting
+literal occurrences in `run_simulation`'s source. Those lines are derived now, so the counts
+went to zero while the property they cared about became more true. Each kept its specific claim
+and now asks the registry. Two got stronger in the process:
+
+- the `--n-batches 0` guard is asserted as BEHAVIOUR (apply the override, assert the zero
+  survived) rather than as the substring `'if args.n_batches is not None:'`;
+- the sentinel-flag check asks whether each sentinel declares `apply='if_set'` rather than
+  whether `main` happens to contain `args.<x> is not None`.
+
+### Verification
+
+| check | result |
+|---|---|
+| `Tests/unit/test_knob_registry.py` | 10 passed (new) |
+| `Tests/unit -k "not gpu"` | **2671 passed**, 1 skipped |
+| real run: `run_spec.json` vs the previous run | **identical** but for `repo_commit` and four `fragmentation.seconds` |
+| gates 1-5, 7-10 | green |
+| gate 6 | RED, unchanged, pre-existing |
+
+Those four are WALL-CLOCK measurements inside the calibration block, so `run_spec.json` is not
+byte-comparable between runs even at rest -- worth knowing before anyone diffs two of them.
+No configuration value moved.
+
+### Still hand-written, and recorded as such
+
+The 70 `add_argument` calls. Their help text, types, choices and metavars are genuinely
+bespoke, and a record wide enough to carry them would be the parser with extra steps. The
+`workunits._shared` payload also stays: it carries BUNDLES (the `*_spec()` accessors) rather
+than flat keys for most of its contents, and the existing generic guard already covers those.
+Adding a knob is now one record plus one flag, down from six places.

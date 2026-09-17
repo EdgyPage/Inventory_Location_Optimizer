@@ -7081,6 +7081,16 @@
       "src": "Optimization/config/sim_config.py"
     },
     {
+      "dst": "Optimization/config/sim_config.py::Knob",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::_knobs",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py"
+    },
+    {
       "dst": "Optimization/config/strategies.py",
       "kind": "imports",
       "src": "Optimization/config/sim_config.py"
@@ -7549,6 +7559,11 @@
       "dst": "Warehouse/picking/Pick.py::PickConfig",
       "kind": "calls",
       "src": "Optimization/config/sim_config.py::_build_pick_cfg"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::Knob",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::_knobs"
     },
     {
       "dst": "Warehouse/layout/Aisle_Dimensions.py::aisle_height_for",
@@ -9916,7 +9931,17 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Optimization/config/sim_config.py::apply_cli_overrides",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::couple_channels",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::run_spec_record",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -30288,6 +30313,14 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::Knob",
+      "kind": "class",
+      "module": "Optimization/config/sim_config.py",
+      "name": "Knob",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::REGRESSION_CONFIGS",
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
@@ -30324,6 +30357,14 @@
       "kind": "const",
       "module": "Optimization/config/sim_config.py",
       "name": "_CATEGORIES",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::_COERCERS",
+      "kind": "const",
+      "module": "Optimization/config/sim_config.py",
+      "name": "_COERCERS",
       "public": false
     },
     {
@@ -30408,6 +30449,14 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::_knobs",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "_knobs",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_setup_logging",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
@@ -30420,6 +30469,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "aisle_geometry",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::apply_cli_overrides",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "apply_cli_overrides",
       "public": true
     },
     {
@@ -30548,6 +30605,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "regime_sizing_from_config",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::run_spec_record",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "run_spec_record",
       "public": true
     },
     {
