@@ -1,7 +1,7 @@
 # 06 - _build_leaf binds 113 names at one indent level
 
 Type: refactor
-Status: needs-triage
+Status: claimed
 
 ## Context
 
@@ -64,3 +64,68 @@ never touched the assembly that creates them.
 - Gates 1, 2 (mandatory for any new import edge), 3, 7, 10.
 - `strategy_runner.py` carries `.scratch/architecture-drift/issues/02`. Attribute on the
   assertion, against the phase-0 baseline -- never on the failure count.
+
+
+---
+
+## Progress -- `BatchState` landed; `ArmAssembly` does NOT fit this ticket's shape (2026-09-17)
+
+### What landed
+
+`Optimization/simdriver/batch_state.py`. The five names this ticket calls "the smell in plain
+sight" are one object, measured the same way before and after:
+
+| | before | after |
+|---|---|---|
+| lines in `_build_leaf` | 1,729 | 1,725 |
+| names bound at its top indent | 149 | 145 |
+| `nonlocal` statements | 7 | 4 |
+| names reached through `nonlocal` | 33 | 22 |
+
+(149 rather than the ticket's 113 because this count includes names bound inside top-level
+`if`/`for`/`with` bodies and the parameters. What matters is that both numbers came from the
+same script.)
+
+They were arm-scope for a LANGUAGE reason and nothing else: `_replenish` and `_step` are two
+halves of one batch, they must share these values, and `nonlocal` can only rebind a name that
+already exists in the enclosing scope. Five values whose lifetime is one batch therefore lived
+in a scope whose lifetime is one arm. The halves now mutate fields, so nothing is rebound.
+
+No `reset()` on the object, deliberately: every field is unconditionally re-seeded by
+`_replenish` before `_step` can read it, so a reset would be a second writer of the same fact
+that happens to be a no-op.
+
+Digest **IDENTICAL**, 136 arms. `Tests/unit` + `Tests/integration` 3,161 passed.
+
+### The rename was scoped and word-boundary matched, and it still hit prose twice
+
+The pattern for `triggered` matched inside two English comments -- "hands back what this one
+triggered" became "what this one bstate.triggered". Caught by reading the diff, not by a test.
+Worth recording because the remaining half needs the same rename at fifty times the scale, and
+nothing would have failed.
+
+### Why `ArmAssembly` is NOT in this ticket, and what it actually needs
+
+The ticket specifies `Optimization/simdriver/leaf_assembly.py` holding
+`ArmAssembly.build(payload, scope)`. **That module boundary does not survive contact with the
+code**, and finding that out is the useful part of this attempt:
+
+1. **The durable/temporary split IS mechanical.** A name is durable iff one of the closures
+   reads or writes it; the rest stay locals of `build()`. That comes off the AST rather than
+   being judged, and `build()` then ends with `return cls(mgr=mgr, warehouse=warehouse, ...)`
+   -- which is the record's field list, not "forty names at one indent".
+2. **The rename is mechanical AND safe, but only with the right tool.** `mgr` -> `asm.mgr`
+   across ~900 lines of closure body is not a regex job (see the prose hits above); it is an
+   AST walk that collects the exact `(lineno, col_offset)` of every `Name` node and rewrites
+   those positions bottom-up, touching no comment or string.
+3. **The module boundary is the real blocker.** The 810 lines of assembly call a dozen
+   module-level helpers in `strategy_runner.py` -- `_check_declared_crew`, `_check_site_crews`,
+   `_timed_build`, `_gain_bundle_for`, `_POOL_FACTORIES` and more. A new module either drags
+   those with it (a cascade nobody scoped) or imports them back, which is a CYCLE -- in a
+   spawn pool, where every job re-imports the source tree, so that shows up as a worker dying
+   during re-import rather than as a clean failure at the top.
+
+So the remaining half is a judgement-heavy split of the driver, not a mechanical extraction,
+and the first thing it needs is a decision this ticket assumed away: **what else moves to
+`leaf_assembly.py`, or does `ArmAssembly` live in `strategy_runner.py`?** Ticket 24, rather
+than an unfinished claim here.

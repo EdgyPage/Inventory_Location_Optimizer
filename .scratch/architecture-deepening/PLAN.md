@@ -157,7 +157,7 @@ count DOWN, which it permits.
 | 2 | 03 | **RESOLVED** | + the PlacementPolicy record; FAITHFUL_GAIN_FAMILIES and the aisle_state lists derived |
 | 2 | 04 | not started | **UNBLOCKED** by 03 |
 | 2 | 05 | not started | blocked by 04 |
-| 3 | 06 | not started | **UNBLOCKED** |
+| 3 | 06 | part-landed | BatchState: 5 arm-scope names whose lifetime is one batch. **ArmAssembly -> 24** |
 | 3 | 07-08 | not started | blocked by 06 |
 | 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
 | 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
@@ -174,8 +174,9 @@ count DOWN, which it permits.
 | - | 21 | not started | NEW, split from 02B: the pool builders take loose dicts, not a ledger. Ride ticket 04's oracle re-freeze |
 | - | 22 | not started | NEW, split from 16: `Inbound/gain.py` is 1,398 lines and four modules |
 | - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
+| - | 24 | not started | NEW, split from 06: ArmAssembly needs a module-boundary decision first |
 
-**Twelve resolved, eleven open** (19 tickets became 23). Resolving 02 and 03 unblocked 04.
+**Twelve resolved, one part-landed, eleven open** (19 tickets became 24). Resolving 02 and 03 unblocked 04.
 Tickets 06 and 11 are each still a multi-hour refactor of a hot path and want the toy-run digest,
 not a tail-end slice.
 

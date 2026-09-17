@@ -13661,6 +13661,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simdriver/batch_state.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simdriver/section_timers.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -13907,6 +13912,11 @@
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::load_batches",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_state.py::BatchState",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
@@ -37504,6 +37514,30 @@
       "module": "Optimization/simdriver/batch_precompute.py",
       "name": "write_batches",
       "public": true
+    },
+    {
+      "file": "Optimization/simdriver/batch_state.py",
+      "id": "Optimization/simdriver/batch_state.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/batch_state.py",
+      "name": "Optimization.simdriver.batch_state",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/batch_state.py",
+      "id": "Optimization/simdriver/batch_state.py::BatchState",
+      "kind": "class",
+      "module": "Optimization/simdriver/batch_state.py",
+      "name": "BatchState",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/batch_state.py",
+      "id": "Optimization/simdriver/batch_state.py::__all__",
+      "kind": "const",
+      "module": "Optimization/simdriver/batch_state.py",
+      "name": "__all__",
+      "public": false
     },
     {
       "file": "Optimization/simdriver/cells.py",

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.batch_state · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_batch_state_py" data-id="Optimization/simdriver/batch_state.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/batch_state.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.batch_state</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_batch_state_py.html"><code>Optimization/simdriver/batch_state.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.batch_state</code></pre>
+<section class="doc">batch_state — the five names a batch&#x27;s two halves share, and nothing that outlives one.
+
+`_build_leaf` binds 113 distinct names at one indent level. Five of them are here because of
+a language rule and nothing else: `_replenish` and `_step` are the two halves of one batch,
+they must share these values, and `nonlocal` can only rebind a name that already exists in
+the enclosing scope. So five values whose LIFETIME IS ONE BATCH were bound in a scope whose
+lifetime is one ARM, and three `nonlocal` declarations existed to reach back up to them.
+
+That mismatch is the smell ticket 06 points at, in plain sight:
+
+    _late = 0.0              # how late this batch was against its release slot
+    _day_end = None          # the whistle for the day this batch was released into
+    _put_base = None         # the put crew&#x27;s epoch; the SITE&#x27;s when pooled
+    _batch_early = None      # the batch, sampled early for the standing-demand feed
+    triggered = ()           # the SKUs this batch reordered
+
+One object instead. The closures mutate its fields rather than rebinding names, so the
+`nonlocal` lines go, and the arm&#x27;s scope carries one name where it carried five.
+
+## What is NOT here
+
+No `begin()` or `reset()`. Every field is unconditionally re-seeded by `_replenish` before
+`_step` can read it — `late` and `day_end` by assignment, `put_base` and `early` by an
+explicit `= None` followed by a conditional set, `triggered` by `check_reorders` or by
+`note_triggered` under coupling. A reset method would be a second writer of the same fact
+that happens to be a no-op, which is the shape this whole effort is about deleting.
+
+## Why a dataclass and not a namedtuple
+
+These are WRITTEN by one half and READ by the other, several fields at a time, at different
+points in a 600-line body. A frozen record would mean rebuilding it on every write, which
+puts the rebinding problem back and adds allocation to the per-batch path.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_batch_state_py__BatchState.html"><code>BatchState</code></a> <span class="dim">Optimization/simdriver/batch_state.py</span></li><li><a href="nOptimization_simdriver_batch_state_py____all__.html"><code>__all__</code></a> <span class="dim">Optimization/simdriver/batch_state.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_batch_state_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/batch_state.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

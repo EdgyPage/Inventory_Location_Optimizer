@@ -87,6 +87,7 @@ from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
 from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimers
 from Optimization.simdriver.audit_ledgers import AuditLedgers
+from Optimization.simdriver.batch_state import BatchState
 from Optimization.simdriver.shift_ledger import ShiftLedger
 from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
 # The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
@@ -2040,15 +2041,14 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # runtime_metrics -- which is why this object cannot move a simulation number.
     ckpt_win = CheckpointWindow(opened_at=time.perf_counter())
 
-    # THE SIX NAMES THE TWO HALVES OF A BATCH SHARE, seeded here rather than left to
-    # `_replenish` to create: the closures rebind them through `nonlocal`, and a name
-    # first bound inside one of them would be that function's local instead -- which
-    # reads correctly and carries nothing between the halves.
-    _late = 0.0              # how late this batch was against its release slot
-    _day_end = None          # the whistle for the day this batch was released into
-    _put_base = None         # the put crew's epoch; the SITE's when pooled
-    _batch_early = None      # the batch, sampled early for the standing-demand feed
-    triggered = ()           # the SKUs this batch reordered
+    # THE NAMES THE TWO HALVES OF A BATCH SHARE.  They were five separate locals here,
+    # for a language reason and nothing else: `_replenish` and `_step` are the two halves
+    # of ONE BATCH, they must share these values, and `nonlocal` can only rebind a name
+    # that already exists in the enclosing scope -- so five values whose lifetime is one
+    # BATCH lived in a scope whose lifetime is one ARM, with three `nonlocal` declarations
+    # reaching back up to them.  One object instead: the halves mutate its fields, so
+    # nothing has to be rebound and this scope carries one name where it carried five.
+    bstate = BatchState()
 
     def _replenish(i: int) -> None:
         """Batch `i`'s REPLENISHMENT half, for this leaf: the release instant, the two
@@ -2066,8 +2066,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         One leaf calls this and `_step` back to back, which is the loop this was cut
         out of, line for line.
         """
-        nonlocal _batch_early, _day_end, _late, _put_base, arm_clock
-        nonlocal _pending, _q, triggered
+        nonlocal arm_clock, _pending, _q
         timers.start()
         bin_rec.begin_batch(i)
         # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
@@ -2083,29 +2082,29 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # the instant the arm is actually free.  That clamp erases the fact that a slot was
         # missed, so `missed_by` is recorded on the row.  Under the continuous default the
         # clock is returned unchanged and `missed_by` is 0.0.
-        _late     = _release.missed_by(i, arm_clock)
+        bstate.late = _release.missed_by(i, arm_clock)
         arm_clock = _release.release_at(i, arm_clock)
         # The whistle for the day this batch was released into.  None keeps every worker --
         # picker and putter alike -- running to the end of its work, which is every run that
         # does not ask for a cut.
-        _day_end = (_release.day.end_of(_release.day.index_of(arm_clock))
-                    if _cut_at_day_end else None)
+        bstate.day_end = (_release.day.end_of(_release.day.index_of(arm_clock))
+                          if _cut_at_day_end else None)
         # The put crews' clocks run from 0 within a batch and are offset onto the absolute
         # axis afterwards (see `drain_putaway_records`), so their whistle has to be stated in
         # the same relative terms: how much of the day is left when they pick this wave up.
         # They pick it up when the wave is released OR when they finish the last one --
-        # whichever is later, which is exactly the `_put_base` the event rows use below.
-        _put_deadline = (None if _day_end is None
-                         else _day_end - max(arm_clock, put_clock))
+        # whichever is later, which is exactly the `bstate.put_base` the event rows use below.
+        _put_deadline = (None if bstate.day_end is None
+                         else bstate.day_end - max(arm_clock, put_clock))
         # POOLED, BOTH NUMBERS ARE THE SITE'S and neither is this leaf's to compute.  One
         # shared clock list cannot carry two epochs, so the base is the SITE DAY START
         # (`max(day.start_of(i), put_clock_site)`) and the whistle is what is left of that
         # day -- never `arm_clock`, which would idle the site's putters whenever EITHER
         # pick crew overran its day and would misattribute a picking overrun to put-away's
         # cut.  `open_batch` is idempotent per day, so both leaves get the same answer.
-        _put_base = None
+        bstate.put_base = None
         if pool is not None:
-            _put_base, _put_deadline = pool.open_batch(_release.day_of(i))
+            bstate.put_base, _put_deadline = pool.open_batch(_release.day_of(i))
         # The RECEIVE whistle: its own day, its own carry.  Reusing `_put_deadline` would be
         # arithmetically well-formed and wrong -- it is the PUT crew's remaining day, already
         # shrunk by the PUT crew's backlog -- and the only symptom would be a `recv_cut` that
@@ -2121,12 +2120,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # instant, the only demand the charter lets the dock's forecast see.  The batch
         # is stashed and reused below, so the flag-off path is untouched and the flag-on
         # path never samples twice.
-        _batch_early = None
+        bstate.early = None
         if _space_tl is not None:
-            _batch_early = (batches[i] if batches is not None
+            bstate.early = (batches[i] if batches is not None
                             else Batch(batch_cfg, inventory, affinity=affinity,
                                        rng=random.Random(seed_batches + i)))
-            _inj = dict(_batch_early.items)
+            _inj = dict(bstate.early.items)
             for _sku, _q in _pending.items():
                 _inj[_sku] = _inj.get(_sku, 0) + _q
             # THE FUTURESIGHT WINDOW, on its own view slot ("Build the futuresight
@@ -2150,10 +2149,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # its own composition can produce.  The unit drives `SiteReceiving.drain` once
             # for every leaf and hands back what this one triggered (`note_triggered`).
             return
-        triggered      = mgr.check_reorders(put_deadline=_put_deadline,
-                                            recv_deadline=_recv_deadline,
-                                            now_s=arm_clock)
-        ckpt_win.add('reorders', len(triggered))
+        bstate.triggered = mgr.check_reorders(put_deadline=_put_deadline,
+                                              recv_deadline=_recv_deadline,
+                                              now_s=arm_clock)
+        ckpt_win.add('reorders', len(bstate.triggered))
 
     def _note_triggered(trig: dict) -> None:
         """Record what the SITE drain fired for THIS leaf.  Coupled units only.
@@ -2162,9 +2161,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         hashable by value there; the leaf knows which manager is its own, so the lookup
         happens here rather than the driver guessing at an order.
         """
-        nonlocal triggered
-        triggered      = trig[id(mgr)]
-        ckpt_win.add('reorders', len(triggered))
+        bstate.triggered = trig[id(mgr)]
+        ckpt_win.add('reorders', len(bstate.triggered))
 
     def _step(i: int) -> None:
         """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
@@ -2172,10 +2170,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         enclosing setup scope exactly as it was between iterations."""
         nonlocal _d, _pending, _q, arm_clock, last_dur, put_clock, recv_clock, skipped
         # The six the replenishment half bound; see the seeds above `_replenish`.
-        nonlocal _batch_early, _day_end, _late, _put_base, triggered
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = mgr.pop_churn()
-        # Standardized reorder/stock accounting: N skus reordered (triggered), U units ordered
+        # Standardized reorder/stock accounting: N skus reordered, U units ordered
         # (mgr.units_ordered), P units placed (batch_rp = reorder placements this batch).
         batch_uo            = mgr.units_ordered
         ckpt_win.add('units_ordered', batch_uo)
@@ -2326,9 +2323,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # this warehouse family sees the identical sequence.  It is precomputed ONCE per family and
         # shared (see batch_precompute); `batches` is None only when that list is unavailable, in which
         # case we sample inline here — bit-identical, just not deduplicated across arms.
-        # (`_batch_early` is the same object, fetched above for the standing-demand
+        # (`bstate.early` is the same object, fetched above for the standing-demand
         # injection; reusing it just skips a second inline sample.)
-        batch    = (_batch_early if _batch_early is not None
+        batch    = (bstate.early if bstate.early is not None
                     else batches[i] if batches is not None
                     else Batch(batch_cfg, inventory, affinity=affinity,
                                rng=random.Random(seed_batches + i)))
@@ -2433,7 +2430,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             _bs, _we_skip, put_clock = close_skipped_batch(
                 lead_depth=_tx_depth,
                 batch_id=i, mgr=mgr, arm_clock=arm_clock,
-                put_clock=put_clock if pool is None else _put_base,
+                put_clock=put_clock if pool is None else bstate.put_base,
                 k_pickers=k_pickers, run_id=run_id,
                 # `_eff_batch`, NOT `batch`.  The two differ by exactly the inherited
                 # carry, and using `batch` here gave `items_demanded` a SECOND definition
@@ -2442,15 +2439,15 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # off, where `_eff_batch is batch`.
                 demanded=sum(_eff_batch.items.values()), sigma_fd=batch_sigma,
                 reload_moves=batch_rm, reorder_placements=batch_rp,
-                skus_reordered=len(triggered), units_ordered=batch_uo,
+                skus_reordered=len(bstate.triggered), units_ordered=batch_uo,
                 put_workers=_put_workers, put_crews=_put_crews,
                 shift_seconds=_shift_seconds,
                 # Pooled, the site's epoch and the pool's reset -- a skipped batch still
                 # ran `check_reorders` and may have put hundreds of units away, so it owes
                 # the pool a report exactly as a picked one does.  `put_clock` is handed in
-                # as `_put_base` so the return is the base itself when nothing was
+                # as `bstate.put_base` so the return is the base itself when nothing was
                 # recorded, which is what `note_records` wants either way.
-                put_base=_put_base, reset_clocks=pool is None)
+                put_base=bstate.put_base, reset_clocks=pool is None)
             if pool is not None:
                 pool.note_records(mgr, put_clock)
             _bs.work_day      = _release.day_of(i)
@@ -2459,7 +2456,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             (_bs.put_topups, _bs.put_spills,
              _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
             _bs.free_bins = _free
-            _bs.released_late = _late
+            _bs.released_late = bstate.late
             pb.append(_bs)
             we.extend(_we_skip)
             # NO queue_state_rows / carryover_rows here.  Both already ran above, before the
@@ -2508,11 +2505,11 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # from it and is UNCHANGED -- which is what the offset-invariance work in
         # extract_batch_stats bought.
         #
-        # `arm_clock`, `_late` and `_day_end` were all fixed at the top of the loop, by the
+        # `arm_clock` and the batch state were all fixed at the top of the loop, by the
         # schedule rather than by the previous batch's makespan.
         sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr,
                                                  start_times=[arm_clock] * k_pickers,
-                                                 day_end=_day_end)
+                                                 day_end=bstate.day_end)
         events          = sim.run()
         timers.add('p1', sim.phase1_time)
         timers.add('p2', sim.phase2_time)
@@ -2522,7 +2519,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
         bs.reorder_placements = batch_rp                 # units PLACED this batch (P)
-        bs.skus_reordered     = len(triggered)           # SKUs reordered this batch (N)
+        bs.skus_reordered     = len(bstate.triggered)           # SKUs reordered this batch (N)
         bs.units_ordered      = batch_uo                 # units ORDERED this batch (U)
         # Put-away honesty: standing backlog + in-transit pipeline after this batch's
         # reorder/restock pass (a strategy that defers placement carries a high queue).
@@ -2541,7 +2538,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         (bs.recv_depth, bs.recv_unloaded, bs.recv_cut, bs.recv_seconds) = _rcv
         (bs.put_topups, bs.put_spills, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
         bs.free_bins = _free
-        bs.released_late      = _late
+        bs.released_late      = bstate.late
         # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
         # number comes from the place that knows it -- none is re-derived as a residual,
         # because two ways to compute one quantity is how they drift without anything
@@ -2630,10 +2627,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # plausible; the pool resets the one list once, after both leaves report.
             _put_recs = mgr.drain_putaway_records(reset_clocks=pool is None)
             # The crew picks this wave's queue up when the wave is released OR when it
-            # finishes the last one, whichever is later.  Pooled, `_put_base` is the site's
+            # finishes the last one, whichever is later.  Pooled, `bstate.put_base` is the site's
             # and was set when the day opened, above.
             if pool is None:
-                _put_base = max(bs.batch_start_time, put_clock)
+                bstate.put_base = max(bs.batch_start_time, put_clock)
             # ONE CALL PER STREAM.  Each queue has its own crew, so a worker index means
             # something only against that crew's roster -- worker 0 of the cart crew and
             # worker 0 of the forklift crew are different people.  With the default single
@@ -2649,20 +2646,20 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     # would stamp another crew's work with put-away actors -- silently,
                     # since nothing downstream can tell.
                     crew=_put_crews[_qname],
-                    shift_seconds=_shift_seconds, crew_start=_put_base))
+                    shift_seconds=_shift_seconds, crew_start=bstate.put_base))
             if _put_recs:
                 # max(end), not the LAST record's: with several workers the list
                 # interleaves them, so the last appended is not the latest finishing.
-                # Grouped `(_put_base + t0) + dur` deliberately -- float addition is
-                # not associative, and `_put_base + (t0 + dur)` moved 28 rows by one
+                # Grouped `(bstate.put_base + t0) + dur` deliberately -- float addition is
+                # not associative, and `bstate.put_base + (t0 + dur)` moved 28 rows by one
                 # ulp across two arms.  Same value for one worker, exactly.
-                put_clock = max((_put_base + r[0]) + r[1] for r in _put_recs)
+                put_clock = max((bstate.put_base + r[0]) + r[1] for r in _put_recs)
             elif pool is not None:
                 # NOTHING PUT AWAY, and the pool still has to hear from this leaf -- it
                 # resets the shared clocks only when every leaf has reported.  The base is
                 # what to report: a crew that did no work today is free at the day's start,
                 # which is the same answer the carry gives tomorrow either way.
-                put_clock = _put_base
+                put_clock = bstate.put_base
             if pool is not None:
                 # The site carry is the pool's, committed when the LAST leaf reports, so
                 # both leaves of one batch read one epoch.  `put_clock` stays as this

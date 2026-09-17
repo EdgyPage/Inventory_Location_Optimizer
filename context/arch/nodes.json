@@ -14092,6 +14092,27 @@
       "kind": "function",
       "signature": "(path: str, fingerprint: str, batches: list) -> None"
     },
+    "Optimization/simdriver/batch_state.py": {
+      "decorators": [],
+      "doc": "batch_state \u2014 the five names a batch's two halves share, and nothing that outlives one.\n\n`_build_leaf` binds 113 distinct names at one indent level. Five of them are here because of\na language rule and nothing else: `_replenish` and `_step` are the two halves of one batch,\nthey must share these values, and `nonlocal` can only rebind a name that already exists in\nthe enclosing scope. So five values whose LIFETIME IS ONE BATCH were bound in a scope whose\nlifetime is one ARM, and three `nonlocal` declarations existed to reach back up to them.\n\nThat mismatch is the smell ticket 06 points at, in plain sight:\n\n    _late = 0.0              # how late this batch was against its release slot\n    _day_end = None          # the whistle for the day this batch was released into\n    _put_base = None         # the put crew's epoch; the SITE's when pooled\n    _batch_early = None      # the batch, sampled early for the standing-demand feed\n    triggered = ()           # the SKUs this batch reordered\n\nOne object instead. The closures mutate its fields rather than rebinding names, so the\n`nonlocal` lines go, and the arm's scope carries one name where it carried five.\n\n## What is NOT here\n\nNo `begin()` or `reset()`. Every field is unconditionally re-seeded by `_replenish` before\n`_step` can read it \u2014 `late` and `day_end` by assignment, `put_base` and `early` by an\nexplicit `= None` followed by a conditional set, `triggered` by `check_reorders` or by\n`note_triggered` under coupling. A reset method would be a second writer of the same fact\nthat happens to be a no-op, which is the shape this whole effort is about deleting.\n\n## Why a dataclass and not a namedtuple\n\nThese are WRITTEN by one half and READ by the other, several fields at a time, at different\npoints in a 600-line body. A frozen record would mean rebuilding it on every write, which\nputs the rebinding problem back and adds allocation to the per-batch path.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/batch_state.py::BatchState": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "Everything one batch's replenish half must hand its pick half. Lives one batch.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/batch_state.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['BatchState']"
+    },
     "Optimization/simdriver/cells.py": {
       "decorators": [],
       "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler \u00d7 inbound policy over one frozen\ninventory.  _apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the\nchange is seen everywhere; _build_cells names cells\nk{k}[_l{loss}]_{zone}[_{inbound}][_{sched}].\n\nThe inbound suffix sits BEFORE the scheduler suffix on purpose: `run_whatif_labor._scheduler_of`\nrecovers the swept scheduler as the cell name's LAST underscore token, and appending a fifth\nsegment after it would silently relabel every row of that module's CSV.\n\nCONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to\nthe former only.  Cell.overrides() reports the same values without applying them.",

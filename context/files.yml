@@ -1408,6 +1408,12 @@ files:
       - {name: "load_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
       - {name: "ensure_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/batch_state.py":
+    purpose: "the five names a batch's two halves share, and nothing that outlives one."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "BatchState", file: "Optimization/simdriver/batch_state.py", kind: "class"}
+    notes: ""
   "Optimization/simdriver/cells.py":
     purpose: "What-if cell matrix \u2014 build/apply/inspect cells (aisle-split x zoning x scheduler over one frozen inventory); _apply_cell mutates the shared CONFIG in place."
     layer: "opt_simdriver"
