@@ -90,8 +90,15 @@ def test_the_new_flags_are_recorded_in_run_spec_and_restored_on_resume():
     """A flag that only mutates CONFIG is defeated by defect 3 — the value must reach
     run_spec.json, and a resume must restore it."""
     import Optimization.run_simulation as rs
+    from Optimization.config.sim_config import SPEC_KNOB_NAMES
     src = inspect.getsource(rs)
-    for key in ("'store_fill'", "'ff_fill'", "'checkpoint_frac'", "'sampler'"):
+    # `checkpoint_frac` and `sampler` are declared knobs, so the registry carries both
+    # ends.  The two FILLS are per-CHANNEL rather than global, so they stay hand-written
+    # at both sites and the source count is still the honest check for them.
+    for key in ('checkpoint_frac', 'sampler'):
+        assert key in SPEC_KNOB_NAMES, (
+            f'{key} must be written to run_spec AND restored on resume')
+    for key in ("'store_fill'", "'ff_fill'"):
         assert src.count(key) >= 2, f'{key} must be written to run_spec AND restored on resume'
 
 
@@ -148,7 +155,10 @@ def _recorded_shape_keys() -> set:
     main = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == 'main')
     call = next(n for n in ast.walk(main)
                 if isinstance(n, ast.Call) and getattr(n.func, 'id', '') == '_write_run_spec')
-    rec = set(INBOUND_KEYS) if any(k is None for k in call.args[1].keys) else set()
+    # A `**` splat in the call is now `_run_spec_record(args)` -- EVERY declared knob --
+    # rather than the inbound family alone.
+    from Optimization.config.sim_config import SPEC_KNOB_NAMES
+    rec = set(SPEC_KNOB_NAMES) if any(k is None for k in call.args[1].keys) else set()
     rec |= {k.value for k in call.args[1].keys
             if isinstance(k, ast.Constant) and isinstance(k.value, str)}
     # The staffing family is recorded NESTED (`'staffing': {'inputs': staffing_spec(), ...}`),
@@ -398,7 +408,9 @@ def test_the_working_day_is_recorded_and_restored():
     for k in _DAY_KEYS:
         assert f"'{k}'" in sim_src, f'{k} is never written to the run spec'
     # Restored on resume...
-    assert "'work_day_seconds', 'releases_per_day', 'cut_at_day_end'," in sim_src, (
+    from Optimization.config.sim_config import SPEC_KNOB_NAMES
+    _day = ('work_day_seconds', 'releases_per_day', 'cut_at_day_end', 'roll_over_unpicked')
+    assert all(k in SPEC_KNOB_NAMES for k in _day), (
         'a resume does not restore the working day')
     # ...and on a standalone re-analysis.
     ana_src = inspect.getsource(run_analysis)

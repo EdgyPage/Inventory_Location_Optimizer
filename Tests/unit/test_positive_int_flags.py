@@ -53,10 +53,21 @@ def test_n_batches_uses_the_validator():
 def test_the_apply_guard_is_not_truthiness():
     """The other half.  `if args.n_batches:` treats 0 as "not supplied" — and every other
     override in the same block already uses `is not None`."""
-    import Optimization.run_simulation as rs
-    src = inspect.getsource(rs)
-    assert 'if args.n_batches is not None:' in src
-    assert 'if args.n_batches:' not in src
+    from Optimization.config.sim_config import KNOB_BY_NAME, apply_cli_overrides, CONFIG
+    import argparse
+    # The literal guard is gone: one registry loop applies every knob, and `n_batches`
+    # declares `apply='if_set'`, which the loop implements as `is not None`.  Asserted as
+    # BEHAVIOUR rather than as a substring, which is stronger than the old check.
+    assert KNOB_BY_NAME['n_batches'].apply == 'if_set'
+    before = dict(CONFIG['global'])
+    try:
+        args = argparse.Namespace(**{k: None for k in KNOB_BY_NAME})
+        args.n_batches = 0
+        apply_cli_overrides(args)
+        assert CONFIG['global']['n_batches'] == 0, '0 was swallowed by a truthiness guard'
+    finally:
+        CONFIG['global'].clear()
+        CONFIG['global'].update(before)
 
 
 def test_the_parser_rejects_it_end_to_end():

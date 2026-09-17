@@ -218,8 +218,13 @@ def test_the_legacy_flags_keep_working_flag_off():
 def test_the_override_loop_writes_the_era_flag_and_the_put_crew_size():
     from Optimization import run_simulation
     src = inspect.getsource(run_simulation.main)
-    assert "g['shift_drain_or_cap'] = bool(args.shift_drain_or_cap)" in src
-    assert "g['put_crew_size']      = args.put_crew_size" in src
+    from Optimization.config.sim_config import KNOB_BY_NAME
+    # One registry loop writes every knob now; `bool` is declared rather than written out.
+    assert KNOB_BY_NAME['shift_drain_or_cap'].coerce == 'bool', (
+        'the era flag must be coerced to a real bool, not left as the store_true value')
+    assert KNOB_BY_NAME['shift_drain_or_cap'].apply == 'always'
+    assert KNOB_BY_NAME['put_crew_size'].apply == 'always', (
+        'the declared put crew must be written back unconditionally')
     assert '_check_era_flags(args, explicit)' in src, 'the era regime is not enforced in main'
     assert '_apply_run_defaults(args, spec_dict, explicit)' in src
 
@@ -227,10 +232,12 @@ def test_the_override_loop_writes_the_era_flag_and_the_put_crew_size():
 # ── seam 4: recorded and restored at BOTH sites ───────────────────────────────────
 
 def test_the_era_flag_and_put_crew_size_are_recorded_and_restored_on_resume():
-    from Optimization import run_simulation
-    src = inspect.getsource(run_simulation)
-    for key in ("'shift_drain_or_cap'", "'put_crew_size'"):
-        assert src.count(key) >= 3, f'{key}: written to run_spec, restored on resume, and set'
+    from Optimization.config.sim_config import KNOB_BY_NAME, SPEC_KNOB_NAMES
+    for key in ('shift_drain_or_cap', 'put_crew_size'):
+        assert key in KNOB_BY_NAME, f'{key}: not a declared knob, so nothing carries it'
+        assert key in SPEC_KNOB_NAMES, (
+            f'{key}: written to run_spec and restored on resume, both derived from the'
+            f' registry')
     from Optimization.run_simulation import _apply_run_spec
     args = argparse.Namespace(shift_drain_or_cap=False, put_crew_size=1, rho_pick=0.85, s_put=None)
     _apply_run_spec(args, {'shift_drain_or_cap': True, 'put_crew_size': 2,

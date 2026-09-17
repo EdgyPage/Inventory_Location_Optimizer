@@ -89,9 +89,11 @@ def test_the_knob_has_a_flag():
 # ── seam 4: recorded, restored on resume, and stamped into the tree ───────────────
 
 def test_recorded_in_the_run_spec_and_restored_on_resume():
-    from Optimization import run_simulation
-    src = inspect.getsource(run_simulation)
-    assert src.count("'couple_channels'") >= 3, (
+    from Optimization.config.sim_config import KNOB_BY_NAME, SPEC_KNOB_NAMES
+    assert KNOB_BY_NAME['couple_channels'].apply == 'always', (
+        'couple_channels must be written back unconditionally, so a value that came from '
+        'CONFIG rather than the command line still reaches the run')
+    assert 'couple_channels' in SPEC_KNOB_NAMES, (
         'couple_channels must be ASSIGNED from args, WRITTEN to run_spec and RESTORED on '
         'resume; a run that resumed without it would rebuild per-channel units over a tree '
         'whose leaves were written by coupled ones')

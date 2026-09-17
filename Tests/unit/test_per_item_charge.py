@@ -329,10 +329,10 @@ def test_the_scales_have_cli_flags(flag):
 
 
 def test_the_scales_are_recorded_and_restored_on_resume():
-    import Optimization.run_simulation as rs
-    src = inspect.getsource(rs)
-    for key in ("'put_intercept_scale'", "'put_item_ratio'", "'recv_intercept_scale'"):
-        assert src.count(key) >= 2, f'{key} must be written to run_spec AND restored on resume'
+    from Optimization.config.sim_config import SPEC_KNOB_NAMES
+    for key in ('put_intercept_scale', 'put_item_ratio', 'recv_intercept_scale'):
+        assert key in SPEC_KNOB_NAMES, (
+            f'{key} must be written to run_spec AND restored on resume')
     # (the standalone re-analysis half is covered by prefix in test_run_shaping_params:
     #  every recorded put_/recv_ key must be restored by _apply_run_shape)
 

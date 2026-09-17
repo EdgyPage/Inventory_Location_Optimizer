@@ -186,9 +186,14 @@ def test_the_flag_rejects_a_zero_crew_at_the_parser():
 
 
 def test_the_override_loop_writes_every_staffing_key():
-    from Optimization import run_simulation
-    src = inspect.getsource(run_simulation.main)
-    assert 'for _k in STAFFING_KEYS:\n        g[_k] = getattr(args, _k)' in src
+    from Optimization.config.sim_config import KNOB_BY_NAME, STAFFING_KEYS
+    # The family loop became THE registry loop: every staffing key is a declared knob written
+    # back unconditionally, which is what the old source literal asserted -- and the registry
+    # also guarantees the family tuple itself is derived rather than hand-kept.
+    for _k in STAFFING_KEYS:
+        assert _k in KNOB_BY_NAME, f'{_k}: not a declared knob, so no loop carries it'
+        assert KNOB_BY_NAME[_k].apply == 'always', f'{_k}: not written back unconditionally'
+        assert KNOB_BY_NAME[_k].family == 'staffing', f'{_k}: lost its family'
 
 
 # ── seam 4: recorded, and restored on BOTH paths ──────────────────────────────────

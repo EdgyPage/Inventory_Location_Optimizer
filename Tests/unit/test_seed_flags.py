@@ -81,9 +81,12 @@ def test_the_flag_defaults_to_none_not_to_the_config_value(dest):
 @pytest.mark.parametrize('key', SEEDS)
 def test_the_seed_is_written_to_run_spec_and_restored_on_resume(key):
     import Optimization.run_simulation as rs
-    src = inspect.getsource(rs)
-    assert src.count(f"'{key}'") >= 2, (
-        f"'{key}' must be written to run_spec AND listed in _apply_run_spec's whitelist")
+    from Optimization.config.sim_config import SPEC_KNOB_NAMES
+    # Both the record and the resume restore derive from this one list, so membership IS
+    # the property the old source-count was reaching for -- and a knob cannot now be in
+    # one and not the other.
+    assert key in SPEC_KNOB_NAMES, (
+        f"'{key}' must be recorded in run_spec.json and restored on resume")
 
 
 def test_a_standalone_reanalysis_restores_both_seeds(tmp_path):

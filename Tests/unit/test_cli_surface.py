@@ -186,13 +186,18 @@ def test_every_none_sentinel_flag_is_resolved_with_an_is_not_none_test(parser):
     defect exactly: accepted, discarded by a truthiness guard, and a smoke run asking for
     nothing quietly became a full one.
     """
-    src = inspect.getsource(rs.main)
+    from Optimization.config.sim_config import KNOB_BY_NAME
     g = CONFIG['global']
     sentinels = [a.dest for a in parser._actions
                  if a.option_strings and a.dest in g
                  and a.default is None and g[a.dest] is not None]
     assert sentinels, 'no sentinel flags found — the query no longer matches the CLI'
-    unresolved = [d for d in sentinels if f'args.{d} is not None' not in src]
+    # `main` no longer tests each sentinel by hand: one loop over the registry applies
+    # every knob, and a sentinel is one that declares `apply='if_set'` -- which the loop
+    # implements as `is not None`, never truthiness.  A sentinel declaring 'always' would
+    # overwrite CONFIG with None, which is the defect this test exists for.
+    unresolved = [d for d in sentinels
+                  if d not in KNOB_BY_NAME or KNOB_BY_NAME[d].apply != 'if_set']
     assert not unresolved, (
         f'{unresolved} default to None while CONFIG holds a real value, but main never tests '
         f'`args.<x> is not None`; the sentinel is unread, so the flag is either a crash or a '

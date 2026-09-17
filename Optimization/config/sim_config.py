@@ -18,7 +18,7 @@ tunable reads it at call time.  See the block above `seed_world()`.
 import logging
 import os
 import sys
-from dataclasses import fields as _dataclass_fields
+from dataclasses import dataclass, fields as _dataclass_fields
 
 _HERE      = os.path.dirname(os.path.abspath(__file__))
 # NB two levels up: this module lives at Optimization/config/, not Optimization/.  _REPO_ROOT is
@@ -380,14 +380,198 @@ def aisle_geometry() -> tuple[int, int]:
 #: (.scratch/department-calibration, "Design the staffing record", decision 2; ADR-0004;
 #: "Derive the fill headroom from the fragmentation").  Derived values are NEVER on this
 #: list: the derivation's outputs live in the run spec's `staffing.derived` block and cannot
+
+# ══════════════════════════════════════════════════════════════════════════════════════
+# THE KNOB REGISTRY -- one declaration per tunable
+# ══════════════════════════════════════════════════════════════════════════════════════
+#
+# A knob used to be one fact written down in six places: a settings constant, a CONFIG key,
+# an `add_argument`, a write-back line in `run_simulation.main`, a `run_spec.json` entry, and
+# TWO restore sites (`run_simulation._apply_run_spec` for a resume, `run_analysis._apply_run_shape`
+# for a standalone re-analysis).  `run_analysis` calls its own "the sixth seam" in as many
+# words, because an analysis worker is spawned too and re-imports pristine defaults.
+#
+# Every omission was silent and lasted the whole run.  Two families -- staffing and inbound --
+# already rode a single tuple each for exactly that reason, and the mechanism worked; the other
+# 32 keys were retyped at every site, roughly 128 hand-written assignments for 32 facts.
+#
+# This is that mechanism, generalised.  A `Knob` declares what every downstream loop needs to
+# know, and the loops are derived rather than authored:
+#
+#   apply       how `main` writes the CLI value back onto CONFIG['global'].
+#               'always'  -- assign unconditionally; the flag defaults FROM CONFIG, so a
+#                            flag-less run writes back exactly what was already there.
+#               'if_set'  -- assign only when the flag was given.  `is not None`, never
+#                            truthiness: `--n-batches 0` was silently discarded once.
+#               'parent'  -- no CLI flag at all; nothing to write back.
+#   coerce      'bool' for store_true flags whose CONFIG value must be a real bool;
+#               'or_one' for `workers`, which takes 1 when unset.
+#   spec_from   where run_spec.json records this knob's value from, and None when it is not
+#               recorded at all.  'config' reads CONFIG POST-overlay, so a value that came
+#               from CONFIG rather than the command line is recorded too.  'args' reads the
+#               parsed namespace, and the distinction is load-bearing rather than stylistic:
+#               `workers` is `args.workers or 1` in CONFIG, so recording it from CONFIG would
+#               write 1 where the run recorded None.  Both restore sites put back exactly the
+#               set with a non-None `spec_from`, so "recorded but never restored" stops being
+#               expressible -- that defect shipped once (`put_swap_coef`) and all 1,534 tests
+#               stayed green.
+#
+# NOT derived from here, and deliberately: the argparse declarations themselves (70 flags with
+# bespoke help, types and choices) and the `workunits._shared` payload, which carries BUNDLES
+# (`*_spec()` accessors) rather than flat keys for most of its contents.  Both are recorded in
+# the ticket; this registry closes the write-back and the record/restore pair, which are the
+# two that could drift apart without any error.
+
+
+@dataclass(frozen=True)
+class Knob:
+    """One tunable of CONFIG['global'], declared once."""
+    name: str                      # the CONFIG key AND the argparse dest
+    family: str = ''               # 'staffing' | 'inbound' | '' (loose)
+    apply: str = 'always'          # 'always' | 'if_set' | 'parent'
+    coerce: str | None = None      # None | 'bool' | 'or_one'
+    spec_from: str | None = 'config'   # 'config' | 'args' | None (not recorded)
+
+
+def _knobs(names, **kw):
+    return tuple(Knob(n, **kw) for n in names)
+
+
+#: Order is the order the flags and the run-spec record are emitted in, so it reads for a
+#: human as much as for the loops.
+KNOBS: tuple[Knob, ...] = (
+    # ── the run's shape ───────────────────────────────────────────────────────────────
+    Knob('n_batches',           apply='if_set'),
+    Knob('max_skus',            apply='if_set'),
+    Knob('seed_world',          apply='if_set'),
+    Knob('seed_batches',        apply='if_set'),
+    Knob('workers',             coerce='or_one', spec_from='args'),
+    Knob('keyframe_interval',   spec_from='args'),
+    Knob('checkpoint_frac',     apply='if_set'),
+    Knob('sampler'),
+    Knob('aisle_columns',       spec_from='args'),
+    Knob('aisle_levels',        spec_from='args'),
+    # ── the working day ───────────────────────────────────────────────────────────────
+    Knob('work_day_seconds'),
+    Knob('releases_per_day'),
+    Knob('cut_at_day_end',      coerce='bool'),
+    Knob('roll_over_unpicked',  coerce='bool'),
+    Knob('shift_drain_or_cap',  coerce='bool'),
+    #: No CLI flag: declared beside the site day and read by the parent only.
+    Knob('shift_seconds',       apply='parent', spec_from=None),
+    # ── the site dock ─────────────────────────────────────────────────────────────────
+    Knob('couple_channels',     coerce='bool'),
+    Knob('recv_crew_size'),
+    Knob('recv_day_seconds'),
+    Knob('recv_day_origin'),
+    # ── put-away: the split queues, their crews and their price ───────────────────────
+    Knob('put_queue_split',     coerce='bool'),
+    Knob('put_cart_crew'),
+    Knob('put_pallet_crew'),
+    Knob('put_ff_crew'),
+    Knob('put_cart_staging'),
+    Knob('put_pallet_staging'),
+    Knob('put_ff_staging'),
+    Knob('put_swap_coef'),
+    Knob('put_crew_size'),
+    Knob('put_intercept_scale'),
+    Knob('put_item_ratio'),
+    Knob('recv_intercept_scale'),
+    # ── the two families that already rode one list each ──────────────────────────────
+    *_knobs(('store_pickers', 'ff_pickers',
+             'store_demand', 'ff_demand', 'first_time_confidence',
+             'min_headroom',
+             'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv', 'f_repack',
+             'band_tol', 'put_crew_mode',
+             'coverage_days', 'safety_days', 'floor_lines',
+             's_pick_store', 's_pick_ff', 's_put'), family='staffing', spec_from=None),
+    *_knobs(('inbound_trailer_type', 'inbound_dock_doors',
+             'inbound_lead_minutes', 'inbound_lead_spread',
+             'inbound_global_policy', 'inbound_local_policy', 'inbound_trailer_bound',
+             'inbound_standing_yard', 'inbound_crew_allocation',
+             'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
+             'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
+             'inbound_futuresight_batches',
+             'inbound_unload_intercept', 'inbound_unload_weight_coef',
+             'inbound_unload_volume_coef'), family='inbound'),
+)
+
+KNOB_BY_NAME: dict[str, Knob] = {k.name: k for k in KNOBS}
+
+_COERCERS = {None: lambda v: v, 'bool': bool, 'or_one': lambda v: v or 1}
+
+
+def apply_cli_overrides(args) -> None:
+    """Write every declared knob's CLI value back onto CONFIG['global'].
+
+    THE write-back.  Replaces ~35 hand-typed assignments plus two family loops; a knob that
+    is declared above cannot now be accepted at the command line and then silently ignored
+    for the whole run, which is the defect this registry exists to make unrepresentable.
+
+    CONFIG is mutated in place and never rebound (see the module head): every accessor reads
+    at call time, so this reaches the warehouse build, the channel build and every worker
+    payload built after it.
+    """
+    g = CONFIG['global']
+    for k in KNOBS:
+        if k.apply == 'parent':
+            continue
+        v = getattr(args, k.name, None)
+        if k.apply == 'if_set' and v is None:
+            continue
+        g[k.name] = _COERCERS[k.coerce](v)
+
+
+def run_spec_record(args) -> dict:
+    """Every declared knob a run records, each from the source it declares.
+
+    `spec_from='config'` reads POST-overlay so a value that came from CONFIG rather than the
+    command line is recorded too -- otherwise two runs with different docks look identical
+    after the fact.  `spec_from='args'` reads the namespace, because a few knobs are recorded
+    as TYPED rather than as resolved (`workers` resolves to 1 in CONFIG and records None).
+
+    The caller adds the entries that are not plain knobs: argv, the sizing caps (which live on
+    `args` and never in CONFIG), the era-conditional per-channel fills, the store composition,
+    the nested staffing record, and the CLI-only run shaping.
+    """
+    g = CONFIG['global']
+    out = {}
+    for k in KNOBS:
+        if k.spec_from == 'config':
+            out[k.name] = g[k.name]
+        elif k.spec_from == 'args':
+            out[k.name] = getattr(args, k.name)
+    return out
+
+
+#: The names both restore sites put back.  Derived from the same flag the recorder reads, so
+#: "recorded but never restored" is not expressible -- that defect shipped once (`put_swap_coef`)
+#: and all 1,534 tests stayed green.
+SPEC_KNOB_NAMES: tuple[str, ...] = tuple(k.name for k in KNOBS if k.spec_from)
+
+
+#: Recorded knobs that `run_analysis._apply_run_shape` -- the SIXTH seam -- deliberately does
+#: NOT restore, each with the reason.  That function is not derived from this registry and
+#: should not be: every key there carries a bespoke absence rule ('or "v1"', 'bool(...)',
+#: 'or 0', a plain get that must never be an `or` because a declared 0.0 is real, a skip-if-
+#: None) encoding what a PRE-FIELD spec means for that one knob.  Flattening those into an
+#: enum would risk the silent wrong-regime re-analysis the rules exist to prevent.
+#:
+#: So the registry guards the SET rather than the semantics: a knob that is recorded and then
+#: neither restored nor named here fails `Tests/unit/test_knob_registry.py`, which is the drift
+#: that could otherwise ship unnoticed.
+ANALYSIS_EXEMPT: dict[str, str] = {
+    'workers': 'pool size. Nothing about re-analysis depends on how many processes the run '
+               'used, and a re-analysis picks its own --analysis-workers.',
+    'couple_channels': 'the analysis reads coupling off the TREE, not CONFIG: the flag reaches '
+                       'run_layout.json as `coupled`, which is what a downstream tool reads '
+                       '(see couple_channels()). Its only two callers build the run, and '
+                       'neither runs during a standalone re-analysis.',
+}
+
+
 #: be set from the command line.
-STAFFING_KEYS: tuple[str, ...] = ('store_pickers', 'ff_pickers',
-                                  'store_demand', 'ff_demand', 'first_time_confidence',
-                                  'min_headroom',
-                                  'rho_pick', 'rho_put', 'rho_recv', 'f_put', 'f_recv', 'f_repack',
-                                  'band_tol', 'put_crew_mode',
-                                  'coverage_days', 'safety_days', 'floor_lines',
-                                  's_pick_store', 's_pick_ff', 's_put')
+STAFFING_KEYS: tuple[str, ...] = tuple(k.name for k in KNOBS if k.family == 'staffing')
 
 #: The subset of STAFFING_KEYS that override an EXPECTED constant.  None = "take the
 #: closed-form expectation" (`simconfig/expected_travel.py`), which is why `staffing_spec()`
@@ -719,16 +903,7 @@ def _futuresight_batches(raw):
 #:
 #: Order is the order the flags and the run-spec record are emitted in, so it is read by a
 #: human as much as by the loops.
-INBOUND_KEYS: tuple[str, ...] = (
-    'inbound_trailer_type', 'inbound_dock_doors',
-    'inbound_lead_minutes', 'inbound_lead_spread',
-    'inbound_global_policy', 'inbound_local_policy', 'inbound_trailer_bound',
-    'inbound_standing_yard', 'inbound_crew_allocation',
-    'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
-    'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
-    'inbound_futuresight_batches',
-    'inbound_unload_intercept', 'inbound_unload_weight_coef', 'inbound_unload_volume_coef',
-)
+INBOUND_KEYS: tuple[str, ...] = tuple(k.name for k in KNOBS if k.family == 'inbound')
 
 
 def inbound_lead_law() -> dict | None:

@@ -167,9 +167,13 @@ def test_the_futuresight_flag_converts_at_the_parser():
 
 def test_the_family_is_recorded_in_the_run_spec():
     import Optimization.run_simulation as rs
+    from Optimization.config.sim_config import INBOUND_KEYS, SPEC_KNOB_NAMES
     src = inspect.getsource(rs)
-    assert '**{k: g[k] for k in INBOUND_KEYS}' in src, (
-        'the inbound family is not written to run_spec.json')
+    # The family rode its own splat until the knob registry landed; now every inbound key
+    # is a declared knob and the record is derived, so membership is the property.
+    unrecorded = [k for k in INBOUND_KEYS if k not in SPEC_KNOB_NAMES]
+    assert not unrecorded, (
+        f'the inbound family is not written to run_spec.json: {unrecorded}')
     assert "'inbound_lead_tag'" in src, (
         'the lead TAG is un-re-derivable, so a comparison spanning a TAG change would span two '
         'different arrival schedules with nothing to detect it from')

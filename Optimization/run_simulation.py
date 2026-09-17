@@ -39,7 +39,9 @@ if _REPO_ROOT not in sys.path:
 # Diagnostics/bucket_fill import them from run_simulation.  CONFIG binds the SAME
 # dict object as sim_config.CONFIG (tests mutate it in place) — never rebind it.
 from Optimization.config.sim_config import (            # noqa: F401
-    CONFIG, INBOUND_KEYS, STAFFING_KEYS, REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
+    CONFIG, INBOUND_KEYS, STAFFING_KEYS, SPEC_KNOB_NAMES,
+    apply_cli_overrides as _apply_cli_overrides, run_spec_record as _run_spec_record,
+    REGRESSION_CONFIGS, STORE_CONFIGS, FULFILLMENT_CONFIGS,
     seed_world, seed_batches, n_batches, k_pickers, channel_pickers, staffing_spec,
     staffing_provenance, CALIBRATION_KEYS, ERA_ONLY_KEYS, FLAG_OFF_ONLY_KEYS, era_on,
     couple_channels,
@@ -254,53 +256,36 @@ def _apply_run_spec(args, spec, explicit):
     # its keys are simply absent and the flags' CONFIG defaults stand -- never a KeyError.
     _staffing_inputs = (spec.get('staffing') or {}).get('inputs') or {}
     spec = {**spec, **{k: _staffing_inputs[k] for k in STAFFING_KEYS if k in _staffing_inputs}}
-    for f in ('n_batches', 'max_skus', 's_max_aisles', 's_max_bins', 's_min_bins',
-              'ff_max_aisles', 'ff_max_bins', 'ff_min_bins', 'keyframe_interval', 'whatif', 'spec',
-              'aisle_columns', 'aisle_levels',
-              'profiles_dir', 'all_profiles', 'profile_run', 'workers', 'max_tasks_per_child',
-              'max_retries', 'resume_granularity',
-              # Sizing params: a resume MUST rebuild the same warehouse, so these are as
-              # load-bearing here as the bin caps beside them.
-              'store_fill', 'ff_fill', 'checkpoint_frac',
-              # Batch-sampler era: a resume MUST regenerate the same batch sequence.
-              'sampler',
-              # The working day decides when batches are released and when pickers stop, so
-              # a resume that forgot it would finish the arm on a different clock than it
-              # started on.
-              'work_day_seconds', 'releases_per_day', 'cut_at_day_end',
-              'roll_over_unpicked',
-              # ...and the ERA, for the same reason squared: an arm that resumed without the
-              # drain-or-cap shift would finish on a continuous clock with declared crews
-              # where it started with a site day and derived ones.
-              'shift_drain_or_cap',
-              # ...and the SITE DOCK, for the same reason cubed: a run that resumed without
-              # it would rebuild per-channel units over a tree whose leaves were written by
-              # coupled ones -- two independent arms finishing what one unit started, with
-              # nothing in the tree to say the halves were fielded differently.
-              'couple_channels',
-              # ...and the receiving crew, for the same reason: an arm that resumed without
-              # its dock would finish having received for free.
-              'recv_crew_size', 'recv_day_seconds', 'recv_day_origin',
-              # ...and the put-away shape, for the same reason: an arm that resumed
-              # without its split would finish with one crew where it started with three.
-              'put_queue_split', 'put_cart_crew', 'put_pallet_crew', 'put_ff_crew',
-              'put_cart_staging', 'put_pallet_staging', 'put_ff_staging',
-              'put_swap_coef', 'put_crew_size',
-              # ...and the other crews' price, for the same reason: an arm that resumed
-              # with this checkout's scales would bill its second half at a different rate.
-              'put_intercept_scale', 'put_item_ratio', 'recv_intercept_scale',
-              # ...and the declared crews, for the same reason: an arm that resumed with this
-              # checkout's picker counts would finish under a crew its run spec never
-              # declared.  Spliced from the list; flattened from `staffing.inputs` above.
-              *STAFFING_KEYS,
-              # ...and the whole inbound family, for the same reason twice over: an arm that
-              # resumed without its yard would finish on v1's drain-everything dock, and one
-              # that resumed without its lead shape would redraw a different arrival schedule.
-              # Spliced from the one list rather than retyped, so a new inbound knob cannot be
-              # recorded and then not restored.
-              *INBOUND_KEYS,
-              # ...and the seeds it is drawn from, plus the world it is drawn against.
-              'seed_world', 'seed_batches'):
+    # EVERY knob the recorder wrote, plus the CLI-only names that are not CONFIG values.
+    #
+    # `SPEC_KNOB_NAMES` is derived from the same `spec_from` flag `run_spec_record` reads, so
+    # a knob that is recorded and then never restored is not expressible.  That defect shipped
+    # once -- `put_swap_coef` lost its restore and all 1,534 tests stayed green -- and the AST
+    # guard in Tests/unit/test_run_shaping_params.py was written for it; deriving both ends
+    # from one declaration makes the guard a tautology, which is the right outcome.
+    #
+    # Why each family is restored at all, kept because the reasons are not obvious: a resume
+    # MUST rebuild the same warehouse (the sizing params), regenerate the same batch sequence
+    # (the sampler and the seeds), finish on the clock it started on (the working day), and
+    # finish under the regime it started in -- the era, the site dock, the receiving crew and
+    # its day, the put-away split and its three crews, the other crews' price scalars, the
+    # declared picker counts, and the whole inbound family.  An arm that resumed without its
+    # yard would finish on v1's drain-everything dock; one that resumed without its lead shape
+    # would redraw a different arrival schedule.
+    #
+    # The staffing keys arrive flattened from `staffing.inputs` above, so one loop restores
+    # every family.
+    for f in (*SPEC_KNOB_NAMES,
+              # CLI-only run shaping -- none of these is a CONFIG value, so none is a knob.
+              's_max_aisles', 's_max_bins', 's_min_bins',
+              'ff_max_aisles', 'ff_max_bins', 'ff_min_bins',
+              'whatif', 'spec', 'profiles_dir', 'all_profiles', 'profile_run',
+              'max_tasks_per_child', 'max_retries', 'resume_granularity',
+              # Per-CHANNEL rather than global, and skipped when None (the era derives the
+              # fill headroom from the fragmentation instead).
+              'store_fill', 'ff_fill',
+              # Spliced rather than retyped: flattened from `staffing.inputs` above.
+              *STAFFING_KEYS):
         if f not in spec:
             continue
         if f in explicit:
@@ -1023,60 +1008,20 @@ def main():
         os.makedirs(base_dir, exist_ok=True)
 
     # ── apply CLI overrides onto CONFIG (the single source of truth; reconciled w/ run_spec) ──
+    #
+    # ONE LOOP, over `sim_config.KNOBS`.  This was ~35 hand-typed assignments plus two family
+    # loops, and a knob missing from it was accepted at the command line and then silently
+    # ignored for the whole run.  Each knob declares how it is written back ('always' vs
+    # 'if_set', plus any coercion), so every behaviour that mattered is preserved per knob
+    # rather than per line: `--n-batches 0` is still not discarded (`is not None`, never
+    # truthiness), the store_true flags still become real bools, `--workers` still takes 1
+    # when unset, and the two families that already rode one list each still do.
+    #
+    # CONFIG is mutated in place and never rebound, so every call-time accessor
+    # (`seed_world()`, `channel_pickers()`, `inbound_spec()`, ...) sees this.
     g = CONFIG['global']
-    # `is not None`, not truthiness: `--n-batches 0` used to be silently discarded here and
-    # the run proceeded on CONFIG's value.  It is rejected at parse time now (_positive_int).
-    if args.n_batches is not None:
-        g['n_batches'] = args.n_batches
-    # Read at call time by sim_config.seed_world()/seed_batches(), so this reaches the
-    # warehouse build and every worker's batch stream.
-    if args.seed_world is not None:
-        g['seed_world'] = args.seed_world
-    if args.seed_batches is not None:
-        g['seed_batches'] = args.seed_batches
-    if args.max_skus is not None:
-        g['max_skus'] = args.max_skus
-    g['workers']           = args.workers or 1
-    g['keyframe_interval'] = args.keyframe_interval
-    g['aisle_columns']     = args.aisle_columns
-    g['aisle_levels']      = args.aisle_levels
-    g['sampler']           = args.sampler
-    g['work_day_seconds']  = args.work_day_seconds
-    g['releases_per_day']  = args.releases_per_day
-    g['cut_at_day_end']    = bool(args.cut_at_day_end)
-    g['roll_over_unpicked'] = bool(args.roll_over_unpicked)
-    g['shift_drain_or_cap'] = bool(args.shift_drain_or_cap)
-    g['couple_channels']    = bool(args.couple_channels)
-    g['recv_crew_size']    = args.recv_crew_size
-    g['recv_day_seconds']  = args.recv_day_seconds
-    g['recv_day_origin']   = args.recv_day_origin
-    g['put_queue_split']    = bool(args.put_queue_split)
-    g['put_cart_crew']      = args.put_cart_crew
-    g['put_pallet_crew']    = args.put_pallet_crew
-    g['put_ff_crew']        = args.put_ff_crew
-    g['put_cart_staging']   = args.put_cart_staging
-    g['put_pallet_staging'] = args.put_pallet_staging
-    g['put_ff_staging']     = args.put_ff_staging
-    g['put_swap_coef']      = args.put_swap_coef
-    g['put_crew_size']      = args.put_crew_size
-    g['put_intercept_scale']  = args.put_intercept_scale
-    g['put_item_ratio']       = args.put_item_ratio
-    g['recv_intercept_scale'] = args.recv_intercept_scale
-    # Staffing, unconditionally and from the list: read at call time by channel_pickers()
-    # and staffing_spec(), so it reaches the channel build, the run params and the payload.
-    for _k in STAFFING_KEYS:
-        g[_k] = getattr(args, _k)
-    # The inbound family, unconditionally: every flag defaults FROM CONFIG, so a flag-less run
-    # writes back exactly what was already there.  Assigning the whole list (rather than
-    # `if not None`) is what lets a cell's inbound record and a CLI value share one mechanism —
-    # both are just writes into CONFIG['global'], read at call time by `inbound_spec()`.
-    for _k in INBOUND_KEYS:
-        g[_k] = getattr(args, _k)
-    if args.checkpoint_frac is not None:
-        g['checkpoint_frac'] = args.checkpoint_frac
-    # Fill is per-CHANNEL and read at call time (sim_config.store_fill/ff_fill), so mutating
-    # CONFIG here reaches every consumer in this process — including the warehouse-DB
-    # provenance write, which an import-time snapshot used to miss.
+    _apply_cli_overrides(args)
+
     if args.store_fill is not None:
         CONFIG['channels']['store']['fill'] = args.store_fill
     if args.ff_fill is not None:
@@ -1190,10 +1135,13 @@ def main():
     # for a NEW run, so a later crash resumes with `--resume DIR` and nothing retyped.
     if not args.resume:
         _write_run_spec(base_dir, {
+            # EVERY declared knob, each from the source its record declares
+            # (`sim_config.KNOBS`).  These were 49 hand-written entries, and both restore
+            # sites put back exactly this set, so "recorded but never restored" is no
+            # longer expressible.
+            **_run_spec_record(args),
             'argv'         : sys.argv,
-            'n_batches'    : g['n_batches'],  'max_skus'    : g['max_skus'],
             # A resume MUST rebuild the same world and redraw the same demand.
-            'seed_world'   : g['seed_world'], 'seed_batches': g['seed_batches'],
             's_max_aisles' : args.s_max_aisles, 's_max_bins' : args.s_max_bins, 's_min_bins': args.s_min_bins,
             'ff_max_aisles': args.ff_max_aisles, 'ff_max_bins': args.ff_max_bins, 'ff_min_bins': args.ff_min_bins,
             's_composition': _store_comp,
@@ -1204,44 +1152,21 @@ def main():
             # ("Derive the fill headroom from the fragmentation").
             'store_fill'   : None if g['shift_drain_or_cap'] else CONFIG['channels']['store']['fill'],
             'ff_fill'      : None if g['shift_drain_or_cap'] else CONFIG['channels']['fulfillment']['fill'],
-            'checkpoint_frac': g['checkpoint_frac'],
-            'sampler'      : g['sampler'],
             # The working day: two runs with different days are otherwise
             # indistinguishable after the fact, and a resume would finish an arm on a
             # different clock than it started on.
-            'work_day_seconds': g['work_day_seconds'],
-            'releases_per_day': g['releases_per_day'],
-            'cut_at_day_end'  : g['cut_at_day_end'],
-            'roll_over_unpicked': g['roll_over_unpicked'],
             # The calibrated era.  A RESULTS ERA: two runs on either side of it are not
             # comparable, and a resume must finish under the regime it started in.
-            'shift_drain_or_cap': g['shift_drain_or_cap'],
             # The site dock.  Recorded for the same reason as the era above: it decides how
             # the site's crews are FIELDED, so a resume must finish under the model it
             # started in and two runs on either side of it do not compare.
-            'couple_channels' : g['couple_channels'],
             # The receiving crew and its own day. Read from `g` (post-overlay), not from
             # `args`, so a value that came from CONFIG rather than the command line is
             # recorded too -- otherwise two runs with different docks look identical.
-            'recv_crew_size'  : g['recv_crew_size'],
-            'recv_day_seconds': g['recv_day_seconds'],
-            'recv_day_origin' : g['recv_day_origin'],
             # The split put-away configuration. Read from `g` (post-overlay) so a value
             # that came from CONFIG rather than the command line is recorded too.
-            'put_queue_split'   : g['put_queue_split'],
-            'put_cart_crew'     : g['put_cart_crew'],
-            'put_pallet_crew'   : g['put_pallet_crew'],
-            'put_ff_crew'       : g['put_ff_crew'],
-            'put_cart_staging'  : g['put_cart_staging'],
-            'put_pallet_staging': g['put_pallet_staging'],
-            'put_ff_staging'    : g['put_ff_staging'],
-            'put_swap_coef'     : g['put_swap_coef'],
-            'put_crew_size'     : g['put_crew_size'],
             # The other crews' price as scalars of the pickers' -- recorded so a resume and
             # a re-analysis price put-away and receiving as the run did.
-            'put_intercept_scale' : g['put_intercept_scale'],
-            'put_item_ratio'      : g['put_item_ratio'],
-            'recv_intercept_scale': g['recv_intercept_scale'],
             # THE STAFFING RECORD -- one nested key, not flat entries, because it is the
             # artifact the calibrated era exists to produce and it grows: `inputs` is what
             # was declared (the STAFFING_KEYS, read post-overlay through the accessor so a
@@ -1277,17 +1202,15 @@ def main():
             # the yard's derive-late fee report reads the threshold off this record (its
             # HEAD-default fallback exists for runs that predate recording — the campaign must
             # never exercise it).
-            **{k: g[k] for k in INBOUND_KEYS},
             # The lead draw's DOMAIN TAG, recorded beside the shape it keys. Un-re-derivable
             # by construction (a literal chosen to be stable), so a comparison spanning a TAG
             # change would silently span two different arrival schedules with nothing to
             # detect it from -- the same argument that puts `sampler` in this file.
             'inbound_lead_tag'  : _LEAD_TAG,
-            'keyframe_interval': args.keyframe_interval, 'whatif': args.whatif, 'spec': spec_name,
-            'aisle_columns': args.aisle_columns, 'aisle_levels': args.aisle_levels,
+            'whatif': args.whatif, 'spec': spec_name,
             'profiles_dir' : args.profiles_dir, 'all_profiles': args.all_profiles,
             'profile_run'  : args.profile_run,
-            'workers'      : args.workers, 'max_tasks_per_child': args.max_tasks_per_child,
+            'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
             'pairs'        : [list(p) for p in pairs],
             # WHICH catalogue version each pinned pair is (None = pre-contract catalogue).
