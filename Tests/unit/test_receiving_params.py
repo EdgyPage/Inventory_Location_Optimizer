@@ -38,20 +38,19 @@ def _leaf_source() -> str:
     """One leaf, in three pieces since ticket 06.
 
     `_build_arm` constructs the arm and returns an `ArmAssembly`; `_build_leaf` closes the two
-    batch halves over it; `ArmAssembly.shift_close_out` is the day close-out, a method because
-    the stepping half calls it. A question about "what the runner does" spans all three, and a
-    scan of one would now pass by looking in the wrong place.
+    batch halves over it; `_shift_close_out` is the day close-out the stepping half calls.
+    A question about "what the runner does" spans all three, and a scan of one would now pass
+    by looking in the wrong place.
 
-    The method is dedented so the result still parses as a module — these scans `ast.parse`
-    what they get back.
+    All three are module-level since ticket 07, so the result parses as a module with no
+    dedent — these scans `ast.parse` what they get back.
     """
     import inspect
-    import textwrap
 
     from Optimization.simdriver import strategy_runner as _sr
     return (inspect.getsource(_sr._build_arm)
             + inspect.getsource(_sr._build_leaf)
-            + textwrap.dedent(inspect.getsource(_sr.ArmAssembly.shift_close_out)))
+            + inspect.getsource(_sr._shift_close_out))
 
 
 @pytest.fixture()

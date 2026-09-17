@@ -514,13 +514,20 @@ def test_the_runner_snapshots_the_bucket_depth_per_batch_and_flushes_it_with_the
     checkpoint clear."""
     import inspect
     import Optimization.simdriver.strategy_runner as sr
-    src = inspect.getsource(sr._build_leaf)
+    # Both halves of the leaf since ticket 06: `_build_arm` constructs (and declares the
+    # buffer channels), `_build_leaf` steps.
+    src = inspect.getsource(sr._build_arm) + inspect.getsource(sr._build_leaf)
     assert 'asm.fi.extend((i, *_k, _n) for _k, _n in asm.mgr.free_bin_depth_by_bucket())' in src
     assert (src.index('_free = asm.mgr.free_bin_depth()')
             < src.index('asm.fi.extend((i, *_k, _n)')), (
         'the per-bucket rows are no longer taken beside the whole-geometry level')
-    assert src.count('free_index=asm.fi)') == 2, 'both bundle flushes carry the rows'
-    assert 'asm.fi.clear()' in src
+    # "Both bundle flushes carry the rows" became "the rows ARE a channel" (ticket 07):
+    # `fi` is the buffer's own `free_index` list, so there is no second keyword list to
+    # leave it out of.
+    assert "fi  = buf.rows('free_index')" in src, (
+        'the free index is no longer a checkpoint-buffer channel')
+    # the buffer clears its own channels in `flush`; a hand-written clear naming every
+    # list is what used to lose one
     assert src.count('_bs.put_spills,') == 1 and src.count('bs.put_spills, bs.recv_repacks') == 1, (
         'the 4-tuple must be unpacked at the skipped-batch site AND the normal site')
 

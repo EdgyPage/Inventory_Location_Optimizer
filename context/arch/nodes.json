@@ -10590,6 +10590,95 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/persistence/checkpoint_buffer.py": {
+      "decorators": [],
+      "doc": "checkpoint_buffer \u2014 accumulate, flush, clear: one object instead of thirteen lists.\n\n`strategy_runner` declared THIRTEEN bare lists, appended to them across ~40 scattered sites,\nflushed them through a 15-keyword call, cleared them with four statements naming all thirteen,\nand flushed them again with the same 15 keywords at run end. `save_checkpoint_bundle` is the\nother end: sixteen parameters over a body that is fifteen lines of\n`if rows: _insert_x(con, run_id, rows)`. **The interface was as complex as the implementation.**\n\nIts own docstring names the characteristic failure:\n\n> A bundle argument that is accepted and never inserted is this function's characteristic\n> failure: `work_events` was one for a while, and the reconciliation that was supposed to\n> catch it passed over 68 databases holding zero rows.\n\nThat cannot happen here. A channel IS its insert function \u2014 `CHANNELS` is the only place a\nname exists \u2014 so an accepted-but-never-inserted argument is not expressible, and\n`Tests/unit/test_checkpoint_buffer.py` walks the table and reads every channel back off a\nreal file.\n\n## `close()` is the design decision\n\n**A run-end close ALWAYS writes**, open window or not. `SectionTimers` made the same call for\nthe same reason and states it the same way.\n\nThe old form guarded its run-end flush with `if pb:` \u2014 \"is there an unflushed window\",\ninferred from one of the thirteen buffers. That proxy has been escaped twice, and each escape\nleft a paragraph behind explaining why its writer sits OUTSIDE the guard: the final day's\nclose-out, and the censored yard tail, which \"would report `lifo`'s fee as CLIPPED rather than\nconcentrated, which inverts the signal the arm exists to produce\". Memory\n`run-end-writers-miss-the-final-flush` records the general shape: the tail does not fire when\n`n_batches` divides the checkpoint cadence.\n\nWith `close()` writing unconditionally there is nothing to sit outside.\n\n## The channel table is the seam, and its ORDER is load-bearing\n\n`CHANNELS` is iterated in declared order, and that order is `save_checkpoint_bundle`'s\nhistorical call order. Per-table rowids and the run digest depend on it: two tables written in\nthe other order get different `id` sequences on the same rows. Reordering this tuple is a\nbehaviour change, not tidying.\n\n`skip_when_empty` mirrors what the individual writers did: three of them early-returned on an\nempty list and the rest did not. It moves no row either way (the tables all pre-exist from\n`init_run_db`); it is preserved because an empty `executemany` still costs a statement\npreparation on a ~1 GB WAL file, and because parity is cheaper to keep than to re-argue.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer": {
+      "decorators": [],
+      "doc": "Rows waiting for a checkpoint, and the three things anybody does with them.\n\n`add` accumulates, `pending()` asks EVERY channel rather than one of them, `flush` writes\nan open window, `close` writes at run end whether or not one is open.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, channels=CHANNELS) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, path: str, run_id: int) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.add": {
+      "decorators": [],
+      "doc": "Extend one channel. An unknown name is a REFUSAL, not a silently dropped row.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, channel: str, rows) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.append": {
+      "decorators": [],
+      "doc": "One row. `add` for the common case of many.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, channel: str, row) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.clear": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.close": {
+      "decorators": [],
+      "doc": "Run end: ALWAYS write, open window or not.\n\nThis is the design decision (see the module docstring). A caller may have put rows in\nafter the last flush that belong to no window at all \u2014 the final day's close-out, the\ncensored yard tail \u2014 and under the old `if pb:` guard those were lost whenever\n`n_batches` divided the checkpoint cadence.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, path: str, run_id: int) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush": {
+      "decorators": [],
+      "doc": "Write an open window and clear it. A no-op when nothing is pending.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, path: str, run_id: int) -> None"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.pending": {
+      "decorators": [],
+      "doc": "Is ANYTHING unflushed?\n\nThe old form asked `if pb:` \u2014 one buffer as a proxy for all thirteen \u2014 and two\nrun-end writers had to be lifted out of that guard by hand. This asks every channel.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.rows": {
+      "decorators": [],
+      "doc": "The live list for one channel \u2014 for a caller that must read what it accumulated\n(the batch count the checkpoint cadence compares against).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, channel: str) -> list"
+    },
+    "Optimization/persistence/checkpoint_buffer.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['CheckpointBuffer', 'CHANNELS', 'SITE_CHANNELS']"
+    },
     "Optimization/persistence/runtime_metrics.py": {
       "decorators": [],
       "doc": "runtime_metrics.py \u2014 per-arm RUNTIME (wall-clock compute cost) capture, written by the PARENT.\n\nEach worker RETURNS its whole-arm wall time + per-section totals (reorder / batch-build / pre /\nsim / extract / inv / DB-save) + warehouse identity; the supervisor (parent process) inserts one\nrow per arm into ``<run_root>/runtime_metrics.db``.  Writing from the single parent avoids SQLite\nwrite contention under the flat pool, and puts the DB at the highest run dir so it spans every cell.\n\nThis is RUNTIME (how long an arm took to COMPUTE) \u2014 orthogonal to the sim-modeled batch_stats\ndurations.  The `cost` chart family (Performance_Evaluations/cost/, a RUN-scope evaluation) reads it\nto rank rules by what they cost to run and to show WHERE the time goes, so recurring hot-paths (e.g.\na reorder/reslot-dominated arm \u2014 the valid-aisle recompute suspicion) stay visible \u2014 and so a WMS\nreader can be told what scoring one arriving unit costs.",
@@ -14825,7 +14914,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pool, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd, seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
+      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pool, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd, seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
     },
     "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out": {
       "decorators": [],

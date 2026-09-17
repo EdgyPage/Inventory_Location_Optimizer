@@ -8916,6 +8916,126 @@
       "src": "Optimization/persistence/Warehouse_Data.py::save_warehouse_stats"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py",
+      "kind": "imports",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_aisle_metrics",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_batch_stats",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_evictions",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_bin_placements",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_carryover",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_free_index",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_picker_events",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_picks",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_put_queue_state",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_reorder_queue",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_shift_days",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_site_receiving",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_task_stats",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_work_events",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_drains",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_insert_yard_trailers",
+      "kind": "ref",
+      "src": "Optimization/persistence/checkpoint_buffer.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.add",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.append"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.close"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.clear",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.close"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.clear",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.pending",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush"
+    },
+    {
       "dst": "Schema/compat.py",
       "kind": "imports",
       "src": "Optimization/persistence/runtime_metrics.py"
@@ -13676,6 +13796,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/persistence/checkpoint_buffer.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Optimization/simconfig/equilibrium.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -13851,6 +13976,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out"
     },
     {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.__init__"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::create_run",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.finish"
@@ -13862,11 +13992,6 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::init_run_db",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.finish"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_site_inbound",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.finish"
     },
@@ -13942,6 +14067,11 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_sku_scores",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
@@ -14161,21 +14291,6 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_shift_days",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_yard_trailers",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
-    },
-    {
       "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
       "kind": "ref",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
@@ -14252,11 +14367,6 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -33369,6 +33479,110 @@
       "module": "Optimization/persistence/__init__.py",
       "name": "Optimization.persistence",
       "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py",
+      "kind": "module",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "Optimization.persistence.checkpoint_buffer",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer",
+      "kind": "class",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "CheckpointBuffer",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.__init__",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.__len__",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "_write",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.add",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "add",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.append",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "append",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.clear",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "clear",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.close",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "close",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "flush",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.pending",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "pending",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.rows",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::__all__",
+      "kind": "const",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "__all__",
+      "public": false
     },
     {
       "file": "Optimization/persistence/runtime_metrics.py",

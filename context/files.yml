@@ -1069,6 +1069,12 @@ files:
       - {name: "save_aisle_layout", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
       - {name: "save_warehouse_stats", file: "Optimization/persistence/Warehouse_Data.py", kind: "function"}
     notes: ""
+  "Optimization/persistence/checkpoint_buffer.py":
+    purpose: "CheckpointBuffer: the accumulate/flush/clear half of a sim run's DB writes, as one object over a (name, insert_fn, skip_when_empty) channel table whose declared ORDER is the historical save order rowids depend on -- so a channel IS its insert and an accepted-but-never-inserted argument is unexpressible; close() always writes at run end, which is what retired the `if pb:` proxy guard and the two writers hand-lifted out of it."
+    layer: "opt_persistence"
+    key_symbols:
+      - {name: "CheckpointBuffer", file: "Optimization/persistence/checkpoint_buffer.py", kind: "class"}
+    notes: ""
   "Optimization/persistence/runtime_metrics.py":
     purpose: "Per-arm RUNTIME (compute-cost) capture written parent-side \u2014 record_arm inserts one row per arm (section totals + warehouse identity) into <run_root>/runtime_metrics.db so the runtime graphs can rank slowest arms and show where the compute time goes."
     layer: "opt_persistence"
@@ -3660,6 +3666,19 @@ files:
       - {name: "test_abandon_closes_the_figure_and_returns_nothing", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
       - {name: "test_no_family_module_closes_a_chart_figure_by_hand", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
       - {name: "test_the_module_guards_can_actually_see_the_package", file: "Tests/unit/test_chartkit_primitives.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_checkpoint_buffer.py":
+    purpose: "Fences CheckpointBuffer: walks CHANNELS writing one row down each and reading it back off a real file (the non-vacuity ratchet -- a channel added with no insert fails here instead of producing a silent zero, and yard_drains is covered by construction), pins the declared channel ORDER as a literal, and asserts the decision that a run-end close() writes with no open batch window."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_channel_reaches_the_file", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_the_channel_set_is_the_writer_and_an_unknown_name_is_refused", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_pending_asks_every_channel_not_one", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_close_writes_with_no_open_batch_window", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_close_writes_even_with_nothing_pending", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_flush_is_the_one_that_may_skip", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_the_site_channel_set_is_a_real_second_adapter", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_the_channel_order_is_the_historical_save_order", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
     notes: ""
   "Tests/unit/test_checkpoint_window.py":
     purpose: "Fences CheckpointWindow: the five checkpoint counters and the window-open stamp, their exact arithmetic (running-sum dur_sum, the avg_dur zero guard, rate over the caller already-computed wall), and the guarantee that makes the extraction free -- every value dies at the log line and reaches no DB, result dict or runtime_metrics column."

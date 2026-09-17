@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization/persistence/checkpoint_buffer.py · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="file">
+<h1><code>Optimization/persistence/checkpoint_buffer.py</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span></p>
+<p class="purpose">CheckpointBuffer: the accumulate/flush/clear half of a sim run&#x27;s DB writes, as one object over a (name, insert_fn, skip_when_empty) channel table whose declared ORDER is the historical save order rowids depend on -- so a channel IS its insert and an accepted-but-never-inserted argument is unexpressible; close() always writes at run end, which is what retired the `if pb:` proxy guard and the two writers hand-lifted out of it.</p>
+<section><h2>Key symbols</h2><ul class="rel"><li><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer.html"><code>CheckpointBuffer</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li></ul></section>
+<section><h2>Nodes in this file <span class="count">(12)</span></h2><table class="tbl"><tr><th>kind</th><th>name</th><th class="num">fan-in</th><th class="num">fan-out</th></tr><tr><td>class</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer.html"><code>CheckpointBuffer</code></a></td><td class="num">2</td><td class="num">0</td></tr><tr><td>const</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py____all__.html"><code>__all__</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer___init__.html"><code>__init__</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer___len__.html"><code>__len__</code></a></td><td class="num">0</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer__write.html"><code>_write</code></a></td><td class="num">2</td><td class="num">1</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_add.html"><code>add</code></a></td><td class="num">1</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_append.html"><code>append</code></a></td><td class="num">0</td><td class="num">1</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_clear.html"><code>clear</code></a></td><td class="num">2</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_close.html"><code>close</code></a></td><td class="num">0</td><td class="num">2</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_flush.html"><code>flush</code></a></td><td class="num">0</td><td class="num">3</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_pending.html"><code>pending</code></a></td><td class="num">1</td><td class="num">0</td></tr><tr><td>function</td><td><a href="../nodes/nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_rows.html"><code>rows</code></a></td><td class="num">0</td><td class="num">0</td></tr></table></section>
+<section class="rel"><h2>Module imports <span class="count">(1)</span></h2><ul><li><a href="../nodes/nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
+</article>
+</main>
+</body></html>

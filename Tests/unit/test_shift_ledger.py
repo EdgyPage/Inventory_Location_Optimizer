@@ -33,11 +33,13 @@ byte-identical by construction rather than by argument.
 #: NO sys.path bootstrap here: `Tests/conftest.py` puts the repo root on the path for
 #: the whole suite, and CLAUDE.md names it and entry-script bootstraps as the only
 #: legal `sys.path.insert` sites.
+import logging
 import pickle
 
 import pytest
 
 from Optimization.simdriver.shift_ledger import ShiftLedger
+from Optimization.simdriver.strategy_runner import _shift_close_out
 
 
 # ── the opening day ───────────────────────────────────────────────────────────────
@@ -209,3 +211,98 @@ def test_it_survives_the_worker_process_boundary():
     s.note(cut=True, finish=7.0, standing=(2, 0, 1, 0))
     back = pickle.loads(pickle.dumps(s))
     assert back.final() == (1, (2, 0, 1, 0), 7.0, True)
+
+
+# ── the day close, end to end ─────────────────────────────────────────────────────
+# Every test above drives the LEDGER and stops at the snapshot it hands back. The thing that
+# turns a snapshot into the DB row -- `_shift_close_out` -- was an `ArmAssembly` method until
+# ticket 07, so reaching it meant building a 76-slot assembly, and a method can read all 76
+# whether or not it does. It is a module-level pure function of its arguments now, and its two
+# durable names are parameters, so the boundary is drivable with a stub and a logger.
+
+
+class _Day:
+    """`release.day` — `end_of(day)` is the whole surface the close-out uses."""
+
+    def __init__(self, cap: float):
+        self.cap = cap
+
+    def end_of(self, day: int) -> float:
+        return (day + 1) * self.cap
+
+
+class _Release:
+    def __init__(self, cap: float = 28_800.0):
+        self.day = _Day(cap)
+
+
+def _close(closed, cap=28_800.0):
+    return _shift_close_out(*closed, release=_Release(cap),
+                            log=logging.getLogger('shift-close-test'))
+
+
+def test_the_ledger_snapshot_is_the_close_outs_parameter_order():
+    """`advance_to` documents its tuple as "`_shift_close_out`'s exact parameter order". That
+    is a claim about two functions in two modules, and nothing checked it -- so it is checked
+    by CALLING one with the other's output rather than by comparing signatures."""
+    s = ShiftLedger()
+    s.advance_to(0)
+    s.note(cut=False, finish=100.0, standing=(0, 0, 0, 0))
+    closed = s.advance_to(1)
+    assert closed is not None
+
+    row = _close(closed)
+    assert row[0] == 0, 'the row is not the day that ended'
+    assert len(row) == 11, 'the shift_days row shape moved'
+
+
+def test_a_quiet_day_drains_and_a_standing_queue_caps_it():
+    """The verdict, through the ledger rather than around it. `drained` is
+    `equilibrium.is_drained`'s call and this asserts it MOVES -- a close-out that returned a
+    constant would pass every other assertion here."""
+    s = ShiftLedger()
+    s.advance_to(0)
+    s.note(cut=False, finish=100.0, standing=(0, 0, 0, 0))
+    quiet = _close(s.advance_to(1))
+
+    s2 = ShiftLedger()
+    s2.advance_to(0)
+    s2.note(cut=False, finish=100.0, standing=(4, 0, 0, 0))   # a put queue still standing
+    busy = _close(s2.advance_to(1))
+
+    assert quiet[3] is True and busy[3] is False, (
+        f'drained did not move with the standing put queue ({quiet[3]}, {busy[3]})')
+
+
+def test_the_supply_carry_is_not_labour_and_does_not_cap_the_day():
+    """The distinction the close-out's docstring spends a paragraph on: stock that was never
+    delivered is not work that did not fit. `missed_share` judges it; the day still drained."""
+    s = ShiftLedger()
+    s.advance_to(0)
+    s.note(cut=False, finish=100.0, standing=(0, 0, 0, 7))     # SUPPLY carry only
+    row = _close(s.advance_to(1))
+    assert row[3] is True, 'an undelivered stock carry capped the day'
+    assert row[9] == 7 and row[8] == 0, 'the supply carry landed in the labour column'
+
+
+def test_overtime_caps_a_day_with_nothing_standing():
+    """The fifth term, and the one a standing-count test cannot reach: the last task started
+    before the whistle and finished after it. Nothing is standing, so only the finish can cap
+    this day -- `_cap_end` for day 0 is one cap."""
+    s = ShiftLedger()
+    s.advance_to(0)
+    s.note(cut=False, finish=30_000.0, standing=(0, 0, 0, 0))
+    row = _close(s.advance_to(1), cap=28_800.0)
+    assert row[3] is False, 'a task finishing past the cap did not count as overtime'
+    assert row[10] == 30_000.0, 'last_finish is not reported as measured'
+
+
+def test_the_final_day_closes_the_same_way_as_a_boundary():
+    """The run-end path: `final()` returns the open day and it goes through the same function.
+    That equivalence is why the run end needs no second close-out -- and it is the shape that
+    lost the last day twice when the run-end WRITER was conditional (ticket 07)."""
+    s = ShiftLedger()
+    s.advance_to(3)
+    s.note(cut=True, finish=500.0, standing=(1, 0, 1, 0))
+    row = _close(s.final())
+    assert row[0] == 3 and row[3] is False, 'the final day did not close on its own state'

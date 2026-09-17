@@ -53,20 +53,19 @@ def _leaf_source() -> str:
     """One leaf, in three pieces since ticket 06.
 
     `_build_arm` constructs the arm and returns an `ArmAssembly`; `_build_leaf` closes the two
-    batch halves over it; `ArmAssembly.shift_close_out` is the day close-out, a method because
-    the stepping half calls it. A question about "what the runner does" spans all three, and a
-    scan of one would now pass by looking in the wrong place.
+    batch halves over it; `_shift_close_out` is the day close-out the stepping half calls.
+    A question about "what the runner does" spans all three, and a scan of one would now pass
+    by looking in the wrong place.
 
-    The method is dedented so the result still parses as a module — these scans `ast.parse`
-    what they get back.
+    All three are module-level since ticket 07, so the result parses as a module with no
+    dedent — these scans `ast.parse` what they get back.
     """
     import inspect
-    import textwrap
 
     from Optimization.simdriver import strategy_runner as _sr
     return (inspect.getsource(_sr._build_arm)
             + inspect.getsource(_sr._build_leaf)
-            + textwrap.dedent(inspect.getsource(_sr.ArmAssembly.shift_close_out)))
+            + inspect.getsource(_sr._shift_close_out))
 
 
 @pytest.fixture()
@@ -512,9 +511,17 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     """
     import Optimization.simdriver.strategy_runner as sr
     src = _leaf_source()
-    assert 'asm.sd.append(asm.shift_close_out(*_closed))' in src
-    assert src.count('shift_days=asm.sd') == 2, 'both bundle flushes carry the ledger'
-    assert 'asm.sd.clear()' in src
+    assert 'asm.sd.append(_shift_close_out(*_closed, release=asm._release, log=asm.log))' in src
+    # THE LEDGER RIDES THE BUFFER, which is what "both flushes carry it" became. `sd` is
+    # the buffer's own `shift_days` list (ticket 07), so a row appended to it is in the
+    # channel that inserts it -- there is no second keyword list to forget it from.
+    assert "sd  = buf.rows('shift_days')" in src, (
+        'the ledger is no longer a checkpoint-buffer channel')
+    assert 'save_checkpoint_bundle' not in src, (
+        'a 15-keyword flush is back; a row reaches the DB by being in a CHANNEL now')
+    # No hand-written clear any more: `CheckpointBuffer.flush` clears its own channels,
+    # and a clear statement naming every list is what used to leave one out.
+    assert 'asm.sd.clear()' not in src, 'a hand-written per-list clear is back'
     # ONE definition of drained, and it is labour-only: the close-out calls
     # `equilibrium.is_drained` with the LABOUR half of the carry and the overtime stamp
     # (the last finish past the cap) and never re-derives it
@@ -538,19 +545,26 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     # batch). Now a call order rather than a statement order, and the ledger's own test
     # sabotages the reverse to prove the rule is load-bearing.
     assert src.index('asm.shift.advance_to(_d)') < src.index('asm.shift.note('),         'the day boundary must be tested BEFORE this batch folds in'
-    # THE RUN-END FLUSH, the defect this gate was written for: a flush nested inside `if pb:`
-    # silently writes nothing whenever n_batches divides the checkpoint cadence.
-    _ifpb = src.index('if asm.pb:')
-    _indent = src[:_ifpb].rsplit('\n', 1)[-1]     # the `if pb:` line's OWN indent
-    tail = src[_ifpb:]
-    final = tail.index('_last_day = asm.shift.final() if asm._drain_or_cap else None')
-    assert 'save_shift_days(asm.db_path, asm.run_id, [asm.shift_close_out(*_last_day)])' in tail
-    # Compared against `if pb:`'s own indent rather than a literal four spaces, so the guard
-    # survives the run-end tail moving into a nested function (site-dock 18) while still
-    # failing the only thing it exists to catch: the flush drifting INSIDE the conditional.
-    line = tail[:final].rsplit('\n', 1)[-1]
-    assert line == _indent, 'the final-day flush must sit at the `if pb:` indentation, outside it'
+    # THE RUN-END FLUSH, the defect this gate was written for: a flush nested inside
+    # `if pb:` silently writes nothing whenever n_batches divides the checkpoint cadence.
+    #
+    # THERE IS NO `if pb:` ANY MORE. `CheckpointBuffer.close()` always writes, open window
+    # or not, and that is where the decision lives now -- so the two writers that had been
+    # lifted OUT of the guard by hand (this ledger, and the censored yard tail) came back
+    # inside it, and their two explanatory paragraphs went with the guard. What this gate
+    # pins is therefore the DECISION rather than a statement's indent.
+    assert 'if asm.pb:' not in src, (
+        'the `if pb:` proxy guard is back -- one of thirteen buffers standing in for "is '
+        'there an unflushed window", which is the shape that lost the final day twice')
+    assert 'asm.buf.close(' in src, 'the run end no longer closes the buffer'
+    assert "asm.buf.append('shift_days'," in src and '_shift_close_out(*_last_day' in src, (
+        "the final day's close-out no longer rides the buffer")
 
+    from Optimization.persistence.checkpoint_buffer import CheckpointBuffer
+    import inspect as _i
+    close_src = _i.getsource(CheckpointBuffer.close)
+    assert 'if ' not in close_src.split('"""')[-1], (
+        'close() grew a condition; "a run-end close always writes" is the whole decision')
 def test_a_nonzero_put_swap_coef_is_an_error_under_the_era_at_the_cli_and_at_the_seam():
     """Gap 2 of "Close the put closed form's three known gaps": the derivation has no
     cart-swap term and the single queue the era runs never reads one, so a nonzero

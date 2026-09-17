@@ -31,6 +31,8 @@ import sqlite3
 import pytest
 
 from Optimization.persistence import Picking_Data as pdata
+from Optimization.persistence.checkpoint_buffer import (
+    SITE_CHANNELS, CheckpointBuffer)
 from Optimization.simdriver import strategy_runner as sr
 
 from Tests.unit.test_site_receiving import _day, _mixed_trailer, _site
@@ -121,7 +123,13 @@ def _site_dock(tmp_path, totals):
     dock.db_path = str(tmp_path / 'inbound_a__b.db')
     dock.arm_pair = 'a__b'
     dock._run_id = None
-    dock._yt, dock._yd, dock._sr = [], [], []
+    # The three lists are VIEWS onto the dock's own CheckpointBuffer (ticket 07), so this
+    # fixture builds one rather than three bare lists -- a fixture that kept bare lists
+    # would exercise a dock whose `finish` writes nothing.
+    dock._buf = CheckpointBuffer(SITE_CHANNELS)
+    dock._yt = dock._buf.rows('yard_trailers')
+    dock._yd = dock._buf.rows('yard_drains')
+    dock._sr = dock._buf.rows('site_receiving')
     return dock
 
 

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.persistence.checkpoint_buffer · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_persistence_checkpoint_buffer_py" data-id="Optimization/persistence/checkpoint_buffer.py">
+<nav class="crumbs"><a href="../layers.html">opt_persistence</a> <span class="sep">›</span> <span class="here"><code>Optimization/persistence/checkpoint_buffer.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.persistence.checkpoint_buffer</code></h1>
+<p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_checkpoint_buffer_py.html"><code>Optimization/persistence/checkpoint_buffer.py</code></a></p>
+<div class="badges"><span class="badge fanout">high fan-out</span></div>
+<pre class="sig"><code>Optimization.persistence.checkpoint_buffer</code></pre>
+<section class="doc">checkpoint_buffer — accumulate, flush, clear: one object instead of thirteen lists.
+
+`strategy_runner` declared THIRTEEN bare lists, appended to them across ~40 scattered sites,
+flushed them through a 15-keyword call, cleared them with four statements naming all thirteen,
+and flushed them again with the same 15 keywords at run end. `save_checkpoint_bundle` is the
+other end: sixteen parameters over a body that is fifteen lines of
+`if rows: _insert_x(con, run_id, rows)`. **The interface was as complex as the implementation.**
+
+Its own docstring names the characteristic failure:
+
+&gt; A bundle argument that is accepted and never inserted is this function&#x27;s characteristic
+&gt; failure: `work_events` was one for a while, and the reconciliation that was supposed to
+&gt; catch it passed over 68 databases holding zero rows.
+
+That cannot happen here. A channel IS its insert function — `CHANNELS` is the only place a
+name exists — so an accepted-but-never-inserted argument is not expressible, and
+`Tests/unit/test_checkpoint_buffer.py` walks the table and reads every channel back off a
+real file.
+
+## `close()` is the design decision
+
+**A run-end close ALWAYS writes**, open window or not. `SectionTimers` made the same call for
+the same reason and states it the same way.
+
+The old form guarded its run-end flush with `if pb:` — &quot;is there an unflushed window&quot;,
+inferred from one of the thirteen buffers. That proxy has been escaped twice, and each escape
+left a paragraph behind explaining why its writer sits OUTSIDE the guard: the final day&#x27;s
+close-out, and the censored yard tail, which &quot;would report `lifo`&#x27;s fee as CLIPPED rather than
+concentrated, which inverts the signal the arm exists to produce&quot;. Memory
+`run-end-writers-miss-the-final-flush` records the general shape: the tail does not fire when
+`n_batches` divides the checkpoint cadence.
+
+With `close()` writing unconditionally there is nothing to sit outside.
+
+## The channel table is the seam, and its ORDER is load-bearing
+
+`CHANNELS` is iterated in declared order, and that order is `save_checkpoint_bundle`&#x27;s
+historical call order. Per-table rowids and the run digest depend on it: two tables written in
+the other order get different `id` sequences on the same rows. Reordering this tuple is a
+behaviour change, not tidying.
+
+`skip_when_empty` mirrors what the individual writers did: three of them early-returned on an
+empty list and the rest did not. It moves no row either way (the tables all pre-exist from
+`init_run_db`); it is preserved because an empty `executemany` still costs a statement
+preparation on a ~1 GB WAL file, and because parity is cheaper to keep than to re-argue.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(12)</span></h2><ul><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer.html"><code>CheckpointBuffer</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py____all__.html"><code>__all__</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer___init__.html"><code>__init__</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer___len__.html"><code>__len__</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer__write.html"><code>_write</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_add.html"><code>add</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_append.html"><code>append</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_clear.html"><code>clear</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_close.html"><code>close</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_flush.html"><code>flush</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_pending.html"><code>pending</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_rows.html"><code>rows</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_checkpoint_buffer_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/checkpoint_buffer.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -86,6 +86,8 @@ from Optimization.config.strategies import (
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
 from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimers
+from Optimization.persistence.checkpoint_buffer import (
+    SITE_CHANNELS, CheckpointBuffer)
 from Optimization.simdriver.audit_ledgers import AuditLedgers
 from Optimization.simdriver.batch_state import BatchState
 from Optimization.simdriver.shift_ledger import ShiftLedger
@@ -98,8 +100,8 @@ from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, snapshot_aisle_metrics,
 )
 from Optimization.persistence.Picking_Data import (
-    save_checkpoint_bundle, save_shift_days, save_yard_trailers,
-    save_bin_scores, save_sku_scores, save_site_inbound,
+    save_shift_days, save_yard_trailers,
+    save_bin_scores, save_sku_scores,
     create_run as _create_run, find_run as _find_run, init_run_db as _init_run_db,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
@@ -939,7 +941,7 @@ class _SiteDock:
     """
 
     __slots__ = ('coord', 'dock', 'transit', 'workers', 'release', 'db_path',
-                 'arm_pair', 'log', '_run_id', '_yt', '_yd', '_sr')
+                 'arm_pair', 'log', '_run_id', '_buf', '_yt', '_yd', '_sr')
 
     def __init__(self, coord, workers, release, db_path: str, log):
         self.coord = coord
@@ -957,12 +959,18 @@ class _SiteDock:
         self.arm_pair = os.path.splitext(os.path.basename(db_path))[0].split('inbound_', 1)[-1]
         self.log = log
         self._run_id = None
-        self._yt: list = []
-        self._yd: list = []
+        #: THE SECOND CHECKPOINT BUFFER (ticket 07).  The leaf runner's thirteen lists and
+        #: this dock's three were the same concept implemented twice, each with its own
+        #: bundle writer; `SITE_CHANNELS` is this one's channel set, and having two is what
+        #: makes the channel table a seam rather than a table.  The three names below are
+        #: the buffer's OWN lists, so every `extend`/`append` site downstream is unchanged.
+        self._buf = CheckpointBuffer(SITE_CHANNELS)
+        self._yt = self._buf.rows('yard_trailers')
+        self._yd = self._buf.rows('yard_drains')
         #: The SITE dock's own per-batch totals (`site_receiving`), the third site-scoped
         #: table.  Site-dock 15 section 7: the site half of the closure that
         #: `receiving_report.reconcile_pair` compares the two leaves' rows against.
-        self._sr: list = []
+        self._sr = self._buf.rows('site_receiving')
 
     def __repr__(self):
         return (f'_SiteDock({self.coord!r}, '
@@ -1034,7 +1042,7 @@ class _SiteDock:
             self.log.info(f'  [site] {len(standing)} trailer(s) still on site at run end - '
                           f'detention censored')
             self._yt.extend(standing)
-        if not self._yt and not self._yd and not self._sr:
+        if not self._buf.pending():
             # A coupled standing run that received nothing writes NO site DB, for the same
             # reason an inbound-off run has empty yard tables rather than zero-filled ones:
             # "the yard was empty" and "there was no yard" are different claims.
@@ -1064,11 +1072,12 @@ class _SiteDock:
             self._run_id = _create_run(
                 self.db_path, 'site',
                 identity={'strategy_key': self.arm_pair})
-        save_site_inbound(self.db_path, self._run_id,
-                          yard_trailers=self._yt, yard_drains=self._yd,
-                          site_receiving=self._sr)
-        self.log.info(f'  [site] wrote {len(self._yt):,} trailer + {len(self._yd):,} drain '
-                      f'+ {len(self._sr):,} dock-total row(s) -> '
+        # COUNTED BEFORE THE CLOSE, because `close()` clears -- the one thing that changes
+        # for a caller when three lists it owns become three lists a buffer owns.
+        _n = (len(self._yt), len(self._yd), len(self._sr))
+        self._buf.close(self.db_path, self._run_id)
+        self.log.info(f'  [site] wrote {_n[0]:,} trailer + {_n[1]:,} drain '
+                      f'+ {_n[2]:,} dock-total row(s) -> '
                       f'{os.path.basename(self.db_path)}')
 
 
@@ -1222,7 +1231,7 @@ class ArmAssembly:
     and is not.
     """
 
-    __slots__ = ('n_catalogue', 'n_skus', '_cut_at_day_end', '_drain_or_cap', '_fs_w', '_gc_detail', '_gc_stats0',
+    __slots__ = ('buf', 'n_catalogue', 'n_skus', '_cut_at_day_end', '_drain_or_cap', '_fs_w', '_gc_detail', '_gc_stats0',
                   '_gc_thresh', '_pending', '_pick_workers', '_put_crews', '_put_workers',
                   '_recv_day', '_recv_workers', '_release', '_roll_over', '_seed_terms',
                   '_shift_seconds', '_space_tl', 'affinity', 'arm_clock', 'audit', 'batch_cfg',
@@ -1235,7 +1244,7 @@ class ArmAssembly:
                   'site', 'skipped', 'start_i', 'strat', 'strategy', 't_loop', 't_precompute',
                   'timers', 'warehouse', 'we', 'wp', 'yd', 'yt')
 
-    def __init__(self, *, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0,
+    def __init__(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0,
                          _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers,
                          _recv_day, _recv_workers, _release, _roll_over, _seed_terms,
                          _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg,
@@ -1246,6 +1255,7 @@ class ArmAssembly:
                          put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd,
                          seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop,
                          t_precompute, timers, warehouse, we, wp, yd, yt):
+        self.buf = buf
         self.n_catalogue = n_catalogue
         self.n_skus = n_skus
         self._cut_at_day_end = _cut_at_day_end
@@ -1325,52 +1335,58 @@ class ArmAssembly:
         self.yd = yd
         self.yt = yt
 
-    # ── the day close-out, a method because the STEPPING half calls it ───────────
-    # It closes over exactly two durable names (`_release`, `log`) and is called from
-    # `_step` at a day boundary and from `_finish` for the final day. It stayed with the
-    # assembly rather than the construction for that reason.
-    def shift_close_out(self, day: int, standing: tuple, last_finish: float,
-                        cut: bool) -> tuple:
-        """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
-        standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
-        standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
-        was cut in it, no standing LABOUR survives it -- put queues + held + the dock floor
-        + the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap
-        (START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is
-        calendar, not labour; and releases are exhausted by construction at a day
-        boundary), and never the SUPPLY carry (`unpicked_unavailable` /
-        `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as
-        standing work it made every finite stock level cap every day).
-        `equilibrium.is_drained` is the one definition; this closure only gathers its
-        arguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay
-        origin-aligned, so this is a REPORT of when the crews got off the clock, never a
-        scheduler.
+# ── the day close-out ─────────────────────────────────────────────────────────────────
+# A PURE FUNCTION of its arguments, at module level (ticket 07).  It was an `ArmAssembly`
+# method, which meant a test of the day close had to build a 76-slot assembly -- and a method
+# can read all 76 whether or not it does.  It closes over exactly two durable names, so they
+# are parameters; `Tests/unit/test_shift_ledger.py` drives the whole boundary with a stub.
+#
+# NOT moved next to `ShiftLedger`, which is where the ticket pointed: that module's own
+# docstring refuses it -- "this object holds the state that function is CALLED WITH; it makes
+# no judgement about a day, and moving the judgement here would put `equilibrium` behind a
+# second door."  The judgement (`equilibrium.is_drained`) is the reason, and it still holds.
+def _shift_close_out(day: int, standing: tuple, last_finish: float, cut: bool,
+                     *, release, log) -> tuple:
+    """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
+    standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
+    standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
+    was cut in it, no standing LABOUR survives it -- put queues + held + the dock floor
+    + the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap
+    (START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is
+    calendar, not labour; and releases are exhausted by construction at a day
+    boundary), and never the SUPPLY carry (`unpicked_unavailable` /
+    `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as
+    standing work it made every finite stock level cap every day).
+    `equilibrium.is_drained` is the one definition; this closure only gathers its
+    arguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay
+    origin-aligned, so this is a REPORT of when the crews got off the clock, never a
+    scheduler.
 
-        The state is PASSED IN, never read live: the close-out fires at the first batch of
-        the NEXT day, after that batch has already been processed, so the manager's live
-        depths and the folded clocks belong to the new day by then.  The caller hands it
-        the snapshot the previous day's last batch left behind (`_shift_standing`) and the
-        clocks and cut flag accumulated before this batch was folded in.  The log-only
-        ledger read them live and mis-attributed every day's first batch to the day before
-        -- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which
-        persisting the row was what made visible.  Called once per day boundary, and once
-        more after the loop for the final day, which has no next day to close it."""
-        _s_put, _s_dock, _s_labour, _s_supply = (int(x) for x in standing)
-        _s_carry = _s_labour + _s_supply
-        _standing = _s_put + _s_dock + _s_carry
-        _cap_end = self._release.day.end_of(day)
-        # START-gate overtime: the last task any crew began before the whistle finished
-        # after it.  Labour that did not fit the day -- the verdict's fifth term.
-        _overtime = float(last_finish) > _cap_end
-        _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
-                               standing_carry_labour=_s_labour, overtime=_overtime)
-        _end = _tl_shift_end(_cap_end, last_finish, _drained)
-        self.log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
-                 f'({"drained" if _drained and _end < _cap_end else "capped"}; '
-                 f'standing={_standing}: put={_s_put} dock={_s_dock} '
-                 f'carry labour={_s_labour} supply={_s_supply})')
-        return (day, _cap_end, _end, _drained, _standing, _s_put, _s_dock, _s_carry,
-                _s_labour, _s_supply, float(last_finish))
+    The state is PASSED IN, never read live: the close-out fires at the first batch of
+    the NEXT day, after that batch has already been processed, so the manager's live
+    depths and the folded clocks belong to the new day by then.  The caller hands it
+    the snapshot the previous day's last batch left behind (`_shift_standing`) and the
+    clocks and cut flag accumulated before this batch was folded in.  The log-only
+    ledger read them live and mis-attributed every day's first batch to the day before
+    -- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which
+    persisting the row was what made visible.  Called once per day boundary, and once
+    more after the loop for the final day, which has no next day to close it."""
+    _s_put, _s_dock, _s_labour, _s_supply = (int(x) for x in standing)
+    _s_carry = _s_labour + _s_supply
+    _standing = _s_put + _s_dock + _s_carry
+    _cap_end = release.day.end_of(day)
+    # START-gate overtime: the last task any crew began before the whistle finished
+    # after it.  Labour that did not fit the day -- the verdict's fifth term.
+    _overtime = float(last_finish) > _cap_end
+    _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
+                           standing_carry_labour=_s_labour, overtime=_overtime)
+    _end = _tl_shift_end(_cap_end, last_finish, _drained)
+    log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
+             f'({"drained" if _drained and _end < _cap_end else "capped"}; '
+             f'standing={_standing}: put={_s_put} dock={_s_dock} '
+             f'carry labour={_s_labour} supply={_s_supply})')
+    return (day, _cap_end, _end, _drained, _standing, _s_put, _s_dock, _s_carry,
+            _s_labour, _s_supply, float(last_finish))
 
 
 def _build_arm(args: dict, unit: dict | None = None, pool=None,
@@ -2032,19 +2048,28 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # ── simulation loop ───────────────────────────────────────────────────────
     log.info(f'Simulation loop [DeferredPickSimulation + ThreadPoolExecutor]: '
              f'batches {start_i} -> {n_batches}')
-    pb: list = []
-    pt: list = []
-    pe: list = []
-    we: list = []   # merged cross-stream rows (picks + put-away) on the absolute axis
-    pk: list = []   # individual pick records
-    pm: list = []   # aisle metrics snapshots
-    pq: list = []   # reorder-queue contents per batch (lead + stock + held), per queue
-    pqs: list = []  # per-(batch, queue) stream STATE: depth/oldest age + the flow counters
-    cov: list = []  # carryover: what did not get placed this batch, and why
-    yt: list = []   # yard: FINISHED trailer stamps (the censored tail flushes after the loop)
-    yd: list = []   # yard: per-drain levels — the contention pair and the binding-cut pair
-    sd: list = []   # the drain-or-cap shift's ledger: one close-out row per working day
-    fi: list = []   # the free index per bucket: one `(batch, *BinKey, free)` row per bucket per batch
+    # ── the checkpoint buffer ─────────────────────────────────────────────────────
+    # Thirteen bare lists until ticket 07, appended to across ~40 sites, flushed through a
+    # 15-keyword call, cleared by four statements naming all thirteen, and flushed again
+    # with the same 15 keywords.  One object now; the channel table in
+    # `Optimization/persistence/checkpoint_buffer.py` is the only place a name exists.
+    #
+    # Each list below is the buffer's OWN list, so every `.append(...)` site downstream is
+    # unchanged and the rows land in the channel that will insert them.
+    buf = CheckpointBuffer()
+    pb  = buf.rows('batch_stats')
+    pt  = buf.rows('task_stats')
+    pe  = buf.rows('picker_events')
+    we  = buf.rows('work_events')     # merged cross-stream rows (picks + put-away), absolute axis
+    pk  = buf.rows('picks')           # individual pick records
+    pm  = buf.rows('aisle_metrics')   # aisle metrics snapshots
+    pq  = buf.rows('reorder_queue')   # per batch (lead + stock + held), per queue
+    pqs = buf.rows('put_queue_state')  # per-(batch, queue) depth/oldest age + the flow counters
+    cov = buf.rows('carryover')       # what did not get placed this batch, and why
+    yt  = buf.rows('yard_trailers')   # FINISHED trailer stamps (the censored tail closes after)
+    yd  = buf.rows('yard_drains')     # per-drain levels — contention pair and binding-cut pair
+    sd  = buf.rows('shift_days')      # one close-out row per working day
+    fi  = buf.rows('free_index')      # one `(batch, *BinKey, free)` row per bucket per batch
     lift_cache: dict = {}   # memoize sum_lift(frozenset(task_skus)) across batches (O(k^2)/task)
     skipped        = 0
     # This arm's absolute clock: where the NEXT batch begins.  Batches are sequential
@@ -2164,7 +2189,7 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # They read the arm through `asm` rather than reaching back into this scope, so the
     # 76 names an arm actually carries are named in one place and the 60 construction
     # temporaries above stay where they belong.
-    asm = ArmAssembly(n_catalogue=n_catalogue, n_skus=n_skus,
+    asm = ArmAssembly(buf=buf, n_catalogue=n_catalogue, n_skus=n_skus,
                       _cut_at_day_end=_cut_at_day_end, _drain_or_cap=_drain_or_cap,
                       _fs_w=_fs_w, _gc_detail=_gc_detail, _gc_stats0=_gc_stats0,
                       _gc_thresh=_gc_thresh, _pending=_pending, _pick_workers=_pick_workers,
@@ -2879,7 +2904,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # it is now the ledger's interface rather than the shape of this block.
             _closed = asm.shift.advance_to(_d)
             if _closed is not None:
-                asm.sd.append(asm.shift_close_out(*_closed))
+                asm.sd.append(_shift_close_out(*_closed, release=asm._release, log=asm.log))
             asm.shift.note(cut=bool(sim.carried) or bool(bs.recv_cut),
                        finish=max(asm.arm_clock, asm.put_clock, asm.recv_clock),
                        standing=(asm.mgr.queue_depth,
@@ -2890,13 +2915,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         if len(asm.pb) >= asm.checkpoint:
             t_s0 = time.perf_counter()
             _bp, _be = asm.bin_rec.drain()
-            save_checkpoint_bundle(
-                asm.db_path, asm.run_id,
-                batch_stats=asm.pb, task_stats=asm.pt, picker_events=asm.pe, picks=asm.pk,
-                bin_placements=_bp, bin_evictions=_be,
-                aisle_metrics=asm.pm, reorder_queue=asm.pq, work_events=asm.we,
-                put_queue_state=asm.pqs, carryover=asm.cov,
-                yard_trailers=asm.yt, yard_drains=asm.yd, shift_days=asm.sd, free_index=asm.fi)
+            asm.buf.add('bin_placements', _bp)
+            asm.buf.add('bin_evictions', _be)
+            asm.buf.flush(asm.db_path, asm.run_id)
             save_worker_checkpoint(asm.run_dir, asm.strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
@@ -2938,10 +2959,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # checkpoint block), so it is added straight to the section about to close.
             asm.timers.add('save', t_save)
 
-            asm.pb.clear(); asm.pt.clear(); asm.pe.clear(); asm.pk.clear(); asm.pm.clear(); asm.pq.clear()
-            asm.pqs.clear(); asm.cov.clear()
-            asm.yt.clear(); asm.yd.clear(); asm.sd.clear(); asm.fi.clear()
-            asm.we.clear()
+            # (the buffer cleared itself in `flush` above -- four statements naming all
+            # thirteen lists used to stand here, and a name missed from one of them was a
+            # window that wrote its rows twice)
             # Close BOTH halves of the window for the next log line.  The timers'
             # whole-arm totals already contain theirs -- `roll` moves no number
             # anybody is waiting on -- and the counters have no total to move.
@@ -2955,27 +2975,24 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # NO FOLD HERE.  The final unflushed window is already in every total (that is
         # `SectionTimers`' one design decision), so this run-end writer has nothing to
         # forget -- which is exactly the defect the hand-kept form kept re-introducing.
-        if asm.pb:
-            asm.log.info(f'  Flushing final {len(asm.pb)} batches to DB...')
-            _ts_final = time.perf_counter()
-            _bp, _be = asm.bin_rec.drain()
-            save_checkpoint_bundle(
-                asm.db_path, asm.run_id,
-                batch_stats=asm.pb, task_stats=asm.pt, picker_events=asm.pe, picks=asm.pk,
-                bin_placements=_bp, bin_evictions=_be,
-                aisle_metrics=asm.pm, reorder_queue=asm.pq, work_events=asm.we,
-                put_queue_state=asm.pqs, carryover=asm.cov,
-                yard_trailers=asm.yt, yard_drains=asm.yd, shift_days=asm.sd, free_index=asm.fi)
-            asm.timers.add('save', time.perf_counter() - _ts_final)
+        # THE RUN-END CLOSE, and it ALWAYS WRITES.  `CheckpointBuffer.close` is where that
+        # decision lives; what stood here was `if pb:` -- one of thirteen buffers used as a
+        # proxy for "is there an unflushed window" -- and the two writers below had to be
+        # lifted OUT of it by hand, each with a paragraph saying why.  Those paragraphs are
+        # gone with the guard; what they were protecting against was the guard.
+        _ts_final = time.perf_counter()
+        _bp, _be = asm.bin_rec.drain()
+        asm.buf.add('bin_placements', _bp)
+        asm.buf.add('bin_evictions', _be)
 
-        # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as
-        # the censored yard tail below).  The ledger closes a day at the first batch of the NEXT
-        # day, so the last day of a run has no closer inside the loop; without this flush every
-        # era run would report one day fewer than it worked, and the equilibrium check's "every
+        # THE FINAL DAY'S CLOSE-OUT.  The ledger closes a day at the first batch of the NEXT
+        # day, so the last day of a run has no closer inside the loop; without this every era
+        # run would report one day fewer than it worked, and the equilibrium check's "every
         # day drained" would be read over a window missing its last member.
         _last_day = asm.shift.final() if asm._drain_or_cap else None
         if _last_day is not None:
-            save_shift_days(asm.db_path, asm.run_id, [asm.shift_close_out(*_last_day)])
+            asm.buf.append('shift_days',
+                           _shift_close_out(*_last_day, release=asm._release, log=asm.log))
 
         # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
         # conditional on there being an unflushed batch window, which there is not when
@@ -2991,7 +3008,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         if _yard_standing:
             asm.log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
                      f'detention censored')
-            save_yard_trailers(asm.db_path, asm.run_id, _yard_standing)
+            asm.buf.add('yard_trailers', _yard_standing)
+
+        if len(asm.buf):
+            asm.log.info(f'  Flushing final {len(asm.buf.rows("batch_stats"))} batches to DB...')
+        asm.buf.close(asm.db_path, asm.run_id)
+        asm.timers.add('save', time.perf_counter() - _ts_final)
 
         # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
         # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
