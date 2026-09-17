@@ -31,7 +31,11 @@ architecture test that is not ours, and `Schema.profile_tree --check` is red on 
    pyyaml, 7 of 31 `Tests/architecture/*` files `importorskip` and vanish, and they are exactly
    the sync gates.
 2. Record the three placement equivalence files' pass state (~4 s) as the pre-run baseline.
-3. Take a `git archive HEAD | tar -x` control copy for later diffing.
+3. ~~Take a `git archive HEAD | tar -x` control copy~~ -- superseded. A **toy run** is the
+   better instrument and was built instead: `smoketest.py --profile tiny`, 4.5 min at 12
+   workers, 136 arms, every structural feature. Two HEAD-vs-HEAD runs digest IDENTICAL, and
+   `run_digest.py --self-test` detects planted 1e-9 damage, so the instrument can fail. The
+   archive copy is only needed while a real campaign is running.
 
 **Exit:** a per-gate before table exists in §Progress, with the known-red ones named against their
 `.scratch/architecture-drift/` ticket.
@@ -149,7 +153,9 @@ count DOWN, which it permits.
 |---|---|---|---|---|
 | 0 | baseline | DONE | | gate 6 red, pre-existing (drift 04); all others green |
 | 1 | 01 | RESOLVED | | PRE-RUN -- landed, 5 guarding tests, non-vacuity proved |
-| 2 | 02-05 | not started | | |
+| 2 | 02 | part-landed | 89c4efa4 | stage A: ledger module + drop half. Stage B (10 add blocks) open |
+| 2 | 03 | part-landed | 715da1d9 | dead registries + live dispatch hints. load_*/lift_sum HELD for a decision |
+| 2 | 04-05 | not started | | |
 | 3 | 06-08 | not started | | |
 | 4 | 09-10 | not started | | |
 | 5 | 11-15 | not started | | |
