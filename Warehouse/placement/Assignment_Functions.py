@@ -2834,25 +2834,3 @@ def build_cluster_map_placement(mgr, affinity, wp,
     return Placement(name, place_one, open_pool=open_pool)
 
 
-# ── programmatic name → builder registries (robust downstream lookup) ──────
-ASSIGNMENT_BUILDERS = {
-    'travel_min':   build_trip_minimizing_assignment_fn,
-    'travel_max':   build_trip_maximizing_assignment_fn,
-    'cohesion_max': build_cluster_maximizing_assignment_fn,
-    'cohesion_min': build_cluster_minimizing_assignment_fn,
-    'uniform_min':  build_uniform_aisle_trip_min_assignment_fn,
-    'load_min':     build_load_minimizing_assignment_fn,
-    'load_max':     build_load_maximizing_assignment_fn,
-}
-RANKED_BUILDERS = {
-    'travel_min':     build_ranked_minimizing_assignment_fn,
-    'travel_max':     build_ranked_maximizing_assignment_fn,
-    'uniform_ranked': build_ranked_uniform_assignment_fn,
-}
-# (needs_affinity, needs_demand) state required before each scorer can be used.
-SCORER_NEEDS = {
-    'travel_min': (True, True),   'travel_max': (True, True),
-    'cohesion_max': (True, True), 'cohesion_min': (True, True),
-    'uniform_min': (False, False),
-    'load_min': (True, False),    'load_max': (True, False),
-}

@@ -2,11 +2,13 @@
 
 Three groups:
 
-**Registries and names** — `ASSIGNMENT_BUILDERS` / `RANKED_BUILDERS` are how a strategy key
-in `Optimization/config/strategies.py` becomes a callable, and `SCORER_NEEDS` is how the
-runner decides whether to load the affinity matrix and the demand maps at all.  A builder
-missing from a registry is a strategy that cannot be constructed by name; a wrong
-`SCORER_NEEDS` entry is a scorer handed empty inputs.
+**Names** — a built scorer carries its programmatic `name`, which metrics, run labels and the
+viewer identify it by.  There used to be three registries here too (`ASSIGNMENT_BUILDERS`,
+`RANKED_BUILDERS`, `SCORER_NEEDS`) with tests asserting their key sets; all three were deleted
+in 2026-09 after the key-set assertions turned out to be the ONLY readers in the repo.  Their
+docstrings claimed `strategies.py` looked builders up by key and that the runner read
+`SCORER_NEEDS` to decide what to load — `strategies.py` imports and calls the builders
+directly, and the runner reads `needs_affinity`/`needs_demand` off `_RESTOCKS`.
 
 **Composed placement** — the scorers actually place where their names say: travel picks the
 low-travel aisle, cohesion co-locates with an affinity partner, compaction/expansion pick
@@ -95,42 +97,19 @@ def _null_affinity():
 
 # ── registries and names ─────────────────────────────────────────────────────
 
-def test_assignment_builder_registry_is_exactly_the_seven_named_policies():
-    """`strategies.py` looks builders up by these keys; a rename here is a KeyError there."""
-    expected = {'travel_min', 'travel_max', 'cohesion_max', 'cohesion_min',
-                'uniform_min', 'load_min', 'load_max'}
-    got = set(A.ASSIGNMENT_BUILDERS)
-    assert got == expected, f'{sorted(got)} != {sorted(expected)}'
-
-
-def test_ranked_builder_registry_is_exactly_the_three_wave_policies():
-    """RANKED_BUILDERS is the subset that can place a whole wave (place_wave), not one unit."""
-    expected = {'travel_min', 'travel_max', 'uniform_ranked'}
-    got = set(A.RANKED_BUILDERS)
-    assert got == expected, f'{sorted(got)} != {sorted(expected)}'
-
-
-def test_scorer_needs_declares_which_inputs_each_policy_loads():
-    """SCORER_NEEDS is (needs_affinity, needs_demand).
-
-    The runner skips loading the affinity DB and the demand maps when a policy declares it
-    does not need them — so a wrong entry either wastes a multi-GB load or hands the scorer
-    empty maps.  The empty-map case is caught by the `_require_*` guards below, but only if
-    this flag said the data was needed in the first place.
-    """
-    assert A.SCORER_NEEDS['travel_min'] == (True, True), A.SCORER_NEEDS['travel_min']
-    assert A.SCORER_NEEDS['uniform_min'] == (False, False), A.SCORER_NEEDS['uniform_min']
-
-
 def test_built_scorers_carry_their_programmatic_name():
     """Downstream (metrics, run labels, the viewer) identifies a scorer by `fn.name`."""
     wp = _wp()
     aff, idx = _aff([1, 2], [])
     fbi = {idx[1]: 0.5, idx[2]: 1.0}     # non-empty demand maps — the policies weight by them
 
+    # Called directly, the way `strategies.py` calls them — there is no registry to go through.
+    _BUILDERS = {'travel_min': A.build_trip_minimizing_assignment_fn,
+                 'cohesion_max': A.build_cluster_maximizing_assignment_fn}
+
     def _build(key):
-        return A.ASSIGNMENT_BUILDERS[key](aff, wp, defaultdict(set), defaultdict(set),
-                                          defaultdict(float), fbi, {1: 0.5}, {1: 1.0})
+        return _BUILDERS[key](aff, wp, defaultdict(set), defaultdict(set),
+                              defaultdict(float), fbi, {1: 0.5}, {1: 1.0})
 
     assert getattr(_build('travel_min'), 'name', None) == 'travel_min'
     assert getattr(_build('cohesion_max'), 'name', None) == 'cohesion_max'

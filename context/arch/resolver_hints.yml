@@ -18,3 +18,12 @@ dispatch:
     dst: {name: place_one,        file: Warehouse/placement/Assignment_Functions.py}
   - src: {name: _stock_ranked,   file: Warehouse/inventory/Inventory_Management.py}    # Inventory_Manager._stock_ranked -> self.placement.place_wave(...)
     dst: {name: place_wave,       file: Warehouse/placement/Assignment_Functions.py}
+  # THE LIVE PATH, and it was undeclared until 2026-09-16.  `_stock_ranked` branches on
+  # `placement.is_pooled`: 14 of the 17 shipped restock rules take the POOLED branch above,
+  # and only the `place_wave` branch below it was declared -- so the generated code map showed
+  # the legacy wave as the placement path and the pool as unreachable.  `take` resolves to
+  # every `_Pool` subclass's method of that name (7 today).
+  - src: {name: _stock_ranked,   file: Warehouse/inventory/Inventory_Management.py}    # -> self.placement.open_pool(...)
+    dst: {name: open_pool,        file: Warehouse/placement/Assignment_Functions.py}
+  - src: {name: _stock_ranked,   file: Warehouse/inventory/Inventory_Management.py}    # -> pool.take(unit)
+    dst: {name: take,             file: Warehouse/placement/Assignment_Functions.py}
