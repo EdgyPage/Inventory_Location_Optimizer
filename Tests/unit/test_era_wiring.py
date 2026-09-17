@@ -381,6 +381,26 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     # and the tier pair are the per-bucket free index's (2026-09-10); `site_receiving` is
     # the site dock's own per-batch totals (site-dock 25, 2026-09-12).
     con.execute('DROP TABLE free_index')
+    # And the mirror case, which the paragraph above did not anticipate: a column REMOVED
+    # since that vintage has to be put BACK, or the fake is missing something the real file
+    # had.  `aisle_metrics.lift_sum` was dropped on 2026-09-16 as write-only.  It has to be
+    # RECREATED rather than ALTERed in, because the observed shape records column ORDER and
+    # `ADD COLUMN` can only append -- which reads as a different shape, not a restored one.
+    con.execute('DROP TABLE aisle_metrics')
+    con.execute('''CREATE TABLE aisle_metrics (
+        run_id        INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id      INTEGER NOT NULL,
+        aisle_id      INTEGER NOT NULL,
+        n_skus        INTEGER NOT NULL DEFAULT 0,
+        n_bins        INTEGER NOT NULL DEFAULT 0,
+        demand_sum    REAL    NOT NULL DEFAULT 0.0,
+        lift_sum      REAL    NOT NULL DEFAULT 0.0,
+        pick_load_sum REAL    NOT NULL DEFAULT 0.0,
+        PRIMARY KEY (run_id, batch_id, aisle_id)
+    )''')
+    # DROP TABLE took the indexes with it, and the observed shape records those too.
+    con.execute('CREATE INDEX ix_am_run_batch ON aisle_metrics (run_id, batch_id)')
+    con.execute('CREATE INDEX ix_am_run_aisle ON aisle_metrics (run_id, aisle_id)')
     con.execute('DROP TABLE site_receiving')
     for _c in ('unit_size', 'bin_size', 'bin_state'):
         con.execute(f'ALTER TABLE bin_placement DROP COLUMN {_c}')

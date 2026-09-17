@@ -54,10 +54,10 @@ from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.catalog.Order import Order
 from Warehouse.catalog.Demand import Demand
 from Warehouse.catalog.Inventory_Builder import Inventory
-from Warehouse.inventory.Inventory_Management import Inventory_Manager, LoadParams, Placement
+from Warehouse.inventory.Inventory_Management import Inventory_Manager, Placement
 from Warehouse.placement.Assignment_Functions import (
-    build_load_minimizing_assignment_fn,
-    build_load_maximizing_assignment_fn,
+    build_trip_minimizing_assignment_fn,
+    build_trip_maximizing_assignment_fn,
 )
 from Warehouse.picking.Pick import PickConfig, PickSimulation
 from Warehouse.layout.Storage_Primitive import Storage_Size
@@ -249,7 +249,6 @@ def run_benchmark(
         cart_swap_coef   = 10.0,
     )
     wp          = WorkloadParams.from_pick_config(pick_cfg)
-    load_params = LoadParams(lambda_=1.0, k=1.0, gamma=1.5)
 
     print(f'  Building affinity store...')
     affinity_store = _build_affinity_store(inventory, top_k=20, seed=seed)
@@ -261,10 +260,16 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_B.enqueue_all(inventory.orders, quantity=1)
     manager_B.init_lift_state(affinity_store)
-    manager_B.placement = Placement('load_min', build_load_minimizing_assignment_fn(
-        load_params, affinity_store, wp,
-        manager_B._aisle_sku_sets, manager_B._aisle_lift_sum,
-        manager_B._aisle_idx_sets,
+    # Arms B and C were load_min / load_max until 2026-09-16.  That family had no _RESTOCKS
+    # row and no production caller, and was deleted with the write-only aisle lift_sum it was
+    # the sole reader of; travel_min / travel_max are the shipped pair this bench now
+    # contrasts.  The demand maps are empty here -- this measures placement THROUGHPUT, not
+    # placement quality, and _build_aisle_score_fn tolerates empty maps for travel scoring.
+    _fbi, _fbs, _qbs = {}, {}, {}
+    manager_B.placement = Placement('travel_min', build_trip_minimizing_assignment_fn(
+        affinity_store, wp,
+        manager_B._aisle_sku_sets, manager_B._aisle_idx_sets, manager_B._aisle_demand_sum,
+        _fbi, _fbs, _qbs,
     ))
 
     Aisle.next_aisle_id = 1
@@ -274,10 +279,10 @@ def run_benchmark(
     random.seed(seed + 1)
     manager_C.enqueue_all(inventory.orders, quantity=1)
     manager_C.init_lift_state(affinity_store)
-    manager_C.placement = Placement('load_max', build_load_maximizing_assignment_fn(
-        load_params, affinity_store, wp,
-        manager_C._aisle_sku_sets, manager_C._aisle_lift_sum,
-        manager_C._aisle_idx_sets,
+    manager_C.placement = Placement('travel_max', build_trip_maximizing_assignment_fn(
+        affinity_store, wp,
+        manager_C._aisle_sku_sets, manager_C._aisle_idx_sets, manager_C._aisle_demand_sum,
+        _fbi, _fbs, _qbs,
     ))
 
     placed_A = len(manager_A.unavailable)

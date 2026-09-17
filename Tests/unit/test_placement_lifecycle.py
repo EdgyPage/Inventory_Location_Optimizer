@@ -3,7 +3,7 @@
 `Inventory_Manager` keeps a dozen parallel indexes over the same bins, and none of them is
 derived on demand: `_unavailable`, `_bin_sku`, `_sku_pallet_bins` / `_sku_singleton_bins`,
 `_current_quantities`, `_initial_quantities`, `_originals`, `_pending_reclaim`,
-`_depleted_skus`, `_index`, `_aisle_sku_counts`, `_aisle_lift_sum`.  They are maintained
+`_depleted_skus`, `_index`, `_aisle_sku_counts`.  They are maintained
 INCREMENTALLY by the placement, pick, reclaim and reorder paths.
 
 That is why this file exists.  A missed update to any one of them is silent: the run
@@ -16,9 +16,8 @@ index must say afterwards.
     Stage 2  pick depletion          — `_notify_pick` -> `_depleted_skus`, `_pending_reclaim`
     Stage 3  bin reclaim             — the emptied bin returns to `_index`, leaves the rest
     Stage 4  reorder trigger         — `.reorder()` flags, OUP quantity, `_initial_quantities`
-    Stage 5  load-aware reorder      — lift state maintained through a B/C-strategy restock
-    Stage 6  duplicate-reorder guard — in-flight SKUs are not re-ordered
-    Stage 7  end-to-end mini-sim     — the five stages composed, through the real pick loop
+    Stage 5  duplicate-reorder guard — in-flight SKUs are not re-ordered
+    Stage 6  end-to-end mini-sim     — the stages composed, through the real pick loop
 
     python -m pytest Tests/unit/test_placement_lifecycle.py -q
 
@@ -37,10 +36,6 @@ from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.catalog.Order import Order
 from Warehouse.catalog.Demand import Demand
 from Warehouse.inventory.Inventory_Management import Inventory_Manager, LoadParams, Placement
-from Warehouse.placement.Assignment_Functions import (
-    build_load_minimizing_assignment_fn,
-    build_load_maximizing_assignment_fn,
-)
 from Warehouse.picking.Pick import PickConfig, PickSimulation
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
@@ -71,9 +66,8 @@ def _build_warehouse(seed: int = 0) -> tuple[Any, Inventory_Manager]:
 def _build_warehouse_with_affinity(seed: int = 0) -> tuple[Any, Inventory_Manager, AffinityStore]:
     """Same warehouse plus an in-memory affinity store.
 
-    The manager only maintains `_aisle_sku_counts` / `_aisle_lift_sum` when an affinity
-    store is attached, so the lift-state tests need this variant and Stage 1 (which asserts
-    those stay EMPTY without one) needs the plain one.
+    The manager only maintains the aisle ledger's membership dicts when an affinity store is
+    attached, so Stage 1 (which asserts those stay EMPTY without one) needs the plain variant.
     """
     Aisle.next_aisle_id = 1
     random.seed(seed)
@@ -322,82 +316,7 @@ def test_reorder_trigger_sets_the_flag_and_leaves_the_initial_baseline_alone():
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# STAGE 5: load-aware assignment (strategies B/C) maintains lift state on reorder
-# ═════════════════════════════════════════════════════════════════════════════
-
-def test_load_aware_reorder_maintains_aisle_state_for_both_directions():
-    """The load-min and load-max scorers READ `_aisle_sku_counts` / `_aisle_lift_sum` and
-    are responsible for WRITING them back as they place.
-
-    A scorer that reads but does not commit sees a permanently empty warehouse and places
-    every unit as if it were the first — which looks exactly like a working run.  Both
-    directions are exercised because they are separate code paths through the shared core.
-    """
-    wp = WorkloadParams()
-    lp = LoadParams(lambda_=1.1, k=1.0, gamma=1.5)
-
-    for label, build_fn, base_sku in (('load_min', build_load_minimizing_assignment_fn, 30),
-                                      ('load_max', build_load_maximizing_assignment_fn, 40)):
-        wh, mgr, affinity = _build_warehouse_with_affinity(seed=42)
-        orders = [_make_carton(sku=i, stock_qty=20) for i in range(base_sku, base_sku + 5)]
-        mgr.enqueue_all(orders, quantity=1)
-        mgr.init_lift_state(affinity)
-
-        mgr.placement = Placement(label, build_fn(
-            lp, affinity, wp,
-            mgr._aisle_sku_sets, mgr._aisle_lift_sum, mgr._aisle_idx_sets,
-        ))
-
-        mgr._notify_pick(base_sku, 1)
-        assert base_sku in mgr._depleted_skus, (
-            f'[{label}] precondition: sku {base_sku} must be flagged depleted')
-
-        triggered = mgr.check_reorders()
-        assert base_sku in triggered, (
-            f'[{label}] check_reorders returned {triggered}, expected sku {base_sku}')
-
-        total_counts = sum(sum(d.values()) for d in mgr._aisle_sku_counts.values())
-        assert total_counts > 0, (
-            f'[{label}] _aisle_sku_counts still empty after a restock placed through the '
-            f'load-aware scorer — the scorer is not committing aisle state')
-        assert mgr.queue_depth == 0, (
-            f'[{label}] {mgr.queue_depth} units left queued in a 140-bin warehouse holding '
-            f'6 units — the load-aware path failed to place')
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# STAGE 6: the duplicate-reorder guard
-# ═════════════════════════════════════════════════════════════════════════════
-
-def test_a_sku_already_on_order_is_not_reordered_again():
-    """Inventory POSITION = on-hand + queued + deferred, so an in-flight SKU is covered.
-
-    Without the guard, a SKU whose restock cannot be placed (warehouse full) is re-ordered
-    every batch forever and the queue grows without bound — the exact symptom
-    `test_reorder_queue.py` exists to detect at the system level.  This is that guard in
-    isolation, with the depleted flag FORCED back on so only the position check can stop it.
-    """
-    wh, mgr = _build_warehouse(seed=42)
-    mgr.enqueue_all([_make_carton(sku=50, stock_qty=10),
-                     _make_carton(sku=51, stock_qty=10)], quantity=1)
-    # Fill the warehouse so the reorder cannot place and must stay on the books.
-    mgr.enqueue_all([_make_carton(sku=100 + i) for i in range(100)], quantity=1)
-
-    mgr._notify_pick(50, mgr._current_quantities.get(50, 0))
-    mgr.check_reorders()                       # first call — the reorder goes on order
-    depth_after_first = mgr.queue_depth
-
-    mgr._notify_pick(50, 1)                    # already at 0; cannot cross the threshold again
-    mgr._depleted_skus.add(50)                 # force the flag so ONLY the position check applies
-    mgr.check_reorders()
-
-    assert mgr.queue_depth == depth_after_first, (
-        f'queue {depth_after_first} -> {mgr.queue_depth}: sku 50 was re-ordered while a '
-        f'wave was already on order')
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# STAGE 7: the five stages composed, through the real pick loop
+# STAGE 6: the five stages composed, through the real pick loop
 # ═════════════════════════════════════════════════════════════════════════════
 
 def test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches():

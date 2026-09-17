@@ -504,12 +504,11 @@ def snapshot_aisle_metrics(
     n_skus     : len(_aisle_sku_sets[aid])            — unique SKUs in aisle
     n_bins     : sum(_aisle_sku_counts[aid].values())  — occupied bin count
     demand_sum : _aisle_demand_sum[aid]               — Σ f_i * q_i secondary score
-    lift_sum   : _aisle_lift_sum[aid]                 — affinity co-location quality
 
     Strategy A note
     ---------------
-    For uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /
-    _aisle_demand_sum are never populated.  Only aisles touched by B/C reorders
+    For uniform placement (no affinity), _aisle_sku_sets / _aisle_demand_sum
+    are never populated.  Only aisles touched by B/C reorders
     will have non-zero values.  Strategy A produces no rows here by design —
     it has no structured placement state to track.
     """
@@ -518,12 +517,10 @@ def snapshot_aisle_metrics(
     aisle_sku_sets    = manager._aisle_sku_sets
     aisle_sku_counts  = manager._aisle_sku_counts
     aisle_demand_sum  = manager._aisle_demand_sum
-    aisle_lift_sum    = manager._aisle_lift_sum
     aisle_pick_load   = getattr(manager, '_aisle_pick_load_sum', {})
 
     # Union of all aisle IDs present in any state dict
-    all_aids = (set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_lift_sum)
-                | set(aisle_pick_load))
+    all_aids = set(aisle_sku_sets) | set(aisle_demand_sum) | set(aisle_pick_load)
     if not all_aids:
         return []
 
@@ -538,7 +535,6 @@ def snapshot_aisle_metrics(
             n_skus        = len(sku_set),
             n_bins        = sum(sku_cnts.values()),
             demand_sum    = float(aisle_demand_sum.get(aid, 0.0)),
-            lift_sum      = float(aisle_lift_sum.get(aid, 0.0)),
             pick_load_sum = float(aisle_pick_load.get(aid, 0.0)),
         ))
     return records

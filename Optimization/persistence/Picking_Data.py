@@ -34,7 +34,6 @@ class AisleMetricRecord:
     n_skus:        int    # unique SKUs placed in this aisle
     n_bins:        int    # occupied bin count in this aisle
     demand_sum:    float  # Σ f_i * q_i — trip-cost secondary score (demand mass)
-    lift_sum:      float  # affinity pairwise lift sum — co-location quality
     pick_load_sum: float = 0.0  # Σ f_i*q_i*per-pick cost — labor-balance score (Rank_labor)
 
 
@@ -253,19 +252,18 @@ _CREATE_AISLE_METRICS = """
         n_skus        INTEGER NOT NULL DEFAULT 0,
         n_bins        INTEGER NOT NULL DEFAULT 0,
         demand_sum    REAL    NOT NULL DEFAULT 0.0,
-        lift_sum      REAL    NOT NULL DEFAULT 0.0,
         pick_load_sum REAL    NOT NULL DEFAULT 0.0,
         PRIMARY KEY (run_id, batch_id, aisle_id)
     )
 """
 
 # Trend query — how one aisle evolves over batches across strategies:
-#   SELECT am.batch_id, sr.run_type, am.demand_sum, am.lift_sum, am.n_skus
+#   SELECT am.batch_id, sr.run_type, am.demand_sum, am.n_skus
 #   FROM   aisle_metrics am JOIN simulation_runs sr USING (run_id)
 #   WHERE  am.aisle_id = ? ORDER BY sr.run_type, am.batch_id
 #
 # Snapshot query — all aisles at a given batch (e.g. batch 50):
-#   SELECT aisle_id, demand_sum, lift_sum, n_skus, n_bins
+#   SELECT aisle_id, demand_sum, n_skus, n_bins
 #   FROM   aisle_metrics WHERE run_id=? AND batch_id=50
 #   ORDER  BY demand_sum DESC
 
@@ -1252,7 +1250,16 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 is no optional-fill to negotiate because there is no column on an
     #                 existing table.  The only thing that MOVED on an uncoupled run is this
     #                 stamp itself.
-    known_ids=('b87cfbb8d041',  # the per-bucket free index, before the site dock's own
+    known_ids=('c6bacfdb5c77',  # aisle_metrics WITH lift_sum: .. 2026-09-16.  The column was
+                                # write-only end to end -- no Quantity, figure, view or
+                                # published experiment ever read it, and CAP_AISLE_METRICS
+                                # already excluded it from the negotiable surface.  Its only
+                                # in-memory reader was the load_min/load_max family, which had
+                                # no _RESTOCKS row and no production caller, so the number it
+                                # recorded decayed monotonically in every shipped arm.  Dropped
+                                # with that family.  Archived files keep the column and still
+                                # vet under this id; nothing reads it from either side.
+              'b87cfbb8d041',  # the per-bucket free index, before the site dock's own
                                 # per-batch totals: 2026-09-10 .. 2026-09-12.  Every run in
                                 # the archive is uncoupled and therefore has no site
                                 # receiving row to be missing -- the site DB is the only
@@ -1325,7 +1332,7 @@ REQUIRES = _compat.Requires(
                           'items_picked', 'total_items', 'pick_travel_x', 'pick_travel_y',
                           'non_pick_travel_x', 'non_pick_travel_y', 'cart_move'),
         'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum',
-                          'lift_sum', 'pick_load_sum'),
+                          'pick_load_sum'),
         # `unit_type`/`storage_size` are in the PRIMARY select; the inner OperationalError
         # fallback re-queries without them for a pre-enrichment file.  Both are nonetheless in
         # the guaranteed surface — every vetted vintage has them — so the fallback is dead code
@@ -2680,11 +2687,11 @@ def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
 def _insert_aisle_metrics(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
         'INSERT OR REPLACE INTO aisle_metrics '
-        '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,lift_sum,pick_load_sum) '
-        'VALUES (?,?,?,?,?,?,?,?)',
+        '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum,pick_load_sum) '
+        'VALUES (?,?,?,?,?,?,?)',
         [
             (run_id, r.batch_id, r.aisle_id,
-             r.n_skus, r.n_bins, r.demand_sum, r.lift_sum,
+             r.n_skus, r.n_bins, r.demand_sum,
              getattr(r, 'pick_load_sum', 0.0))
             for r in records
         ],
@@ -2732,7 +2739,6 @@ def load_aisle_metrics(
                 n_skus        = row['n_skus'],
                 n_bins        = row['n_bins'],
                 demand_sum    = row['demand_sum'],
-                lift_sum      = row['lift_sum'],
                 pick_load_sum = (row['pick_load_sum']
                                  if 'pick_load_sum' in row.keys() else 0.0),
             )

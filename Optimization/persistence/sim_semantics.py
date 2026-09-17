@@ -220,8 +220,6 @@ SIM_DB_SEMANTICS: dict = {
         'n_bins':        Col(LEVEL, 'bins', 'batch'),
         'demand_sum':    Col(FLOW, 'items', 'batch', account=PIECES,
                              note='this batch’s demand routed to the aisle'),
-        'lift_sum':      Col(SCORE, 's-weighted', 'batch',
-                             note='digest-stored float; summation order is locked'),
         'pick_load_sum': Col(FLOW, 'items', 'batch', account=PIECES),
     },
     'bin_eviction': {

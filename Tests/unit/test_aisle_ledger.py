@@ -1,6 +1,6 @@
 """test_aisle_ledger.py — the ledger's own interface, and the invariant it finally makes assertable.
 
-`AisleLedger` collects eleven dicts that were loose attributes on `Inventory_Manager` with an
+`AisleLedger` collects ten dicts that were loose attributes on `Inventory_Manager` with an
 *add* half spread across ten hand-copied commit blocks in the placement policies and a *drop*
 half written twice in reorder.  Two quantities drifted in that arrangement and nothing could
 say so, because no single place owned the pair.
@@ -11,8 +11,11 @@ What is pinned here:
     2. It is not vacuous: a sound ledger reports nothing, a damaged one reports the aisle.
     3. `drop_bin` is per-BIN and `drop_sku` is per-SKU, and they are separate on purpose.
     4. `last_when_zero` reproduces the one real difference between the two old copies.
-    5. The manager's eleven attribute names still reach the ledger's dicts — the aliases for
-       the eight aisle dicts, the properties for the three rebound per-SKU products.
+    5. The manager's ten attribute names still reach the ledger's dicts — the aliases for the
+       seven aisle dicts, the properties for the three rebound per-SKU products.
+
+`lift_sum` was an eighth aisle dict until 2026-09-16.  It was write-only end to end and was
+deleted with the `load_min`/`load_max` family that was its only in-memory reader.
 
     python -m pytest Tests/unit/test_aisle_ledger.py -q
 """
@@ -124,25 +127,6 @@ def test_last_when_zero_is_the_difference_between_the_two_old_copies():
     assert 3 not in hot.sku_sets[1]
 
 
-def test_lift_delta_is_taken_against_the_post_discard_index_set():
-    """A precomputed scalar would be measured against the wrong set — hence the callable."""
-    led = AisleLedger()
-    led.sku_sets[4].add(6)
-    led.idx_sets[4].update({6, 7})
-    led.sku_counts[4][6] = 1
-    led.lift_sum[4] = 100.0
-
-    seen: list[set] = []
-
-    def probe(idx_set):
-        seen.append(set(idx_set))
-        return 10.0
-
-    led.drop_sku(4, 6, 6, probe)
-    assert seen == [{7}], f'delta must see the set AFTER the discard, saw {seen}'
-    assert led.lift_sum[4] == 90.0
-
-
 # ── the manager still reaches the same dicts ──────────────────────────────────
 
 def _armed_manager(seed: int = 42):
@@ -159,14 +143,13 @@ def _armed_manager(seed: int = 42):
     return mgr
 
 
-def test_the_eight_aisle_aliases_are_the_ledger_s_own_dicts():
+def test_the_seven_aisle_aliases_are_the_ledger_s_own_dicts():
     """Aliases, not copies: a write through either name must be visible through the other."""
     mgr = _armed_manager()
     pairs = [(mgr._aisle_sku_sets, mgr.ledger.sku_sets),
              (mgr._aisle_idx_sets, mgr.ledger.idx_sets),
              (mgr._aisle_sku_counts, mgr.ledger.sku_counts),
              (mgr._aisle_member_pos, mgr.ledger.member_pos),
-             (mgr._aisle_lift_sum, mgr.ledger.lift_sum),
              (mgr._aisle_demand_sum, mgr.ledger.demand_sum),
              (mgr._aisle_pick_load_sum, mgr.ledger.pick_load_sum),
              (mgr._aisle_vol_sum, mgr.ledger.vol_sum)]

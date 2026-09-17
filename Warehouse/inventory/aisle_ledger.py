@@ -1,20 +1,20 @@
 """aisle_ledger.py — what each aisle currently holds, priced.
 
-The **aisle ledger** (CONTEXT.md) is one concept kept in eleven parallel dicts: which SKUs an
+The **aisle ledger** (CONTEXT.md) is one concept kept in ten parallel dicts: which SKUs an
 aisle holds, which matrix indices they translate to, how many bins each occupies, where those
-bins sit, and the four priced LEVELS that membership implies — lift, demand, pick load and
-cart volume — plus the three per-SKU products those levels are summed from.
+bins sit, and the three priced LEVELS that membership implies — demand, pick load and cart
+volume — plus the three per-SKU products those levels are summed from.
 
     ┌─ membership ──────────┬─ priced levels ────────┬─ per-SKU products ──────────┐
-    │ sku_sets              │ lift_sum               │ sku_demand_product          │
-    │ idx_sets              │ demand_sum             │ sku_pick_load_product       │
-    │ sku_counts            │ pick_load_sum          │ sku_vol_product             │
-    │ member_pos            │ vol_sum                │                             │
+    │ sku_sets              │ demand_sum             │ sku_demand_product          │
+    │ idx_sets              │ pick_load_sum          │ sku_pick_load_product       │
+    │ sku_counts            │ vol_sum                │ sku_vol_product             │
+    │ member_pos            │                        │                             │
     └───────────────────────┴────────────────────────┴─────────────────────────────┘
 
 Why this module exists
 ----------------------
-The eleven dicts had TWO writers who did not know about each other.  The *add* half lived
+These dicts had TWO writers who did not know about each other.  The *add* half lived
 inside the placement policies — ten hand-copied commit blocks in `Assignment_Functions.py`,
 each maintaining a DIFFERENT SUBSET — while `_execute_placement` committed only `sku_counts`.
 The *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals
@@ -26,7 +26,9 @@ They were not in sync, and nothing could have said so:
   cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the
   scoring expression, so it moved placements, not just a recorded number.
 - `lift_sum` was decremented by both drop paths and incremented only by a production-dead
-  family, so it decayed monotonically in every shipped arm.
+  family, so it decayed monotonically in every shipped arm.  It was write-only end to end —
+  no Quantity, figure, view or experiment read its column — so it was DELETED rather than
+  repaired, along with the `load_min`/`load_max` family that was its only in-memory reader.
 
 Both are the same failure: a quantity whose add and drop live in different files, maintained by
 different people at different times, with no place that owns the pair.
@@ -63,7 +65,7 @@ __all__ = ['AisleLedger']
 
 
 class AisleLedger:
-    """The aisle ledger: eleven dicts, one owner, one add/drop pair at each grain.
+    """The aisle ledger: ten dicts, one owner, one add/drop pair at each grain.
 
     The dicts are exposed as plain attributes, not properties.  They are read on the placement
     hot path by closures that hoist them once outside their loop, and an indirection there is a
@@ -71,7 +73,7 @@ class AisleLedger:
     """
 
     __slots__ = ('sku_sets', 'idx_sets', 'sku_counts', 'member_pos',
-                 'lift_sum', 'demand_sum', 'pick_load_sum', 'vol_sum',
+                 'demand_sum', 'pick_load_sum', 'vol_sum',
                  'sku_demand_product', 'sku_pick_load_product', 'sku_vol_product')
 
     def __init__(self) -> None:
@@ -81,7 +83,6 @@ class AisleLedger:
         self.sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
         self.member_pos: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
         # ── priced levels ─────────────────────────────────────────────────────────────
-        self.lift_sum: dict[int, float] = defaultdict(float)
         self.demand_sum: dict[int, float] = defaultdict(float)
         self.pick_load_sum: dict[int, float] = defaultdict(float)
         self.vol_sum: dict[int, float] = defaultdict(float)
@@ -124,17 +125,11 @@ class AisleLedger:
                 del mp[idx]
 
     def drop_sku(self, aid: int, sku: int, idx: int | None,
-                 lift_delta_fn=None, *, last_when_zero: bool = False) -> bool:
+                 *, last_when_zero: bool = False) -> bool:
         """Decrement the SKU's bin count; on its LAST bin, retire it and subtract its levels.
 
         Returns True when the SKU left the aisle.  Every subtraction is clamped at zero, as
         the two hand-written copies were.
-
-        `lift_delta_fn` is a CALLABLE, not a scalar, and the distinction is load-bearing: the
-        original computed `2.0 * affinity.delta_lift_idxs(sku, idx_sets[aid])` *after* the
-        index was discarded, so a precomputed value would be taken against a different set and
-        change the result.  It is called with the post-discard index set.  Passing a callable
-        also keeps this module free of any affinity knowledge.
 
         `last_when_zero` reproduces the difference between the two original copies: the cold
         path used `elif n == 1`, so a defensive n == 0 fell through and did nothing; the hot
@@ -153,11 +148,6 @@ class AisleLedger:
         if idx is not None:
             self.idx_sets[aid].discard(idx)
 
-        if lift_delta_fn is not None:
-            # Unconditional, exactly as both originals were: the assignment also MATERIALISES
-            # the defaultdict entry, and guarding it on a non-zero delta would silently stop
-            # creating keys that `aisle_metrics` later reads.
-            self.lift_sum[aid] = max(0.0, self.lift_sum[aid] - lift_delta_fn(self.idx_sets[aid]))
         d = self.sku_demand_product.get(sku, 0.0)
         if d:
             self.demand_sum[aid] = max(0.0, self.demand_sum[aid] - d)
@@ -178,9 +168,6 @@ class AisleLedger:
         both drifts survived for the life of their features.  Returns findings rather than
         raising so a caller can report them all at once.
 
-        `lift_sum` is deliberately NOT checked: it is not a sum over per-SKU products but a
-        pairwise quantity over the aisle's index set, so reconciling it needs the affinity store.
-        It is also write-only end to end and is being deleted.
         """
         out: list[str] = []
         for level_name, product_name in (('demand_sum', 'sku_demand_product'),

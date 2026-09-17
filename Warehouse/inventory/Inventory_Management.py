@@ -404,9 +404,8 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         # ARE rebound, by init_demand_state, so those are properties with setters below.
         self.ledger = AisleLedger()
 
-        # Persistent lift state shared with load-aware assignment functions.
+        # Per-aisle membership, shared with the affinity-aware assignment functions.
         self._aisle_sku_sets: dict[int, set[int]]         = self.ledger.sku_sets
-        self._aisle_lift_sum: dict[int, float]             = self.ledger.lift_sum
         self._aisle_sku_counts: dict[int, dict[int, int]] = self.ledger.sku_counts
         # Pre-translated matrix indices mirror of _aisle_sku_sets — eliminates
         # the O(N_aisle_members) dict lookup set-comprehension in delta_lift_idxs.
@@ -506,7 +505,6 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         the actual bin contents after any bulk stocking operation.
         """
         self._aisle_sku_sets.clear()
-        self._aisle_lift_sum.clear()
         self._aisle_sku_counts.clear()
         self._aisle_idx_sets.clear()
         self._aisle_member_pos.clear()
@@ -538,8 +536,6 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 else:
                     self._sku_pallet_bins[sku].add(bin_)
 
-        for aid, sku_set in self._aisle_sku_sets.items():
-            self._aisle_lift_sum[aid] = affinity.sum_lift(list(sku_set))
 
     def init_travel_costs(self, wp: Any) -> None:
         """Precompute _D on every bin and build the per-aisle sorted secondary index.

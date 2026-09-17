@@ -219,11 +219,9 @@ class ReorderMixin:
             return
         aid = bin_.location[0]
         idx = self._affinity._sku_to_idx.get(sku)
-        delta_lift_idxs = self._affinity.delta_lift_idxs
         ledger = self.ledger
         ledger.drop_bin(aid, idx, bin_.x_phys)
-        ledger.drop_sku(aid, sku, idx,
-                        lambda idx_set: 2.0 * delta_lift_idxs(sku, idx_set))
+        ledger.drop_sku(aid, sku, idx)
 
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
@@ -361,8 +359,7 @@ class ReorderMixin:
         ledger_drop_bin  = ledger.drop_bin
         ledger_drop_sku  = ledger.drop_sku
         if has_affinity:
-            sku_to_idx      = self._affinity._sku_to_idx
-            delta_lift_idxs = self._affinity.delta_lift_idxs
+            sku_to_idx = self._affinity._sku_to_idx
 
         for bin_ in self._pending_reclaim:
             bin_id = id(bin_)
@@ -379,9 +376,7 @@ class ReorderMixin:
                     # preserves this loop's bare `else`, which treats a defensive n == 0
                     # like n == 1 -- the cold path's `elif n == 1` does not.
                     ledger_drop_bin(aid, idx, bin_.x_phys)
-                    ledger_drop_sku(aid, sku, idx,
-                                    lambda idx_set, _s=sku: 2.0 * delta_lift_idxs(_s, idx_set),
-                                    last_when_zero=True)
+                    ledger_drop_sku(aid, sku, idx, last_when_zero=True)
             self._index_add(bin_)
             unavailable.pop(bin_id, None)
 

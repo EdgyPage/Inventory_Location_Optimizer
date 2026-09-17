@@ -219,6 +219,26 @@ def test_the_vintages_before_the_table_read_unknown_never_zero(tmp_path, vintage
                                                         bin_size='medium')])
     con = sqlite3.connect(db)
     con.execute('DROP TABLE free_index')
+    # And the mirror case, which the paragraph above did not anticipate: a column REMOVED
+    # since that vintage has to be put BACK, or the fake is missing something the real file
+    # had.  `aisle_metrics.lift_sum` was dropped on 2026-09-16 as write-only.  It has to be
+    # RECREATED rather than ALTERed in, because the observed shape records column ORDER and
+    # `ADD COLUMN` can only append -- which reads as a different shape, not a restored one.
+    con.execute('DROP TABLE aisle_metrics')
+    con.execute('''CREATE TABLE aisle_metrics (
+        run_id        INTEGER NOT NULL REFERENCES simulation_runs(run_id),
+        batch_id      INTEGER NOT NULL,
+        aisle_id      INTEGER NOT NULL,
+        n_skus        INTEGER NOT NULL DEFAULT 0,
+        n_bins        INTEGER NOT NULL DEFAULT 0,
+        demand_sum    REAL    NOT NULL DEFAULT 0.0,
+        lift_sum      REAL    NOT NULL DEFAULT 0.0,
+        pick_load_sum REAL    NOT NULL DEFAULT 0.0,
+        PRIMARY KEY (run_id, batch_id, aisle_id)
+    )''')
+    # DROP TABLE took the indexes with it, and the observed shape records those too.
+    con.execute('CREATE INDEX ix_am_run_batch ON aisle_metrics (run_id, batch_id)')
+    con.execute('CREATE INDEX ix_am_run_aisle ON aisle_metrics (run_id, aisle_id)')
     # `site_receiving` postdates BOTH vintages faked here (site-dock 25), so a fake that
     # left it behind is not that vintage: `dataset.bind(verify=True)` re-derives the shape
     # and raises rather than trusting the stamp, which is what the recipe's checkpoint-and-
