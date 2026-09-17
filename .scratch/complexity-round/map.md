@@ -213,6 +213,13 @@ Concretely, reached when:
   where the problem grows. Third time this round the heap pattern was reached for; first time it
   loses.
   -> [17-the-cold-start-tie-break-is-the-quadratic.md](issues/17-the-cold-start-tie-break-is-the-quadratic.md)
+- **The deep ladder closes `_aisle_best`, refutes the cluster lead, and corroborates cmin.**
+  R4's "29 of 34 arms accelerating" was a row collapse plus a `save_s` knee (48.6% of total, local
+  k 2.30). With both fixed: `rank_labor`/`rank_cartlabor` **linear** (0.98/1.01) so ticket 14's
+  retraction is permanent and ticket 07 closes at 2.66%; `cluster_map` **linear** (1.04) so ticket
+  15's deep-scale half is refuted; `cmin`/`cmax` **superlinear** (1.26-1.29) in independent
+  agreement with the meso conviction of `score_of` at k=1.98.
+  -> [18-the-deep-ladder-closes-aisle-best.md](issues/18-the-deep-ladder-closes-aisle-best.md)
 
 ## Fog
 
@@ -224,8 +231,10 @@ Concretely, reached when:
 - Does anything in the analysis half of `Optimization/` grow superlinearly? 78 of its 147 files
   are `Performance_Evaluations`, measured by NOTHING -- but an `ast` sweep finds only 3
   triple-nested sites there, over bounded axes. Expect "found nothing" to be the honest answer.
-- What replaces the `R x A` run-boundary rebuild in `_TravelBalancedPool`? **Now the convicted
-  top candidate** (ticket 04), not a speculative one. The `per_pick` memo is the measured cheap
+- ~~What replaces the `R x A` run-boundary rebuild in `_TravelBalancedPool`?~~ **CLOSED by ticket
+  18: nothing needs to.** Its arms are linear at deep scale with save excluded (0.98, 1.01), so the
+  candidate closes at the 2.66% it was priced at. The old note read:
+  *"Now the convicted top candidate" (ticket 04), not a speculative one.* The `per_pick` memo is the measured cheap
   half -- 542,781 calls for a value depending only on `(m, var)`; the structural half is an
   algorithm search and may still close with a stated reason.
 - ~~The `skus` ladder runs the DEFAULT strategy, so no ranked-assign arm is exercised.~~

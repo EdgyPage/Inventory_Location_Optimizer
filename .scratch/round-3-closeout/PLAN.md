@@ -301,7 +301,13 @@ here. If time runs short, D1 and D2 are the two that must still be written.
 
 ### Open
 
-- **R4 running.** Answers B and C at deep scale on the fixed code.
+- ~~**R4 running.**~~ **DONE.** Its "29 of 34 arms accelerating" was a row collapse in my own
+  per-arm map plus a `save_s` knee (48.6 % of total, local k 2.30); both fixed, flagged arms
+  29 -> 4. With the confound gone: **C2 CLOSES** (`rank_labor` 0.98, `rank_cartlabor` 1.01 -
+  linear, so `_aisle_best` closes at 2.66 % and the §2.3 retraction is permanent);
+  **the cluster lead is REFUTED** (`cluster_map` 1.04); **cmin/cmax are CORROBORATED**
+  (1.26-1.29, agreeing with the meso conviction of `score_of` at k = 1.98 from a different
+  instrument at 10x the scale). Ticket 18. 104 GiB reclaimed.
 - **Ticket 17** — the structural fix for both cells. Named, designed, not built; includes why a
   heap is the wrong answer here.
 - **R5** — only if a named break is ever taken. The fused pass is byte-identical, so it is not
