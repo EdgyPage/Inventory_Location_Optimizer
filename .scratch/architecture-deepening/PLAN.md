@@ -161,11 +161,11 @@ count DOWN, which it permits.
 | 3 | 07-08 | not started | **UNBLOCKED** by 06 |
 | 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
 | 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
-| 5 | 11 | part-landed | batch_stats' WRITE surface is one declaration + an import-time refusal. 19 tables to go |
+| 5 | 11 | **RESOLVED** | one write declaration per table (20); the ratchet deleted its regex and found a third defect |
 | 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
-| 5 | 13 | not started | blocked by 11, and on architecture-drift/05 |
+| 5 | 13 | not started | **UNBLOCKED** by 11; still waits on architecture-drift/05 |
 | 5 | 14 | not started | blocked by 07 |
-| 5 | 15 | not started | blocked by 11 |
+| 5 | 15 | not started | **UNBLOCKED** by 11 |
 | 6 | 16 | **RESOLVED** | one at-bin put expression; the objective drops its term by name. File split -> 22 |
 | 6 | 17 | **RESOLVED** | ADR-0003's five rungs become a chain; `mgr.put_chain` is the knob the ADR anticipated |
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
@@ -176,7 +176,7 @@ count DOWN, which it permits.
 | - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
 | - | 24 | **RESOLVED** | the decision: `ArmAssembly` lives in `strategy_runner.py`; a new module would be a cycle |
 
-**Twelve resolved, two part-landed, ten open** (19 tickets became 24). Resolving 02 and 03 unblocked 04.
+**Fifteen resolved, nine open** (19 tickets became 24). Every ticket that was unblocked at the start of 2026-09-17 is resolved. Resolving 02 and 03 unblocked 04.
 Tickets 06 and 11 are each still a multi-hour refactor of a hot path and want the toy-run digest,
 not a tail-end slice.
 

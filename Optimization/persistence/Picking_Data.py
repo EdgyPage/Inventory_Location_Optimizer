@@ -1648,24 +1648,8 @@ _BATCH_WRITE_COLS = (
 # recorded it".  Ticket 11 predicted a disagreement there; it is a real distinction, and
 # deleting the writer's copy is what makes the record's own default the only one.)
 
-#: A column WRITTEN but absent from the read surface is read back as its Python default
-#: forever, on every run including the ones holding real values -- the select list is built
-#: from `_BATCH_COLS`, so a missing name is simply never asked for.  `work_day` and
-#: `released_late` shipped exactly that way and reported 0 for runs that recorded a real
-#: working day, for three days, with nothing raising: the schema id did not move, the insert
-#: did not fail, and the loader did not fail -- it never asked.
-#:
-#: This is that failure as an IMPORT-TIME refusal, for one table.  Extending it to the other
-#: nineteen is the rest of ticket 11; the ratchet it replaces
-#: (`test_written_columns_are_readable`) recovers the writer's column list with a regex over
-#: `inspect.getsource`, and covers 1 writer of 16.
-_unreadable = [c for c in _BATCH_WRITE_COLS if c not in _BATCH_COLS]
-if _unreadable:
-    raise RuntimeError(
-        f'batch_stats writes {_unreadable} and no reader can ask for them: the `batch_frame` '
-        f'select list is built from _BATCH_COLS, so these would be written by every run and '
-        f'read back as their Python default forever. Add them to _BATCH_OPTIONAL (with the '
-        f'pre-column TRUE value as the fill) or stop writing them.')
+#: `batch_stats`' write surface. Registered in `WRITE_SURFACES` below with every other
+#: table, where the import-time readable-check covers all nineteen at once.
 
 def _batch_frame_sql(*omit: str) -> str:
     """The `batch_frame` select list minus the columns a vintage lacks -- an override for a
@@ -1684,19 +1668,64 @@ _dataset.register_query(_dataset.Query(
     tables={'batch_stats': _BATCH_COLS},
     optional=_BATCH_OPTIONAL))
 
+#: `items_realized` and `bins_realized` were WRITTEN and never selected -- on the dataclass,
+#: in the DDL, in the INSERT, in `REQUIRES` and in `sim_semantics`, and absent from here, which
+#: is what the `task_frame` SELECT list is built from. Demonstrated end to end before the fix:
+#: 7 and 2 went into the file and 0 and 0 came back. Found 2026-09-17 by ticket 11's
+#: import-time check, on its first run; the third instance of the shape after
+#: `work_day`/`released_late` and `free_bins`.
 _TASK_COLS = ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
               'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited',
-              'total_items', 'is_outlier')
+              'total_items', 'items_realized', 'bins_realized', 'is_outlier')
+
+#: The realized pair reads UNKNOWN on a vintage that predates it, never 0: an older run DID
+#: realize items and bins and simply never recorded the counts, so a 0 there would be a
+#: measurement rather than an absence. Same rule, and the same reason, as
+#: `BATCH_UNKNOWN_ON_OLDER_VINTAGES`.
+TASK_UNKNOWN_ON_OLDER_VINTAGES = ('items_realized', 'bins_realized')
+
+
+def _task_frame_sql(*omit: str) -> str:
+    """The `task_frame` select list minus the columns a vintage lacks -- `_batch_frame_sql`'s
+    rule, one table over. Every name in `omit` must be optional, or the contract check in
+    `dataset.query` raises for the vintage."""
+    assert set(omit) <= set(_TASK_OPTIONAL), sorted(set(omit) - set(_TASK_OPTIONAL))
+    return ('SELECT ' + ', '.join(c for c in _TASK_COLS if c not in omit)
+            + ' FROM task_stats WHERE run_id = :run_id')
+
+
+#: `W` was already optional; the realized pair joins it, filled None rather than 0.
+_TASK_OPTIONAL = {'W': 0.0, 'items_realized': None, 'bins_realized': None}
 
 _dataset.register_query(_dataset.Query(
     name='task_frame', family='sim_db',
-    sql=('SELECT ' + ', '.join(_TASK_COLS)
-         + ' FROM task_stats WHERE run_id = :run_id'),
+    sql=_task_frame_sql(),
     # `tables` = what the CANONICAL sql reads — `W` included: a vintage without it is unservable
     # by this SQL and needs an override that omits the column (optional-fill then supplies 0.0).
     columns=_TASK_COLS,
     tables={'task_stats': _TASK_COLS},
-    optional={'W': 0.0}))
+    optional=_TASK_OPTIONAL))
+
+#: The nine vetted vintages that predate the realized pair. Read off the shape store rather
+#: than remembered: a pure column addition needs a per-vintage override that OMITS the column,
+#: or the canonical SQL is unservable there and the loader falls to its frozen legacy body --
+#: whose answer is the WRITER's dataclass default, which is how `free_bins` read 0 instead of
+#: None for two months (memory `optional-fill-only-answers-through-an-override`).
+PRE_REALIZED_SIM_SCHEMA_IDS = (
+    '1a594605a10e',
+    '23d0c7f167bc',
+    '2b7913bcd7e6',
+    '6ad0b34af9f1',
+    '8114cc4332eb',
+    '96b8e37f158d',
+    'c33feeed3975',
+    'ee5ebabe74fb',
+    'f43d8b5931a4',
+)
+
+for _sid in PRE_REALIZED_SIM_SCHEMA_IDS:
+    _dataset.override('sim_db', 'task_frame', _sid,
+                      _task_frame_sql('items_realized', 'bins_realized'))
 
 _EVENT_OPTIONAL = {'pick_travel_x': 0.0, 'pick_travel_y': 0.0, 'non_pick_travel_x': 0.0,
                    'non_pick_travel_y': 0.0, 'cart_move': 0.0}
@@ -2042,7 +2071,7 @@ def create_run(path: str, run_type: str, params: dict | None = None,
     # sim_schema_id describes the FILE, not the run, so it is defaulted here rather than being
     # threaded through every caller.  An explicit value still wins (tests pin an older id).
     identity = {'sim_schema_id': sim_schema_id(), **(identity or {})}
-    cols = ('run_type', 'created') + _IDENTITY_COLS + _RUN_PARAM_COLS
+    cols = WRITE_SURFACES['simulation_runs']
     vals = ([run_type, datetime.now(timezone.utc).isoformat()]
             + [identity.get(k) for k in _IDENTITY_COLS]
             + [params.get(k) for k in _RUN_PARAM_COLS])
@@ -2164,9 +2193,7 @@ def save_bin_keyframe(path: str, run_id: int, batch_id: int, records: list) -> N
     try:
         con.execute(_CREATE_BIN_KEYFRAME)
         con.executemany(
-            'INSERT OR REPLACE INTO bin_keyframe '
-            '(run_id,batch_id,aisle_id,bayX,bayY,sku,unit_type,storage_size,qty) '
-            'VALUES (?,?,?,?,?,?,?,?,?)',
+            _INSERT_SQL['bin_keyframe'],
             [(run_id, batch_id, r['aisle_id'], r['bayX'], r['bayY'], r['sku'],
               r['unit_type'], r['storage_size'], r['qty']) for r in records],
         )
@@ -2176,11 +2203,6 @@ def save_bin_keyframe(path: str, run_id: int, batch_id: int, records: list) -> N
 
 
 # ── BatchStats DB ─────────────────────────────────────────────────────────────
-
-#: Built once at import from `_BATCH_WRITE_COLS`, not re-joined per call.
-_BATCH_INSERT_SQL = ('INSERT INTO batch_stats (' + ','.join(_BATCH_WRITE_COLS) + ') '
-                     'VALUES (' + ','.join('?' * len(_BATCH_WRITE_COLS)) + ')')
-
 
 def _batch_row(run_id: int, r) -> tuple:
     """One `batch_stats` row, in `_BATCH_WRITE_COLS` order.
@@ -2202,7 +2224,8 @@ def _batch_row(run_id: int, r) -> tuple:
 
 
 def _insert_batch_stats(con: sqlite3.Connection, run_id: int, records: list) -> None:
-    con.executemany(_BATCH_INSERT_SQL, [_batch_row(run_id, r) for r in records])
+    con.executemany(_INSERT_SQL['batch_stats'],
+                    [_batch_row(run_id, r) for r in records])
 
 
 def save_batch_stats(path: str, run_id: int, records: list[BatchStats]) -> None:
@@ -2302,9 +2325,7 @@ def save_reorder_queue(path: str, run_id: int, records: list[tuple]) -> None:
 
 def _insert_reorder_queue(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT INTO reorder_queue '
-        '(run_id,batch_id,kind,sku,qty,remaining_lead,unit_type,storage_size,queue) '
-        'VALUES (?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['reorder_queue'],
         [(run_id, int(b), str(k), int(s), int(q), int(rl), ut, ss, qn)
          for (b, k, s, q, rl, ut, ss, qn) in records],
     )
@@ -2312,10 +2333,7 @@ def _insert_reorder_queue(con: sqlite3.Connection, run_id: int, records: list) -
 
 def _insert_put_queue_state(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT OR REPLACE INTO put_queue_state '
-        '(run_id,batch_id,queue,depth,oldest_age,staging,admitted,placed,blocked,'
-        'cart_swaps,cut) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['put_queue_state'],
         [(run_id, int(r['batch_id']), str(r['queue']), int(r['depth']), r['oldest_age'],
           r['staging'], int(r['admitted']), int(r['placed']), int(r['blocked']),
           int(r['cart_swaps']), int(r['cut']))
@@ -2346,8 +2364,7 @@ def _insert_carryover(con: sqlite3.Connection, run_id: int, records: list) -> No
                 f'same reason for different quantities -- give one of them its own.')
         seen[k] = qty
     con.executemany(
-        'INSERT OR REPLACE INTO carryover (run_id,batch_id,reason,sku,qty) '
-        'VALUES (?,?,?,?,?)',
+        _INSERT_SQL['carryover'],
         [(run_id, int(b), str(reason), int(sku), int(qty))
          for (b, reason, sku, qty) in records],
     )
@@ -2415,9 +2432,7 @@ def save_bin_scores(path: str, run_id: int, records: list[tuple]) -> None:
         # Generator, not a list: records is ~400k rows and executemany consumes the
         # argument lazily — a list here briefly doubled the retained row storage.
         con.executemany(
-            'INSERT OR REPLACE INTO bin_scores '
-            '(run_id,aisle_id,bayX,bayY,travel_d,height_mult,layout_score,map_pref) '
-            'VALUES (?,?,?,?,?,?,?,?)',
+            _INSERT_SQL['bin_scores'],
             ((run_id, int(a), int(bx), int(by), float(td), float(hm), float(ls),
               None if mp is None else float(mp))
              for (a, bx, by, td, hm, ls, mp) in records),
@@ -2451,10 +2466,7 @@ def save_sku_scores(path: str, run_id: int, records: list[tuple]) -> None:
     try:
         con.execute(_CREATE_SKU_SCORES)
         con.executemany(
-            'INSERT OR REPLACE INTO sku_scores '
-            '(run_id,sku,map_target,labor_cost,handle_var,expected_popularity,'
-            'expected_labor,equilibrium_qty,reorder_point,lead_time_mean) '
-            'VALUES (?,?,?,?,?,?,?,?,?,?)',
+            _INSERT_SQL['sku_scores'],
             [(run_id, int(sku),
               None if mt is None else float(mt),
               float(lc), float(hv), float(ep), float(el),
@@ -2484,11 +2496,7 @@ def load_sku_scores(path: str, run_id: int) -> list[dict]:
 
 def _insert_task_stats(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT INTO task_stats '
-        '(run_id,batch_id,aisle_id,picker_id,task_start_time,task_end_time,'
-        'duration,W,lift_sum,num_bins_visited,total_items,'
-        'items_realized,bins_realized,is_outlier) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['task_stats'],
         [
             (run_id, r.batch_id, r.aisle_id, r.picker_id,
              r.task_start_time, r.task_end_time, r.duration,
@@ -2544,11 +2552,7 @@ def load_task_stats(path: str, run_id: int) -> list[TaskStats]:
 
 def _insert_picker_events(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT INTO picker_events '
-        '(run_id,batch_id,picker_id,time,event_type,aisle_id,bayX,bayY,'
-        'sku,quantity,bins_completed,total_bins,items_picked,total_items,'
-        'pick_travel_x,pick_travel_y,non_pick_travel_x,non_pick_travel_y,cart_move) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['picker_events'],
         [
             (run_id, r.batch_id, r.picker_id, r.time, r.event_type,
              r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity,
@@ -2565,10 +2569,138 @@ _WORK_EVENT_COLS = ('batch_id', 'seq', 't_abs', 't_local', 'shift_index', 'actor
                     'duration', 'source')
 
 
+# ── the WRITE SURFACE, one declaration per table ──────────────────────────────────────
+#
+# Adding or reading one column of a sim-DB table meant keeping eight hand-maintained lists in
+# step across three packages, and the INSERT was two of them: a column STRING and a parallel
+# VALUE TUPLE, aligned by eye. This is the first of the eight, for every table.
+#
+# **The defect it exists for.** `batch_stats` gained `work_day` and `released_late`. Both were
+# on the dataclass, both in the DDL, both in the INSERT -- and neither in the read surface the
+# SELECT list is built from. Every run wrote a real working day; every reader got 0, for three
+# days. The schema id did not move, the insert did not fail, and the loader did not fail: it
+# never asked. The check below is that failure as an import-time refusal.
+#
+# **Why a declaration and not a better scan.** The ratchet that caught nothing recovered a
+# writer's columns with `re.findall(r"\'([^\']*)\'", inspect.getsource(fn))`. Four writers
+# defeat it, and three of those for a reason no amount of regex fixes: an APOSTROPHE in their
+# docstring ("strategy_runner\'s close-out row") shifts the quote pairing and garbles
+# everything after it. A list the code is BUILT FROM cannot be misread.
+WRITE_SURFACES: dict[str, tuple[str, ...]] = {
+    'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum'),
+    'bin_eviction': ('run_id', 'batch_id', 'seq', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty'),
+    'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'unit_type',
+        'storage_size', 'qty'),
+    'bin_placement': ('run_id', 'batch_id', 'seq', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty',
+        'cause', 'bin_state', 'unit_size', 'bin_size', 'score', 'score_rank', 'policy'),
+    'bin_scores': ('run_id', 'aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult',
+        'layout_score', 'map_pref'),
+    'carryover': ('run_id', 'batch_id', 'reason', 'sku', 'qty'),
+    'free_index': ('run_id', 'batch_id', 'handling', 'category', 'size', 'unit', 'free'),
+    'picker_events': ('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id',
+        'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins', 'items_picked',
+        'total_items', 'pick_travel_x', 'pick_travel_y', 'non_pick_travel_x',
+        'non_pick_travel_y', 'cart_move'),
+    'picks': ('run_id', 'batch_id', 'picker_id', 'sim_time', 'aisle_id', 'bayX', 'bayY', 'sku',
+        'quantity'),
+    'put_queue_state': ('run_id', 'batch_id', 'queue', 'depth', 'oldest_age', 'staging',
+        'admitted', 'placed', 'blocked', 'cart_swaps', 'cut'),
+    'reorder_queue': ('run_id', 'batch_id', 'kind', 'sku', 'qty', 'remaining_lead',
+        'unit_type', 'storage_size', 'queue'),
+    'shift_days': ('run_id', 'day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
+        'standing_dock', 'standing_carry', 'standing_carry_labour', 'standing_carry_supply',
+        'last_finish'),
+    'site_receiving': ('run_id', 'batch', 'recv_depth', 'recv_unloaded', 'recv_cut',
+        'recv_seconds'),
+    'sku_scores': ('run_id', 'sku', 'map_target', 'labor_cost', 'handle_var',
+        'expected_popularity', 'expected_labor', 'equilibrium_qty', 'reorder_point',
+        'lead_time_mean'),
+    'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+        'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items',
+        'items_realized', 'bins_realized', 'is_outlier'),
+    'yard_drains': ('run_id', 'batch', 'yard_start', 'free_doors_start', 'yard_end',
+        'staged_remainder_end'),
+    'yard_trailers': ('run_id', 'seq', 'arrived_s', 'staged_s', 'emptied_s', 'status'),
+    # Already derived: their writers built the column list from one tuple and the value
+    # list from the same one -- which is what every other row here has just become.
+    # `simulation_runs` has no `run_id` because it is AUTOINCREMENT, and no read surface
+    # because nothing selects the whole row (`run_identity` and `find_run` each ask for
+    # what they need).
+    'work_events': ('run_id', *_WORK_EVENT_COLS),
+    'simulation_runs': ('run_type', 'created', *_IDENTITY_COLS, *_RUN_PARAM_COLS),
+    # Declared beside its own derived INSERT above, with the check that motivated all of this.
+    'batch_stats': _BATCH_WRITE_COLS,
+}
+
+#: Tables whose writer uses a PLAIN `INSERT`. Everywhere else a re-flush of the same key is a
+#: re-run and `OR REPLACE` is right; here a duplicate key is a real conflict that must raise --
+#: `site_receiving` has one producer and one row per site day, and `carryover` learned this the
+#: expensive way (a level and a flow shared `reason='unplaced'` under `INSERT OR REPLACE` and
+#: 500 units vanished).
+_PLAIN_INSERT = frozenset({'batch_stats', 'picker_events', 'picks', 'reorder_queue', 'site_receiving', 'task_stats', 'work_events'})
+
+
+def _insert_sql(table: str) -> str:
+    """The INSERT for `table`, generated from its declared write surface.
+
+    The column list and the placeholder count come from one tuple, so they cannot disagree --
+    the misalignment a hand-kept pair invites shifts every value after the added column by
+    one, and SQLite accepts it whenever the types happen to line up.
+    """
+    cols = WRITE_SURFACES[table]
+    verb = 'INSERT INTO' if table in _PLAIN_INSERT else 'INSERT OR REPLACE INTO'
+    return (f'{verb} {table} (' + ','.join(cols) + ') '
+            + 'VALUES (' + ','.join('?' * len(cols)) + ')')
+
+
+#: Generated once at import, not re-joined per call.
+_INSERT_SQL: dict[str, str] = {t: _insert_sql(t) for t in WRITE_SURFACES}
+
+#: table -> the READ surface its loader selects from, where the table has one. A column
+#: WRITTEN but not readable is read back as its Python default forever, on every run including
+#: the ones holding real values.
+#:
+#: NOT every table has one, and the missing ones are missing for a reason rather than by
+#: omission: `picks` is only ever read in aggregate (`SELECT sku, COUNT(*), SUM(quantity)`)
+#: and through the timeline view, so there is no full-row surface to compare against;
+#: `bin_keyframe`, `sku_scores`, `bin_placement`, `bin_eviction`, `put_queue_state`,
+#: `reorder_queue`, `aisle_metrics` and `site_receiving` are read by `SELECT *` or by their
+#: own narrow queries. Adding a row here that is not a real full-row select list would turn
+#: this check into a source of false refusals, which is worse than no check.
+_READ_SURFACES: dict[str, tuple[str, ...]] = {
+    'batch_stats':    _BATCH_COLS,
+    'task_stats':     _TASK_COLS,
+    'picker_events':  _EVENT_COLS,
+    'carryover':      ('run_id', *_CARRYOVER_COLS),
+    'yard_trailers':  ('run_id', *_YARD_TRAILER_COLS),
+    'yard_drains':    ('run_id', *_YARD_DRAIN_COLS),
+    'free_index':     ('run_id', *_FREE_INDEX_COLS),
+    'shift_days':     ('run_id', *_SHIFT_DAY_COLS),
+    'work_events':    ('run_id', *_WORK_EVENT_COLS),
+}
+
+#: Columns a writer sets that no full-row reader asks for BY DESIGN. Named rather than
+#: tolerated by a loose rule: `is_outlier` is stamped by the outlier pass and read through its
+#: own path, and `run_id` is a WHERE parameter rather than an output column on some queries.
+_WRITE_ONLY_BY_DESIGN = frozenset({'is_outlier'})
+
+_unreadable = {
+    t: sorted(set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN)
+    for t, read in _READ_SURFACES.items()
+    if set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN
+}
+if _unreadable:
+    raise RuntimeError(
+        f'these columns are WRITTEN and no reader can ask for them: {_unreadable}. They read '
+        f'back as their Python default on every run, including runs that recorded a real '
+        f'value -- the schema id will not move, the insert will not fail, and the loader will '
+        f'not fail, it will simply never ask. Add them to the table\'s read surface (with the '
+        f'pre-column TRUE value as the optional fill) or stop writing them.')
+
+
 def _insert_work_events(con: sqlite3.Connection, run_id: int, rows: list) -> None:
     con.executemany(
-        'INSERT INTO work_events (run_id,' + ','.join(_WORK_EVENT_COLS) + ') '
-        'VALUES (?' + ',?' * len(_WORK_EVENT_COLS) + ')',
+        _INSERT_SQL['work_events'],
         [(run_id, *r) for r in rows])
 
 
@@ -2595,9 +2727,7 @@ def save_picker_events(path: str, run_id: int, records: list) -> None:
 
 def _insert_picks(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT INTO picks '
-        '(run_id,batch_id,picker_id,sim_time,aisle_id,bayX,bayY,sku,quantity) '
-        'VALUES (?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['picks'],
         [
             (run_id, r.batch_id, r.picker_id, r.sim_time,
              r.aisle_id, r.bayX, r.bayY, r.sku, r.quantity)
@@ -2753,9 +2883,7 @@ def save_aisle_metrics(path: str, run_id: int, records: list) -> None:
 
 def _insert_aisle_metrics(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT OR REPLACE INTO aisle_metrics '
-        '(run_id,batch_id,aisle_id,n_skus,n_bins,demand_sum) '
-        'VALUES (?,?,?,?,?,?)',
+        _INSERT_SQL['aisle_metrics'],
         [
             (run_id, r.batch_id, r.aisle_id,
              r.n_skus, r.n_bins, r.demand_sum)
@@ -2870,10 +2998,7 @@ def save_bin_placements(path: str, run_id: int, records: list) -> None:
 
 def _insert_bin_placements(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT OR REPLACE INTO bin_placement '
-        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty, cause, bin_state, '
-        ' unit_size, bin_size, score, score_rank, policy) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['bin_placement'],
         [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty, r.cause,
           getattr(r, 'bin_state', 'empty'), getattr(r, 'unit_size', None),
           getattr(r, 'bin_size', None), r.score, r.score_rank, r.policy)
@@ -2894,8 +3019,7 @@ def save_bin_evictions(path: str, run_id: int, records: list) -> None:
 
 def _insert_bin_evictions(con: sqlite3.Connection, run_id: int, records: list) -> None:
     con.executemany(
-        'INSERT OR REPLACE INTO bin_eviction '
-        '(run_id, batch_id, seq, aisle_id, bayX, bayY, sku, qty) VALUES (?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['bin_eviction'],
         [(run_id, r.batch_id, r.seq, r.aisle_id, r.bayX, r.bayY, r.sku, r.qty)
          for r in records])
 
@@ -2910,8 +3034,7 @@ def _insert_yard_trailers(con: sqlite3.Connection, run_id: int, records: list) -
     collision.
     """
     con.executemany(
-        'INSERT OR REPLACE INTO yard_trailers '
-        '(run_id, seq, arrived_s, staged_s, emptied_s, status) VALUES (?,?,?,?,?,?)',
+        _INSERT_SQL['yard_trailers'],
         [(run_id, seq, arrived, staged, emptied, status)
          for seq, arrived, staged, emptied, status in records])
 
@@ -2919,9 +3042,7 @@ def _insert_yard_trailers(con: sqlite3.Connection, run_id: int, records: list) -
 def _insert_yard_drains(con: sqlite3.Connection, run_id: int, records: list) -> None:
     """`(batch, yard_start, free_doors_start, yard_end, staged_remainder_end)` tuples."""
     con.executemany(
-        'INSERT OR REPLACE INTO yard_drains '
-        '(run_id, batch, yard_start, free_doors_start, yard_end, staged_remainder_end) '
-        'VALUES (?,?,?,?,?,?)',
+        _INSERT_SQL['yard_drains'],
         [(run_id, batch, ys, fd, ye, sr)
          for batch, ys, fd, ye, sr in records])
 
@@ -2939,9 +3060,7 @@ def _insert_site_receiving(con: sqlite3.Connection, run_id: int, records: list) 
     table that raises is the fix that memory records.
     """
     con.executemany(
-        'INSERT INTO site_receiving '
-        '(run_id, batch, recv_depth, recv_unloaded, recv_cut, recv_seconds) '
-        'VALUES (?,?,?,?,?,?)',
+        _INSERT_SQL['site_receiving'],
         [(run_id, int(batch), int(depth), int(unloaded), int(cut), float(seconds))
          for batch, depth, unloaded, cut, seconds in records])
 
@@ -2952,10 +3071,7 @@ def _insert_shift_days(con: sqlite3.Connection, run_id: int, records: list) -> N
     close-out row, one per working day.  `standing_carry` is the labour and supply halves
     summed; the halves are what the drained verdict and the missed-share report read."""
     con.executemany(
-        'INSERT OR REPLACE INTO shift_days '
-        '(run_id, day, cap_end, end_s, drained, standing, standing_put, standing_dock, '
-        'standing_carry, standing_carry_labour, standing_carry_supply, last_finish) '
-        'VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        _INSERT_SQL['shift_days'],
         [(run_id, int(day), float(cap), float(end), int(bool(dr)), int(st), int(sp), int(sd),
           int(sc), int(scl), int(scs), float(lf))
          for day, cap, end, dr, st, sp, sd, sc, scl, scs, lf in records])
@@ -3117,9 +3233,7 @@ def _insert_free_index(con: sqlite3.Connection, run_id: int, records: list) -> N
     """`(batch_id, handling, category, size, unit, free)` tuples -- the runner's
     `(i, *BinKey, free)` off `free_bin_depth_by_bucket`."""
     con.executemany(
-        'INSERT OR REPLACE INTO free_index '
-        '(run_id, batch_id, handling, category, size, unit, free) '
-        'VALUES (?,?,?,?,?,?,?)',
+        _INSERT_SQL['free_index'],
         [(run_id, b, h, c, s, u, n) for b, h, c, s, u, n in records])
 
 

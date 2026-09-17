@@ -9436,6 +9436,13 @@
       "signature": null,
       "value_preview": "'02a78953886c'"
     },
+    "Optimization/persistence/Picking_Data.py::PRE_REALIZED_SIM_SCHEMA_IDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('1a594605a10e', '23d0c7f167bc', '2b7913bcd7e6', '6ad0b34af9f1', '8114cc4332eb', '96b8e37f158d', 'c33feeed3975', 'ee5ebabe74fb', 'f43d8b5931a4')"
+    },
     "Optimization/persistence/Picking_Data.py::PRE_REWORK_SIM_SCHEMA_ID": {
       "decorators": [],
       "doc": null,
@@ -9487,6 +9494,13 @@
       "signature": null,
       "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('c37b50bf2b84', 'c6bacfdb5c77', 'b87cfbb8d041'..."
     },
+    "Optimization/persistence/Picking_Data.py::TASK_UNKNOWN_ON_OLDER_VINTAGES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('items_realized', 'bins_realized')"
+    },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
         "dataclass"
@@ -9508,13 +9522,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items', 'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier', *_BATCH_OPTIONAL)"
-    },
-    "Optimization/persistence/Picking_Data.py::_BATCH_INSERT_SQL": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'INSERT INTO batch_stats (' + ','.join(_BATCH_WRITE_COLS) + ') VALUES (' + ','.join('?' * len(_BATCH_WRITE_COLS)) + ')'"
     },
     "Optimization/persistence/Picking_Data.py::_BATCH_OPTIONAL": {
       "decorators": [],
@@ -9824,6 +9831,13 @@
       "signature": null,
       "value_preview": "('sku', 'quantity', 'timestamp', 'aisle_id', 'bayX', 'bayY', 'handling_type', 'category_type')"
     },
+    "Optimization/persistence/Picking_Data.py::_PLAIN_INSERT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "frozenset({'batch_stats', 'picker_events', 'picks', 'reorder_queue', 'site_receiving', 'task_stats', 'work_events'})"
+    },
     "Optimization/persistence/Picking_Data.py::_RECEIVE_EVENT_COLS": {
       "decorators": [],
       "doc": null,
@@ -9864,7 +9878,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time', 'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items', 'is_outlier')"
+      "value_preview": "('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time', 'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items', 'items_realized', 'bins_realized', 'is_outlier')"
+    },
+    "Optimization/persistence/Picking_Data.py::_TASK_OPTIONAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'W': 0.0, 'items_realized': None, 'bins_realized': None}"
     },
     "Optimization/persistence/Picking_Data.py::_TASK_ROW_COLS": {
       "decorators": [],
@@ -9900,6 +9921,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "('batch_id', 'role', 'seconds', 'n_rows', 'n_timed', 'units')"
+    },
+    "Optimization/persistence/Picking_Data.py::_WRITE_ONLY_BY_DESIGN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "frozenset({'is_outlier'})"
     },
     "Optimization/persistence/Picking_Data.py::_YARD_DRAIN_COLS": {
       "decorators": [],
@@ -10020,6 +10048,13 @@
       "kind": "function",
       "signature": "(con: sqlite3.Connection, run_id: int, records: list) -> None"
     },
+    "Optimization/persistence/Picking_Data.py::_insert_sql": {
+      "decorators": [],
+      "doc": "The INSERT for `table`, generated from its declared write surface.\n\nThe column list and the placeholder count come from one tuple, so they cannot disagree --\nthe misalignment a hand-kept pair invites shifts every value after the added column by\none, and SQLite accepts it whenever the types happen to line up.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(table: str) -> str"
+    },
     "Optimization/persistence/Picking_Data.py::_insert_task_stats": {
       "decorators": [],
       "doc": null,
@@ -10083,12 +10118,19 @@
       "kind": "function",
       "signature": "(cols) -> str"
     },
+    "Optimization/persistence/Picking_Data.py::_task_frame_sql": {
+      "decorators": [],
+      "doc": "The `task_frame` select list minus the columns a vintage lacks -- `_batch_frame_sql`'s\nrule, one table over. Every name in `omit` must be optional, or the contract check in\n`dataset.query` raises for the vintage.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*omit: str) -> str"
+    },
     "Optimization/persistence/Picking_Data.py::_unreadable": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[c for c in _BATCH_WRITE_COLS if c not in _BATCH_COLS]"
+      "value_preview": "{t: sorted(set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN) for t, read in _READ_SURFACES.items() if set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN}"
     },
     "Optimization/persistence/Picking_Data.py::create_run": {
       "decorators": [],

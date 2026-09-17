@@ -30,82 +30,104 @@ import pytest
 from Optimization.persistence import Picking_Data as pd
 
 
-#: writer -> its DECLARED write surface, for the writers that have one.
-#:
-#: Ticket 11's direction, one writer at a time. The regex below is a REPAIR for writers with
-#: no declaration, and it is the repair that ticket exists to delete: it recovers a column
-#: list from the repo's own source, it covers 1 writer of 16, and four of the sixteen already
-#: defeat it (`_insert_work_events` parses 1 column of its real set; `free_index`,
-#: `shift_days` and `site_receiving` parse none). Every writer that gains a declaration leaves
-#: it behind.
-_DECLARED_WRITE_SURFACE = {
-    '_insert_batch_stats': pd._BATCH_WRITE_COLS,
-}
+#: THE REGEX IS GONE. It recovered a writer's column list with
+#: `re.findall(r"\'([^\']*)\'", inspect.getsource(fn))`, covered 1 writer of 16, and four of
+#: the sixteen defeated it -- three of those for a reason no amount of regex fixes: an
+#: APOSTROPHE in their docstring ("strategy_runner\'s close-out row") shifts the quote pairing
+#: and garbles everything after it. `Picking_Data.WRITE_SURFACES` is the declaration each
+#: writer's INSERT is now BUILT FROM, so there is nothing left to recover.
 
 
-def _inserted_columns(fn_name: str) -> set:
-    """The column names a writer writes -- from its declaration, or from its SQL text.
+def _inserted_columns(table: str) -> set:
+    """The columns the writer for `table` writes, off its declaration."""
+    return set(pd.WRITE_SURFACES[table])
 
-    Either way the question is what the WRITER writes, not what the table HAS: a column can
-    exist and have no writer, which is fine and not what this file is about.
+
+def test_every_written_column_can_be_read_back_for_every_table():
+    """THE regression, now for all nineteen tables instead of one.
+
+    `work_day` and `released_late` were written and unreadable for three days; this is the
+    assertion that would have failed on the commit that did it. `items_realized` and
+    `bins_realized` were the third instance and were found by exactly this check, on its first
+    run -- 7 and 2 went into the file and 0 and 0 came back out.
     """
-    declared = _DECLARED_WRITE_SURFACE.get(fn_name)
-    if declared is not None:
-        return set(declared)
-    src = inspect.getsource(getattr(pd, fn_name))
-    # The SQL is assembled from adjacent string literals, so recover it by unparsing.
-    sql = ' '.join(re.findall(r"'([^']*)'", src))
-    m = re.search(r'INSERT (?:OR REPLACE )?INTO \w+\s*\(([^)]*)\)', sql, re.I)
-    assert m, f'{fn_name}: no INSERT column list found — this test cannot see the writer'
-    return {c.strip() for c in m.group(1).split(',') if c.strip()}
-
-
-def test_every_batch_stats_column_written_can_be_read_back():
-    """THE regression. `work_day` and `released_late` were written and unreadable for three
-    days; this is the assertion that would have failed on the commit that did it."""
-    written = _inserted_columns('_insert_batch_stats')
-    readable = set(pd._BATCH_COLS)
-    # `run_id` is the query's WHERE parameter rather than an output column, and `is_outlier`
-    # is set by the outlier pass rather than carried on the frame — both are read through
-    # their own paths, so they are named here rather than silently tolerated by a loose rule.
-    exempt = {'is_outlier'}
-    missing = written - readable - exempt
-    assert not missing, (
-        f'batch_stats columns are WRITTEN but never SELECTed: {sorted(missing)}. '
-        f'They read back as their Python default on every run, including runs that '
-        f'recorded a real value. Add them to _BATCH_OPTIONAL (the optional-fill route, '
-        f'which is also what keeps them legal on vintages that predate them).')
+    checked = 0
+    for table, read in pd._READ_SURFACES.items():
+        written = _inserted_columns(table)
+        missing = written - set(read) - pd._WRITE_ONLY_BY_DESIGN
+        assert not missing, (
+            f'{table} columns are WRITTEN but never SELECTed: {sorted(missing)}. They read '
+            f'back as their Python default on every run, including runs that recorded a real '
+            f'value. Add them to the read surface with the pre-column TRUE value as the '
+            f'optional fill, or stop writing them.')
+        checked += 1
+    assert checked >= 9, f'only {checked} tables have a read surface to check against'
 
 
 def test_the_ratchet_can_actually_fail():
-    """Non-vacuity. If `_inserted_columns` silently returned an empty set — a regex that
-    stopped matching after a reformat, say — the test above would pass forever while checking
-    nothing. This repo once had 57 tests that could not fail."""
-    written = _inserted_columns('_insert_batch_stats')
-    assert len(written) > 20, f'only {len(written)} columns parsed; the writer scan is broken'
-    assert 'work_day' in written, 'the scan lost the very column that motivated this file'
-    assert not (written - set(pd._BATCH_COLS) - {'is_outlier'}), 'sanity'
-    # and prove the comparison bites on a column the reader really does not have
+    """Non-vacuity. A scan that silently returned an empty set would pass forever while
+    checking nothing; this repo once had 57 tests that could not fail."""
+    written = _inserted_columns('batch_stats')
+    assert len(written) > 20, f'only {len(written)} columns declared; the surface is empty'
+    assert 'work_day' in written, 'the declaration lost the column that motivated this file'
+    # and the comparison bites on a column no reader has
     assert 'no_such_column' not in set(pd._BATCH_COLS)
+    assert ({'no_such_column'} - set(pd._BATCH_COLS) - pd._WRITE_ONLY_BY_DESIGN
+            == {'no_such_column'}), 'the set difference is not doing what the check relies on'
 
 
-def test_the_declaration_is_what_the_writer_actually_writes():
+def test_every_declaration_is_the_sql_its_writer_uses():
     """A declaration nobody exercises is a second list, not one list.
 
-    The ratchet above now trusts `_BATCH_WRITE_COLS` instead of parsing the writer's SQL, so
-    the thing that has to be true is that the SQL IS built from it -- otherwise the ratchet
-    checks a declaration the code ignores, which is a worse failure than the regex it
-    replaced. Read off the generated statement, not off the source.
+    The check above trusts `WRITE_SURFACES` instead of parsing SQL, so what has to be true is
+    that the SQL IS built from it -- otherwise the ratchet reads a declaration the code
+    ignores, which is worse than the regex it replaced. Read off the GENERATED statement.
     """
-    m = re.search(r'INSERT INTO batch_stats\s*\(([^)]*)\)', pd._BATCH_INSERT_SQL, re.I)
-    assert m, 'the generated INSERT no longer names its columns'
-    in_sql = tuple(c.strip() for c in m.group(1).split(','))
-    assert in_sql == pd._BATCH_WRITE_COLS, (
-        f'the declaration and the SQL disagree: '
-        f'{sorted(set(in_sql) ^ set(pd._BATCH_WRITE_COLS))}')
-    assert pd._BATCH_INSERT_SQL.count('?') == len(pd._BATCH_WRITE_COLS), (
-        'the placeholder count and the column count disagree -- the exact misalignment the '
-        'hand-kept pair invited')
+    for table, cols in pd.WRITE_SURFACES.items():
+        sql = pd._INSERT_SQL[table]
+        m = re.search(r'INSERT (?:OR REPLACE )?INTO (\w+)\s*\(([^)]*)\)', sql, re.I)
+        assert m, f'{table}: the generated INSERT no longer names its columns'
+        assert m.group(1) == table, f'{table}: generated an INSERT into {m.group(1)}'
+        in_sql = tuple(c.strip() for c in m.group(2).split(','))
+        assert in_sql == tuple(cols), (
+            f'{table}: declaration and SQL disagree: {sorted(set(in_sql) ^ set(cols))}')
+        assert sql.count('?') == len(cols), (
+            f'{table}: {sql.count("?")} placeholders for {len(cols)} columns -- the exact '
+            f'misalignment a hand-kept pair invites')
+
+
+def test_every_writer_goes_through_the_declaration():
+    """A writer that still spells its own INSERT would simply not be checked -- which is how
+    the regex version covered 1 of 16 while reading as if it covered them all.
+
+    Two shapes are legal: `_INSERT_SQL['<table>']`, the generated statement; and a literal
+    `INSERT INTO <table>` whose column list is built from `WRITE_SURFACES[...]` in the same
+    expression (`simulation_runs`, which predates this and already did it). Anything else is a
+    writer outside every check in this file.
+    """
+    import ast
+
+    tree = ast.parse(inspect.getsource(pd))
+    generated, literal = set(), set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name)
+                and node.value.id == '_INSERT_SQL'
+                and isinstance(node.slice, ast.Constant)):
+            generated.add(node.slice.value)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            m = re.search(r'INSERT (?:OR REPLACE )?INTO (\w+)', node.value, re.I)
+            if m:
+                literal.add(m.group(1))
+
+    undeclared = sorted((generated | literal) - set(pd.WRITE_SURFACES))
+    assert not undeclared, (
+        f'these tables are written and have no WRITE_SURFACES entry: {undeclared}')
+    assert len(generated) >= 17, (
+        f'only {len(generated)} writers use the generated statement; the scan is broken or a '
+        f'writer went back to spelling its own SQL')
+    assert literal <= {'simulation_runs'}, (
+        f'these writers spell their own INSERT again: {sorted(literal)} -- the column list '
+        f'and the value tuple are two hand-kept lists the moment they do')
 
 
 def test_a_row_has_exactly_one_value_per_declared_column():
@@ -118,28 +140,12 @@ def test_a_row_has_exactly_one_value_per_declared_column():
     row = pd._batch_row(7, pd.BatchStats(
         run_id=7, batch_id=1, duration=1.0, num_tasks=2, total_items=3,
         avg_concurrent_pickers=1.0, picking_pct=0.5, traveling_pct=0.5))
-    assert len(row) == len(pd._BATCH_WRITE_COLS)
-    assert row[pd._BATCH_WRITE_COLS.index('run_id')] == 7, 'run_id is the call argument'
-    assert row[pd._BATCH_WRITE_COLS.index('duration')] == 1.0
-    assert row[pd._BATCH_WRITE_COLS.index('is_outlier')] == 0, (
+    cols = pd.WRITE_SURFACES['batch_stats']
+    assert len(row) == len(cols)
+    assert row[cols.index('run_id')] == 7, 'run_id is the call argument'
+    assert row[cols.index('duration')] == 1.0
+    assert row[cols.index('is_outlier')] == 0, (
         'is_outlier must reach SQLite as an int, not a bool left to the adapter')
-
-
-def test_the_writer_cannot_write_a_column_no_reader_can_ask_for():
-    """The import-time refusal, exercised rather than trusted.
-
-    `Picking_Data` compares its write surface against `_BATCH_COLS` when it loads, so
-    `work_day` and `released_late` -- written by every run and read back as 0 for three days
-    -- would have been a refusal on the commit that introduced them. Rebuilt here with a
-    planted column, because an import-time check cannot be observed by importing the module
-    that already passed it.
-    """
-    planted = pd._BATCH_WRITE_COLS + ('a_column_no_reader_asks_for',)
-    unreadable = [c for c in planted if c not in pd._BATCH_COLS and c != 'is_outlier']
-    assert unreadable == ['a_column_no_reader_asks_for'], unreadable
-    # and the real surface is clean
-    assert not [c for c in pd._BATCH_WRITE_COLS
-                if c not in pd._BATCH_COLS and c != 'is_outlier']
 
 
 def test_the_optional_defaults_match_the_column_types():

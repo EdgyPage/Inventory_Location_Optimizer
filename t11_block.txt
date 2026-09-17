@@ -1,0 +1,125 @@
+
+
+# ── the WRITE SURFACE, one declaration per table ──────────────────────────────────────
+#
+# Adding or reading one column of a sim-DB table meant keeping eight hand-maintained lists in
+# step across three packages, and the INSERT was two of them: a column STRING and a parallel
+# VALUE TUPLE, aligned by eye. This is the first of the eight, for every table.
+#
+# **The defect it exists for.** `batch_stats` gained `work_day` and `released_late`. Both were
+# on the dataclass, both in the DDL, both in the INSERT -- and neither in the read surface the
+# SELECT list is built from. Every run wrote a real working day; every reader got 0, for three
+# days. The schema id did not move, the insert did not fail, and the loader did not fail: it
+# never asked. The check below is that failure as an import-time refusal.
+#
+# **Why a declaration and not a better scan.** The ratchet that caught nothing recovered a
+# writer's columns with `re.findall(r"\'([^\']*)\'", inspect.getsource(fn))`. Four writers
+# defeat it, and three of those for a reason no amount of regex fixes: an APOSTROPHE in their
+# docstring ("strategy_runner\'s close-out row") shifts the quote pairing and garbles
+# everything after it. A list the code is BUILT FROM cannot be misread.
+WRITE_SURFACES: dict[str, tuple[str, ...]] = {
+    'aisle_metrics': ('run_id', 'batch_id', 'aisle_id', 'n_skus', 'n_bins', 'demand_sum'),
+    'bin_eviction': ('run_id', 'batch_id', 'seq', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty'),
+    'bin_keyframe': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'unit_type',
+        'storage_size', 'qty'),
+    'bin_placement': ('run_id', 'batch_id', 'seq', 'aisle_id', 'bayX', 'bayY', 'sku', 'qty',
+        'cause', 'bin_state', 'unit_size', 'bin_size', 'score', 'score_rank', 'policy'),
+    'bin_scores': ('run_id', 'aisle_id', 'bayX', 'bayY', 'travel_d', 'height_mult',
+        'layout_score', 'map_pref'),
+    'carryover': ('run_id', 'batch_id', 'reason', 'sku', 'qty'),
+    'free_index': ('run_id', 'batch_id', 'handling', 'category', 'size', 'unit', 'free'),
+    'picker_events': ('run_id', 'batch_id', 'picker_id', 'time', 'event_type', 'aisle_id',
+        'bayX', 'bayY', 'sku', 'quantity', 'bins_completed', 'total_bins', 'items_picked',
+        'total_items', 'pick_travel_x', 'pick_travel_y', 'non_pick_travel_x',
+        'non_pick_travel_y', 'cart_move'),
+    'picks': ('run_id', 'batch_id', 'picker_id', 'sim_time', 'aisle_id', 'bayX', 'bayY', 'sku',
+        'quantity'),
+    'put_queue_state': ('run_id', 'batch_id', 'queue', 'depth', 'oldest_age', 'staging',
+        'admitted', 'placed', 'blocked', 'cart_swaps', 'cut'),
+    'reorder_queue': ('run_id', 'batch_id', 'kind', 'sku', 'qty', 'remaining_lead',
+        'unit_type', 'storage_size', 'queue'),
+    'shift_days': ('run_id', 'day', 'cap_end', 'end_s', 'drained', 'standing', 'standing_put',
+        'standing_dock', 'standing_carry', 'standing_carry_labour', 'standing_carry_supply',
+        'last_finish'),
+    'site_receiving': ('run_id', 'batch', 'recv_depth', 'recv_unloaded', 'recv_cut',
+        'recv_seconds'),
+    'sku_scores': ('run_id', 'sku', 'map_target', 'labor_cost', 'handle_var',
+        'expected_popularity', 'expected_labor', 'equilibrium_qty', 'reorder_point',
+        'lead_time_mean'),
+    'task_stats': ('run_id', 'batch_id', 'aisle_id', 'picker_id', 'task_start_time',
+        'task_end_time', 'duration', 'W', 'lift_sum', 'num_bins_visited', 'total_items',
+        'items_realized', 'bins_realized', 'is_outlier'),
+    'yard_drains': ('run_id', 'batch', 'yard_start', 'free_doors_start', 'yard_end',
+        'staged_remainder_end'),
+    'yard_trailers': ('run_id', 'seq', 'arrived_s', 'staged_s', 'emptied_s', 'status'),
+    # Already derived: its writer built the column list from the read surface, which is
+    # what every other row here has just become.
+    'work_events': ('run_id', *_WORK_EVENT_COLS),
+    # Declared beside its own derived INSERT above, with the check that motivated all of this.
+    'batch_stats': _BATCH_WRITE_COLS,
+}
+
+#: Tables whose writer uses a PLAIN `INSERT`. Everywhere else a re-flush of the same key is a
+#: re-run and `OR REPLACE` is right; here a duplicate key is a real conflict that must raise --
+#: `site_receiving` has one producer and one row per site day, and `carryover` learned this the
+#: expensive way (a level and a flow shared `reason='unplaced'` under `INSERT OR REPLACE` and
+#: 500 units vanished).
+_PLAIN_INSERT = frozenset({'picker_events', 'picks', 'reorder_queue', 'site_receiving', 'task_stats', 'work_events'})
+
+
+def _insert_sql(table: str) -> str:
+    """The INSERT for `table`, generated from its declared write surface.
+
+    The column list and the placeholder count come from one tuple, so they cannot disagree --
+    the misalignment a hand-kept pair invites shifts every value after the added column by
+    one, and SQLite accepts it whenever the types happen to line up.
+    """
+    cols = WRITE_SURFACES[table]
+    verb = 'INSERT INTO' if table in _PLAIN_INSERT else 'INSERT OR REPLACE INTO'
+    return (f'{verb} {table} (' + ','.join(cols) + ') '
+            + 'VALUES (' + ','.join('?' * len(cols)) + ')')
+
+
+#: Generated once at import, not re-joined per call.
+_INSERT_SQL: dict[str, str] = {t: _insert_sql(t) for t in WRITE_SURFACES}
+
+#: table -> the READ surface its loader selects from, where the table has one. A column
+#: WRITTEN but not readable is read back as its Python default forever, on every run including
+#: the ones holding real values.
+#:
+#: NOT every table has one, and the missing ones are missing for a reason rather than by
+#: omission: `picks` is only ever read in aggregate (`SELECT sku, COUNT(*), SUM(quantity)`)
+#: and through the timeline view, so there is no full-row surface to compare against;
+#: `bin_keyframe`, `sku_scores`, `bin_placement`, `bin_eviction`, `put_queue_state`,
+#: `reorder_queue`, `aisle_metrics` and `site_receiving` are read by `SELECT *` or by their
+#: own narrow queries. Adding a row here that is not a real full-row select list would turn
+#: this check into a source of false refusals, which is worse than no check.
+_READ_SURFACES: dict[str, tuple[str, ...]] = {
+    'batch_stats':    _BATCH_COLS,
+    'task_stats':     _TASK_COLS,
+    'picker_events':  _EVENT_COLS,
+    'carryover':      ('run_id', *_CARRYOVER_COLS),
+    'yard_trailers':  ('run_id', *_YARD_TRAILER_COLS),
+    'yard_drains':    ('run_id', *_YARD_DRAIN_COLS),
+    'free_index':     ('run_id', *_FREE_INDEX_COLS),
+    'shift_days':     ('run_id', *_SHIFT_DAY_COLS),
+    'work_events':    ('run_id', *_WORK_EVENT_COLS),
+}
+
+#: Columns a writer sets that no full-row reader asks for BY DESIGN. Named rather than
+#: tolerated by a loose rule: `is_outlier` is stamped by the outlier pass and read through its
+#: own path, and `run_id` is a WHERE parameter rather than an output column on some queries.
+_WRITE_ONLY_BY_DESIGN = frozenset({'is_outlier'})
+
+_unreadable = {
+    t: sorted(set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN)
+    for t, read in _READ_SURFACES.items()
+    if set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN
+}
+if _unreadable:
+    raise RuntimeError(
+        f'these columns are WRITTEN and no reader can ask for them: {_unreadable}. They read '
+        f'back as their Python default on every run, including runs that recorded a real '
+        f'value -- the schema id will not move, the insert will not fail, and the loader will '
+        f'not fail, it will simply never ask. Add them to the table\'s read surface (with the '
+        f'pre-column TRUE value as the optional fill) or stop writing them.')

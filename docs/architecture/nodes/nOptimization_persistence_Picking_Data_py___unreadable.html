@@ -14,7 +14,7 @@
 <h1><span class="kind kind-const">const</span> <code>_unreadable</code></h1>
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_Picking_Data_py.html"><code>Optimization/persistence/Picking_Data.py</code></a></p>
 
-<pre class="sig"><code>_unreadable = [c for c in _BATCH_WRITE_COLS if c not in _BATCH_COLS]</code></pre>
+<pre class="sig"><code>_unreadable = {t: sorted(set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN) for t, read in _READ_SURFACES.items() if set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN}</code></pre>
 <section class="doc empty">No docstring.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___unreadable">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=_unreadable">Source ↗</a></p>

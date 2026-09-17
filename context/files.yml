@@ -997,6 +997,8 @@ files:
       - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "OCCUPANCY_LADDER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "BATCH_UNKNOWN_ON_OLDER_VINTAGES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "TASK_UNKNOWN_ON_OLDER_VINTAGES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "PRE_REALIZED_SIM_SCHEMA_IDS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_CARRY_SPLIT_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_REWORK_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_FREE_INDEX_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
@@ -2110,11 +2112,11 @@ files:
     purpose: "a column nobody can read back is not persisted."
     layer: "tests"
     key_symbols:
-      - {name: "test_every_batch_stats_column_written_can_be_read_back", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_every_written_column_can_be_read_back_for_every_table", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
       - {name: "test_the_ratchet_can_actually_fail", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
-      - {name: "test_the_declaration_is_what_the_writer_actually_writes", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_every_declaration_is_the_sql_its_writer_uses", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
+      - {name: "test_every_writer_goes_through_the_declaration", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
       - {name: "test_a_row_has_exactly_one_value_per_declared_column", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
-      - {name: "test_the_writer_cannot_write_a_column_no_reader_can_ask_for", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
       - {name: "test_the_optional_defaults_match_the_column_types", file: "Tests/architecture/test_written_columns_are_readable.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_plan_warehouse.py":

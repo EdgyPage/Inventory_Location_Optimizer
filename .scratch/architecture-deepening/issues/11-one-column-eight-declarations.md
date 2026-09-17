@@ -1,7 +1,7 @@
 # 11 - one column, eight declarations, joined by a regex
 
 Type: refactor
-Status: claimed
+Status: resolved
 
 ## Context
 
@@ -142,3 +142,102 @@ in the same column, and deleting the writer's copy is what leaves one default pe
   to be derived, and it is the one site that must stay hand-written.
 - `.scratch/architecture-drift/issues/07` (`_shift_day_select` reads a conditional table
   without being in `CONDITIONAL_READS`) is untouched by this slice.
+
+
+---
+
+## RESOLVED 2026-09-17 -- one declaration per table, and the check found a third instance
+
+### What landed
+
+`WRITE_SURFACES`: one ordered column tuple per table, twenty of them. Every writer's INSERT is
+GENERATED from it (`_insert_sql` / `_INSERT_SQL`), so the column string and the placeholder
+count are the same fact. `simulation_runs` was already doing this -- its writer built the
+column list and the value list from one tuple -- and is registered rather than rewritten.
+
+**The import-time refusal.** `_READ_SURFACES` maps each table to the select list its loader is
+built from, and the module REFUSES TO IMPORT if any table writes a column no reader asks for.
+That is the defect this ticket exists for, moved from "a test nobody had written" to "the
+module does not load".
+
+### THE CHECK FOUND ONE ON ITS FIRST RUN
+
+`task_stats` writes `items_realized` and `bins_realized`. Both are on the dataclass, in the
+DDL, in the INSERT, in `REQUIRES` and in `sim_semantics` -- and absent from `_TASK_COLS`,
+which is what the `task_frame` SELECT is built from. Demonstrated end to end rather than
+inferred:
+
+```
+IN THE FILE  : (7, 2)
+OUT OF LOADER: (0, 0)
+```
+
+**The third instance of the shape**, after `work_day`/`released_late` and `free_bins`. Fixed
+here on the `free_bins` pattern, because nine of the twenty-one vetted vintages predate the
+columns (read off the shape store, not remembered):
+
+- added to `_TASK_COLS`;
+- `_TASK_OPTIONAL` fills them **None**, not 0 -- an older run DID realize items and bins and
+  simply never recorded the counts, so a 0 would be a measurement rather than an absence;
+- `_task_frame_sql(*omit)` mirrors `_batch_frame_sql`, and the nine vintages get a
+  per-vintage override that omits the pair -- without it the canonical SQL is unservable
+  there and the loader falls to its frozen legacy body, whose answer is the WRITER's dataclass
+  default. That is exactly how `free_bins` read 0 instead of None for two months
+  (memory `optional-fill-only-answers-through-an-override`).
+
+### The ratchet deleted its regex
+
+`test_written_columns_are_readable` recovered a writer's column list with
+`re.findall(r"'([^']*)'", inspect.getsource(fn))`. It is gone. The scan reads
+`WRITE_SURFACES`, and the file now checks:
+
+| test | what it pins |
+|---|---|
+| every written column can be read back | all nine tables with a full-row read surface |
+| every declaration IS the SQL its writer uses | a declaration nobody exercises is a second list |
+| every writer goes through the declaration | ≥17 generated + at most `simulation_runs` literal |
+| a row has one value per declared column | the value-tuple half of the misalignment |
+
+**Why the regex had to go rather than improve.** Four writers defeated it and three of those
+for a reason no amount of regex fixes: an APOSTROPHE in their docstring ("strategy_runner's
+close-out row") shifts the quote pairing and garbles everything after it. That is why
+`shift_days`, `site_receiving` and `free_index` "parse none" -- not an edge case in the
+pattern, a property of recovering structure from text.
+
+Both new guards were proved against planted damage: a written column no reader asks for makes
+the module refuse to import; a writer that spells its own INSERT again fails the scan.
+
+### Two claims in this ticket that were wrong
+
+1. **`REQUIRES.tables['batch_stats']` is NOT derivable and must stay hand-written.** The
+   ticket lists it as site 6 to derive from the column declaration. It is the GUARANTEED
+   surface -- the intersection over every vetted vintage -- so it is deliberately a SUBSET of
+   `_BATCH_COLS` and excludes every recently added column (its own comment says so about
+   `items_demanded`). Deriving it would silently widen what the read layer claims every
+   vintage has.
+2. **"A live disagreement this will expose": the writer's `getattr(r, 'free_bins', 0)` against
+   the readers' `None`.** It is not a disagreement. The writer's 0 means "this run measured
+   zero"; the reader's None means "a vintage that never recorded the column". Two statements
+   in one column. The writer's duplicate default was deleted, which leaves one default per
+   meaning -- and made a missing attribute an `AttributeError` instead of a silent 0.
+
+### What is NOT done, and is not this ticket
+
+The `Column(name, sql_type, py_default, unknown_on_older, semantics, guaranteed)` record the
+ticket describes would additionally derive the DDL text, the `sim_semantics` entry and the
+frozen legacy loader body. Those three were left: deriving DDL TEXT moves schema ids for
+twenty tables at once, which is a migration rather than a refactor, and it buys less than the
+write surface did -- the DDL is the one of the eight lists that cannot silently disagree,
+because the schema id is derived by EXECUTING it.
+
+`.scratch/architecture-drift/issues/07` (`_shift_day_select` reads a conditional table without
+being in `CONDITIONAL_READS`) is untouched.
+
+### Verification
+
+| check | result |
+|---|---|
+| toy run vs baseline, `run_digest.py` | **IDENTICAL**, 136 arms |
+| `Tests/unit` + `Tests/integration -k "not gpu"` | 3,161 passed / 2 skipped |
+| the ratchet, on planted damage | refuses at import / fails the scan |
+| the `task_stats` round-trip | 7 and 2 in, 7 and 2 out |
