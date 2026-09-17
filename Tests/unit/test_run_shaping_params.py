@@ -438,16 +438,21 @@ def test_the_runner_reads_the_day_only_from_its_arguments():
 
     from Optimization.simdriver import strategy_runner
 
+    # Ticket 06 split the leaf in two: `_build_arm` constructs the arm and `_build_leaf`
+    # steps it. The day is read at CONSTRUCTION, so both halves are scanned -- a scan of
+    # one would now pass by looking in the wrong place.
     tree = ast.parse(inspect.getsource(strategy_runner))
-    fn = next(n for n in ast.walk(tree)
-              if isinstance(n, ast.FunctionDef) and n.name == '_build_leaf')
-    for node in ast.walk(fn):                      # strip every docstring and comment
+    fns = [n for n in ast.walk(tree)
+           if isinstance(n, ast.FunctionDef) and n.name in ('_build_leaf', '_build_arm')]
+    assert len(fns) == 2, f'expected both halves of the leaf, found {len(fns)}'
+    for fn in fns:
+      for node in ast.walk(fn):                    # strip every docstring and comment
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
             if (node.body and isinstance(node.body[0], ast.Expr)
                     and isinstance(node.body[0].value, ast.Constant)
                     and isinstance(node.body[0].value.value, str)):
                 node.body.pop(0)
-    body = ast.unparse(fn)
+    body = ''.join(ast.unparse(fn) for fn in fns)
 
     for name in ('work_day_spec', 'CONFIG', 'settings.WORK_DAY_SECONDS'):
         assert name not in body, (

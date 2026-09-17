@@ -99,7 +99,9 @@ def test_the_makespan_is_the_slowest_picker_not_the_absolute_end():
 def test_the_runner_carries_one_uniform_clock():
     import Optimization.simdriver.strategy_runner as sr
     src = inspect.getsource(sr)
-    assert 'start_times=[arm_clock] * k_pickers' in src, (
+    # `arm_clock` and `k_pickers` moved onto `ArmAssembly` (ticket 06); the claim is
+    # the same one -- ONE epoch, handed to every picker.
+    assert 'start_times=[asm.arm_clock] * asm.k_pickers' in src, (
         'the arm no longer hands every picker the same batch epoch')
     assert 'arm_clock             = bs.batch_start_time + bs.duration' in src
 

@@ -42,6 +42,33 @@ _NEW_KEYS = (*_ERA_INPUTS, *CALIBRATION_KEYS, 'shift_drain_or_cap', 'put_crew_si
              'recv_crew_size')
 
 
+def _squash(text: str) -> str:
+    """Collapse every run of whitespace to one space -- for an assertion about a CALL
+    rather than about its line breaks."""
+    import re as _re
+    return _re.sub(r'\s+', ' ', text)
+
+
+def _leaf_source() -> str:
+    """One leaf, in three pieces since ticket 06.
+
+    `_build_arm` constructs the arm and returns an `ArmAssembly`; `_build_leaf` closes the two
+    batch halves over it; `ArmAssembly.shift_close_out` is the day close-out, a method because
+    the stepping half calls it. A question about "what the runner does" spans all three, and a
+    scan of one would now pass by looking in the wrong place.
+
+    The method is dedented so the result still parses as a module — these scans `ast.parse`
+    what they get back.
+    """
+    import inspect
+    import textwrap
+
+    from Optimization.simdriver import strategy_runner as _sr
+    return (inspect.getsource(_sr._build_arm)
+            + inspect.getsource(_sr._build_leaf)
+            + textwrap.dedent(inspect.getsource(_sr.ArmAssembly.shift_close_out)))
+
+
 @pytest.fixture()
 def restore():
     """CONFIG is mutated in place and shared; put it back however the test exits."""
@@ -484,37 +511,40 @@ def test_the_runner_writes_the_ledger_and_flushes_the_final_day_outside_the_tail
     that one guards the rule.
     """
     import Optimization.simdriver.strategy_runner as sr
-    src = inspect.getsource(sr._build_leaf)
-    assert 'sd.append(_shift_close_out(*_closed))' in src
-    assert src.count('shift_days=sd') == 2, 'both bundle flushes carry the ledger'
-    assert 'sd.clear()' in src
+    src = _leaf_source()
+    assert 'asm.sd.append(asm.shift_close_out(*_closed))' in src
+    assert src.count('shift_days=asm.sd') == 2, 'both bundle flushes carry the ledger'
+    assert 'asm.sd.clear()' in src
     # ONE definition of drained, and it is labour-only: the close-out calls
     # `equilibrium.is_drained` with the LABOUR half of the carry and the overtime stamp
     # (the last finish past the cap) and never re-derives it
-    assert ('_is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,\n'
-            '                               standing_carry_labour=_s_labour, overtime=_overtime)') in src
+    # Whitespace-normalised: the continuation's alignment moved when `shift_close_out`
+    # became an `ArmAssembly` method (ticket 06), and the claim is about the CALL and its
+    # arguments, not about which column the second line starts in.
+    assert ('_is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock, '
+            'standing_carry_labour=_s_labour, overtime=_overtime)') in _squash(src)
     assert '_overtime = float(last_finish) > _cap_end' in src,         'overtime is the last finish past the cap, computed before the verdict'
     assert '_drained = (not cut)' not in src, 'the verdict must not be re-derived inline'
     # The standing tuple carries the DOCK FLOOR beside the put queues, and under a site
     # dock it carries this leaf's SHARE of it -- `mgr.dock_depth` refuses on a coupled leaf
     # because one floor holding both channels' merchandise has no per-channel answer.
-    assert 'standing=(mgr.queue_depth,' in src
-    assert 'mgr.dock_depth if site is None' in src
-    assert 'else site.coord.dock_depth_for(mgr),' in src
+    assert 'standing=(asm.mgr.queue_depth,' in src
+    assert 'asm.mgr.dock_depth if asm.site is None' in src
+    assert 'else asm.site.coord.dock_depth_for(asm.mgr),' in src
     assert '*_pending_split))' in src
     assert "if _reason == 'unpicked_daycut':" in src, 'the carry is split by cause family'
     # THE ORDERING. The boundary test precedes the fold of this batch's clocks/cut/depths, so
     # a day closes on ITS last batch's state (the log-only ledger mis-attributed every first
     # batch). Now a call order rather than a statement order, and the ledger's own test
     # sabotages the reverse to prove the rule is load-bearing.
-    assert src.index('shift.advance_to(_d)') < src.index('shift.note('),         'the day boundary must be tested BEFORE this batch folds in'
+    assert src.index('asm.shift.advance_to(_d)') < src.index('asm.shift.note('),         'the day boundary must be tested BEFORE this batch folds in'
     # THE RUN-END FLUSH, the defect this gate was written for: a flush nested inside `if pb:`
     # silently writes nothing whenever n_batches divides the checkpoint cadence.
-    _ifpb = src.index('if pb:')
+    _ifpb = src.index('if asm.pb:')
     _indent = src[:_ifpb].rsplit('\n', 1)[-1]     # the `if pb:` line's OWN indent
     tail = src[_ifpb:]
-    final = tail.index('_last_day = shift.final() if _drain_or_cap else None')
-    assert 'save_shift_days(db_path, run_id, [_shift_close_out(*_last_day)])' in tail
+    final = tail.index('_last_day = asm.shift.final() if asm._drain_or_cap else None')
+    assert 'save_shift_days(asm.db_path, asm.run_id, [asm.shift_close_out(*_last_day)])' in tail
     # Compared against `if pb:`'s own indent rather than a literal four spaces, so the guard
     # survives the run-end tail moving into a nested function (site-dock 18) while still
     # failing the only thing it exists to catch: the flush drifting INSIDE the conditional.

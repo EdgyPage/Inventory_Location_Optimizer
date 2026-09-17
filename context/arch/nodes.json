@@ -14746,6 +14746,26 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/strategy_runner.py::ArmAssembly": {
+      "decorators": [],
+      "doc": "Everything one ARM holds for the length of a run -- built once, then read.\n\n`_build_leaf` bound 139 distinct names at one indent level, and the three closures it\nreturns reached back into them: 76 of those names are DURABLE (a closure reads or\nwrites one) and the other 60 are construction temporaries that nothing outside the\nsetup ever looks at. Nothing sat between \"the whole arm\" and a 600-line closure body,\nso every behavioural test of a batch had to hand-assemble a run tree -- five e2e\nharnesses totalling ~2,000 lines exist for that reason, and one of them says so.\n\nThe split is computed rather than judged: DURABLE means a closure touches it. Which\nis also why this list is 76 names and not the ~40 the ticket estimated -- an arm\nreally does carry that much, and seeing it is the point.\n\n## What this is NOT\n\nNot a bag of parameters. The closures no longer declare `nonlocal` at all: a carry\nbetween batches (`arm_clock`, `put_clock`, `recv_clock`, `last_dur`, `skipped`,\n`_pending`) is an attribute write, so \"this value survives the batch\" is stated by\nwhere it lives instead of by a declaration in each closure that happens to mention it.\n\nSlotted: one per leaf, and a stray attribute would be a name that looks like arm state\nand is not.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/strategy_runner.py::ArmAssembly.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pool, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd, seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
+    },
+    "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out": {
+      "decorators": [],
+      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, standing_carry_labour,\nstanding_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing\nwas cut in it, no standing LABOUR survives it -- put queues + held + the dock floor\n+ the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap\n(START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary), and never the SUPPLY carry (`unpicked_unavailable` /\n`unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as\nstanding work it made every finite stock level cap every day).\n`equilibrium.is_drained` is the one definition; this closure only gathers its\narguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, day: int, standing: tuple, last_finish: float, cut: bool) -> tuple"
+    },
     "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS": {
       "decorators": [],
       "doc": null,
@@ -14830,19 +14850,26 @@
       "kind": "function",
       "signature": "(args: dict, warehouse, orders, pick_cfg, log) -> dict | None"
     },
+    "Optimization/simdriver/strategy_runner.py::_build_arm": {
+      "decorators": [],
+      "doc": "Construct one arm: everything a leaf holds for the length of a run.\n\nThis was the first 810 lines of `_build_leaf`, which bound 139 names at one indent and\nthen handed the two batch closures back into that scope. The split is where CONSTRUCTION\nSTOPS and STEPPING STARTS: 76 of those names are durable (a closure touches one) and\nbecome the returned `ArmAssembly`; the other 60 are construction temporaries and stay\nhere, where nothing outside can see them.\n\n**It is a callable seam, which is the point.** Every behavioural test of a batch used to\nneed an e2e harness that hand-assembled a run tree -- five of them exist, ~2,000 lines,\nand `test_channel_runner_smoke.py` says out loud that they duplicate the driver's own\nassembly because the assembly had no entry. This one costs a payload dict.\n\nThe four arguments are `_build_leaf`'s, unchanged and for the same reasons: `unit` is the\nunit-scope payload under coupling (the put and receiving crews are the SITE's), `pool` the\nsite put pool, `site_gain` the site gain bundle, `site` the site dock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, unit: dict | None=None, pool=None, site_gain=None, site=None) -> ArmAssembly"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_arm._arm_aisle_state": {
+      "decorators": [],
+      "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
     "Optimization/simdriver/strategy_runner.py::_build_leaf": {
       "decorators": [],
       "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\n`pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves\nand injected: when it is present this leaf's put queues are bound to the pool's shared\nclock list rather than minting their own, its put rows are stamped with the pool's\nworkers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.\nNone is every uncoupled run and every flag-off leaf, which then fields its own put crew\nexactly as it always did \u2014 double count and all, structurally, because the pool is not\nCONSTRUCTED rather than constructed and bypassed.\n\n`site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the\nleaves the same way and for the same reason: one mixed trailer is priced per unit by\nthe OWNING channel's arm, and only a scope that sees both leaves can hold both arms.\nThis leaf binds its own bundle into it and hands the composite to its transit. None is\nevery uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it\nalways did \u2014 so a single-owner run reads the very object `_gain_bundle_for` returned.\n\n`site` is the SITE DOCK (`_SiteDock`), built above the leaves for the third time and\nfor the third version of the same reason: one dock, one yard and one receiving crew\nserve the whole site, so only a scope that sees both leaves can build them once. When\nit is present this leaf receives the site's dock, the site's transit and the site's\nreceiving roster instead of minting its own, binds itself onto the coordinator, and\nstops running phases 0-5 in its own `replenish` \u2014 the unit drives them once for every\nleaf (`SiteReceiving.drain`). None is every uncoupled run AND the coupled inbound-OFF\npole, which names no trailer pipeline and therefore has no site inbound to build.\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
       "is_async": false,
       "kind": "function",
       "signature": "(args: dict, unit: dict | None=None, pool=None, site_gain=None, site=None) -> '_Leaf'"
-    },
-    "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state": {
-      "decorators": [],
-      "doc": "Rebuild per-aisle affinity + demand/labor state from the placed bins.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "() -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._finish": {
       "decorators": [],
@@ -14864,13 +14891,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(i: int) -> None"
-    },
-    "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out": {
-      "decorators": [],
-      "doc": "Close working day `day`: the ledger row `(day, cap_end, end_s, drained,\nstanding, standing_put, standing_dock, standing_carry, standing_carry_labour,\nstanding_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing\nwas cut in it, no standing LABOUR survives it -- put queues + held + the dock floor\n+ the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap\n(START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is\ncalendar, not labour; and releases are exhausted by construction at a day\nboundary), and never the SUPPLY carry (`unpicked_unavailable` /\n`unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as\nstanding work it made every finite stock level cap every day).\n`equilibrium.is_drained` is the one definition; this closure only gathers its\narguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay\norigin-aligned, so this is a REPORT of when the crews got off the clock, never a\nscheduler.\n\nThe state is PASSED IN, never read live: the close-out fires at the first batch of\nthe NEXT day, after that batch has already been processed, so the manager's live\ndepths and the folded clocks belong to the new day by then.  The caller hands it\nthe snapshot the previous day's last batch left behind (`_shift_standing`) and the\nclocks and cut flag accumulated before this batch was folded in.  The log-only\nledger read them live and mis-attributed every day's first batch to the day before\n-- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which\npersisting the row was what made visible.  Called once per day boundary, and once\nmore after the loop for the final day, which has no next day to close it.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._step": {
       "decorators": [],

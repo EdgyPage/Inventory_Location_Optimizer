@@ -1196,49 +1196,200 @@ def _site_unload_cost(leaf_args: dict):
     return _dc_replace(_ucost, **_ckw) if _ckw else _ucost
 
 
-def _build_leaf(args: dict, unit: dict | None = None, pool=None,
-                site_gain=None, site=None) -> '_Leaf':
-    """One channel leaf, built but not yet run — the setup half of a work unit.
+class ArmAssembly:
+    """Everything one ARM holds for the length of a run -- built once, then read.
 
-    Everything here is per channel and stays so under coupling: one inventory partition, one
-    warehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns
-    is the leaf's two halves as closures over that setup — `step(i)`, one batch, and
-    `finish()`, the run-end flush and the result dict — so a caller can drive ONE leaf (every
-    run today) or step two leaves through one batch loop (the coupled unit, site-dock 02 §2).
+    `_build_leaf` bound 139 distinct names at one indent level, and the three closures it
+    returns reached back into them: 76 of those names are DURABLE (a closure reads or
+    writes one) and the other 60 are construction temporaries that nothing outside the
+    setup ever looks at. Nothing sat between "the whole arm" and a 600-line closure body,
+    so every behavioural test of a batch had to hand-assemble a run tree -- five e2e
+    harnesses totalling ~2,000 lines exist for that reason, and one of them says so.
 
-    `pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves
-    and injected: when it is present this leaf's put queues are bound to the pool's shared
-    clock list rather than minting their own, its put rows are stamped with the pool's
-    workers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.
-    None is every uncoupled run and every flag-off leaf, which then fields its own put crew
-    exactly as it always did — double count and all, structurally, because the pool is not
-    CONSTRUCTED rather than constructed and bypassed.
+    The split is computed rather than judged: DURABLE means a closure touches it. Which
+    is also why this list is 76 names and not the ~40 the ticket estimated -- an arm
+    really does carry that much, and seeing it is the point.
 
-    `site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the
-    leaves the same way and for the same reason: one mixed trailer is priced per unit by
-    the OWNING channel's arm, and only a scope that sees both leaves can hold both arms.
-    This leaf binds its own bundle into it and hands the composite to its transit. None is
-    every uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it
-    always did — so a single-owner run reads the very object `_gain_bundle_for` returned.
+    ## What this is NOT
 
-    `site` is the SITE DOCK (`_SiteDock`), built above the leaves for the third time and
-    for the third version of the same reason: one dock, one yard and one receiving crew
-    serve the whole site, so only a scope that sees both leaves can build them once. When
-    it is present this leaf receives the site's dock, the site's transit and the site's
-    receiving roster instead of minting its own, binds itself onto the coordinator, and
-    stops running phases 0-5 in its own `replenish` — the unit drives them once for every
-    leaf (`SiteReceiving.drain`). None is every uncoupled run AND the coupled inbound-OFF
-    pole, which names no trailer pipeline and therefore has no site inbound to build.
+    Not a bag of parameters. The closures no longer declare `nonlocal` at all: a carry
+    between batches (`arm_clock`, `put_clock`, `recv_clock`, `last_dur`, `skipped`,
+    `_pending`) is an attribute write, so "this value survives the batch" is stated by
+    where it lives instead of by a declaration in each closure that happens to mention it.
 
-    The closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this
-    function with the loop inline, and the split moved the loop body and the tail VERBATIM.
-    They rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries
-    (`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between
-    calls exactly as they survived between iterations.
+    Slotted: one per leaf, and a stray attribute would be a name that looks like arm state
+    and is not.
+    """
 
-    Uses DeferredPickSimulation for parallel Phase-1 picker execution within
-    each batch.  Log records travel through a multiprocessing.Queue to the
-    QueueListener in the main process so they appear in real time.
+    __slots__ = ('n_catalogue', 'n_skus', '_cut_at_day_end', '_drain_or_cap', '_fs_w', '_gc_detail', '_gc_stats0',
+                  '_gc_thresh', '_pending', '_pick_workers', '_put_crews', '_put_workers',
+                  '_recv_day', '_recv_workers', '_release', '_roll_over', '_seed_terms',
+                  '_shift_seconds', '_space_tl', 'affinity', 'arm_clock', 'audit', 'batch_cfg',
+                  'batches', 'bin_rec', 'checkpoint', 'ckpt_win', 'cov', 'ctx', 'db_path',
+                  'denom', 'expected_pick', 'fi', 'freq_by_idx', 'freq_by_sku', 'inventory',
+                  'k_pickers', 'keyframe_interval', 'kf_db', 'last_dur', 'lift_cache', 'log',
+                  'map_lap_pct', 'mgr', 'n_batches', 'opt_x', 'opt_y', 'pb', 'pe', 'pick_cfg',
+                  'pk', 'pm', 'pool', 'pq', 'pqs', 'pt', 'put_clock', 'qty_by_sku',
+                  'recv_clock', 'reloader', 'run_dir', 'run_id', 'sd', 'seed_batches', 'shift',
+                  'site', 'skipped', 'start_i', 'strat', 'strategy', 't_loop', 't_precompute',
+                  'timers', 'warehouse', 'we', 'wp', 'yd', 'yt')
+
+    def __init__(self, *, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0,
+                         _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers,
+                         _recv_day, _recv_workers, _release, _roll_over, _seed_terms,
+                         _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg,
+                         batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom,
+                         expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers,
+                         keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr,
+                         n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pool, pq, pqs, pt,
+                         put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, sd,
+                         seed_batches, shift, site, skipped, start_i, strat, strategy, t_loop,
+                         t_precompute, timers, warehouse, we, wp, yd, yt):
+        self.n_catalogue = n_catalogue
+        self.n_skus = n_skus
+        self._cut_at_day_end = _cut_at_day_end
+        self._drain_or_cap = _drain_or_cap
+        self._fs_w = _fs_w
+        self._gc_detail = _gc_detail
+        self._gc_stats0 = _gc_stats0
+        self._gc_thresh = _gc_thresh
+        self._pending = _pending
+        self._pick_workers = _pick_workers
+        self._put_crews = _put_crews
+        self._put_workers = _put_workers
+        self._recv_day = _recv_day
+        self._recv_workers = _recv_workers
+        self._release = _release
+        self._roll_over = _roll_over
+        self._seed_terms = _seed_terms
+        self._shift_seconds = _shift_seconds
+        self._space_tl = _space_tl
+        self.affinity = affinity
+        self.arm_clock = arm_clock
+        self.audit = audit
+        self.batch_cfg = batch_cfg
+        self.batches = batches
+        self.bin_rec = bin_rec
+        self.checkpoint = checkpoint
+        self.ckpt_win = ckpt_win
+        self.cov = cov
+        self.ctx = ctx
+        self.db_path = db_path
+        self.denom = denom
+        self.expected_pick = expected_pick
+        self.fi = fi
+        self.freq_by_idx = freq_by_idx
+        self.freq_by_sku = freq_by_sku
+        self.inventory = inventory
+        self.k_pickers = k_pickers
+        self.keyframe_interval = keyframe_interval
+        self.kf_db = kf_db
+        self.last_dur = last_dur
+        self.lift_cache = lift_cache
+        self.log = log
+        self.map_lap_pct = map_lap_pct
+        self.mgr = mgr
+        self.n_batches = n_batches
+        self.opt_x = opt_x
+        self.opt_y = opt_y
+        self.pb = pb
+        self.pe = pe
+        self.pick_cfg = pick_cfg
+        self.pk = pk
+        self.pm = pm
+        self.pool = pool
+        self.pq = pq
+        self.pqs = pqs
+        self.pt = pt
+        self.put_clock = put_clock
+        self.qty_by_sku = qty_by_sku
+        self.recv_clock = recv_clock
+        self.reloader = reloader
+        self.run_dir = run_dir
+        self.run_id = run_id
+        self.sd = sd
+        self.seed_batches = seed_batches
+        self.shift = shift
+        self.site = site
+        self.skipped = skipped
+        self.start_i = start_i
+        self.strat = strat
+        self.strategy = strategy
+        self.t_loop = t_loop
+        self.t_precompute = t_precompute
+        self.timers = timers
+        self.warehouse = warehouse
+        self.we = we
+        self.wp = wp
+        self.yd = yd
+        self.yt = yt
+
+    # ── the day close-out, a method because the STEPPING half calls it ───────────
+    # It closes over exactly two durable names (`_release`, `log`) and is called from
+    # `_step` at a day boundary and from `_finish` for the final day. It stayed with the
+    # assembly rather than the construction for that reason.
+    def shift_close_out(self, day: int, standing: tuple, last_finish: float,
+                        cut: bool) -> tuple:
+        """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
+        standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
+        standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
+        was cut in it, no standing LABOUR survives it -- put queues + held + the dock floor
+        + the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap
+        (START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is
+        calendar, not labour; and releases are exhausted by construction at a day
+        boundary), and never the SUPPLY carry (`unpicked_unavailable` /
+        `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as
+        standing work it made every finite stock level cap every day).
+        `equilibrium.is_drained` is the one definition; this closure only gathers its
+        arguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay
+        origin-aligned, so this is a REPORT of when the crews got off the clock, never a
+        scheduler.
+
+        The state is PASSED IN, never read live: the close-out fires at the first batch of
+        the NEXT day, after that batch has already been processed, so the manager's live
+        depths and the folded clocks belong to the new day by then.  The caller hands it
+        the snapshot the previous day's last batch left behind (`_shift_standing`) and the
+        clocks and cut flag accumulated before this batch was folded in.  The log-only
+        ledger read them live and mis-attributed every day's first batch to the day before
+        -- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which
+        persisting the row was what made visible.  Called once per day boundary, and once
+        more after the loop for the final day, which has no next day to close it."""
+        _s_put, _s_dock, _s_labour, _s_supply = (int(x) for x in standing)
+        _s_carry = _s_labour + _s_supply
+        _standing = _s_put + _s_dock + _s_carry
+        _cap_end = self._release.day.end_of(day)
+        # START-gate overtime: the last task any crew began before the whistle finished
+        # after it.  Labour that did not fit the day -- the verdict's fifth term.
+        _overtime = float(last_finish) > _cap_end
+        _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
+                               standing_carry_labour=_s_labour, overtime=_overtime)
+        _end = _tl_shift_end(_cap_end, last_finish, _drained)
+        self.log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
+                 f'({"drained" if _drained and _end < _cap_end else "capped"}; '
+                 f'standing={_standing}: put={_s_put} dock={_s_dock} '
+                 f'carry labour={_s_labour} supply={_s_supply})')
+        return (day, _cap_end, _end, _drained, _standing, _s_put, _s_dock, _s_carry,
+                _s_labour, _s_supply, float(last_finish))
+
+
+def _build_arm(args: dict, unit: dict | None = None, pool=None,
+               site_gain=None, site=None) -> ArmAssembly:
+    """Construct one arm: everything a leaf holds for the length of a run.
+
+    This was the first 810 lines of `_build_leaf`, which bound 139 names at one indent and
+    then handed the two batch closures back into that scope. The split is where CONSTRUCTION
+    STOPS and STEPPING STARTS: 76 of those names are durable (a closure touches one) and
+    become the returned `ArmAssembly`; the other 60 are construction temporaries and stay
+    here, where nothing outside can see them.
+
+    **It is a callable seam, which is the point.** Every behavioural test of a batch used to
+    need an e2e harness that hand-assembled a run tree -- five of them exist, ~2,000 lines,
+    and `test_channel_runner_smoke.py` says out loud that they duplicate the driver's own
+    assembly because the assembly had no entry. This one costs a payload dict.
+
+    The four arguments are `_build_leaf`'s, unchanged and for the same reasons: `unit` is the
+    unit-scope payload under coupling (the put and receiving crews are the SITE's), `pool` the
+    site put pool, `site_gain` the site gain bundle, `site` the site dock.
     """
     # WHERE THE UNIT-SCOPE VALUES COME FROM.  One leaf: its own payload IS the unit, exactly
     # as always.  A leaf of a coupled unit: the unit's payload, because the put and receiving
@@ -1338,47 +1489,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                                     # work; the shelf's half is stock not delivered
                                     # (`equilibrium.is_drained` reads the first alone)
 
-    def _shift_close_out(day: int, standing: tuple, last_finish: float, cut: bool) -> tuple:
-        """Close working day `day`: the ledger row `(day, cap_end, end_s, drained,
-        standing, standing_put, standing_dock, standing_carry, standing_carry_labour,
-        standing_carry_supply, last_finish)`, and the log line.  A day DRAINED if nothing
-        was cut in it, no standing LABOUR survives it -- put queues + held + the dock floor
-        + the cut's own carry (`unpicked_daycut`) -- and no task finished past its cap
-        (START-gate overtime is labour that did not fit the day).  Never the lead queue (transit is
-        calendar, not labour; and releases are exhausted by construction at a day
-        boundary), and never the SUPPLY carry (`unpicked_unavailable` /
-        `unpicked_unstocked`: stock not delivered, which `missed_share` judges -- counted as
-        standing work it made every finite stock level cap every day).
-        `equilibrium.is_drained` is the one definition; this closure only gathers its
-        arguments.  The end instant is `timeline.shift_end`'s arithmetic; days stay
-        origin-aligned, so this is a REPORT of when the crews got off the clock, never a
-        scheduler.
-
-        The state is PASSED IN, never read live: the close-out fires at the first batch of
-        the NEXT day, after that batch has already been processed, so the manager's live
-        depths and the folded clocks belong to the new day by then.  The caller hands it
-        the snapshot the previous day's last batch left behind (`_shift_standing`) and the
-        clocks and cut flag accumulated before this batch was folded in.  The log-only
-        ledger read them live and mis-attributed every day's first batch to the day before
-        -- day 0's `last_finish` read 2x its cap and the final day's read 0.0, which
-        persisting the row was what made visible.  Called once per day boundary, and once
-        more after the loop for the final day, which has no next day to close it."""
-        _s_put, _s_dock, _s_labour, _s_supply = (int(x) for x in standing)
-        _s_carry = _s_labour + _s_supply
-        _standing = _s_put + _s_dock + _s_carry
-        _cap_end = _release.day.end_of(day)
-        # START-gate overtime: the last task any crew began before the whistle finished
-        # after it.  Labour that did not fit the day -- the verdict's fifth term.
-        _overtime = float(last_finish) > _cap_end
-        _drained = _is_drained(cut=cut, standing_put=_s_put, standing_dock=_s_dock,
-                               standing_carry_labour=_s_labour, overtime=_overtime)
-        _end = _tl_shift_end(_cap_end, last_finish, _drained)
-        log.info(f'  [shift] day {day} ended at {_end:,.0f} s '
-                 f'({"drained" if _drained and _end < _cap_end else "capped"}; '
-                 f'standing={_standing}: put={_s_put} dock={_s_dock} '
-                 f'carry labour={_s_labour} supply={_s_supply})')
-        return (day, _cap_end, _end, _drained, _standing, _s_put, _s_dock, _s_carry,
-                _s_labour, _s_supply, float(last_finish))
     # Whether unpicked demand joins the next batch.  Independent of the cut: two of the three
     # causes below happen with no day boundary in sight.
     _roll_over = bool(_wd.get('roll_over_unpicked'))
@@ -2048,7 +2158,86 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # BATCH lived in a scope whose lifetime is one ARM, with three `nonlocal` declarations
     # reaching back up to them.  One object instead: the halves mutate its fields, so
     # nothing has to be rebound and this scope carries one name where it carried five.
+    # ── WHERE CONSTRUCTION STOPS AND STEPPING STARTS ─────────────────────────────
+    # Everything above is setup; everything below is the two closures that run a batch.
+    # They read the arm through `asm` rather than reaching back into this scope, so the
+    # 76 names an arm actually carries are named in one place and the 60 construction
+    # temporaries above stay where they belong.
+    asm = ArmAssembly(n_catalogue=n_catalogue, n_skus=n_skus,
+                      _cut_at_day_end=_cut_at_day_end, _drain_or_cap=_drain_or_cap,
+                      _fs_w=_fs_w, _gc_detail=_gc_detail, _gc_stats0=_gc_stats0,
+                      _gc_thresh=_gc_thresh, _pending=_pending, _pick_workers=_pick_workers,
+                      _put_crews=_put_crews, _put_workers=_put_workers, _recv_day=_recv_day,
+                      _recv_workers=_recv_workers, _release=_release, _roll_over=_roll_over,
+                      _seed_terms=_seed_terms, _shift_seconds=_shift_seconds,
+                      _space_tl=_space_tl, affinity=affinity, arm_clock=arm_clock, audit=audit,
+                      batch_cfg=batch_cfg, batches=batches, bin_rec=bin_rec,
+                      checkpoint=checkpoint, ckpt_win=ckpt_win, cov=cov, ctx=ctx,
+                      db_path=db_path, denom=denom, expected_pick=expected_pick, fi=fi,
+                      freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, inventory=inventory,
+                      k_pickers=k_pickers, keyframe_interval=keyframe_interval, kf_db=kf_db,
+                      last_dur=last_dur, lift_cache=lift_cache, log=log,
+                      map_lap_pct=map_lap_pct, mgr=mgr, n_batches=n_batches, opt_x=opt_x,
+                      opt_y=opt_y, pb=pb, pe=pe, pick_cfg=pick_cfg, pk=pk, pm=pm, pool=pool,
+                      pq=pq, pqs=pqs, pt=pt, put_clock=put_clock, qty_by_sku=qty_by_sku,
+                      recv_clock=recv_clock, reloader=reloader, run_dir=run_dir, run_id=run_id,
+                      sd=sd, seed_batches=seed_batches, shift=shift, site=site,
+                      skipped=skipped, start_i=start_i, strat=strat, strategy=strategy,
+                      t_loop=t_loop, t_precompute=t_precompute, timers=timers,
+                      warehouse=warehouse, we=we, wp=wp, yd=yd, yt=yt)
+    return asm
+
+
+def _build_leaf(args: dict, unit: dict | None = None, pool=None,
+                site_gain=None, site=None) -> '_Leaf':
+    """One channel leaf, built but not yet run — the setup half of a work unit.
+
+    Everything here is per channel and stays so under coupling: one inventory partition, one
+    warehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns
+    is the leaf's two halves as closures over that setup — `step(i)`, one batch, and
+    `finish()`, the run-end flush and the result dict — so a caller can drive ONE leaf (every
+    run today) or step two leaves through one batch loop (the coupled unit, site-dock 02 §2).
+
+    `pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves
+    and injected: when it is present this leaf's put queues are bound to the pool's shared
+    clock list rather than minting their own, its put rows are stamped with the pool's
+    workers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.
+    None is every uncoupled run and every flag-off leaf, which then fields its own put crew
+    exactly as it always did — double count and all, structurally, because the pool is not
+    CONSTRUCTED rather than constructed and bypassed.
+
+    `site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the
+    leaves the same way and for the same reason: one mixed trailer is priced per unit by
+    the OWNING channel's arm, and only a scope that sees both leaves can hold both arms.
+    This leaf binds its own bundle into it and hands the composite to its transit. None is
+    every uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it
+    always did — so a single-owner run reads the very object `_gain_bundle_for` returned.
+
+    `site` is the SITE DOCK (`_SiteDock`), built above the leaves for the third time and
+    for the third version of the same reason: one dock, one yard and one receiving crew
+    serve the whole site, so only a scope that sees both leaves can build them once. When
+    it is present this leaf receives the site's dock, the site's transit and the site's
+    receiving roster instead of minting its own, binds itself onto the coordinator, and
+    stops running phases 0-5 in its own `replenish` — the unit drives them once for every
+    leaf (`SiteReceiving.drain`). None is every uncoupled run AND the coupled inbound-OFF
+    pole, which names no trailer pipeline and therefore has no site inbound to build.
+
+    The closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this
+    function with the loop inline, and the split moved the loop body and the tail VERBATIM.
+    They rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries
+    (`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between
+    calls exactly as they survived between iterations.
+
+    Uses DeferredPickSimulation for parallel Phase-1 picker execution within
+    each batch.  Log records travel through a multiprocessing.Queue to the
+    QueueListener in the main process so they appear in real time.
+    """
+    # ── CONSTRUCTION, ELSEWHERE ──────────────────────────────────────────────────
+    # `_build_arm` is the 810 lines that used to stand here. What comes back is the 76
+    # names an arm carries; the 60 construction temporaries never leave it.
+    asm = _build_arm(args, unit, pool, site_gain, site)
     bstate = BatchState()
+
 
     def _replenish(i: int) -> None:
         """Batch `i`'s REPLENISHMENT half, for this leaf: the release instant, the two
@@ -2066,9 +2255,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         One leaf calls this and `_step` back to back, which is the loop this was cut
         out of, line for line.
         """
-        nonlocal arm_clock, _pending, _q
-        timers.start()
-        bin_rec.begin_batch(i)
+        asm.timers.start()
+        asm.bin_rec.begin_batch(i)
         # THE RELEASE INSTANT, COMPUTED BEFORE ANY WORK IS DISPATCHED.  It used to be
         # computed twice, two hundred lines below, once per branch -- which was correct for
         # the pickers and useless to the put crews, because `check_reorders` drains put-away
@@ -2082,20 +2270,20 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # the instant the arm is actually free.  That clamp erases the fact that a slot was
         # missed, so `missed_by` is recorded on the row.  Under the continuous default the
         # clock is returned unchanged and `missed_by` is 0.0.
-        bstate.late = _release.missed_by(i, arm_clock)
-        arm_clock = _release.release_at(i, arm_clock)
+        bstate.late = asm._release.missed_by(i, asm.arm_clock)
+        asm.arm_clock = asm._release.release_at(i, asm.arm_clock)
         # The whistle for the day this batch was released into.  None keeps every worker --
         # picker and putter alike -- running to the end of its work, which is every run that
         # does not ask for a cut.
-        bstate.day_end = (_release.day.end_of(_release.day.index_of(arm_clock))
-                          if _cut_at_day_end else None)
+        bstate.day_end = (asm._release.day.end_of(asm._release.day.index_of(asm.arm_clock))
+                          if asm._cut_at_day_end else None)
         # The put crews' clocks run from 0 within a batch and are offset onto the absolute
         # axis afterwards (see `drain_putaway_records`), so their whistle has to be stated in
         # the same relative terms: how much of the day is left when they pick this wave up.
         # They pick it up when the wave is released OR when they finish the last one --
         # whichever is later, which is exactly the `bstate.put_base` the event rows use below.
         _put_deadline = (None if bstate.day_end is None
-                         else bstate.day_end - max(arm_clock, put_clock))
+                         else bstate.day_end - max(asm.arm_clock, asm.put_clock))
         # POOLED, BOTH NUMBERS ARE THE SITE'S and neither is this leaf's to compute.  One
         # shared clock list cannot carry two epochs, so the base is the SITE DAY START
         # (`max(day.start_of(i), put_clock_site)`) and the whistle is what is left of that
@@ -2103,16 +2291,16 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # pick crew overran its day and would misattribute a picking overrun to put-away's
         # cut.  `open_batch` is idempotent per day, so both leaves get the same answer.
         bstate.put_base = None
-        if pool is not None:
-            bstate.put_base, _put_deadline = pool.open_batch(_release.day_of(i))
+        if asm.pool is not None:
+            bstate.put_base, _put_deadline = asm.pool.open_batch(asm._release.day_of(i))
         # The RECEIVE whistle: its own day, its own carry.  Reusing `_put_deadline` would be
         # arithmetically well-formed and wrong -- it is the PUT crew's remaining day, already
         # shrunk by the PUT crew's backlog -- and the only symptom would be a `recv_cut` that
         # reads like a legitimately short day.
         _recv_deadline = (
-            None if _recv_day is None
-            else (_recv_day.end_of(_recv_day.index_of(arm_clock))
-                  - max(arm_clock, recv_clock)))
+            None if asm._recv_day is None
+            else (asm._recv_day.end_of(asm._recv_day.index_of(asm.arm_clock))
+                  - max(asm.arm_clock, asm.recv_clock)))
         # STANDING-DEMAND INJECTION, before check_reorders: the batch about to be
         # released (a pure function of (inventory, affinity, config, seed_batches+i) --
         # fetching or sampling it here consumes no shared RNG) plus the rollover carry,
@@ -2121,12 +2309,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # is stashed and reused below, so the flag-off path is untouched and the flag-on
         # path never samples twice.
         bstate.early = None
-        if _space_tl is not None:
-            bstate.early = (batches[i] if batches is not None
-                            else Batch(batch_cfg, inventory, affinity=affinity,
-                                       rng=random.Random(seed_batches + i)))
+        if asm._space_tl is not None:
+            bstate.early = (asm.batches[i] if asm.batches is not None
+                            else Batch(asm.batch_cfg, asm.inventory, affinity=asm.affinity,
+                                       rng=random.Random(asm.seed_batches + i)))
             _inj = dict(bstate.early.items)
-            for _sku, _q in _pending.items():
+            for _sku, _q in asm._pending.items():
                 _inj[_sku] = _inj.get(_sku, 0) + _q
             # THE FUTURESIGHT WINDOW, on its own view slot ("Build the futuresight
             # window feed", 13): sliced from the in-memory script by
@@ -2135,24 +2323,24 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # clamp live on the helper).  `_fs_w` is None for every lawful arm, so
             # no window is ever built that nothing reads.
             _window = None
-            if _fs_w is not None:
-                _window = _futuresight_window(batches, i, _fs_w, n_batches)
-            _space_tl.inject_demand(_inj, released_at=arm_clock, window=_window)
-        if reloader is not None:
+            if asm._fs_w is not None:
+                _window = _futuresight_window(asm.batches, i, asm._fs_w, asm.n_batches)
+            asm._space_tl.inject_demand(_inj, released_at=asm.arm_clock, window=_window)
+        if asm.reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
             # (below) re-places them + reorders in priority order.
-            reloader.reload(mgr, freq_by_sku, opt_x, opt_y)
-        if site is not None:
+            asm.reloader.reload(asm.mgr, asm.freq_by_sku, asm.opt_x, asm.opt_y)
+        if asm.site is not None:
             # PHASES 0-5 ARE THE SITE'S, and this leaf's half of batch `i` stops here.
             # One lead tick over one yard, one receive at one dock, and a put drain that
             # must land AFTER that receive for BOTH leaves -- none of which a leaf running
             # its own composition can produce.  The unit drives `SiteReceiving.drain` once
             # for every leaf and hands back what this one triggered (`note_triggered`).
             return
-        bstate.triggered = mgr.check_reorders(put_deadline=_put_deadline,
+        bstate.triggered = asm.mgr.check_reorders(put_deadline=_put_deadline,
                                               recv_deadline=_recv_deadline,
-                                              now_s=arm_clock)
-        ckpt_win.add('reorders', len(bstate.triggered))
+                                              now_s=asm.arm_clock)
+        asm.ckpt_win.add('reorders', len(bstate.triggered))
 
     def _note_triggered(trig: dict) -> None:
         """Record what the SITE drain fired for THIS leaf.  Coupled units only.
@@ -2161,23 +2349,22 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         hashable by value there; the leaf knows which manager is its own, so the lookup
         happens here rather than the driver guessing at an order.
         """
-        bstate.triggered = trig[id(mgr)]
-        ckpt_win.add('reorders', len(bstate.triggered))
+        bstate.triggered = trig[id(asm.mgr)]
+        asm.ckpt_win.add('reorders', len(bstate.triggered))
 
     def _step(i: int) -> None:
         """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
         below is that loop's, unchanged, so a carry rebound here is rebound in the
         enclosing setup scope exactly as it was between iterations."""
-        nonlocal _d, _pending, _q, arm_clock, last_dur, put_clock, recv_clock, skipped
         # The six the replenishment half bound; see the seeds above `_replenish`.
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
-        batch_rm, batch_rp = mgr.pop_churn()
+        batch_rm, batch_rp = asm.mgr.pop_churn()
         # Standardized reorder/stock accounting: N skus reordered, U units ordered
         # (mgr.units_ordered), P units placed (batch_rp = reorder placements this batch).
-        batch_uo            = mgr.units_ordered
-        ckpt_win.add('units_ordered', batch_uo)
-        ckpt_win.add('placed', batch_rp)
-        batch_sigma        = mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
+        batch_uo            = asm.mgr.units_ordered
+        asm.ckpt_win.add('units_ordered', batch_uo)
+        asm.ckpt_win.add('placed', batch_rp)
+        batch_sigma        = asm.mgr.tracked_sigma_fd()    # O(1) incremental (see enable_sigma_fd)
         # Replay viewer: snapshot the standing replenishment queues at batch start (after
         # check_reorders).  lead = in-transit (with batches-to-arrival), stock = packed but
         # not yet binned (with its bin tier).  Aggregated by (sku, remaining_lead) for lead
@@ -2189,8 +2376,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # site's own census exactly.
         _rq: dict = {}
         _tx_rows, _tx_qty, _tx_depth = (
-            (mgr.transit_snapshot(), None, None) if site is None
-            else site.coord.transit_census_for(mgr))
+            (asm.mgr.transit_snapshot(), None, None) if asm.site is None
+            else asm.site.coord.transit_census_for(asm.mgr))
         for _sku, _qty, _rem in _tx_rows:
             _k = ('lead', _sku, _rem, None, None, None)   # in transit: no queue yet
             _rq[_k] = _rq.get(_k, 0) + _qty
@@ -2202,17 +2389,17 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # `carryover_rows`) rather than being assembled here.  Inline, those branches were
         # reachable only by a full sweep, and no arm in the coverage sweep leaves anything
         # unplaced -- so the carryover path had no coverage at all.
-        for (_kind, _sku, _ut, _ss, _qn, _qty) in mgr.queue_contents():
-            pq.append((i, _kind, _sku, _qty, 0, _ut, _ss, _qn))
+        for (_kind, _sku, _ut, _ss, _qn, _qty) in asm.mgr.queue_contents():
+            asm.pq.append((i, _kind, _sku, _qty, 0, _ut, _ss, _qn))
         for (_kind, _sku, _rem, _ut, _ss, _qn), _qty in _rq.items():
-            pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss, _qn))
+            asm.pq.append((i, _kind, _sku, _qty, _rem, _ut, _ss, _qn))
         # ONCE PER BATCH, AND THIS CALL COVERS BOTH BRANCHES.  `queue_state_rows` drains the
         # flow counters, so a second call in the same batch reports zeros -- and it is above
         # the skip guard, so the skipped path passes through here too.  Do not add a
         # matching call inside `if not tasks:`; one was there and the zeros overwrote the
         # real numbers via INSERT OR REPLACE.
-        pqs.extend(mgr.queue_state_rows(i))
-        cov.extend(mgr.carryover_rows(i))
+        asm.pqs.extend(asm.mgr.queue_state_rows(i))
+        asm.cov.extend(asm.mgr.carryover_rows(i))
         # The dock's four numbers, snapshotted HERE for the same reason and with the same
         # discipline: `receiving_snapshot` resets its three flows, so exactly one call per
         # batch, above the skip guard so both paths get it.  `(0, 0, 0, 0.0)` when there is
@@ -2224,8 +2411,8 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # reporting an idle dock.  `snapshot_for` partitions once and serves each leaf once,
         # and closes the shares against the dock's totals (site-dock 15's precondition:
         # each leaf's `batch_stats` scalars come from its own `_recv_seconds`).
-        _rcv = (mgr.receiving_snapshot() if site is None
-                else site.coord.snapshot_for(mgr))
+        _rcv = (asm.mgr.receiving_snapshot() if asm.site is None
+                else asm.site.coord.snapshot_for(asm.mgr))
         # ADR-0003's rework flows and the free-index level, taken HERE for exactly the
         # reasons above: `snapshot_putaway_rework` RESETS all four, so one call per batch,
         # above the skip guard so a skipped batch records its own top-ups (put-away runs in
@@ -2237,9 +2424,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # once before the loop: a spill or a top-up while fielding the declaration is the
         # planner's promise broken and the rework clause judges it (its docstring says so);
         # draining it here would hide exactly that finding.
-        _rwk = mgr.snapshot_putaway_rework()
-        _free = mgr.free_bin_depth()
-        fi.extend((i, *_k, _n) for _k, _n in mgr.free_bin_depth_by_bucket())
+        _rwk = asm.mgr.snapshot_putaway_rework()
+        _free = asm.mgr.free_bin_depth()
+        asm.fi.extend((i, *_k, _n) for _k, _n in asm.mgr.free_bin_depth_by_bucket())
         # The yard's two row sources, drained here for `queue_state_rows`' reason: both
         # RESET, so exactly one call per batch, above the skip guard so a skipped batch
         # records its drain too (a batch that picked nothing still received trailers).
@@ -2252,9 +2439,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # the contract's `site_inbound_db` and `_SiteDock.collect` is their one
         # collector.  Both leaf accessors refuse under a site scope, so this is guarded
         # rather than merely skipped.
-        if site is None:
-            yt.extend(mgr.drain_yard_trailers())
-            yd.extend((i, *_lv) for _lv in mgr.drain_yard_drains())
+        if asm.site is None:
+            asm.yt.extend(asm.mgr.drain_yard_trailers())
+            asm.yd.extend((i, *_lv) for _lv in asm.mgr.drain_yard_drains())
         # THE RECEIVE FLUSH, in the block both branches pass through -- so
         # `close_skipped_batch` is untouched.  That matters: it has two early returns of its
         # own, and a drain appended after its put block would be silently skipped whenever
@@ -2262,7 +2449,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         #
         # `arm_clock` is already this batch's release (fixed at the top of the loop) and
         # `bs.batch_start_time` is pinned equal to it, so one epoch serves both branches.
-        if _recv_workers is not None:
+        if asm._recv_workers is not None:
             # SITE-DOCKED, BOTH STREAMS COME OFF THE SITE'S ONE DRAIN, partitioned by the
             # owner of each row's sku -- the same `{sku: leaf}` dict step 1 packs by, so an
             # unload row, a repack row and the lot that produced them cannot land in
@@ -2271,26 +2458,26 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # crew's release would idle the site's receivers whenever EITHER channel
             # overran its day.  `open_batch` is idempotent per day, so this reads the value
             # the drain was already run against rather than computing a second one.
-            if site is None:
-                _recv_recs = mgr.drain_receiving_records()
+            if asm.site is None:
+                _recv_recs = asm.mgr.drain_receiving_records()
                 # ADR-0003's rework.  Order against `drain_receiving_records` above does not
                 # matter -- `drain_repacks` deliberately does NOT reset the crew clocks, and both
                 # streams' `t0` were stamped when the work happened -- but both must be taken in
                 # the SAME batch, or the one left behind lands against the next batch's epoch.
-                _repack_recs = mgr.drain_repack_records()
-                _recv_base = max(arm_clock, recv_clock)
+                _repack_recs = asm.mgr.drain_repack_records()
+                _recv_base = max(asm.arm_clock, asm.recv_clock)
             else:
-                _recv_recs = site.coord.drain_records_for(mgr)
-                _repack_recs = site.coord.drain_repacks_for(mgr)
-                _recv_base, _ = site.coord.open_batch(_release.day_of(i))
+                _recv_recs = asm.site.coord.drain_records_for(asm.mgr)
+                _repack_recs = asm.site.coord.drain_repacks_for(asm.mgr)
+                _recv_base, _ = asm.site.coord.open_batch(asm._release.day_of(i))
             if _recv_recs:
-                we.extend(_work_events.recv_rows(
-                    _recv_recs, batch_id=i, batch_start=arm_clock, crew=_recv_workers,
-                    shift_seconds=_shift_seconds, crew_start=_recv_base))
+                asm.we.extend(_work_events.recv_rows(
+                    _recv_recs, batch_id=i, batch_start=asm.arm_clock, crew=asm._recv_workers,
+                    shift_seconds=asm._shift_seconds, crew_start=_recv_base))
                 # Grouped `(base + t0) + dur` deliberately, copied from the put carry: float
                 # addition is not associative and the other association moved 28 rows by one
                 # ulp across two arms.
-                recv_clock = max((_recv_base + r[0]) + r[1] for r in _recv_recs)
+                asm.recv_clock = max((_recv_base + r[0]) + r[1] for r in _recv_recs)
             if _repack_recs:
                 # Same crew, same base, same clock -- a repack is receiving work, so it
                 # carries the receiving crew forward exactly as an unload does.
@@ -2303,21 +2490,21 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # repack at the same instant with the same key and no defined order between
                 # them.  Not a primary key (the table has none on `seq`); an ordering the
                 # merged view promises and could not otherwise keep.
-                we.extend(_work_events.repack_rows(
-                    _repack_recs, batch_id=i, batch_start=arm_clock, crew=_recv_workers,
-                    shift_seconds=_shift_seconds, crew_start=_recv_base,
+                asm.we.extend(_work_events.repack_rows(
+                    _repack_recs, batch_id=i, batch_start=asm.arm_clock, crew=asm._recv_workers,
+                    shift_seconds=asm._shift_seconds, crew_start=_recv_base,
                     first_seq=len(_recv_recs)))
-                recv_clock = max(recv_clock,
+                asm.recv_clock = max(asm.recv_clock,
                                  max((_recv_base + r[0]) + r[1] for r in _repack_recs))
-            if site is not None:
+            if asm.site is not None:
                 # THE SITE CARRY IS COMMITTED ONCE PER SITE DAY, after EVERY leaf has
                 # stamped -- and so is the shared crew's clock reset, which `note_records`
                 # owns because `drain_receiving_records` (its uncoupled owner) refuses here.
                 # `None` when this leaf recorded nothing: the crew is where it was, exactly
                 # as an unpooled leaf leaves `recv_clock` alone.
-                site.coord.note_records(
-                    mgr, recv_clock if (_recv_recs or _repack_recs) else None)
-        timers.split('reord')
+                asm.site.coord.note_records(
+                    asm.mgr, asm.recv_clock if (_recv_recs or _repack_recs) else None)
+        asm.timers.split('reord')
 
         # Batch i is a pure function of (inventory, affinity, config, seed_batches+i), so every arm of
         # this warehouse family sees the identical sequence.  It is precomputed ONCE per family and
@@ -2326,26 +2513,26 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # (`bstate.early` is the same object, fetched above for the standing-demand
         # injection; reusing it just skips a second inline sample.)
         batch    = (bstate.early if bstate.early is not None
-                    else batches[i] if batches is not None
-                    else Batch(batch_cfg, inventory, affinity=affinity,
-                               rng=random.Random(seed_batches + i)))
-        timers.split('sample', 'build')
+                    else asm.batches[i] if asm.batches is not None
+                    else Batch(asm.batch_cfg, asm.inventory, affinity=asm.affinity,
+                               rng=random.Random(asm.seed_batches + i)))
+        asm.timers.split('sample', 'build')
         # `_shortfall` is demand NO BIN could satisfy -- the pre-simulation cause, and the
         # only one knowable before the sim runs.  It rolls over with the other two below.
         # EFFECTIVE demand.  `batches[i]` is a SHARED pickle across every arm of the
         # family and must never be mutated -- a shallow copy rebinds `items` only, so the
         # original dict is untouched and the other arms still see the baseline.
-        if _pending:
+        if asm._pending:
             _eff_items = dict(batch.items)
-            for _sku, _q in _pending.items():
+            for _sku, _q in asm._pending.items():
                 _eff_items[_sku] = _eff_items.get(_sku, 0) + _q
             _eff_batch = _copy.copy(batch)
             _eff_batch.items = _eff_items
         else:
             _eff_batch = batch
         tasks, _shortfall = Task.from_batch_with_shortfall(
-            _eff_batch, warehouse, manager=mgr, cart=pick_cfg.cart)
-        timers.split('task', 'build')
+            _eff_batch, asm.warehouse, manager=asm.mgr, cart=asm.pick_cfg.cart)
+        asm.timers.split('task', 'build')
 
         # One fused pass over the occupied bins (bin qtys before picks): the occupancy
         # term for the conservation ledger below always, keyframe row dicts only when
@@ -2354,9 +2541,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # NOTE for bench_sections comparisons across this change: the occupancy sum
         # used to be timed under t_inv and now rides t_pre; t_kf no longer includes
         # building the row list (that is the fused pass), only the DB write.
-        _want_kf = kf_db is not None and i % keyframe_interval == 0
-        occupancy, kf_rows = fused_pre_snapshot(mgr, _want_kf)
-        am = snapshot_aisle_metrics(mgr, batch_id=i, run_id=run_id)  # aisle state
+        _want_kf = asm.kf_db is not None and i % asm.keyframe_interval == 0
+        occupancy, kf_rows = fused_pre_snapshot(asm.mgr, _want_kf)
+        am = snapshot_aisle_metrics(asm.mgr, batch_id=i, run_id=asm.run_id)  # aisle state
 
         # Keyframe: full occupied-bin state at this batch's start (after reorders),
         # written every keyframe_interval batches so the player can jump here
@@ -2368,9 +2555,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # smoke test's invariant).
         if _want_kf:
             _k0 = time.perf_counter()
-            save_bin_keyframe(kf_db, run_id, i, kf_rows)
-            timers.add('kf', time.perf_counter() - _k0)
-        timers.split('pre')
+            save_bin_keyframe(asm.kf_db, asm.run_id, i, kf_rows)
+            asm.timers.add('kf', time.perf_counter() - _k0)
+        asm.timers.split('pre')
 
         # ── conservation ledger ────────────────────────────────────────────────
         # Σplaced − Σevicted − Σpicked must equal the units actually in bins.  `occupancy`
@@ -2391,20 +2578,20 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # The ledger is cumulative, so one bad batch leaves a residual that persists forever.
         # Reporting every batch after the first would be ~100 identical lines; reporting only
         # when the residual MOVES names exactly the batches that introduced unaccounted units.
-        _broke = audit.observe(placed=bin_rec.units_placed,
-                               evicted=bin_rec.units_evicted, occupancy=occupancy)
+        _broke = asm.audit.observe(placed=asm.bin_rec.units_placed,
+                               evicted=asm.bin_rec.units_evicted, occupancy=occupancy)
         if _broke is not None:
             _drift, _residual = _broke
-            log.error(
+            asm.log.error(
                 f'  CONSERVATION BROKEN at batch {i}: '
-                f'placed={bin_rec.units_placed:,} − evicted={bin_rec.units_evicted:,} − '
-                f'picked={audit.picked:,} = {bin_rec.units_placed - bin_rec.units_evicted - audit.picked:,} '
+                f'placed={asm.bin_rec.units_placed:,} − evicted={asm.bin_rec.units_evicted:,} − '
+                f'picked={asm.audit.picked:,} = {asm.bin_rec.units_placed - asm.bin_rec.units_evicted - asm.audit.picked:,} '
                 f'but bins hold {occupancy:,} units '
                 f'(new drift {_drift:+,}; cumulative {_residual:+,}). '
                 f'A bin mutated outside bin_placement/bin_eviction/picks, so spatial '
                 f'reconstruction for this arm is no longer exact — see '
                 f'Optimization/metrics/bin_recorder.py.')
-        timers.split('inv')
+        asm.timers.split('inv')
 
         if not tasks:
             # A batch that produced no tasks still HAPPENED: `check_reorders` ran above and
@@ -2421,17 +2608,17 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # advanced: there is no principled duration for an empty batch until a release
             # schedule exists, so the skip still precedes the advance and the contract in
             # Tests/unit/test_arm_clock.py stands.
-            skipped += 1
+            asm.skipped += 1
             # A skipped batch is RELEASED like any other -- that is the whole point of a
             # schedule, and the release happened at the top of the loop.  Its makespan is
             # zero, so under the continuous default the clock does not move and the stall
             # stands; under a paced schedule the slot advances it, which is what makes an
             # empty batch cost a day-slot instead of nothing.
-            _bs, _we_skip, put_clock = close_skipped_batch(
+            _bs, _we_skip, asm.put_clock = close_skipped_batch(
                 lead_depth=_tx_depth,
-                batch_id=i, mgr=mgr, arm_clock=arm_clock,
-                put_clock=put_clock if pool is None else bstate.put_base,
-                k_pickers=k_pickers, run_id=run_id,
+                batch_id=i, mgr=asm.mgr, arm_clock=asm.arm_clock,
+                put_clock=asm.put_clock if asm.pool is None else bstate.put_base,
+                k_pickers=asm.k_pickers, run_id=asm.run_id,
                 # `_eff_batch`, NOT `batch`.  The two differ by exactly the inherited
                 # carry, and using `batch` here gave `items_demanded` a SECOND definition
                 # that excluded it -- so the column meant different things depending on
@@ -2440,25 +2627,25 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 demanded=sum(_eff_batch.items.values()), sigma_fd=batch_sigma,
                 reload_moves=batch_rm, reorder_placements=batch_rp,
                 skus_reordered=len(bstate.triggered), units_ordered=batch_uo,
-                put_workers=_put_workers, put_crews=_put_crews,
-                shift_seconds=_shift_seconds,
+                put_workers=asm._put_workers, put_crews=asm._put_crews,
+                shift_seconds=asm._shift_seconds,
                 # Pooled, the site's epoch and the pool's reset -- a skipped batch still
                 # ran `check_reorders` and may have put hundreds of units away, so it owes
                 # the pool a report exactly as a picked one does.  `put_clock` is handed in
                 # as `bstate.put_base` so the return is the base itself when nothing was
                 # recorded, which is what `note_records` wants either way.
-                put_base=bstate.put_base, reset_clocks=pool is None)
-            if pool is not None:
-                pool.note_records(mgr, put_clock)
-            _bs.work_day      = _release.day_of(i)
+                put_base=bstate.put_base, reset_clocks=asm.pool is None)
+            if asm.pool is not None:
+                asm.pool.note_records(asm.mgr, asm.put_clock)
+            _bs.work_day      = asm._release.day_of(i)
             (_bs.recv_depth, _bs.recv_unloaded,
              _bs.recv_cut, _bs.recv_seconds) = _rcv
             (_bs.put_topups, _bs.put_spills,
              _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
             _bs.free_bins = _free
             _bs.released_late = bstate.late
-            pb.append(_bs)
-            we.extend(_we_skip)
+            asm.pb.append(_bs)
+            asm.we.extend(_we_skip)
             # NO queue_state_rows / carryover_rows here.  Both already ran above, before the
             # task build, and nothing `continue`s between there and this branch -- so a
             # skipped batch reached them TWICE.  `queue_state_rows` DRAINS the flow counters,
@@ -2482,7 +2669,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # carries, inherited carry and fresh demand alike.  With rollover off this
             # assigns the `{}` it already held, which is why the store-only path is
             # byte-identical.
-            _pending = dict(_eff_batch.items) if _roll_over else {}
+            asm._pending = dict(_eff_batch.items) if asm._roll_over else {}
 
             # ...and say so in `carryover`.  The put-away side was already emitted at the
             # top of the batch; these are the pick side's, and the reasons are distinct, so
@@ -2494,9 +2681,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     continue
                 _un = min(_sf_skip.get(_sku, 0), _q)
                 if _un:
-                    cov.append((i, 'unpicked_unstocked', _sku, _un))
+                    asm.cov.append((i, 'unpicked_unstocked', _sku, _un))
                 if _q - _un:
-                    cov.append((i, 'unpicked_notasks', _sku, _q - _un))
+                    asm.cov.append((i, 'unpicked_notasks', _sku, _q - _un))
             return
 
         # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
@@ -2507,15 +2694,15 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         #
         # `arm_clock` and the batch state were all fixed at the top of the loop, by the
         # schedule rather than by the previous batch's makespan.
-        sim             = DeferredPickSimulation(tasks, pick_cfg, manager=mgr,
-                                                 start_times=[arm_clock] * k_pickers,
+        sim             = DeferredPickSimulation(tasks, asm.pick_cfg, manager=asm.mgr,
+                                                 start_times=[asm.arm_clock] * asm.k_pickers,
                                                  day_end=bstate.day_end)
         events          = sim.run()
-        timers.add('p1', sim.phase1_time)
-        timers.add('p2', sim.phase2_time)
-        timers.split('sim')
+        asm.timers.add('p1', sim.phase1_time)
+        asm.timers.add('p2', sim.phase2_time)
+        asm.timers.split('sim')
 
-        bs  = extract_batch_stats(events, batch_id=i, k_pickers=k_pickers, run_id=run_id)
+        bs  = extract_batch_stats(events, batch_id=i, k_pickers=asm.k_pickers, run_id=asm.run_id)
         bs.sigma_fd           = batch_sigma
         bs.reload_moves       = batch_rm
         bs.reorder_placements = batch_rp                 # units PLACED this batch (P)
@@ -2528,13 +2715,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # now write a zero-duration row above, so the epoch IS recoverable downstream by a
         # cumsum -- the older half of this comment, which said a skipped batch writes no row
         # at all, described the leak rather than a decision.
-        arm_clock             = bs.batch_start_time + bs.duration
+        asm.arm_clock             = bs.batch_start_time + bs.duration
         # What this batch ASKED for, against `total_items` = what it got.
         # What this batch ASKED for -- the sampled demand PLUS anything a previous cut
         # rolled into it.  Reporting only the sampled half would make the carry look like
         # over-picking against a demand that never included it.
         bs.items_demanded     = sum(_eff_batch.items.values())
-        bs.work_day           = _release.day_of(i)
+        bs.work_day           = asm._release.day_of(i)
         (bs.recv_depth, bs.recv_unloaded, bs.recv_cut, bs.recv_seconds) = _rcv
         (bs.put_topups, bs.put_spills, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
         bs.free_bins = _free
@@ -2575,14 +2762,14 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 if not _q:
                     continue
                 _carry_now[_sku] = _carry_now.get(_sku, 0) + _q
-                cov.append((i, _reason, _sku, _q))
+                asm.cov.append((i, _reason, _sku, _q))
                 if _reason == 'unpicked_daycut':
                     _carry_labour += _q
                 else:
                     _carry_supply += _q
-        _pending = _carry_now if _roll_over else {}
+        asm._pending = _carry_now if asm._roll_over else {}
         # What the ledger sees as standing carry: exactly what rolls forward, by cause.
-        _pending_split = (_carry_labour, _carry_supply) if _roll_over else (0, 0)
+        _pending_split = (_carry_labour, _carry_supply) if asm._roll_over else (0, 0)
         # ── demand ledger ────────────────────────────────────────────────────
         # A pick can never exceed the demand that asked for it.  Same discipline as the
         # conservation ledger below: LOGGED, never raised, and only on the first break, so
@@ -2591,46 +2778,46 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # -- both picker loops read the per-AISLE `task.items[sku]` once per bin, so a SKU
         # in several bins of one aisle was picked once per bin, inflating every throughput
         # figure by ~6.7% for as long as the model has existed.
-        if bs.total_items > bs.items_demanded and audit.note_demand_break():
-            log.error(
+        if bs.total_items > bs.items_demanded and asm.audit.note_demand_break():
+            asm.log.error(
                 f'  DEMAND BROKEN at batch {i}: picked {bs.total_items:,} against '
                 f'{bs.items_demanded:,} demanded (+{bs.total_items - bs.items_demanded:,}). '
                 f'A pick exceeded the demand that asked for it — check Task.planned '
                 f'against the per-bin drain in Task.from_batch.')
-        bs.queue_depth        = mgr.queue_depth
-        bs.lead_queue_depth   = (mgr.lead_queue_depth if site is None else _tx_depth)
-        bs.in_transit_qty     = (mgr.in_transit_qty if site is None else _tx_qty)
-        ts  = extract_task_stats(events, tasks, batch_id=i, affinity=affinity, wp=wp,
-                                 run_id=run_id, lift_cache=lift_cache)
-        pev = extract_picker_events(events, batch_id=i, run_id=run_id)
-        picks_b = extract_picks(events, batch_id=i, run_id=run_id)
-        timers.split('extract')
+        bs.queue_depth        = asm.mgr.queue_depth
+        bs.lead_queue_depth   = (asm.mgr.lead_queue_depth if asm.site is None else _tx_depth)
+        bs.in_transit_qty     = (asm.mgr.in_transit_qty if asm.site is None else _tx_qty)
+        ts  = extract_task_stats(events, tasks, batch_id=i, affinity=asm.affinity, wp=asm.wp,
+                                 run_id=asm.run_id, lift_cache=asm.lift_cache)
+        pev = extract_picker_events(events, batch_id=i, run_id=asm.run_id)
+        picks_b = extract_picks(events, batch_id=i, run_id=asm.run_id)
+        asm.timers.split('extract')
 
         # Close this batch's pick term.  `picks_b` is what the DB receives, so the ledger
         # audits the LOG rather than the manager's private counters — a pick the record
         # over- or under-states shows up here even though the sim itself is self-consistent.
-        audit.note_picked(sum(p.quantity for p in picks_b))
-        timers.split('inv')
-        pb.append(bs)
-        pt.extend(ts)
-        pe.extend(pev)
+        asm.audit.note_picked(sum(p.quantity for p in picks_b))
+        asm.timers.split('inv')
+        asm.pb.append(bs)
+        asm.pt.extend(ts)
+        asm.pe.extend(pev)
         # Both streams onto ONE axis.  Pick events already carry absolute times (the arm
         # handed every picker the batch epoch); the put crew's records run on its own clock
         # from 0 and are offset here.  Neither stream waits for the other -- they are
         # simulated independently and merged, which is this model's stated assumption.
-        we.extend(_work_events.pick_rows(
-            events, batch_id=i, batch_start=bs.batch_start_time, crew=_pick_workers,
-            shift_seconds=_shift_seconds))
-        if _put_workers is not None:
+        asm.we.extend(_work_events.pick_rows(
+            events, batch_id=i, batch_start=bs.batch_start_time, crew=asm._pick_workers,
+            shift_seconds=asm._shift_seconds))
+        if asm._put_workers is not None:
             # POOLED, THE DRAIN LEAVES THE CREW STANDING.  Resetting here would zero the
             # other leaf's half-spent day with nothing raising and every subsequent row
             # plausible; the pool resets the one list once, after both leaves report.
-            _put_recs = mgr.drain_putaway_records(reset_clocks=pool is None)
+            _put_recs = asm.mgr.drain_putaway_records(reset_clocks=asm.pool is None)
             # The crew picks this wave's queue up when the wave is released OR when it
             # finishes the last one, whichever is later.  Pooled, `bstate.put_base` is the site's
             # and was set when the day opened, above.
-            if pool is None:
-                bstate.put_base = max(bs.batch_start_time, put_clock)
+            if asm.pool is None:
+                bstate.put_base = max(bs.batch_start_time, asm.put_clock)
             # ONE CALL PER STREAM.  Each queue has its own crew, so a worker index means
             # something only against that crew's roster -- worker 0 of the cart crew and
             # worker 0 of the forklift crew are different people.  With the default single
@@ -2639,37 +2826,37 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             for _r in _put_recs:
                 _by_queue.setdefault(_r[9], []).append(_r)
             for _qname, _qrecs in _by_queue.items():
-                we.extend(_work_events.put_rows(
+                asm.we.extend(_work_events.put_rows(
                     _qrecs, batch_id=i, batch_start=bs.batch_start_time,
                     # `[_qname]`, not `.get(_qname, _put_workers)`: a record whose queue
                     # has no roster is a wiring bug, and falling back to the put roster
                     # would stamp another crew's work with put-away actors -- silently,
                     # since nothing downstream can tell.
-                    crew=_put_crews[_qname],
-                    shift_seconds=_shift_seconds, crew_start=bstate.put_base))
+                    crew=asm._put_crews[_qname],
+                    shift_seconds=asm._shift_seconds, crew_start=bstate.put_base))
             if _put_recs:
                 # max(end), not the LAST record's: with several workers the list
                 # interleaves them, so the last appended is not the latest finishing.
                 # Grouped `(bstate.put_base + t0) + dur` deliberately -- float addition is
                 # not associative, and `bstate.put_base + (t0 + dur)` moved 28 rows by one
                 # ulp across two arms.  Same value for one worker, exactly.
-                put_clock = max((bstate.put_base + r[0]) + r[1] for r in _put_recs)
-            elif pool is not None:
+                asm.put_clock = max((bstate.put_base + r[0]) + r[1] for r in _put_recs)
+            elif asm.pool is not None:
                 # NOTHING PUT AWAY, and the pool still has to hear from this leaf -- it
                 # resets the shared clocks only when every leaf has reported.  The base is
                 # what to report: a crew that did no work today is free at the day's start,
                 # which is the same answer the carry gives tomorrow either way.
-                put_clock = bstate.put_base
-            if pool is not None:
+                asm.put_clock = bstate.put_base
+            if asm.pool is not None:
                 # The site carry is the pool's, committed when the LAST leaf reports, so
                 # both leaves of one batch read one epoch.  `put_clock` stays as this
                 # leaf's own view for the shift ledger's `_shift_last_finish`.
-                pool.note_records(mgr, put_clock)
-        pk.extend(picks_b)
-        pm.extend(am)
-        last_dur        = bs.duration
-        ckpt_win.add('dur_sum', bs.duration)
-        ckpt_win.add('dur_count', 1)
+                asm.pool.note_records(asm.mgr, asm.put_clock)
+        asm.pk.extend(picks_b)
+        asm.pm.extend(am)
+        asm.last_dur        = bs.duration
+        asm.ckpt_win.add('dur_sum', bs.duration)
+        asm.ckpt_win.add('dur_count', 1)
 
         # ── the drain-or-cap shift's ledger ───────────────────────────────────
         # Per-DAY close-out, decided at the first batch of the NEXT day: a day drained if
@@ -2685,111 +2872,109 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # ORDER MATTERS: the boundary is tested BEFORE this batch's clocks, cut and depths
         # are folded in, so the previous day closes on what ITS last batch left behind and
         # this batch -- the first of the new day -- is attributed to the new day.
-        if _drain_or_cap:
-            _d = _release.day_of(i)
+        if asm._drain_or_cap:
+            _d = asm._release.day_of(i)
             # BOUNDARY FIRST, then this batch -- the order IS the rule stated above, and
             # it is now the ledger's interface rather than the shape of this block.
-            _closed = shift.advance_to(_d)
+            _closed = asm.shift.advance_to(_d)
             if _closed is not None:
-                sd.append(_shift_close_out(*_closed))
-            shift.note(cut=bool(sim.carried) or bool(bs.recv_cut),
-                       finish=max(arm_clock, put_clock, recv_clock),
-                       standing=(mgr.queue_depth,
-                                 mgr.dock_depth if site is None
-                                 else site.coord.dock_depth_for(mgr),
+                asm.sd.append(asm.shift_close_out(*_closed))
+            asm.shift.note(cut=bool(sim.carried) or bool(bs.recv_cut),
+                       finish=max(asm.arm_clock, asm.put_clock, asm.recv_clock),
+                       standing=(asm.mgr.queue_depth,
+                                 asm.mgr.dock_depth if asm.site is None
+                                 else asm.site.coord.dock_depth_for(asm.mgr),
                                  *_pending_split))
 
-        if len(pb) >= checkpoint:
+        if len(asm.pb) >= asm.checkpoint:
             t_s0 = time.perf_counter()
-            _bp, _be = bin_rec.drain()
+            _bp, _be = asm.bin_rec.drain()
             save_checkpoint_bundle(
-                db_path, run_id,
-                batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
+                asm.db_path, asm.run_id,
+                batch_stats=asm.pb, task_stats=asm.pt, picker_events=asm.pe, picks=asm.pk,
                 bin_placements=_bp, bin_evictions=_be,
-                aisle_metrics=pm, reorder_queue=pq, work_events=we,
-                put_queue_state=pqs, carryover=cov,
-                yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
-            save_worker_checkpoint(run_dir, strategy, i + 1)
+                aisle_metrics=asm.pm, reorder_queue=asm.pq, work_events=asm.we,
+                put_queue_state=asm.pqs, carryover=asm.cov,
+                yard_trailers=asm.yt, yard_drains=asm.yd, shift_days=asm.sd, free_index=asm.fi)
+            save_worker_checkpoint(asm.run_dir, asm.strategy, i + 1)
             t_save = time.perf_counter() - t_s0
 
-            wall      = time.perf_counter() - t_loop
-            ckpt_wall = ckpt_win.wall(time.perf_counter())
-            cum_rate  = (i + 1 - start_i) / wall
-            ckpt_rate = ckpt_win.rate(ckpt_wall)
-            avg_dur   = ckpt_win.avg_dur()
-            cur_fill  = len(mgr._unavailable) / max(denom, 1)   # denom = THIS channel's regime bins
-            _p1w, _p2w = timers.window('p1'), timers.window('p2')
+            wall      = time.perf_counter() - asm.t_loop
+            ckpt_wall = asm.ckpt_win.wall(time.perf_counter())
+            cum_rate  = (i + 1 - asm.start_i) / wall
+            ckpt_rate = asm.ckpt_win.rate(ckpt_wall)
+            avg_dur   = asm.ckpt_win.avg_dur()
+            cur_fill  = len(asm.mgr._unavailable) / max(asm.denom, 1)   # denom = THIS channel's regime bins
+            _p1w, _p2w = asm.timers.window('p1'), asm.timers.window('p2')
             p1_frac   = _p1w / (_p1w + _p2w + 1e-9) * 100
 
-            log.info(
-                f'  Batch {i+1:4d}/{n_batches}'
+            asm.log.info(
+                f'  Batch {i+1:4d}/{asm.n_batches}'
                 f'  dur={bs.duration:6.0f}'
                 f'  avg={avg_dur:6.0f}'
                 f'  rate={ckpt_rate:.2f}/s ({cum_rate:.2f} cum)'
                 f'  fill={cur_fill:.1%}'
-                f'  q={mgr.queue_depth}'
-                f'  reorder={ckpt_win.get("reorders")}sku '
-                f'{ckpt_win.get("units_ordered")}u ord {ckpt_win.get("placed")}u plc'
-                f'  lead_q={mgr.lead_queue_depth if site is None else _tx_depth}'
-                f'({mgr.in_transit_qty if site is None else _tx_qty}u)'
+                f'  q={asm.mgr.queue_depth}'
+                f'  reorder={asm.ckpt_win.get("reorders")}sku '
+                f'{asm.ckpt_win.get("units_ordered")}u ord {asm.ckpt_win.get("placed")}u plc'
+                f'  lead_q={asm.mgr.lead_queue_depth if asm.site is None else _tx_depth}'
+                f'({asm.mgr.in_transit_qty if asm.site is None else _tx_qty}u)'
                 f'  p1={_p1w:.2f}s ({p1_frac:.0f}%)'
                 f'  p2={_p2w:.2f}s'
                 f'  wall={wall:.0f}s'
                 f'  db={t_save:.2f}s'
                 # per-section breakdown of this checkpoint's batch-loop wall
-                f'  | reord={timers.window("reord"):.1f}s build={timers.window("build"):.1f}s'
-                f' (smpl={timers.window("sample"):.1f}s task={timers.window("task"):.1f}s)'
-                f' pre={timers.window("pre"):.1f}s sim={timers.window("sim"):.1f}s'
-                f' extr={timers.window("extract"):.1f}s cons={timers.window("inv"):.1f}s'
+                f'  | reord={asm.timers.window("reord"):.1f}s build={asm.timers.window("build"):.1f}s'
+                f' (smpl={asm.timers.window("sample"):.1f}s task={asm.timers.window("task"):.1f}s)'
+                f' pre={asm.timers.window("pre"):.1f}s sim={asm.timers.window("sim"):.1f}s'
+                f' extr={asm.timers.window("extract"):.1f}s cons={asm.timers.window("inv"):.1f}s'
                 # overlay metrics (kf ⊂ pre; gc overlaps every section) — appended AFTER
                 # the partition tokens so bench_sections' unanchored _SEC_RE still matches
-                f' kf={timers.window("kf"):.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
+                f' kf={asm.timers.window("kf"):.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
             )
 
             # The DB write has no window of its own (it is timed here, inside the
             # checkpoint block), so it is added straight to the section about to close.
-            timers.add('save', t_save)
+            asm.timers.add('save', t_save)
 
-            pb.clear(); pt.clear(); pe.clear(); pk.clear(); pm.clear(); pq.clear()
-            pqs.clear(); cov.clear()
-            yt.clear(); yd.clear(); sd.clear(); fi.clear()
-            we.clear()
+            asm.pb.clear(); asm.pt.clear(); asm.pe.clear(); asm.pk.clear(); asm.pm.clear(); asm.pq.clear()
+            asm.pqs.clear(); asm.cov.clear()
+            asm.yt.clear(); asm.yd.clear(); asm.sd.clear(); asm.fi.clear()
+            asm.we.clear()
             # Close BOTH halves of the window for the next log line.  The timers'
             # whole-arm totals already contain theirs -- `roll` moves no number
             # anybody is waiting on -- and the counters have no total to move.
-            timers.roll()
-            ckpt_win.roll(time.perf_counter())
+            asm.timers.roll()
+            asm.ckpt_win.roll(time.perf_counter())
 
 
     def _finish() -> dict:
         """The run-end half: flush the unflushed window, close the last day, censor the
         standing yard, release the graph, and return this leaf's result dict."""
-        nonlocal affinity, batches, bin_rec, ctx, freq_by_idx, freq_by_sku, inventory, mgr
-        nonlocal qty_by_sku, reloader, warehouse
         # NO FOLD HERE.  The final unflushed window is already in every total (that is
         # `SectionTimers`' one design decision), so this run-end writer has nothing to
         # forget -- which is exactly the defect the hand-kept form kept re-introducing.
-        if pb:
-            log.info(f'  Flushing final {len(pb)} batches to DB...')
+        if asm.pb:
+            asm.log.info(f'  Flushing final {len(asm.pb)} batches to DB...')
             _ts_final = time.perf_counter()
-            _bp, _be = bin_rec.drain()
+            _bp, _be = asm.bin_rec.drain()
             save_checkpoint_bundle(
-                db_path, run_id,
-                batch_stats=pb, task_stats=pt, picker_events=pe, picks=pk,
+                asm.db_path, asm.run_id,
+                batch_stats=asm.pb, task_stats=asm.pt, picker_events=asm.pe, picks=asm.pk,
                 bin_placements=_bp, bin_evictions=_be,
-                aisle_metrics=pm, reorder_queue=pq, work_events=we,
-                put_queue_state=pqs, carryover=cov,
-                yard_trailers=yt, yard_drains=yd, shift_days=sd, free_index=fi)
-            timers.add('save', time.perf_counter() - _ts_final)
+                aisle_metrics=asm.pm, reorder_queue=asm.pq, work_events=asm.we,
+                put_queue_state=asm.pqs, carryover=asm.cov,
+                yard_trailers=asm.yt, yard_drains=asm.yd, shift_days=asm.sd, free_index=asm.fi)
+            asm.timers.add('save', time.perf_counter() - _ts_final)
 
         # THE FINAL DAY'S CLOSE-OUT, deliberately OUTSIDE the `if pb:` above (same reasoning as
         # the censored yard tail below).  The ledger closes a day at the first batch of the NEXT
         # day, so the last day of a run has no closer inside the loop; without this flush every
         # era run would report one day fewer than it worked, and the equilibrium check's "every
         # day drained" would be read over a window missing its last member.
-        _last_day = shift.final() if _drain_or_cap else None
+        _last_day = asm.shift.final() if asm._drain_or_cap else None
         if _last_day is not None:
-            save_shift_days(db_path, run_id, [_shift_close_out(*_last_day)])
+            save_shift_days(asm.db_path, asm.run_id, [asm.shift_close_out(*_last_day)])
 
         # THE CENSORED TAIL, and it is deliberately OUTSIDE the `if pb:` above.  That flush is
         # conditional on there being an unflushed batch window, which there is not when
@@ -2801,48 +2986,48 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # SITE-DOCKED, THE TAIL IS THE SITE'S and `_SiteDock.finish` reads it: this
         # accessor does not DRAIN, so two leaves reading it would bill every trailer still
         # standing at run end twice.  Refused there, guarded here.
-        _yard_standing = [] if site is not None else mgr.standing_yard_trailers()
+        _yard_standing = [] if asm.site is not None else asm.mgr.standing_yard_trailers()
         if _yard_standing:
-            log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
+            asm.log.info(f'  [yard] {len(_yard_standing)} trailer(s) still on site at run end — '
                      f'detention censored')
-            save_yard_trailers(db_path, run_id, _yard_standing)
+            save_yard_trailers(asm.db_path, asm.run_id, _yard_standing)
 
         # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
         # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was
         # flushed above but the marker didn't advance.  Pin it to n_batches so a later --resume of
         # a not-yet-finalized group treats this arm as done (empty loop) instead of re-INSERTing
         # its tail rows.  Idempotent when the marker already reached n_batches.
-        if n_batches > start_i:
-            save_worker_checkpoint(run_dir, strategy, n_batches)
+        if asm.n_batches > asm.start_i:
+            save_worker_checkpoint(asm.run_dir, asm.strategy, asm.n_batches)
 
-        elapsed = time.perf_counter() - t_loop
-        done    = n_batches - start_i - skipped
-        n_bins      = len(warehouse.bins)                      # runtime-metrics: warehouse size proxy
-        regime_bins = denom                                    # this channel's regime bin count
-        n_aisles    = len(getattr(warehouse, 'aisles', []) or [])
-        log.info('=' * 60)
-        log.info(f'Strategy {strategy} DONE  batches={done}  skipped={skipped}  '
-                 f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={last_dur:.0f}')
+        elapsed = time.perf_counter() - asm.t_loop
+        done    = asm.n_batches - asm.start_i - asm.skipped
+        n_bins      = len(asm.warehouse.bins)                      # runtime-metrics: warehouse size proxy
+        regime_bins = asm.denom                                    # this channel's regime bin count
+        n_aisles    = len(getattr(asm.warehouse, 'aisles', []) or [])
+        asm.log.info('=' * 60)
+        asm.log.info(f'Strategy {asm.strategy} DONE  batches={done}  skipped={asm.skipped}  '
+                 f'wall={elapsed:.1f}s  rate={done/elapsed:.2f}/s  last_dur={asm.last_dur:.0f}')
         # State the ledger's verdict once per arm, either way: a silent pass is indistinguishable
         # from a check that never ran, and "the log is complete" is the claim the whole spatial
         # record rests on.  The failing form repeats at ERROR so it survives a log tail.
-        if audit.demand_breaks:
+        if asm.audit.demand_breaks:
             # Conservation got an end-of-arm report and this did not, so an arm with 200 demand
             # breaks said so exactly once, in a line about batch 3.  The per-batch log is gated
             # on the FIRST break by design -- to avoid 100 identical lines -- which makes a
             # total here the only way to learn there were 100.
-            log.error(f'Strategy {strategy} DEMAND: {audit.demand_breaks} batch(es) picked MORE than '
+            asm.log.error(f'Strategy {asm.strategy} DEMAND: {asm.audit.demand_breaks} batch(es) picked MORE than '
                       f'was demanded. ONE-SIDED by construction: under-picking is not checked '
                       f'here and is legitimate whenever stock is short.')
-        if audit.cons_breaks:
-            log.error(f'Strategy {strategy} CONSERVATION: {audit.cons_breaks} batch(es) broke the ledger; '
-                      f'{audit.residual:+,} units unaccounted for at the end. The bin-mutation log '
+        if asm.audit.cons_breaks:
+            asm.log.error(f'Strategy {asm.strategy} CONSERVATION: {asm.audit.cons_breaks} batch(es) broke the ledger; '
+                      f'{asm.audit.residual:+,} units unaccounted for at the end. The bin-mutation log '
                       f'for this arm is INCOMPLETE — spatial reconstruction will not be exact.')
         else:
-            log.info(f'  conservation OK: placed {bin_rec.units_placed:,} − evicted '
-                     f'{bin_rec.units_evicted:,} − picked {audit.picked:,} balanced against bin '
+            asm.log.info(f'  conservation OK: placed {asm.bin_rec.units_placed:,} − evicted '
+                     f'{asm.bin_rec.units_evicted:,} − picked {asm.audit.picked:,} balanced against bin '
                      f'occupancy on every batch')
-        log.info('=' * 60)
+        asm.log.info('=' * 60)
 
         # Thaw the startup graph BEFORE the release below: unfreezing returns the permanent
         # generation to the oldest gen, so the collect() actually reclaims the cyclic
@@ -2851,12 +3036,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # and keeping the live-object census below comparable across runs.  In production
         # (recycling pinned at 1) the process exits right after; this is for everyone else.
         gc.unfreeze()
-        gc.set_threshold(*_gc_thresh)
-        lift_cache.clear()
+        gc.set_threshold(*asm._gc_thresh)
+        asm.lift_cache.clear()
         # bin_rec goes with them: its wrappers close over the manager's bound methods, so holding
         # the recorder holds the whole manager (and through it the warehouse) alive.
-        del (inventory, affinity, warehouse, mgr, ctx, reloader, bin_rec,
-             freq_by_sku, qty_by_sku, freq_by_idx, batches)
+        del (asm.inventory, asm.affinity, asm.warehouse, asm.mgr, asm.ctx, asm.reloader, asm.bin_rec,
+             asm.freq_by_sku, asm.qty_by_sku, asm.freq_by_idx, asm.batches)
         gc.collect()
 
         # ── memory observability, end-of-arm only (each a one-shot: ~free) ────────
@@ -2868,21 +3053,21 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             gc.callbacks.remove(_gc_cb)
         except ValueError:
             pass
-        gc_gen2 = gc.get_stats()[2]['collections'] - _gc_stats0[2]['collections']
-        live_objects = len(gc.get_objects()) if _gc_detail else None
+        gc_gen2 = gc.get_stats()[2]['collections'] - asm._gc_stats0[2]['collections']
+        live_objects = len(gc.get_objects()) if asm._gc_detail else None
         peak_rss_mib = _peak_rss_mib()
-        log.info(f'  memory: peak_rss={peak_rss_mib or 0:.0f}M  '
+        asm.log.info(f'  memory: peak_rss={peak_rss_mib or 0:.0f}M  '
                  f'gc_pause={_GC_STATE["pause_s"]:.2f}s  gen2={gc_gen2}  '
                  f'live={live_objects if live_objects is not None else "-"}  '
                  f'frozen_residual={gc.get_freeze_count()}')
 
         return {
-            'strategy': strategy,
-            'run_id'  : run_id,
+            'strategy': asm.strategy,
+            'run_id'  : asm.run_id,
             'elapsed' : elapsed,
             'done'    : done,
-            'skipped' : skipped,
-            'last_dur': last_dur,
+            'skipped' : asm.skipped,
+            'last_dur': asm.last_dur,
             # Conservation verdict for this arm — 0 means the bin-mutation log balanced against
             # real bin occupancy on every batch.  Surfaced to the parent so a sweep can be judged
             # from the result dicts without grepping 34 worker logs.
@@ -2890,7 +3075,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # then dropped on the floor.
             # cons_breaks / cons_residual / demand_breaks -- one expansion rather than
             # three lines that had to agree with the seeds and the verdicts above.
-            **audit.totals(),
+            **asm.audit.totals(),
             # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
             #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
             'n_bins'    : n_bins,
@@ -2899,14 +3084,14 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # SETUP spans, measured before the batch loop's clock starts — so they are NOT
             # part of `elapsed` and must never be stacked onto the section totals below.
             # runtime_metrics.OUTSIDE_TOTAL is the declaration of that separation.
-            't_precompute': t_precompute,   # strat.build(): the map family's offline solve
-            'map_lap_pct' : map_lap_pct,    # None on every non-map arm
-            'expected_pick': expected_pick, # the arm's expected day (era only; None flag-off)
+            't_precompute': asm.t_precompute,   # strat.build(): the map family's offline solve
+            'map_lap_pct' : asm.map_lap_pct,    # None on every non-map arm
+            'expected_pick': asm.expected_pick, # the arm's expected day (era only; None flag-off)
             # Every section's whole-arm total, under its runtime_metrics column name:
             # t_reord/t_build/t_sample/t_task/t_kf/t_pre/t_sim/t_extract/t_inv/t_save
             # plus the fast_pick phase split p1_s/p2_s.  One expansion rather than
             # twelve lines that had to agree with three other places.
-            **timers.totals(),
+            **asm.timers.totals(),
             # end-of-arm memory observability (see the log line above; pause/census are
             # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
             'gc_pause_s'  : _GC_STATE['pause_s'],
@@ -2917,8 +3102,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
 
 
 
-    return _Leaf(strategy=strategy, start_i=start_i, n_batches=n_batches,
-                 channel=args.get('channel_name'), n_catalogue=n_catalogue, n_skus=n_skus,
+    return _Leaf(strategy=asm.strategy, start_i=asm.start_i, n_batches=asm.n_batches,
+                 channel=args.get('channel_name'),
+                 n_catalogue=asm.n_catalogue, n_skus=asm.n_skus,
                  replenish=_replenish, step=_step, finish=_finish,
                  note_triggered=_note_triggered)
 

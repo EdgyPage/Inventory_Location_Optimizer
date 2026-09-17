@@ -515,10 +515,12 @@ def test_the_runner_snapshots_the_bucket_depth_per_batch_and_flushes_it_with_the
     import inspect
     import Optimization.simdriver.strategy_runner as sr
     src = inspect.getsource(sr._build_leaf)
-    assert 'fi.extend((i, *_k, _n) for _k, _n in mgr.free_bin_depth_by_bucket())' in src
-    assert src.index('_free = mgr.free_bin_depth()') < src.index('fi.extend((i, *_k, _n)')
-    assert src.count('free_index=fi)') == 2, 'both bundle flushes carry the per-bucket rows'
-    assert 'fi.clear()' in src
+    assert 'asm.fi.extend((i, *_k, _n) for _k, _n in asm.mgr.free_bin_depth_by_bucket())' in src
+    assert (src.index('_free = asm.mgr.free_bin_depth()')
+            < src.index('asm.fi.extend((i, *_k, _n)')), (
+        'the per-bucket rows are no longer taken beside the whole-geometry level')
+    assert src.count('free_index=asm.fi)') == 2, 'both bundle flushes carry the rows'
+    assert 'asm.fi.clear()' in src
     assert src.count('_bs.put_spills,') == 1 and src.count('bs.put_spills, bs.recv_repacks') == 1, (
         'the 4-tuple must be unpacked at the skipped-batch site AND the normal site')
 

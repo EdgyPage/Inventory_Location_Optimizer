@@ -34,6 +34,26 @@ from Optimization.config.sim_config import CONFIG, recv_crew_spec
 _KEYS = ('recv_crew_size', 'recv_day_seconds', 'recv_day_origin')
 
 
+def _leaf_source() -> str:
+    """One leaf, in three pieces since ticket 06.
+
+    `_build_arm` constructs the arm and returns an `ArmAssembly`; `_build_leaf` closes the two
+    batch halves over it; `ArmAssembly.shift_close_out` is the day close-out, a method because
+    the stepping half calls it. A question about "what the runner does" spans all three, and a
+    scan of one would now pass by looking in the wrong place.
+
+    The method is dedented so the result still parses as a module — these scans `ast.parse`
+    what they get back.
+    """
+    import inspect
+    import textwrap
+
+    from Optimization.simdriver import strategy_runner as _sr
+    return (inspect.getsource(_sr._build_arm)
+            + inspect.getsource(_sr._build_leaf)
+            + textwrap.dedent(inspect.getsource(_sr.ArmAssembly.shift_close_out)))
+
+
 @pytest.fixture()
 def restore():
     """CONFIG is mutated in place and shared; put it back however the test exits."""
@@ -188,7 +208,7 @@ def test_the_worker_reads_the_crew_only_from_its_arguments():
     import ast
 
     from Optimization.simdriver import strategy_runner as sr
-    tree = ast.parse(inspect.getsource(sr._build_leaf))
+    tree = ast.parse(_leaf_source())
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
             if (node.body and isinstance(node.body[0], ast.Expr)
@@ -216,11 +236,13 @@ def test_the_receive_whistle_is_not_the_put_whistle():
     import ast
 
     from Optimization.simdriver import strategy_runner as sr
-    body = ast.unparse(ast.parse(inspect.getsource(sr._build_leaf)))
+    body = ast.unparse(ast.parse(_leaf_source()))
     assert 'recv_deadline=_recv_deadline' in body
     assert 'recv_deadline=_put_deadline' not in body, 'the two crews share one whistle'
     assert '_recv_day.end_of' in body, 'the receive whistle is not built from its own day'
-    assert 'max(arm_clock, recv_clock)' in body, (
+    # Both clocks moved onto `ArmAssembly` (ticket 06). `ast.unparse` normalises the
+    # attribute access, so the spelling below is what the unparsed body now holds.
+    assert 'max(asm.arm_clock, asm.recv_clock)' in body, (
         'the receive whistle is not measured against its own carry')
 
 
@@ -241,7 +263,7 @@ def test_the_day_origin_reaches_the_workday_and_moves_the_whistle():
     from Warehouse.kernel.timeline import WorkDay
     from Optimization.simdriver import strategy_runner as sr
 
-    body = _ast.unparse(_ast.parse(inspect.getsource(sr._build_leaf)))
+    body = _ast.unparse(_ast.parse(_leaf_source()))
     assert "origin=_recv_spec['day_origin']" in body, (
         'the receiving day is built without its origin, so --recv-day-origin is dead config')
 

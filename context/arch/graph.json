@@ -13806,6 +13806,16 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Optimization/simconfig/equilibrium.py::is_drained",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::shift_end",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::create_run",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.finish"
@@ -13843,105 +13853,270 @@
     {
       "dst": "Inbound/dock.py::Dock",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Inbound/dock.py::DockSpec",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Inbound/gain.py::OneOwnerBundle",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Inbound/receiving.py::SiteReceiving",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Inbound/space.py::SpaceTimeline",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Inbound/transit.py::TrailerTransit",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Inbound/transit.py::YardTransit",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/config/strategies.py::StrategyContext",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/metrics/bin_recorder.py::BinRecorder",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::init_keyframe_db",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::keyframe_db_path",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_scores",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_sku_scores",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/audit_ledgers.py::AuditLedgers",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::batch_fingerprint",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/batch_precompute.py::load_batches",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/batch_state.py::BatchState",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/section_timers.py::CheckpointWindow",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/section_timers.py::SectionTimers",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/shift_ledger.py::ShiftLedger",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
       "dst": "Optimization/simdriver/sim_assets.py::load_run_inventory",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::ArmAssembly",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_check_declared_crew",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window_w",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_map_lap_pct",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_site_unload_cost",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_timed_build",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_work_day_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue_all",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_travel_costs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/put_queue.py::store_and_fulfillment",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/kernel/regime.py::regime_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::ReleaseSchedule",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/kernel/timeline.py::WorkDay",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/operations/putaway.py::PutawayCost.from_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/picking/Workload_Builder.py::drain_sku",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm._arm_aisle_state"
+    },
+    {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm._arm_aisle_state"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_state.py::BatchState",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
@@ -13951,164 +14126,9 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
-      "dst": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick",
+      "dst": "Optimization/simdriver/strategy_runner.py::_build_arm",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_check_declared_crew",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window_w",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
-      "kind": "ref",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_map_lap_pct",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_site_unload_cost",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_timed_build",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Optimization/simdriver/strategy_runner.py::_work_day_of",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_receiving",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enqueue_all",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_travel_costs",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_zoning.py::ZoningMixin.configure_zoning",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/put_queue.py::store_and_fulfillment",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/kernel/regime.py::regime_of",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/kernel/timeline.py::ReleaseSchedule",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/kernel/timeline.py::WorkDay",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/layout/Warehouse_Builder.py::Warehouse_Builder",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/operations/putaway.py::PutawayCost.from_pick",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/picking/Workload_Builder.py::drain_sku",
-      "kind": "ref",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_demand_state",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_checkpoint_bundle",
@@ -14141,17 +14161,7 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.standing_yard_trailers",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
-    },
-    {
       "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
     },
@@ -14159,16 +14169,6 @@
       "dst": "Warehouse/picking/Workload_Builder.py::Batch",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
-    },
-    {
-      "dst": "Optimization/simconfig/equilibrium.py::is_drained",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out"
-    },
-    {
-      "dst": "Warehouse/kernel/timeline.py::shift_end",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats",
@@ -14237,81 +14237,6 @@
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::save_worker_checkpoint",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.carryover_rows",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_putaway_records",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_receiving_records",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_repack_records",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_drains",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.drain_yard_trailers",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.free_bin_depth",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.free_bin_depth_by_bucket",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_contents",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.queue_state_rows",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.receiving_snapshot",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.snapshot_putaway_rework",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.tracked_sigma_fd",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.pop_churn",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -38282,6 +38207,30 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::ArmAssembly",
+      "kind": "class",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "ArmAssembly",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::ArmAssembly.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::ArmAssembly.shift_close_out",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "shift_close_out",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS",
       "kind": "const",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -38378,18 +38327,26 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_arm",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_build_leaf",
+      "name": "_build_arm",
       "public": false
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_arm._arm_aisle_state",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_arm_aisle_state",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_build_leaf",
       "public": false
     },
     {
@@ -38414,14 +38371,6 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_replenish",
-      "public": false
-    },
-    {
-      "file": "Optimization/simdriver/strategy_runner.py",
-      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._shift_close_out",
-      "kind": "function",
-      "module": "Optimization/simdriver/strategy_runner.py",
-      "name": "_shift_close_out",
       "public": false
     },
     {

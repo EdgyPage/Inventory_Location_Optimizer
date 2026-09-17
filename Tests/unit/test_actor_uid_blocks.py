@@ -39,6 +39,26 @@ from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.operations import Crew, Mode, Role
 
 
+def _leaf_source() -> str:
+    """One leaf, in three pieces since ticket 06.
+
+    `_build_arm` constructs the arm and returns an `ArmAssembly`; `_build_leaf` closes the two
+    batch halves over it; `ArmAssembly.shift_close_out` is the day close-out, a method because
+    the stepping half calls it. A question about "what the runner does" spans all three, and a
+    scan of one would now pass by looking in the wrong place.
+
+    The method is dedented so the result still parses as a module — these scans `ast.parse`
+    what they get back.
+    """
+    import inspect
+    import textwrap
+
+    from Optimization.simdriver import strategy_runner as _sr
+    return (inspect.getsource(_sr._build_arm)
+            + inspect.getsource(_sr._build_leaf)
+            + textwrap.dedent(inspect.getsource(_sr.ArmAssembly.shift_close_out)))
+
+
 def _crew(role, size):
     return Crew(role=role, mode=Mode.FOOT, speed=SpeedProfile(2.0, 4.0), size=size)
 
@@ -94,7 +114,7 @@ def _worker_body() -> str:
     """The batch-loop worker with docstrings stripped, so a comment that NAMES the old
     broken form (there is one, explaining why it is gone) cannot satisfy a text search."""
     from Optimization.simdriver import strategy_runner as sr
-    tree = ast.parse(inspect.getsource(sr._build_leaf))
+    tree = ast.parse(_leaf_source())
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
             if (node.body and isinstance(node.body[0], ast.Expr)

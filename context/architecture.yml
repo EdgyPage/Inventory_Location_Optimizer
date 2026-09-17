@@ -157,11 +157,17 @@ backbone:
   - {src: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function},
      dst: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
      via: ref, coverage: static-only}
-  # worker body -> batch load + pick simulation.  `_build_leaf` is the setup half of a
-  # work unit, and it owns both: the batch stream is loaded once per leaf, and the pick
-  # simulation runs inside the leaf's `step(i)` closure.  `_run_strategy_worker_impl` is
-  # now the DRIVER above it -- one batch loop over the unit's leaves (site-dock 18).
-  - {src: {name: _build_leaf, file: Optimization/simdriver/strategy_runner.py, kind: function},
+  # worker body -> batch load + pick simulation.  The two halves of a leaf are two
+  # functions since ticket 06: `_build_arm` CONSTRUCTS the arm (and loads the batch stream,
+  # once per leaf) and returns an `ArmAssembly`; `_build_leaf` closes `step(i)` and
+  # `finish()` over it.  `_run_strategy_worker_impl` is the DRIVER above both -- one batch
+  # loop over the unit's leaves (site-dock 18).
+  #
+  # `_build_arm`, not `_build_leaf`: the extractor attributes a call to the function it is
+  # written in, and the batch stream is loaded during construction.  This edge said
+  # `_build_leaf` until the split and moved with the code, which is what a backbone edge is
+  # FOR -- it went red on the commit that moved it rather than rotting quietly.
+  - {src: {name: _build_arm, file: Optimization/simdriver/strategy_runner.py, kind: function},
      dst: {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}, via: calls}
   # `_step`, not `_build_leaf`: the pick simulation is constructed inside the leaf's per-batch
   # closure, and the extractor attributes a call to the function it is written in.

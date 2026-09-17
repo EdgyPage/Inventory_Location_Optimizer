@@ -46,6 +46,26 @@ from Optimization.simconfig.constants import _FF_PICKERS, _STORE_PICKERS, PROVEN
 _DEFAULTS = {'store_pickers': _STORE_PICKERS, 'ff_pickers': _FF_PICKERS}
 
 
+def _leaf_source() -> str:
+    """One leaf, in three pieces since ticket 06.
+
+    `_build_arm` constructs the arm and returns an `ArmAssembly`; `_build_leaf` closes the two
+    batch halves over it; `ArmAssembly.shift_close_out` is the day close-out, a method because
+    the stepping half calls it. A question about "what the runner does" spans all three, and a
+    scan of one would now pass by looking in the wrong place.
+
+    The method is dedented so the result still parses as a module — these scans `ast.parse`
+    what they get back.
+    """
+    import inspect
+    import textwrap
+
+    from Optimization.simdriver import strategy_runner as _sr
+    return (inspect.getsource(_sr._build_arm)
+            + inspect.getsource(_sr._build_leaf)
+            + textwrap.dedent(inspect.getsource(_sr.ArmAssembly.shift_close_out)))
+
+
 @pytest.fixture()
 def restore():
     """CONFIG is mutated in place and shared; put it back however the test exits."""
@@ -293,7 +313,7 @@ def test_the_worker_checks_its_crew_against_the_record_and_never_the_module():
                     node.body.pop(0)
         return ast.unparse(tree)
 
-    body = _code(sr._build_leaf)
+    body = _code(sr._build_arm) + _code(sr._build_leaf)
     assert '_check_declared_crew(args, k_pickers, site_crews=unit is None)' in body, \
         'the worker no longer checks'
     # And the SITE half is checked once per unit, never per leaf. Two leaves each verifying

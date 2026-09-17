@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArmAssembly · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py__ArmAssembly" data-id="Optimization/simdriver/strategy_runner.py::ArmAssembly">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>ArmAssembly</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>ArmAssembly</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>class ArmAssembly</code></pre>
+<section class="doc">Everything one ARM holds for the length of a run -- built once, then read.
+
+`_build_leaf` bound 139 distinct names at one indent level, and the three closures it
+returns reached back into them: 76 of those names are DURABLE (a closure reads or
+writes one) and the other 60 are construction temporaries that nothing outside the
+setup ever looks at. Nothing sat between &quot;the whole arm&quot; and a 600-line closure body,
+so every behavioural test of a batch had to hand-assemble a run tree -- five e2e
+harnesses totalling ~2,000 lines exist for that reason, and one of them says so.
+
+The split is computed rather than judged: DURABLE means a closure touches it. Which
+is also why this list is 76 names and not the ~40 the ticket estimated -- an arm
+really does carry that much, and seeing it is the point.
+
+## What this is NOT
+
+Not a bag of parameters. The closures no longer declare `nonlocal` at all: a carry
+between batches (`arm_clock`, `put_clock`, `recv_clock`, `last_dur`, `skipped`,
+`_pending`) is an attribute write, so &quot;this value survives the batch&quot; is stated by
+where it lives instead of by a declaration in each closure that happens to mention it.
+
+Slotted: one per leaf, and a stray attribute would be a name that looks like arm state
+and is not.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_arm.html"><code>_build_arm</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py__ArmAssembly">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=class%20ArmAssembly">Source ↗</a></p>
+</article>
+</main>
+</body></html>

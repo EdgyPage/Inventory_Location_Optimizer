@@ -1,7 +1,7 @@
 # 06 - _build_leaf binds 113 names at one indent level
 
 Type: refactor
-Status: claimed
+Status: resolved
 
 ## Context
 
@@ -129,3 +129,97 @@ So the remaining half is a judgement-heavy split of the driver, not a mechanical
 and the first thing it needs is a decision this ticket assumed away: **what else moves to
 `leaf_assembly.py`, or does `ArmAssembly` live in `strategy_runner.py`?** Ticket 24, rather
 than an unfinished claim here.
+
+
+---
+
+## RESOLVED 2026-09-17 -- `ArmAssembly` landed, in `strategy_runner.py`
+
+### The measurement
+
+| | before | after |
+|---|---|---|
+| `_build_leaf` | 1,729 lines | **918** |
+| names bound at its top indent | 149 | **11** |
+| `nonlocal` statements in it | 7 | **0** |
+| names reached through `nonlocal` | 33 | **0** |
+
+The other 140 names are inside `_build_arm`, where nothing outside the construction can see
+them. 76 of them are DURABLE -- a closure touches one -- and are the `ArmAssembly`'s fields;
+the remaining 60 are construction temporaries that now genuinely are temporary.
+
+### The module-boundary decision, made
+
+The ticket specified `Optimization/simdriver/leaf_assembly.py`. **It does not go there**, and
+ticket 24 (raised earlier today for exactly this question) is answered by the same finding
+that raised it: the assembly calls a dozen module-level helpers in `strategy_runner.py`, so a
+new module either drags them along in an unscoped cascade or imports them back as a cycle --
+in a spawn pool where every job re-imports the source tree.
+
+So `ArmAssembly` and `_build_arm` live in `strategy_runner.py`. That gives up the file split
+and keeps everything the split was FOR: one object instead of 76 loose locals, closures that
+read it instead of reaching back, no `nonlocal` anywhere, and a callable seam that costs a
+payload dict.
+
+**And `_build_arm` is a module-level function rather than a classmethod**, also deliberately:
+its body sits at one indent today and sits at one indent there, so the diff is the move and
+nothing else. As a classmethod all 810 lines would also gain four spaces, and a
+whitespace-only change on 810 lines hides the real one from review.
+
+### The rename was 380 tokens and it was NOT a regex
+
+Ticket 06's own `BatchState` half corrupted two English comments with a word-boundary pattern
+scoped to one function. This half is fifty times larger, so it used the tool that failure
+argues for: an AST walk collecting every `ast.Name` node's `(lineno, col_offset)`, rewritten
+bottom-up. Comments and strings are untouched by construction.
+
+Two things that had to be right, and one that was not at first:
+
+1. **Scope.** A durable name is rewritten inside a closure only when it is FREE there. A name
+   assigned in a closure without `nonlocal` is that closure's own local; rewriting its loads
+   would change which variable is read. Measured: no closure shadows any durable name, so the
+   rule fired zero times -- but a scan that had not checked would have been luck.
+2. **`col_offset` is a UTF-8 BYTE offset, not a character index.** This file is full of
+   box-drawing and em-dash characters, so the first attempt spliced a few characters off and
+   produced `dit.p` out of `audit`. It asserted rather than writing, which is the only reason
+   that is a footnote. The splice now happens on bytes.
+3. **A method's indent.** `_shift_close_out` already sat at one level inside `_build_leaf` --
+   exactly a method's indent -- and adding four more made it a nested `def` inside `__init__`.
+   It parsed, it ran, and the class simply did not have the method. Caught by asserting
+   `hasattr` rather than by the tests, which would not have noticed until a day boundary.
+
+### Two names that were arm state by accident
+
+`_d` and `_q` are loop variables -- `for _q in mgr.put_queues`, `_d = _xp * _b.x_phys + ...` --
+bound at the top level as construction temporaries and then declared `nonlocal` in two
+closures, which is what drags a throwaway up to arm scope. Every use is a fresh bind a few
+lines from its read, in one function, so the declaration went and they are closure locals
+again. They are not fields.
+
+### Ten tests moved out from under this, and every one was re-expressed
+
+All ten were source-shape scans over `_build_leaf` -- `inspect.getsource` plus a substring or
+an AST walk -- asking real questions about the arm: where the crew comes from, where the day
+origin comes from, how the uid cursor advances. The construction they read is now in
+`_build_arm`, so they read `_leaf_source()`: `_build_arm` + `_build_leaf` +
+`ArmAssembly.shift_close_out`, the method dedented so the result still parses.
+
+One assertion was pinned to the COLUMN a continuation line started in, which moved when the
+close-out became a method. It is whitespace-normalised now -- the claim was always about the
+call and its arguments.
+
+### Verification
+
+| check | result |
+|---|---|
+| toy run vs baseline, `run_digest.py` | **IDENTICAL**, 136 arms |
+| `Tests/unit` + `Tests/integration -k "not gpu"` | 3,161 passed / 2 skipped |
+| gates | 1-5, 7-10 green; 6 red as at the phase-0 baseline |
+
+### Still true, and left alone
+
+`_build_leaf` is 918 lines, not the ~30 the ticket estimated, because `_replenish`, `_step`
+and `_finish` ARE the stepping half -- the ticket asked to split where construction stops and
+stepping starts, and that is where it is split. Moving `_step`'s 594 lines onto the object as
+well is a different question (it would make `ArmAssembly` a god object rather than a record)
+and is not this ticket's.

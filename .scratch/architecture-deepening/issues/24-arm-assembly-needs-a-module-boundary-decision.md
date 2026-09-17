@@ -1,7 +1,7 @@
 # 24 - ArmAssembly needs a module-boundary decision first
 
 Type: refactor
-Status: open
+Status: resolved
 Blocked by: -
 
 Split from ticket 06, whose `BatchState` half landed 2026-09-17. This is the 810-line
@@ -48,3 +48,23 @@ Both are computable rather than judged, which is the good news:
   `test_actor_uid_blocks.py`, `test_site_dock_builder.py` and `test_declared_once.py` can stop
   hand-assembling a run tree to reach it.
 - Gates 1, 2, 10.
+
+
+---
+
+## RESOLVED 2026-09-17, in ticket 06
+
+Raised at 09:00 and closed the same day: the question it asks is answered by the finding that
+raised it.
+
+**`ArmAssembly` and `_build_arm` live in `strategy_runner.py`.** The third option this ticket
+named is the right one -- it gives up the file split and keeps everything the split was for.
+The other two are not close: dragging a dozen module-level helpers along is a cascade nobody
+scoped, and importing them back is a cycle in a spawn pool where every job re-imports the
+source tree.
+
+Both mechanical halves went as this ticket predicted. The durable/temporary split came
+straight off the AST (76 / 60). The rename was 380 tokens through an AST-positioned rewriter,
+and the one thing this ticket did not anticipate is worth carrying: **`col_offset` is a UTF-8
+BYTE offset**, so on a file full of box-drawing characters the splice has to happen on bytes.
+The first attempt produced `dit.p` out of `audit` and asserted rather than writing.
