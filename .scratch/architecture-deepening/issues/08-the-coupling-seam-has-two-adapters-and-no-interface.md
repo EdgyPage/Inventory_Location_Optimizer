@@ -1,7 +1,7 @@
 # 08 - the coupling seam has two adapters and no interface
 
 Type: refactor
-Status: needs-triage
+Status: resolved
 Blocked by: 06
 
 ## Context
@@ -71,3 +71,91 @@ site-coupling successor effort; that would become a third adapter rather than a 
 - Both poles byte-identical: memory `coupled-runs-are-byte-identical-until-the-pool` notes a
   coupled-vs-uncoupled TIE is now the bug, not the feature. Prove each pole against itself.
 - Gates 1, 2, 10.
+
+
+---
+
+## RESOLVED 2026-09-17  (0958f11f)
+
+`Optimization/simdriver/leaf_scope.py`. All 28 checks consult one object; `_step` and `_finish`
+have none left, and `ArmAssembly` carries `scope` in place of `pool` and `site`.
+
+### THE TICKET COUNTED EIGHT CORNERS; THERE ARE THREE RUNGS
+
+This is the correction that changed the design. The ticket reads the three parameters as
+independent and the legality as scattered -- "8 nominal combinations of which ~3 are legal,
+enforced by guards scattered across `_build_site_dock` (`:1002`), `_build_put_pool` (`:758`)
+and `_bind_put_crews`". Reading those guards, the reason is structural:
+
+  * `_build_put_pool` **never returns None** -- it raises or it builds -- and is only called on
+    a coupled unit. So `pool is not None` IS "this is a coupled unit".
+  * `_build_site_dock` mints the receiving block with `pool.workers[-1].uid + 1`. So a site dock
+    **cannot exist without a pool**.
+
+    SOLO      no pool, no site     an uncoupled run
+    POOLED    pool, no site        a coupled unit, inbound OFF (site-dock 06)
+    DOCKED    pool and site        a coupled unit, standing yard
+
+Three rungs of a ladder, so the adapters are an inheritance chain rather than the two siblings
+the ticket names: each rung is the one below it with one more group of answers moved to the
+site. The fourth corner is **unnameable** -- there is no class for it -- which is a stronger
+statement than three guards agreeing.
+
+`site_gain` is not on the ladder. It is read at exactly one place (binding the gain bundle into
+the transit), so it stays an argument; a scope member consulted once is a parameter in a costume.
+
+### What the ladder bought that the ternaries could not
+
+A coupled unit with inbound OFF must answer every inbound question exactly as an uncoupled run
+does. That was a promise kept by twenty-eight call sites each testing the *right* variable --
+`site is None`, never `pool is None` -- and a single slip would have moved that pole's numbers
+with nothing to notice. It is now `test_the_pooled_rung_overrides_nothing_inbound`: one
+assertion over `PooledScope.__dict__`, with `test_the_site_rung_overrides_every_inbound_member`
+as its non-vacuity mirror.
+
+### A SECOND CORRECTION: the closure property is not the scope's
+
+The ticket asks for "each leaf gets its own share and the shares close against the dock's
+totals" as a unit assertion against a fake coordinator. **That would assert the fake.** The
+closure belongs to the coordinator and is proved against real rows in
+`Tests/unit/test_site_receiving_totals.py`; what the SCOPE owns is that every site-owned
+question is routed **with the asking leaf's manager**, which is the precondition that makes a
+partition possible at all. `test_every_site_question_carries_the_ASKING_leafs_manager` asserts
+that, and the manager stub refuses exactly what the real one refuses under a site scope -- so a
+scope that fell through to the leaf fails in this file rather than being rescued by the
+domain-layer refusal, which is the whole point of moving the decision out of `Warehouse/`.
+
+### PRESERVED RATHER THAN TIDIED: the two poles read at different instants
+
+`lead_depth` and `in_transit` are read by a solo leaf AFTER `check_reorders` has fired this
+batch's reorders, and by the site off ONE partitioning pass BEFORE it. The obvious cleanup --
+resolve all three at census time, which the site already does and which the comment there
+recommends ("all three transit reads come off ONE pass so they cannot disagree") -- would have
+moved every solo run's published `lead_queue_depth` and `in_transit_qty`. They stay METHODS
+taking the census value, and `test_solo_reads_the_lead_numbers_off_the_manager_not_the_census`
+asserts the solo rung ignores what it is handed.
+
+Whether the asymmetry is itself right is a question for a successor, not for a refactor that
+must not move a number. It is written down in the module docstring so it is a decision next time
+rather than a discovery.
+
+### Verification
+
+| check | result |
+|---|---|
+| `Tests/unit` + `Tests/integration -k "not gpu"` | 3,207 passed / 2 skipped |
+| `Tests/e2e` | 58 passed / 1 skipped (12m02s) |
+| `Tests/unit/test_leaf_scope.py` | 19 tests |
+| toy run vs baseline, `run_digest.py` | **IDENTICAL**, 136 arms |
+| gates 1-5, 7-10 | green |
+| gate 6 (profile-tree) | red at HEAD all session, unrelated -- none of its nine shape sources is in this diff |
+
+**Digest reach again.** The tiny profile fields no site dock, so IDENTICAL covers the SOLO rung
+only. The pooled and docked rungs rest on `Tests/e2e/test_coupled_unit_e2e.py` and
+`test_coupled_resume_e2e.py`. Memory `coupled-runs-are-byte-identical-until-the-pool` is why a
+coupled-vs-uncoupled tie could not have been the instrument: since the pool landed, a tie there
+is the bug rather than the feature, so each pole is proved against itself.
+
+### What this unblocks
+
+Nothing was waiting on 08.

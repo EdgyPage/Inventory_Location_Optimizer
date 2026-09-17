@@ -159,7 +159,7 @@ count DOWN, which it permits.
 | 2 | 05 | not started | **UNBLOCKED** by 04 |
 | 3 | 06 | **RESOLVED** | BatchState + ArmAssembly: `_build_leaf` 1,729 -> 918 lines, 149 -> 11 names, 0 nonlocal |
 | 3 | 07 | **RESOLVED** | CheckpointBuffer + write_rows; 15 writers deleted, and `t_save` had been reading 0.000000 since 2026-08-18 |
-| 3 | 08 | not started | **UNBLOCKED** by 06 |
+| 3 | 08 | **RESOLVED** | LeafScope: 28 ternaries become one object, and the three parameters are a LADDER (site implies pool implies coupled), so the fourth corner is unnameable |
 | 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
 | 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
 | 5 | 11 | **RESOLVED** | one write declaration per table (20); the ratchet deleted its regex and found a third defect |
