@@ -495,14 +495,23 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         self._stock()
         return self
 
-    def init_lift_state(self, affinity: AffinityStore) -> None:
-        """Populate aisle lift state from current warehouse contents.
+    def init_placement_state(self, affinity: AffinityStore) -> None:
+        """Rebuild every index derived from WHERE things are currently placed.
 
-        Call after uniform stocking, before swapping to a load-aware
-        assignment_fn.  Ensures reorder decisions see the actual aisle
-        composition rather than starting from zero.  Also rebuilds
-        _current_quantities so the incremental counter is consistent with
-        the actual bin contents after any bulk stocking operation.
+        Two jobs, and the split matters.  The aisle ledger's membership half --
+        which SKUs an aisle holds, their matrix indices, their bin counts and
+        their column positions -- plus the manager's own per-bin indexes:
+        `_bin_sku`, `_current_quantities` and the per-SKU singleton/pallet sets.
+
+        Call after uniform stocking, before swapping to an affinity-aware
+        assignment_fn, so reorder decisions see the actual aisle composition
+        rather than starting from zero, and so the incremental `_current_quantities`
+        counter agrees with the bins after any bulk stocking operation.
+
+        Named `init_lift_state` until 2026-09-16, when the aisle lift sum it was
+        named for was deleted as write-only.  The name outlived the quantity by
+        about an hour and the method by none of it: everything else it seeds is
+        still load-bearing.
         """
         self._aisle_sku_sets.clear()
         self._aisle_sku_counts.clear()
@@ -540,7 +549,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
     def init_travel_costs(self, wp: Any) -> None:
         """Precompute _D on every bin and build the per-aisle sorted secondary index.
 
-        Must be called after init_lift_state() and before swapping to a
+        Must be called after init_placement_state() and before swapping to a
         load-aware assignment_fn built with build_load_*_assignment_fn(...,
         aisle_index=self._aisle_index).  After this call, _index_add and
         _index_remove maintain _aisle_index incrementally.
@@ -570,7 +579,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
     def init_demand_state(self, inventory: Any, wp: Any = None) -> None:
         """Populate demand-product lookup and per-aisle demand sums.
 
-        Must be called after init_lift_state() so _aisle_sku_sets already
+        Must be called after init_placement_state() so _aisle_sku_sets already
         reflects the actual placement.  Call once per strategy worker before
         swapping to a trip-cost assignment function.
 

@@ -154,8 +154,8 @@ def test_initial_placement_populates_every_index_consistently():
 
     # ── 1h: lift state is affinity-gated BY DESIGN — no affinity store, no counts.
     # Pinned because it is the surface of a real bug: placement that runs before
-    # init_lift_state sees empty aisle sets (see test_warehouse_sizing's
-    # test_init_lift_state_populates_aisle_sets, which asserts the repair).
+    # init_placement_state sees empty aisle sets (see test_warehouse_sizing's
+    # test_init_placement_state_populates_aisle_sets, which asserts the repair).
     total_counts = sum(sum(d.values()) for d in mgr._aisle_sku_counts.values())
     assert total_counts == 0, (
         f'_aisle_sku_counts is {total_counts}, expected 0 — it must only be maintained when '
@@ -237,7 +237,7 @@ def test_reclaim_returns_the_bin_to_the_available_index_and_clears_every_trace()
     wh, mgr, affinity = _build_warehouse_with_affinity(seed=42)
     orders = [_make_carton(sku=i, stock_qty=15) for i in range(1, 4)]
     mgr.enqueue_all(orders, quantity=1)
-    mgr.init_lift_state(affinity)
+    mgr.init_placement_state(affinity)
 
     placed = _bins_of(mgr, 1)
     # Also a former `check(...)` + `if not placed: return` hard-return.  Three 1-unit SKUs

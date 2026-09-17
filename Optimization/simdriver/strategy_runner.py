@@ -1425,12 +1425,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
 
     # ── initial stock ───────────────────────────────────────────────────────────
     # stock_mode='uniform' (uni_*): random fill via the manager's default placement,
-    #   THEN arm aisle state (init_lift_state/init_demand_state[/init_travel_costs])
+    #   THEN arm aisle state (init_placement_state/init_demand_state[/init_travel_costs])
     #   over that layout, THEN build() the reorder placement.
     # stock_mode='policy' (opt_*): arm per-SKU maps + travel index and build() the
     #   placement FIRST, then fill the whole inventory THROUGH that policy so the
     #   warehouse starts at the strategy's own ideal layout, then rebuild authoritative
-    #   aisle state.  init_lift_state/init_demand_state clear their dicts in place, so
+    #   aisle state.  init_placement_state/init_demand_state clear their dicts in place, so
     #   the references build() captured stay valid across the post-stock rebuild.
     t0 = time.perf_counter()
     random.seed(seed_world + 100)
@@ -1456,7 +1456,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         """Rebuild per-aisle affinity + demand/labor state from the placed bins."""
         if strat.needs_affinity:
             mgr._affinity = affinity   # enable incremental lift/count maintenance
-            mgr.init_lift_state(affinity)
+            mgr.init_placement_state(affinity)
         if strat.needs_demand:
             mgr.init_demand_state(inventory, wp)   # wp ⇒ also seed the labor twin
 

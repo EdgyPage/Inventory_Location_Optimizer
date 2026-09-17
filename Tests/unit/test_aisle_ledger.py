@@ -138,7 +138,7 @@ def _armed_manager(seed: int = 42):
     inventory = Inventory([_make_carton(sku=i) for i in range(1, 6)])
     random.seed(seed + 1)
     mgr.enqueue_all(inventory.orders)
-    mgr.init_lift_state(affinity)
+    mgr.init_placement_state(affinity)
     mgr.init_demand_state(inventory, WorkloadParams())
     return mgr
 

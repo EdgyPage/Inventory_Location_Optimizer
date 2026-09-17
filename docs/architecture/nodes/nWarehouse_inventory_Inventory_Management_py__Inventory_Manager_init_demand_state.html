@@ -17,7 +17,7 @@
 <pre class="sig"><code>def init_demand_state(self, inventory: Any, wp: Any=None) -&gt; None</code></pre>
 <section class="doc">Populate demand-product lookup and per-aisle demand sums.
 
-Must be called after init_lift_state() so _aisle_sku_sets already
+Must be called after init_placement_state() so _aisle_sku_sets already
 reflects the actual placement.  Call once per strategy worker before
 swapping to a trip-cost assignment function.
 

@@ -80,7 +80,7 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
     mgr = Inventory_Manager(wh, affinity=affinity)
     random.seed(SEED + 1)
     mgr.enqueue_all(inventory.orders)
-    mgr.init_lift_state(affinity)
+    mgr.init_placement_state(affinity)
     mgr.init_demand_state(inventory)
     if arm:
         mgr.init_travel_costs(wp)

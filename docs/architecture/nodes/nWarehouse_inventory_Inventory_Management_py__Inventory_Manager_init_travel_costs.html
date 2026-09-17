@@ -17,7 +17,7 @@
 <pre class="sig"><code>def init_travel_costs(self, wp: Any) -&gt; None</code></pre>
 <section class="doc">Precompute _D on every bin and build the per-aisle sorted secondary index.
 
-Must be called after init_lift_state() and before swapping to a
+Must be called after init_placement_state() and before swapping to a
 load-aware assignment_fn built with build_load_*_assignment_fn(...,
 aisle_index=self._aisle_index).  After this call, _index_add and
 _index_remove maintain _aisle_index incrementally.</section>

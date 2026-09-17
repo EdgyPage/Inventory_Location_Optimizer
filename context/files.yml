@@ -6015,7 +6015,7 @@ files:
       - {name: "test_batch_assignment_gives_the_highest_priority_unit_the_cheapest_bin", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_cluster_assignment_co_locates_scatters_and_tie_breaks_on_travel", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_the_batch_sampler_correlates_co_picked_skus_and_refuses_a_bad_affinity", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
-      - {name: "test_init_lift_state_backfills_the_aisle_sets_from_existing_stock", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
+      - {name: "test_init_placement_state_backfills_the_aisle_sets_from_existing_stock", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_the_optimal_layout_minimises_sigma_fd_and_is_monotone_in_travel", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_requeue_bin_frees_the_bin_without_losing_the_inventory_position", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}
       - {name: "test_capacity_reloaders_respect_their_budget_and_lower_sigma_fd", file: "Tests/unit/test_warehouse_sizing.py", kind: "function"}

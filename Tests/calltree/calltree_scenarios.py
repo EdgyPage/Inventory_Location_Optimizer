@@ -282,7 +282,7 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
     mgr = Inventory_Manager(warehouse, affinity=affinity if strat.needs_affinity else None)
     if strat.needs_affinity:
         mgr._affinity = affinity
-        mgr.init_lift_state(affinity)
+        mgr.init_placement_state(affinity)
     if strat.needs_demand:
         mgr.init_demand_state(inventory, wp)
     if strat.uses_aisle_index:

@@ -35,7 +35,7 @@ different people at different times, with no place that owns the pair.
 
 What is and is NOT in here
 --------------------------
-`init_lift_state` on the manager does two jobs and only one of them is the ledger's — it also
+`init_placement_state` on the manager does two jobs and only one of them is the ledger's — it also
 rebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle
 state.  Those stay on the manager.  This module owns the aisle's own books and nothing else.
 

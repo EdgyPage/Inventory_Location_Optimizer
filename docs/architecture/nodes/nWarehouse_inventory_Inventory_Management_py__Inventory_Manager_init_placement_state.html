@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>init_placement_state · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_init_placement_state" data-id="Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state">
+<nav class="crumbs"><a href="../layers.html">wh_inventory</a> <span class="sep">›</span> <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a> <span class="sep">›</span> <a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager.html"><code>Inventory_Manager</code></a> <span class="sep">›</span> <span class="here"><code>init_placement_state</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>init_placement_state</code></h1>
+<p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_Inventory_Management_py.html"><code>Warehouse/inventory/Inventory_Management.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def init_placement_state(self, affinity: AffinityStore) -&gt; None</code></pre>
+<section class="doc">Rebuild every index derived from WHERE things are currently placed.
+
+Two jobs, and the split matters.  The aisle ledger&#x27;s membership half --
+which SKUs an aisle holds, their matrix indices, their bin counts and
+their column positions -- plus the manager&#x27;s own per-bin indexes:
+`_bin_sku`, `_current_quantities` and the per-SKU singleton/pallet sets.
+
+Call after uniform stocking, before swapping to an affinity-aware
+assignment_fn, so reorder decisions see the actual aisle composition
+rather than starting from zero, and so the incremental `_current_quantities`
+counter agrees with the bins after any bulk stocking operation.
+
+Named `init_lift_state` until 2026-09-16, when the aisle lift sum it was
+named for was deleted as write-only.  The name outlived the quantity by
+about an hour and the method by none of it: everything else it seeds is
+still load-bearing.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_inventory_common_py__is_forward_pick.html"><code>is_forward_pick</code></a> <span class="dim">Warehouse/inventory/inventory_common.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nDiagnostics_bucket_fill_py___setup_strategy.html"><code>_setup_strategy</code></a> <span class="dim">Diagnostics/bucket_fill.py</span></li><li><a href="nDiagnostics_trace_lifecycle_py__trace_strategy__arm.html"><code>_arm</code></a> <span class="dim">Diagnostics/trace_lifecycle.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__arm_aisle_state.html"><code>_arm_aisle_state</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_inventory_Inventory_Management_py__Inventory_Manager_init_placement_state">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/inventory/Inventory_Management.py#:~:text=def%20init_placement_state">Source ↗</a></p>
+</article>
+</main>
+</body></html>

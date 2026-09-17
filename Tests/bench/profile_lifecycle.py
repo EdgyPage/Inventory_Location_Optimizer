@@ -233,7 +233,7 @@ def _build_assets(
             # the cluster fn bound to mgr._aisle_index.  This profiles the ACTUAL
             # production placement path (cmin/cmax) instead of the load_* fns that the
             # comparison pipeline never runs.
-            mgr.init_lift_state(aff)              # scan placed bins for aisle state
+            mgr.init_placement_state(aff)              # scan placed bins for aisle state
             mgr.init_demand_state(inventory)     # per-aisle demand sums (cluster reads/commits)
             mgr.init_travel_costs(wp)            # precompute _D + per-aisle sorted index
             freq_by_sku = {c.sku: c.demand.relative_frequency    for c in sampled}

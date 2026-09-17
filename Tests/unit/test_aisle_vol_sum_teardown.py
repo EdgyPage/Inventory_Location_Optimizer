@@ -87,7 +87,7 @@ def _armed_manager(seed: int = 42, with_workload: bool = True):
 
     random.seed(seed + 1)
     mgr.enqueue_all(inventory.orders)
-    mgr.init_lift_state(affinity)
+    mgr.init_placement_state(affinity)
     mgr.init_demand_state(inventory, WorkloadParams() if with_workload else None)
     return mgr, inventory
 

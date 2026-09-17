@@ -198,7 +198,7 @@ def _setup_strategy(mgr, strat, planned_inv, affinity, wp) -> None:
     mgr.enqueue_all(planned_inv.orders)              # uniform initial stock
     if strat.needs_affinity:
         mgr._affinity = affinity
-        mgr.init_lift_state(affinity)
+        mgr.init_placement_state(affinity)
     if strat.needs_demand:
         mgr.init_demand_state(planned_inv, wp)
     if strat.uses_aisle_index:

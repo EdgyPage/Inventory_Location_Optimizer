@@ -1,7 +1,7 @@
 # 19 - the dead chain the lift deletion exposed
 
 Type: debt
-Status: claimed
+Status: resolved
 Blocked by: 03
 
 Deleting `aisle_metrics.lift_sum` and the `load_min`/`load_max` family (ticket 03) orphaned
@@ -149,3 +149,42 @@ store's own arithmetic, which is live. Only its docstring describes the deleted 
   a deletion, so strictly outside the "delete what isn't necessary" mandate -- and a hot-path
   rename has to update `SECTION_MAP` in the same instrument.
 - The stale docstring in `test_affinity_lift_invariant.py`.
+
+## Answer -- RESOLVED (2026-09-16)
+
+### `init_lift_state` is now `init_placement_state`
+
+27 references across 15 files. Not in the calltree instrument's `SECTION_MAP` (only a plain
+call in `calltree_scenarios.py`), so no anchor had to move with it, and not a case-only rename,
+so `render_html --build` did not delete the page it had just written.
+
+The docstring described a job the method no longer had. It has two, and the split is worth
+stating: the aisle ledger's MEMBERSHIP half, and the manager's own per-bin indexes
+(`_bin_sku`, `_current_quantities`, the per-SKU singleton/pallet sets). The new name covers
+both; `init_aisle_state`, which this ticket suggested, would have covered only the first.
+
+`Tests/unit/test_affinity_lift_invariant.py`'s rationale also described the deleted consumer.
+Rewritten: the identity it pins -- a whole-set `sum_lift` equals the sum of incremental
+`2·delta_lift_idxs` -- is a property of the affinity STORE, not of any consumer, so it survives
+its former subject. Flagged in it that `sum_lift` is live (it computes `task_stats.lift_sum`, a
+real consumed column) and that `_delta_lift_from_row` is a different, live function.
+
+### `delta_lift_idxs` stays, and this is the resolution rather than a deferral
+
+It has no production caller -- three comments and nothing else. It is NOT deleted, and the
+reason is recorded above in full: `Tests/calltree/test_calltree_smoke.py` carries frozen call
+counts and fitted exponents written against it from a 2026-09-16 meso capture, and
+`calltree_growth.py` names it as "THE CASE THIS EXISTS FOR, measured".
+
+CLAUDE.md §1 puts that instrument in the tenth gate precisely because it fails silently in the
+direction of looking healthy. Deleting the function its anchors are written against needs those
+anchors RE-MEASURED, which is a ladder run rather than an edit -- and a ladder run is a
+measurement this ticket has no reason to commission. A function with no caller costs nothing;
+an instrument whose anchors have quietly stopped meaning anything costs a whole round. Closed
+on that trade, not left open on it.
+
+### Verification
+
+`Tests/unit -k "not gpu"` **2671 passed**, 1 skipped. Gates 1-4 and 7-10 green; gate 5 went red
+(the rename touched run-tree shape sources) and was revalidated by the full preflight against
+two canaries -- tree shape UNCHANGED, fingerprint refreshed. Gate 6 red, unchanged, pre-existing.

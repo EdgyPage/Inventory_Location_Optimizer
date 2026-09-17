@@ -259,7 +259,7 @@ def run_benchmark(
     manager_B   = Inventory_Manager(warehouse_B, affinity=affinity_store)
     random.seed(seed + 1)
     manager_B.enqueue_all(inventory.orders, quantity=1)
-    manager_B.init_lift_state(affinity_store)
+    manager_B.init_placement_state(affinity_store)
     # Arms B and C were load_min / load_max until 2026-09-16.  That family had no _RESTOCKS
     # row and no production caller, and was deleted with the write-only aisle lift_sum it was
     # the sole reader of; travel_min / travel_max are the shipped pair this bench now
@@ -278,7 +278,7 @@ def run_benchmark(
     manager_C   = Inventory_Manager(warehouse_C, affinity=affinity_store)
     random.seed(seed + 1)
     manager_C.enqueue_all(inventory.orders, quantity=1)
-    manager_C.init_lift_state(affinity_store)
+    manager_C.init_placement_state(affinity_store)
     manager_C.placement = Placement('travel_max', build_trip_maximizing_assignment_fn(
         affinity_store, wp,
         manager_C._aisle_sku_sets, manager_C._aisle_idx_sets, manager_C._aisle_demand_sum,

@@ -285,7 +285,7 @@ def trace_strategy(strategy_key: str, *, n_skus: int, bins_per_aisle: int,
     def _arm():
         if strat.needs_affinity:
             mgr._affinity = affinity
-            mgr.init_lift_state(affinity)
+            mgr.init_placement_state(affinity)
         if strat.needs_demand:
             mgr.init_demand_state(inventory, wp)
 

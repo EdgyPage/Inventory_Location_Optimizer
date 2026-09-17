@@ -101,7 +101,7 @@
       "src": "Diagnostics/bucket_fill.py::_setup_strategy"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state",
       "kind": "calls",
       "src": "Diagnostics/bucket_fill.py::_setup_strategy"
     },
@@ -791,7 +791,7 @@
       "src": "Diagnostics/trace_lifecycle.py::trace_strategy._arm"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state",
       "kind": "calls",
       "src": "Diagnostics/trace_lifecycle.py::trace_strategy._arm"
     },
@@ -14051,7 +14051,7 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state"
     },
     {
-      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state",
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._arm_aisle_state"
     },
@@ -18743,7 +18743,7 @@
     {
       "dst": "Warehouse/inventory/inventory_common.py::is_forward_pick",
       "kind": "calls",
-      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state"
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -43554,10 +43554,10 @@
     },
     {
       "file": "Warehouse/inventory/Inventory_Management.py",
-      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_lift_state",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_placement_state",
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
-      "name": "init_lift_state",
+      "name": "init_placement_state",
       "public": true
     },
     {

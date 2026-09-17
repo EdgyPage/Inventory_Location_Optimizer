@@ -1116,12 +1116,12 @@ def test_the_batch_sampler_correlates_co_picked_skus_and_refuses_a_bad_affinity(
             'silently — an affinity arm would become a copy of the baseline')
 
 
-def test_init_lift_state_backfills_the_aisle_sets_from_existing_stock():
+def test_init_placement_state_backfills_the_aisle_sets_from_existing_stock():
     """Stock placed before an affinity store exists leaves the aisle sets EMPTY.
 
     That is the bug surface: initial stocking runs affinity-free, so a cohesion scorer wired
     in afterwards would see an empty warehouse and place its first wave as if nothing had
-    been stocked.  `init_lift_state` is the repair, and both halves of it matter — the SKU
+    been stocked.  `init_placement_state` is the repair, and both halves of it matter — the SKU
     sets (used by the aisle guard) and the index sets (used by the CSR lift query).
     """
     plan = _plan(_inventory(80, seed=5))
@@ -1132,11 +1132,11 @@ def test_init_lift_state_backfills_the_aisle_sets_from_existing_stock():
     populated = sum(1 for v in mgr._aisle_sku_sets.values() if v)
     assert populated == 0, (
         f'{populated} aisles already have SKU sets after affinity-free stocking — this test '
-        f'no longer starts from the state init_lift_state exists to repair')
+        f'no longer starts from the state init_placement_state exists to repair')
 
     aff, _ = _aff_store([c.sku for c in plan.sampled], [])   # full sku_to_idx, no pairs
     mgr._affinity = aff
-    mgr.init_lift_state(aff)
+    mgr.init_placement_state(aff)
 
     placed  = {b.storage.order.sku for b in wh.bins if b.storage is not None}
     in_sets = set().union(*mgr._aisle_sku_sets.values()) if mgr._aisle_sku_sets else set()
@@ -1326,7 +1326,7 @@ def test_capacity_reloaders_respect_their_budget_and_lower_sigma_fd():
     mgr.place_optimal(plan.sampled, neg, x, y)
     aff, _ = _aff_store([c.sku for c in plan.sampled], [])   # empty-lift store (co_occur = 0)
     mgr._affinity = aff
-    mgr.init_lift_state(aff)
+    mgr.init_placement_state(aff)
     mgr.init_demand_state(inv)
 
     fbs = {c.sku: c.demand.relative_frequency for c in plan.sampled}

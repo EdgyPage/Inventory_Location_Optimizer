@@ -3,8 +3,16 @@
 Pins the affinity-correction invariant (commit fd29fa7): lift is a multiplier where
 1 = independence, so every co-location objective sums (lift − 1), not raw lift.  These
 tests lock that convention into the central helpers so a future edit can't silently
-regress to raw lift, and they verify the seed (init_lift_state via sum_lift) matches the
-incremental maintenance (2·delta_lift_idxs) used by the reorder path.
+regress to raw lift, and they verify that a whole-set seed (`sum_lift`) matches incremental
+maintenance (2·`delta_lift_idxs`).
+
+The CONSUMER those two served -- the per-aisle lift sum, seeded by `init_placement_state`
+and maintained by the reorder path -- was deleted on 2026-09-16 as write-only, along with
+the load_min/load_max family that was its only reader.  These tests still pin the affinity
+store's own arithmetic, which is live: `sum_lift` computes `task_stats.lift_sum`, a real
+consumed column, and `_delta_lift_from_row` (a DIFFERENT function) is used by the co-demand
+and cluster families.  `delta_lift_idxs` itself now has no production caller; see
+`.scratch/architecture-deepening/issues/19` for why it was not deleted with the rest.
 
     cd Tests && python -m pytest test_affinity_lift_invariant.py
 """
@@ -61,10 +69,12 @@ def test_demand_weighted_delta_lift_weights_excess_by_freq():
 
 
 def test_seed_equals_incremental_rebuild():
-    """The load-balancing invariant: init_lift_state seeds _aisle_lift_sum with
-    sum_lift(all_skus); the reorder path maintains it by adding 2·delta_lift_idxs as each
-    SKU joins.  Both must equal Σ(lift−1) over ordered pairs — otherwise the maintained
-    lift_sum drifts from a fresh rebuild."""
+    """Whole-set seed vs incremental maintenance: `sum_lift(all_skus)` must equal the sum of
+    `2·delta_lift_idxs` as each SKU joins, both being Σ(lift−1) over ordered pairs.
+
+    This pinned `_aisle_lift_sum` until that quantity was deleted on 2026-09-16.  The
+    identity it asserts is a property of the affinity store rather than of any consumer, so
+    it survives its former subject."""
     pairs = [(1, 2, 3.0), (1, 3, 1.5), (2, 3, 2.0), (2, 4, 4.0), (3, 4, 1.2)]
     st = _store(pairs)
     idx = st._sku_to_idx

@@ -253,7 +253,7 @@ class ReorderMixin:
             # NO TEMPLATE, NO REPLENISHMENT — a contract, not the ADR-0002 hole below.
             # `_originals` is filled by INTAKE (`enqueue` / `enqueue_all` / `place_optimal`);
             # a manager driven over bins it did not take in — the constructor accepts a
-            # warehouse whose bins already hold storage, and `init_lift_state` rebuilds
+            # warehouse whose bins already hold storage, and `init_placement_state` rebuilds
             # `_current_quantities` from them — can legitimately pick a SKU it has no
             # template for.  It also cannot restock one: `.reorder()` needs that template, so
             # `_fire_reorders` ALREADY skips such a SKU (`if sku not in self._originals:
