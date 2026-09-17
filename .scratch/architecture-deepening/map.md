@@ -162,3 +162,21 @@ Reached when:
   costs one 4.5-minute run rather than an argument. Checked the run log directly rather than
   trusting exit 0 (memory `pool-run-swallows-dead-arms`): zero Tracebacks, zero "produced no
   data", zero "Config stage: 0 job(s)" across 4,714 lines.
+
+- **`FRAME_TABLE` and the frame LOADERS are two taxonomies, not one** (2026-09-16, ticket 12).
+  The ticket proposed collapsing `FRAME_TABLE`, `PAIRED_KINDS` and the nine `requests.py`
+  loaders into a single `Frame` record. They do not share a key space:
+  `quantities.FRAME_TABLE` keys on the kinds a QUANTITY declares -- `task_mean`, `task_sum`,
+  `trailer`, `carryover` -- while `requests.py` keys on the frames a CONTEXT caches --
+  `task`, `yard`, `missed`, `carry`, `free_index`. Eight kinds against nine, overlapping but
+  not equal. So the merge is two merges: `FRAME_TABLE` + `PAIRED_KINDS` into one
+  `FrameKind` record (same taxonomy, and the pair that could silently misroute a quantity),
+  and the nine loader bodies into one `_FrameSpec` table with one cache. Both landed; they
+  are not the same table and should not be forced into one.
+
+- **An identical code block in two classes defeats `replace(..., 1)`** (2026-09-16, ticket 12).
+  `SiteContext` overrode `yard_df`/`drain_df` with bodies byte-identical to `EvalContext`'s,
+  so a patch removing "the no-op overrides" removed the BASE class's real accessors instead.
+  The full unit tier passed anyway -- 2652 green with `EvalContext.yard_df` gone -- which is
+  itself the finding: the yard frame at config scope has no unit test, exactly the coverage
+  gap ticket 12 named. It was caught by a test written for this ticket, not by the tier.

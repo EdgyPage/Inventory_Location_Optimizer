@@ -4418,13 +4418,6 @@
       "kind": "function",
       "signature": "(self) -> tuple"
     },
-    "Optimization/Performance_Evaluations/core/context.py::SiteContext.drain_df": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, key)"
-    },
     "Optimization/Performance_Evaluations/core/context.py::SiteContext.footer": {
       "decorators": [],
       "doc": null,
@@ -4443,7 +4436,7 @@
     },
     "Optimization/Performance_Evaluations/core/context.py::SiteContext.leaf_batch_df": {
       "decorators": [],
-      "doc": "ONE leaf's batch frame inside a site \u2014 the per-channel SHARE, never the site's.\n\nPrinted BESIDE the site number and never instead of it (memory\n`a-right-site-total-hides-two-wrong-shares`: put-away's site load was 0.9% exact\nwhile both per-channel bands failed in opposite directions).  Not memoised: it is\nread once per arm pair per render, and a second cache keyed by `(key, channel)`\nbeside `_bcache` is a second thing to invalidate.",
+      "doc": "ONE leaf's batch frame inside a site \u2014 the per-channel SHARE, never the site's.\n\nPrinted BESIDE the site number and never instead of it (memory\n`a-right-site-total-hides-two-wrong-shares`: put-away's site load was 0.9% exact\nwhile both per-channel bands failed in opposite directions).  Not memoised: it is\nread once per arm pair per render, and a second cache keyed by `(key, channel)`\nbeside the shared frame cache is a second thing to invalidate.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, key, channel)"
@@ -4456,13 +4449,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> str"
-    },
-    "Optimization/Performance_Evaluations/core/context.py::SiteContext.yard_df": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, key)"
     },
     "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities": {
       "decorators": [],
@@ -4635,12 +4621,27 @@
       "signature": null,
       "value_preview": "Shape('facet', comparable=True, paired=True)"
     },
+    "Optimization/Performance_Evaluations/core/quantities.py::FRAME_KINDS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'batch': FrameKind('batch_stats', paired=True), 'task_mean': FrameKind('task_stats', paired=True), 'task_sum': FrameKind('task_stats', paired=True), 'work': FrameKind('work_events', paired=True), ..."
+    },
     "Optimization/Performance_Evaluations/core/quantities.py::FRAME_TABLE": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'batch': 'batch_stats', 'task_mean': 'task_stats', 'task_sum': 'task_stats', 'trailer': 'yard_trailers', 'drain': 'yard_drains', 'carryover': 'carryover', 'work': 'work_events', 'shift': 'shift_da..."
+      "value_preview": "{kind: spec.table for kind, spec in FRAME_KINDS.items()}"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::FrameKind": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "One frame-source kind: where its rows come from, and whether it pairs by batch.",
+      "kind": "class",
+      "signature": ""
     },
     "Optimization/Performance_Evaluations/core/quantities.py::INSPECTION": {
       "decorators": [],
@@ -4654,7 +4655,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('batch', 'task_mean', 'task_sum', 'work')"
+      "value_preview": "tuple((kind for kind, spec in FRAME_KINDS.items() if spec.paired))"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::Quantity": {
       "decorators": [
@@ -5000,6 +5001,14 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/Performance_Evaluations/core/requests.py::_FrameSpec": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "How one frame kind is loaded and built.  `extra(ctx, key, rows) -> tuple`.",
+      "kind": "class",
+      "signature": ""
+    },
     "Optimization/Performance_Evaluations/core/requests.py::_absent_dbs": {
       "decorators": [],
       "doc": "Arm keys whose sim DB is not on disk \u2014 THE denial condition for every config request.\n(An unreadable or unvetted file that IS on disk still raises; that is corruption, not\nabsence, and must stop the publish.)",
@@ -5018,7 +5027,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::_arm_end_s": {
       "decorators": [],
-      "doc": "When this arm stopped, on its own absolute axis \u2014 the CENSORING bound.\n\n`max(batch_start_time + duration)` rather than the last row's, because DB order is not\nguaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which\nmakes every censored detention 0 \u2014 honest for a run with no batches at all, and the\nonly case where it can happen.\n\nTHROUGH `ctx.batch_df`, NOT `batch_frame`, and the indirection is the whole of what\nmakes the yard family honest at site scope.  A site's batch record is BOTH leaves'\nframes concatenated, so this bound becomes the SITE end \u2014 the union across two clocks\n\u2014 which is what a censoring bound over one shared yard has to be.  `EvalContext.batch_df`\ndelegates straight back here, so a leaf reads exactly what it always read.",
+      "doc": "When this arm stopped, on its own absolute axis \u2014 the CENSORING bound.\n\n`max(batch_start_time + duration)` rather than the last row's, because DB order is not\nguaranteed sorted (the same reason `_elapsed` argsorts).  0.0 on an empty frame, which\nmakes every censored detention 0 \u2014 honest for a run with no batches at all, and the\nonly case where it can happen.\n\nTHROUGH `ctx.batch_df`, NOT `frame(ctx, 'batch', ...)`, and the indirection is the whole\nof what makes the yard family honest at site scope.  A site's batch record is BOTH\nleaves' frames concatenated, so this bound becomes the SITE end \u2014 the union across two\nclocks \u2014 which is what a censoring bound over one shared yard has to be.  The three\nsibling-frame `extra` hooks below deliberately do NOT go through `ctx`: each wants this\narm's own frame, and that difference was load-bearing before this table and still is.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key) -> float"
@@ -5163,7 +5172,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::batch_frame": {
       "decorators": [],
-      "doc": "One strategy's batch frame, memoised in ctx._bcache \u2014 EvalContext.batch_df delegates here.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -5177,14 +5186,14 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::carry_frame": {
       "decorators": [],
-      "doc": "One strategy's RAW carryover rows, memoised in ctx._ccache -- the equilibrium check's\nflows (`equilibrium.demand_flows`).  Unfolded on purpose: the per-SKU rows are what let\nthe check count a re-attempted supply failure once; `missed_frame` is the folded\nper-batch view for the demand-service figures.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
     },
     "Optimization/Performance_Evaluations/core/requests.py::drain_frame": {
       "decorators": [],
-      "doc": "One strategy's per-drain yard frame, memoised.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -5196,9 +5205,16 @@
       "kind": "function",
       "signature": "(ctx, ev)"
     },
+    "Optimization/Performance_Evaluations/core/requests.py::frame": {
+      "decorators": [],
+      "doc": "One strategy's frame of `kind`, memoised per kind and key.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, kind: str, key)"
+    },
     "Optimization/Performance_Evaluations/core/requests.py::free_index_frame": {
       "decorators": [],
-      "doc": "One strategy's RAW `free_index` rows, memoised in ctx._ficache -- the rework clause's\nper-bucket depth.  Unfolded on purpose: the clause takes per-bucket minima, means and\ndrawdowns over a window.  Empty with its columns on a vintage before the table.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -5212,7 +5228,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::missed_frame": {
       "decorators": [],
-      "doc": "One strategy's per-batch demand-service frame, memoised.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -5254,14 +5270,14 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::shift_frame": {
       "decorators": [],
-      "doc": "One strategy's per-DAY ledger frame, memoised -- the throughput audit's frame.\n\nJoined to the batch and work frames through `work_day`, and priced against the\ncontext's staffing expectations (`ctx.staffing_expectations()`), which are None on a\nrun whose record carries no derived block: the utilization columns are then NaN and\nthe day verdicts still render.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
     },
     "Optimization/Performance_Evaluations/core/requests.py::site_batch_frame": {
       "decorators": [],
-      "doc": "A SITE's batch frame: every leaf's, concatenated.  Memoised in `ctx._bcache`.\n\nONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new\narithmetic anywhere:\n\n  * DOOR UTILIZATION takes the SITE CALENDAR SPAN \u2014 `min(batch_start_time)` to\n    `max(start + duration)` \u2014 and over the concatenated frame that is exactly the union\n    of the two leaves' clocks.  A door is occupied on the site's calendar whatever\n    channel's packs sit behind it.\n  * RECEIVER BUSY takes both leaves' `recv_seconds` over DISTINCT `work_day`, and over\n    the concatenated frame that is exactly what `nansum` and `nunique` return.  Still\n    WORK days and never the calendar span (memory `calendar-span-is-not-work-days`,\n    which printed 184% once); the leaves share days by construction, because\n    `staffing` refuses to sum channels that ran different batch counts.\n\nThe per-leaf `recv_seconds` are each leaf's OWN share of the site dock \u2014 the coupled\ndriver writes them from the coordinator's decomposition \u2014 so the sum is the site total\nrather than either channel's number counted twice.",
+      "doc": "A SITE's batch frame: every leaf's, concatenated.  Memoised in the shared frame\ncache under 'batch', so for a site context it REPLACES the per-leaf frame rather\nthan sitting beside it.\n\nONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new\narithmetic anywhere:\n\n  * DOOR UTILIZATION takes the SITE CALENDAR SPAN \u2014 `min(batch_start_time)` to\n    `max(start + duration)` \u2014 and over the concatenated frame that is exactly the union\n    of the two leaves' clocks.  A door is occupied on the site's calendar whatever\n    channel's packs sit behind it.\n  * RECEIVER BUSY takes both leaves' `recv_seconds` over DISTINCT `work_day`, and over\n    the concatenated frame that is exactly what `nansum` and `nunique` return.  Still\n    WORK days and never the calendar span (memory `calendar-span-is-not-work-days`,\n    which printed 184% once); the leaves share days by construction, because\n    `staffing` refuses to sum channels that ran different batch counts.\n\nThe per-leaf `recv_seconds` are each leaf's OWN share of the site dock \u2014 the coupled\ndriver writes them from the coordinator's decomposition \u2014 so the sum is the site total\nrather than either channel's number counted twice.",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
@@ -5282,21 +5298,21 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::task_frame": {
       "decorators": [],
-      "doc": "One strategy's task frame, memoised in ctx._tcache \u2014 EvalContext.task_df delegates here.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
     },
     "Optimization/Performance_Evaluations/core/requests.py::work_frame": {
       "decorators": [],
-      "doc": "One strategy's per-batch production-labour frame, memoised.\n\nTakes BOTH sibling frames: the batch frame states which batches happened (so a batch\nthat put nothing away is present at zero rather than missing) and the task frame\ncarries the pick leg, which `work_events` structurally cannot \u2014 a pick row is an\ninstant with a NULL duration, and the work is the span between two of them.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
     },
     "Optimization/Performance_Evaluations/core/requests.py::yard_frame": {
       "decorators": [],
-      "doc": "One strategy's per-trailer frame, memoised \u2014 spans and the fee proxy derived here.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"

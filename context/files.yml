@@ -376,6 +376,8 @@ files:
     key_symbols:
       - {name: "STANCES", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "DIRECTIONS", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
+      - {name: "FrameKind", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
+      - {name: "FRAME_KINDS", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "FRAME_TABLE", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "PAIRED_KINDS", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "const"}
       - {name: "Source", file: "Optimization/Performance_Evaluations/core/quantities.py", kind: "class"}
@@ -414,6 +416,7 @@ files:
       - {name: "Request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
       - {name: "REQUEST_SCOPE", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "const"}
       - {name: "request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "batch_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "task_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "yard_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -4132,6 +4135,21 @@ files:
       - {name: "test_stamp_fragmentation_writes_every_bucket_row_and_the_section_block", file: "Tests/unit/test_fragmentation.py", kind: "function"}
       - {name: "test_stamp_fragmentation_raises_on_a_bucket_the_plan_never_built", file: "Tests/unit/test_fragmentation.py", kind: "function"}
       - {name: "test_fixed_point_stamps_the_fragmentation_on_the_record", file: "Tests/unit/test_fragmentation.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_frame_specs.py":
+    purpose: "the frame table, and the cache that used to be nine dicts."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_kind_declares_a_loader_and_a_builder", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_the_nine_named_accessors_cover_the_table_exactly", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_every_kind_has_an_eval_context_method", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_frame_loads_once_and_memoises", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_extra_receives_the_context_the_key_and_the_rows", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_site_context_declares_the_same_cache_as_the_base", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_site_context_overrides_only_the_frame_that_differs", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "SiteOverrides", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_frame_table_and_paired_kinds_are_derived_from_one_record", file: "Tests/unit/test_frame_specs.py", kind: "function"}
+      - {name: "test_every_paired_kind_declares_a_source_table", file: "Tests/unit/test_frame_specs.py", kind: "function"}
     notes: ""
   "Tests/unit/test_free_index_by_bucket.py":
     purpose: "the tier spill, the free index per bucket, and the rework clause that judges three events at zero (department-calibration 32 / 33)."

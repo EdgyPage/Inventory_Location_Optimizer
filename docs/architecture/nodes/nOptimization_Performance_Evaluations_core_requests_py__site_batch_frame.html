@@ -15,7 +15,9 @@
 <p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_requests_py.html"><code>Optimization/Performance_Evaluations/core/requests.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def site_batch_frame(ctx, key)</code></pre>
-<section class="doc">A SITE&#x27;s batch frame: every leaf&#x27;s, concatenated.  Memoised in `ctx._bcache`.
+<section class="doc">A SITE&#x27;s batch frame: every leaf&#x27;s, concatenated.  Memoised in the shared frame
+cache under &#x27;batch&#x27;, so for a site context it REPLACES the per-leaf frame rather
+than sitting beside it.
 
 ONE CONCAT, AND IT ANSWERS BOTH OF THE DENOMINATOR QUESTIONS 07 asked, with no new
 arithmetic anywhere:

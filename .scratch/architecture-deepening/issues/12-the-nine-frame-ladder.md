@@ -1,7 +1,7 @@
 # 12 - the nine-frame ladder, and caches that are interface without being declared
 
 Type: refactor
-Status: needs-triage
+Status: resolved
 
 ## Context
 
@@ -74,3 +74,69 @@ subclass survives.
 
 `Optimization/Performance_Evaluations/` contains zero raw SQL because `quantities.py` got this
 treatment. The frame ladder is the one rung that did not.
+
+## Answer -- RESOLVED (2026-09-16)
+
+### It was TWO merges, not one. The ticket's premise was half right.
+
+`quantities.FRAME_TABLE` and `requests.py`'s nine loaders do **not** share a key space.
+FRAME_TABLE keys on the kinds a QUANTITY declares -- `task_mean`, `task_sum`, `trailer`,
+`carryover` -- and the loaders key on the frames a CONTEXT caches -- `task`, `yard`, `missed`,
+`carry`, `free_index`. Eight against nine, overlapping but not equal. Forcing them into one
+record would have invented a taxonomy neither side uses.
+
+So:
+
+**Merge 1 -- `FrameKind` in `quantities.py`.** `FRAME_TABLE` and `PAIRED_KINDS` were the pair
+that COULD silently disagree, and they do share a taxonomy. One record per kind now carries
+`table` and `paired`; both old names are derived from it and still exported (tests and
+`headline/top_vs_baseline` read them). Verified the derived values are identical to the
+hand-written originals, tuple order included.
+
+**Merge 2 -- `_FrameSpec` + one cache in `requests.py`.** Nine near-identical bodies became one
+table and one `frame(ctx, kind, key)`. The nine private cache dicts became one `self._frames`.
+`extra` is a CALLABLE rather than a tuple because three kinds need real per-kind work: `task`
+reads two maps off the context, `yard` needs the censoring bound and a threshold that must NOT
+be consulted when there are no rows (the reason is the LOG, not cycles), and three kinds take
+sibling frames.
+
+### The distinction that had to survive, and did
+
+`_arm_end_s` reads `ctx.batch_df(key)` so a SiteContext's override applies and the censoring
+bound becomes the union of both leaves' clocks. The three sibling-frame hooks call the
+module-level `frame(...)` instead, wanting this arm's own frame. That difference is load-bearing
+and is now stated in the code rather than implied by which spelling someone happened to use.
+
+`SiteContext` declares the same single cache as the base, so the six-missing-dicts
+`AttributeError` class is gone by construction. Its `yard_df`/`drain_df` overrides were
+byte-identical to the base and are deleted; `batch_df` is the one real override and stays.
+
+### A bug this ticket's own test caught
+
+The no-op override block is IDENTICAL in both classes, so a patch using `replace(..., 1)`
+removed **`EvalContext`'s real accessors** instead of `SiteContext`'s duplicates. The full unit
+tier passed anyway -- 2652 green with `EvalContext.yard_df` gone. That is the ticket's coverage
+claim demonstrated rather than asserted: the yard frame at config scope had no unit test.
+`Tests/unit/test_frame_specs.py::test_every_kind_has_an_eval_context_method` caught it.
+
+### Verification
+
+| check | result |
+|---|---|
+| `Tests/unit/test_frame_specs.py` | 9 passed (new) |
+| `Tests/unit -k "not gpu"` | **2661 passed**, 1 skipped (2652 + the 9 new) |
+| `analyze_run` on the toy run, end to end | exit 0, 12 artifacts written, **0** Tracebacks / ERRORs / denials / AttributeErrors |
+| gates 1-5, 7-10 | green |
+| gate 6 | RED, unchanged, pre-existing |
+
+No digest needed: this is the analysis layer, and it reads simulation output rather than
+producing it. The end-to-end `analyze_run` is the equivalent proof -- and checked for SWALLOWED
+failures rather than trusting exit 0, because `analyze_run` logs and swallows by design.
+
+### NOT done, deliberately
+
+`Frame.scopes` and generating the `@request` registrations from the table. The registrations
+encode kinds the loader table does not (`series`, `breakdown`, `runtime`, `whatif`,
+`catalogue`) and omit three it does (`drain`, `carry`, `free_index` are read directly by the
+equilibrium check, never brokered). Deriving one from the other would need a third taxonomy
+reconciled first. The AttributeError class -- the actual harm -- is closed without it.

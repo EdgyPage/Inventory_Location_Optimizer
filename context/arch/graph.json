@@ -2961,19 +2961,9 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.batch_df"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::drain_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.drain_df"
-    },
-    {
       "dst": "Optimization/Performance_Evaluations/core/context.py::_provenance_parts",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.footer"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::yard_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.yard_df"
     },
     {
       "dst": "Schema/capability.py::probe",
@@ -3096,6 +3086,11 @@
       "src": "Optimization/Performance_Evaluations/core/quantities.py::FACET"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/quantities.py::FrameKind",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/quantities.py::FRAME_KINDS"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/quantities.py::Shape",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/quantities.py::INSPECTION"
@@ -3186,6 +3181,51 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_bdf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_cdf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_crdf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_ddf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_fidf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_sdf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_tdf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_wdf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/frames.py::_ydf",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/series.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/requests.py"
@@ -3201,6 +3241,21 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_FrameSpec",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::_arm_end_s",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
       "dst": "Optimization/metrics/Simulation_Analytics.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/core/requests.py"
@@ -3208,6 +3263,46 @@
     {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_batch_stats",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_carryover",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_free_index",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_shift_days",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_task_stats",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_work_hours",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_yard_drains",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/core/requests.py"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_yard_trailers",
+      "kind": "ref",
       "src": "Optimization/Performance_Evaluations/core/requests.py"
     },
     {
@@ -3466,12 +3561,7 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::_yard"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_bdf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::batch_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_batch_stats",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::batch_frame"
     },
@@ -3481,22 +3571,12 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::breakdown_dict"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_crdf",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::carry_frame"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::load_carryover",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::carry_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_ddf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::drain_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_yard_drains",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::drain_frame"
     },
@@ -3506,12 +3586,7 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::era_shortfall"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_fidf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::free_index_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_free_index",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::free_index_frame"
     },
@@ -3531,17 +3606,7 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::metric_frames"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_cdf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::missed_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::missed_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_carryover",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::missed_frame"
     },
@@ -3586,22 +3651,7 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::series_dict"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_sdf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::work_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_shift_days",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::shift_frame"
     },
@@ -3621,47 +3671,17 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::sql"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_tdf",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::task_frame"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::load_task_stats",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::task_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_wdf",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::batch_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::task_frame",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_work_hours",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::work_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/common/frames.py::_ydf",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::yard_frame"
-    },
-    {
-      "dst": "Optimization/Performance_Evaluations/core/requests.py::_arm_end_s",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/core/requests.py::yard_frame"
-    },
-    {
-      "dst": "Optimization/persistence/Picking_Data.py::load_yard_trailers",
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::yard_frame"
     },
@@ -26356,14 +26376,6 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
-      "id": "Optimization/Performance_Evaluations/core/context.py::SiteContext.drain_df",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/core/context.py",
-      "name": "drain_df",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py::SiteContext.footer",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
@@ -26392,14 +26404,6 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
       "name": "title",
-      "public": true
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/core/context.py",
-      "id": "Optimization/Performance_Evaluations/core/context.py::SiteContext.yard_df",
-      "kind": "function",
-      "module": "Optimization/Performance_Evaluations/core/context.py",
-      "name": "yard_df",
       "public": true
     },
     {
@@ -26604,10 +26608,26 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/quantities.py",
+      "id": "Optimization/Performance_Evaluations/core/quantities.py::FRAME_KINDS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/core/quantities.py",
+      "name": "FRAME_KINDS",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/quantities.py",
       "id": "Optimization/Performance_Evaluations/core/quantities.py::FRAME_TABLE",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/core/quantities.py",
       "name": "FRAME_TABLE",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/quantities.py",
+      "id": "Optimization/Performance_Evaluations/core/quantities.py::FrameKind",
+      "kind": "class",
+      "module": "Optimization/Performance_Evaluations/core/quantities.py",
+      "name": "FrameKind",
       "public": true
     },
     {
@@ -27004,6 +27024,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::_FrameSpec",
+      "kind": "class",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "_FrameSpec",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
       "id": "Optimization/Performance_Evaluations/core/requests.py::_absent_dbs",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
@@ -27192,6 +27220,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "era_shortfall",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::frame",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "frame",
       "public": true
     },
     {
