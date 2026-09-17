@@ -93,6 +93,7 @@ assert all(es for _k, es in FAMILIES.values()), (
 # chain would bind the name at import and never see the rebinding, so the sabotage would
 # stop biting and this file would go on passing.  `Inbound.gain` does not re-export them.
 from Inbound import gain_cow                                        # noqa: E402
+from Warehouse.inventory.aisle_ledger import AisleLedger
 
 
 def _orders(n_skus=5):
@@ -202,6 +203,12 @@ def test_the_bundles_pool_places_exactly_as_the_arms_own_pool(family):
     ctx = _ctx(orders, aff)
 
     prod_mgr = _mgr(orders, aff)
+    # The ledger the worker hands a builder (ticket 21), assembled exactly as
+    # `strategy_runner._timed_build` assembles it: the family's own declared terms, taken off
+    # THIS manager's ledger.  Per-manager, so it must be set here rather than in `_ctx` --
+    # the evaluator's manager below gets its own books through the bundle's copy list.
+    ctx.ledger = AisleLedger.over(**{n[len('aisle_'):]: getattr(prod_mgr, '_' + n)
+                                     for n in POLICY_BY_KEY[family].state_names})
     STRATEGY_BY_KEY[FAMILIES[family][0]].build(prod_mgr, ctx)
     prod_pool = prod_mgr.placement.open_pool(list(bins))
 

@@ -30,6 +30,7 @@ import pytest
 from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.picking.Pick import PickConfig
 from Warehouse.placement import Assignment_Functions as af
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 pytest.importorskip('scipy.sparse', reason='minlabor indexes a real CSR lift matrix')
 
@@ -135,12 +136,15 @@ def _seed(st, aid, idx, sku, x):
     st['mp'][aid][idx].append(x)
 
 
-def _pool_as_impl(units, candidates_fn, affinity, wp, ss, ii, dd, mp,
+def _pool_as_impl(units, candidates_fn, affinity, wp, ledger,
                   fbi, fbs, qbs, lam, maximize=False):
+    # Takes a LEDGER since ticket 21, exactly as the impl beside it does; the POOL CLASS still
+    # takes the four dicts, because only the builders' signatures narrowed.
     if not units:
         return []
-    pool = af._MinLaborPool(list(candidates_fn(units[0])), affinity, wp, ss, ii, dd, mp,
-                            fbi, fbs, qbs, lam, maximize=maximize)
+    pool = af._MinLaborPool(list(candidates_fn(units[0])), affinity, wp,
+                            ledger.sku_sets, ledger.idx_sets, ledger.demand_sum,
+                            ledger.member_pos, fbi, fbs, qbs, lam, maximize=maximize)
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
@@ -168,8 +172,9 @@ def _run(impl, bins, units, aff, idx, fbi, fbs, qbs, maximize, waves=1, lam=_LAM
     remaining, seq = list(bins), []
     for _w in range(waves):
         res = impl(list(units), lambda _u: list(remaining), aff, _wp(),
-                   st['ss'], st['ii'], st['dd'], st['mp'], fbi, fbs, qbs, lam,
-                   maximize=maximize)
+                   _AisleLedger.over(sku_sets=st['ss'], idx_sets=st['ii'],
+                                     demand_sum=st['dd'], member_pos=st['mp']),
+                   fbi, fbs, qbs, lam, maximize=maximize)
         seq.append(_key(res))
         taken = {id(b) for _u, b in res if b is not None}
         remaining = [b for b in remaining if id(b) not in taken]

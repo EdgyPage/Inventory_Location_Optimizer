@@ -80,6 +80,7 @@ from Warehouse.layout.Storage_Primitive import (
     FulfillmentCart as _FulfillmentCart, StoreCart as _StoreCart)
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task, drain_sku as _drain_sku
 from Optimization.config.strategies import POLICY_BY_KEY, STRATEGY_BY_KEY, StrategyContext
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 from Optimization.metrics.Simulation_Analytics import (
     fused_pre_snapshot, extract_batch_stats, extract_picker_events, extract_picks,
     extract_task_stats, snapshot_aisle_metrics)
@@ -293,6 +294,13 @@ def build_assets(*, n_skus: int = 2_000, bins_per_aisle: int = 100,
                                             'ledger_terms', None))
     if strat.uses_aisle_index:
         mgr.init_travel_costs(wp)
+    # THE LEDGER, exactly as `strategy_runner._timed_build` builds it (ticket 21): the books
+    # this family declares it commits to, taken off the manager's own ledger.  A fixture that
+    # assembled it differently from production is a fixture that can only tell you about
+    # itself -- the same reason `init_demand_state` is given the arm's own terms above.
+    ctx.ledger = _AisleLedger.over(
+        **{n[len('aisle_'):]: getattr(mgr, '_' + n)
+           for n in getattr(POLICY_BY_KEY.get(strat.restock), 'state_names', ())})
     strat.build(mgr, ctx)
     # Uniform initial stock at each order's equilibrium_qty (quantity=None), so
     # position starts above the reorder point and picking depletes across it.

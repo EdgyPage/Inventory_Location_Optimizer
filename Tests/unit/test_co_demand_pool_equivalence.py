@@ -29,6 +29,7 @@ import pytest
 from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.picking.Pick import PickConfig
 from Warehouse.placement import Assignment_Functions as af
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 scipy_sparse = pytest.importorskip('scipy.sparse',
                                    reason='co-demand needs a real CSR lift matrix')
@@ -116,13 +117,16 @@ def _fixture(rng, n_aisles=3, cols=(0.0, 5.0, 10.0, 15.0), n_units=8):
     return bins, units, aff, idx, fbi, fbs, qbs
 
 
-def _pool_as_impl(units, candidates_fn, affinity, wp, ss, ii, dd, mp,
-                  fbi, fbs, qbs, beta, compact):
-    """The pool, driven through its own `order` — so the CHOICE is what is compared."""
+def _pool_as_impl(units, candidates_fn, affinity, wp, ledger, fbi, fbs, qbs, beta, compact):
+    """The pool, driven through its own `order` — so the CHOICE is what is compared.
+
+    Takes a LEDGER since ticket 21, exactly as the impl beside it does; the POOL CLASS still
+    takes the four dicts, because only the builders' signatures narrowed."""
     if not units:
         return []
-    pool = af._CoDemandPool(list(candidates_fn(units[0])), affinity, wp, ss, ii, dd, mp,
-                            fbi, fbs, qbs, beta, compact)
+    pool = af._CoDemandPool(list(candidates_fn(units[0])), affinity, wp,
+                            ledger.sku_sets, ledger.idx_sets, ledger.demand_sum,
+                            ledger.member_pos, fbi, fbs, qbs, beta, compact)
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
@@ -145,7 +149,9 @@ def _run(impl, bins, units, aff, idx, fbi, fbs, qbs, compact, waves=1):
     seq = []
     for _w in range(waves):
         res = impl(list(units), lambda _u: list(remaining), aff, _wp(),
-                   st['ss'], st['ii'], st['dd'], st['mp'], fbi, fbs, qbs, 1.0, compact)
+                   _AisleLedger.over(sku_sets=st['ss'], idx_sets=st['ii'],
+                                     demand_sum=st['dd'], member_pos=st['mp']),
+                   fbi, fbs, qbs, 1.0, compact)
         seq.append(_key(res))
         taken = {id(b) for _u, b in res if b is not None}
         remaining = [b for b in remaining if id(b) not in taken]
@@ -287,6 +293,6 @@ def test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle():
     # And the impl this pool replaced agrees, unit for unit.
     bins2, st2 = _two_aisle_tie(idx[99], aff, fbi)
     ref = af._co_demand_ranked_impl(list(units), lambda _u: list(bins2), aff, _wp(),
-                                    st2['ss'], st2['ii'], st2['dd'], st2['mp'],
+                                    _AisleLedger.over(sku_sets=st2['ss'], idx_sets=st2['ii'], demand_sum=st2['dd'], member_pos=st2['mp']),
                                     fbi, fbs, qbs, 1.0, compact=True)
     assert [b.location[0] for _u, b in ref] == aisles

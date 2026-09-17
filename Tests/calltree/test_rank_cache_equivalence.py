@@ -382,8 +382,22 @@ class _WaveAsPool:
 
 
 def _wave_pool_fn(impl):
-    """A drop-in for a `_build_*_pool_fn`, backed by a frozen wave impl."""
+    """A drop-in for a `_build_*_pool_fn`, backed by a frozen wave impl.
+
+    THE LEDGER IS UNPACKED HERE, and the frozen bodies below are untouched. Since ticket 21 a
+    `_build_*_pool_fn` takes `(affinity, wp, ledger, ...)`; the oracles in this file take the
+    four aisle dicts, because they are hand-copies of the retired algorithm and rewriting one
+    to fit a new signature would re-freeze it against the very change it exists to check. So
+    the adaptation lives in the SHIM -- one place, and the references stay frozen.
+
+    The two oracles here bind the same four books (`sku_sets`, `idx_sets`, `demand_sum`,
+    `member_pos`), which is why one unpacking serves both.
+    """
     def build(*a, **kw):
+        if len(a) > 2 and hasattr(a[2], 'sku_sets'):
+            led = a[2]
+            a = a[:2] + (led.sku_sets, led.idx_sets, led.demand_sum, led.member_pos) + a[3:]
+
         def open_pool(candidates, rep=None):
             return _WaveAsPool(impl, candidates, *a, **kw)
         return open_pool

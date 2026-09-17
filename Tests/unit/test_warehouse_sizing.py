@@ -85,6 +85,7 @@ from Warehouse.placement.Assignment_Functions import (
 from Warehouse.layout.Storage_Primitive import (
     viable_storage_units, Pallet, Singleton, _max_qty_fits as _sq_max)
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder, WarehouseConfig, AisleConfig
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 _CATEGORIES = ['food', 'clothing', 'electronic', 'furniture', 'seasonal', 'chemical']
 _HANDLINGS  = ['conveyable', 'non-conveyable']
@@ -814,7 +815,9 @@ def _run_batch_drain(build_fn, label: str):
     wp  = types.SimpleNamespace(x_speed=1.0, y_speed=1.0, pick_intercept=1.0, pick_per_item=0.5,
                                 pick_weight_coef=0.5, pick_volume_coef=0.5)
     mgr.placement = Placement('test_ranked', mgr.placement.place_one, build_fn(
-        aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        aff, wp, _AisleLedger.over(sku_sets=mgr._aisle_sku_sets,
+                                   idx_sets=mgr._aisle_idx_sets,
+                                   demand_sum=mgr._aisle_demand_sum),
         freq_by_idx={}, freq_by_sku={}, qty_by_sku={}, beta=1.0))
 
     _assert_bounded(_drain_loop(mgr, plan, rng_seed=7), plan.total_bins, label)
@@ -1009,7 +1012,7 @@ def test_batch_assignment_gives_the_highest_priority_unit_the_cheapest_bin():
                                 pick_weight_coef=0.0, pick_volume_coef=0.0)
 
     fn  = build_ranked_minimizing_assignment_fn(
-        aff, wp, defaultdict(set), defaultdict(set), defaultdict(float), {}, {}, {}, beta=1.0)
+        aff, wp, _AisleLedger.over(sku_sets=defaultdict(set), idx_sets=defaultdict(set), demand_sum=defaultdict(float)), {}, {}, {}, beta=1.0)
     res = fn(units, lambda u: cands)
 
     by_sku = {u.order.sku: b for u, b in res}
@@ -1063,18 +1066,18 @@ def test_cluster_assignment_co_locates_scatters_and_tie_breaks_on_travel():
         return ss, ii, dd
 
     ss, ii, dd = with_partner()
-    b = build_cluster_maximizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(unit, cands)
+    b = build_cluster_maximizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, fbs, qbs)(unit, cands)
     assert b.location[0] == 10, (
         f'cohesion_max chose aisle {b.location[0]}; it must pay the extra travel to sit with '
         f'its partner in aisle 10')
 
     ss, ii, dd = with_partner()
-    b = build_cluster_minimizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(unit, cands)
+    b = build_cluster_minimizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, fbs, qbs)(unit, cands)
     assert b.location[0] == 20, (
         f'cohesion_min chose aisle {b.location[0]}; it must scatter away from the partner')
 
     ss, ii, dd = defaultdict(set), defaultdict(set), defaultdict(float)   # nothing placed
-    b = build_cluster_maximizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(unit, cands)
+    b = build_cluster_maximizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, fbs, qbs)(unit, cands)
     assert b.location[0] == 20, (
         f'cohesion_max chose aisle {b.location[0]} with no partner anywhere; with lift tied '
         f'at 0 the tie-break is travel, so the near aisle 20 must win')
@@ -1335,8 +1338,7 @@ def test_capacity_reloaders_respect_their_budget_and_lower_sigma_fd():
                                 pick_weight_coef=0.0, pick_volume_coef=0.0)
     mgr.placement = Placement('test_ranked', mgr.placement.place_one,
                               build_ranked_minimizing_assignment_fn(
-                                  aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets,
-                                  mgr._aisle_demand_sum, {}, fbs, qbs))
+                                  aff, wp, _AisleLedger.over(sku_sets=mgr._aisle_sku_sets, idx_sets=mgr._aisle_idx_sets, demand_sum=mgr._aisle_demand_sum), {}, fbs, qbs))
 
     sig0 = mgr.current_sigma_fd(freq, x, y)
     rl   = rebalance_reloader(move_limit_pct=0.5)

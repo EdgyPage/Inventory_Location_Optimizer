@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_ranked_minlabor_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _ranked_minlabor_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)</code></pre>
+<pre class="sig"><code>def _ranked_minlabor_impl(units, candidates_fn, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)</code></pre>
 <section class="doc">Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
 
 SUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;

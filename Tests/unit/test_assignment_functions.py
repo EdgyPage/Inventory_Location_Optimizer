@@ -45,6 +45,7 @@ from scipy.sparse import csr_matrix
 from Warehouse.catalog.Affinity_Store import AffinityStore
 from Warehouse.kernel.cost_model import sec_per_inch
 from Warehouse.placement import Assignment_Functions as A
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 _TOL = 1e-9
 
@@ -108,8 +109,11 @@ def test_built_scorers_carry_their_programmatic_name():
                  'cohesion_max': A.build_cluster_maximizing_assignment_fn}
 
     def _build(key):
-        return _BUILDERS[key](aff, wp, defaultdict(set), defaultdict(set),
-                              defaultdict(float), fbi, {1: 0.5}, {1: 1.0})
+        return _BUILDERS[key](aff, wp,
+                              _AisleLedger.over(sku_sets=defaultdict(set),
+                                                idx_sets=defaultdict(set),
+                                                demand_sum=defaultdict(float)),
+                              fbi, {1: 0.5}, {1: 1.0})
 
     assert getattr(_build('travel_min'), 'name', None) == 'travel_min'
     assert getattr(_build('cohesion_max'), 'name', None) == 'cohesion_max'
@@ -135,7 +139,7 @@ def test_cohesion_max_co_locates_with_an_affinity_partner_despite_higher_travel(
     ss[10] = {2}
     ii[10] = {idx[2]}                                     # partner sku2 already placed in aisle 10
 
-    b = A.build_cluster_maximizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(_unit(1), cands)
+    b = A.build_cluster_maximizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, fbs, qbs)(_unit(1), cands)
     assert b.location[0] == 10, f'cohesion_max chose aisle {b.location[0]}, not the partner aisle 10'
 
 
@@ -154,7 +158,7 @@ def test_travel_min_ignores_the_partner_and_takes_the_cheapest_aisle():
     cands = [_B(10, 9.0), _B(20, 1.0)]
 
     ss, ii, dd = defaultdict(set), defaultdict(set), defaultdict(float)   # nothing placed yet
-    b = A.build_trip_minimizing_assignment_fn(aff, wp, ss, ii, dd, fbi, fbs, qbs)(_unit(1), cands)
+    b = A.build_trip_minimizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, fbs, qbs)(_unit(1), cands)
 
     d10 = sec_per_inch(wp.x_speed) * 9.0
     d20 = sec_per_inch(wp.x_speed) * 1.0
@@ -198,14 +202,14 @@ def test_compaction_and_expansion_pick_opposite_columns_around_the_partner():
     qbs = {1: 1.0, 2: 1.0}
 
     ss, ii, dd, mp = _co_demand_fixture(10.0, idx)
-    compact = A.build_co_demand_placement(True, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
+    compact = A.build_co_demand_placement(True, aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd, member_pos=mp), fbi, fbs, qbs)
     assert compact.is_ranked, 'co-demand placement must place a whole group at once'
     assert compact.name == 'compaction', compact.name
     b = compact.place_one(_unit(1), _co_demand_candidates())
     assert abs(b.x_phys - 10.0) < _TOL, f'compaction placed at x={b.x_phys}, partner is at x=10.0'
 
     ss, ii, dd, mp = _co_demand_fixture(10.0, idx)
-    expand = A.build_co_demand_placement(False, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
+    expand = A.build_co_demand_placement(False, aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd, member_pos=mp), fbi, fbs, qbs)
     assert expand.name == 'expansion', expand.name
     be = expand.place_one(_unit(1), _co_demand_candidates())
     assert abs(be.x_phys - 0.0) < _TOL, f'expansion placed at x={be.x_phys}, partner is at x=10.0'
@@ -221,7 +225,7 @@ def test_the_co_demand_pool_agrees_with_its_per_unit_twin():
     fbi, fbs, qbs = {idx[2]: 1.0}, {1: 1.0, 2: 1.0}, {1: 1.0, 2: 1.0}
     for compact, want_x in ((True, 10.0), (False, 0.0)):
         ss, ii, dd, mp = _co_demand_fixture(10.0, idx)
-        pl = A.build_co_demand_placement(compact, aff, wp, ss, ii, dd, mp, fbi, fbs, qbs)
+        pl = A.build_co_demand_placement(compact, aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd, member_pos=mp), fbi, fbs, qbs)
         assert pl.is_pooled
         pool = pl.open_pool(_co_demand_candidates(), _unit(1))
         got, score = pool.take(_unit(1))
@@ -238,7 +242,7 @@ def test_the_co_demand_pool_reports_no_score_before_a_partner_lands():
     wp = _wp(pick_intercept=1.0, pick_weight_coef=0.0, pick_volume_coef=0.0)
     aff, idx = _aff([1, 2], [(1, 2, 5.0)])
     ss, ii, dd, mp = _co_demand_state(10.0)          # NO partner seated
-    pl = A.build_co_demand_placement(True, aff, wp, ss, ii, dd, mp,
+    pl = A.build_co_demand_placement(True, aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd, member_pos=mp),
                                      {idx[2]: 1.0}, {1: 1.0}, {1: 1.0})
     b, score = pl.open_pool(_co_demand_candidates(), _unit(1)).take(_unit(1))
     assert b is not None and score is None
@@ -259,9 +263,9 @@ def test_affinity_driven_policies_refuse_a_null_lift_matrix():
     ss, ii, dd, mp = _co_demand_fixture(0.0, idx)
 
     with pytest.raises(ValueError, match='affinity'):
-        A.build_co_demand_placement(True, _null_affinity(), wp, ss, ii, dd, mp, fbi, fbs, qbs)
+        A.build_co_demand_placement(True, _null_affinity(), wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd, member_pos=mp), fbi, fbs, qbs)
     with pytest.raises(ValueError, match='affinity'):
-        A.build_cluster_maximizing_assignment_fn(_null_affinity(), wp, ss, ii, dd, fbi, fbs, qbs)
+        A.build_cluster_maximizing_assignment_fn(_null_affinity(), wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, fbs, qbs)
 
 
 def test_demand_weighted_policies_refuse_an_empty_frequency_map():
@@ -275,9 +279,9 @@ def test_demand_weighted_policies_refuse_an_empty_frequency_map():
     ss, ii, dd, mp = _co_demand_fixture(0.0, idx)
 
     with pytest.raises(ValueError, match='freq_by_idx'):
-        A.build_co_demand_placement(True, aff, wp, ss, ii, dd, mp, {}, fbs, qbs)
+        A.build_co_demand_placement(True, aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd, member_pos=mp), {}, fbs, qbs)
     with pytest.raises(ValueError, match='freq_by_sku'):
-        A.build_trip_minimizing_assignment_fn(aff, wp, ss, ii, dd, fbi, {}, qbs)
+        A.build_trip_minimizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), fbi, {}, qbs)
 
 
 # ── a non-positive speed is rejected, not silently turned into NaN ────────────
@@ -339,7 +343,7 @@ def test_travel_scores_stay_finite_for_every_valid_speed():
             f'y_speed={y_speed}: non-finite travel scores {best_D}')
 
         ss, ii, dd = defaultdict(set), defaultdict(set), defaultdict(float)
-        b = A.build_trip_minimizing_assignment_fn(aff, wp, ss, ii, dd, {idx[2]: 1.0},
+        b = A.build_trip_minimizing_assignment_fn(aff, wp, _AisleLedger.over(sku_sets=ss, idx_sets=ii, demand_sum=dd), {idx[2]: 1.0},
                                                   {1: 0.5, 2: 1.0}, {1: 1.0, 2: 1.0})(_unit(1), cands)
         assert b.location[0] == 20, (
             f'y_speed={y_speed}: travel_min chose aisle {b.location[0]}; with all bins at '

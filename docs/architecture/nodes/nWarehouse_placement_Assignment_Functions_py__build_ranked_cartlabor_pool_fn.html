@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>build_ranked_cartlabor_pool_fn</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def build_ranked_cartlabor_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, total_freq=None, geo_memos=None)</code></pre>
+<pre class="sig"><code>def build_ranked_cartlabor_pool_fn(affinity, wp, ledger, sku_pick_load_product, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, total_freq=None, geo_memos=None)</code></pre>
 <section class="doc">Pool twin of build_ranked_cartlabor_fn — same signature.
 
 `total_freq` is summed HERE, once when the policy is built, exactly as the wave builder

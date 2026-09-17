@@ -14251,9 +14251,24 @@
       "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_ledger_over"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_ledger_over",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor._factory"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_pool_fn",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_minlabor._factory"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_ledger_over",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_popularity._factory"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn",
@@ -14264,6 +14279,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_pool_rank_random._factory"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_ledger_over",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced._make._factory"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_pool_fn",
@@ -14329,6 +14349,11 @@
       "dst": "Warehouse/operations/putaway.py::PutawayCost.from_pick",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_site_unload_cost"
+    },
+    {
+      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_timed_build"
     },
     {
       "dst": "Warehouse/kernel/timeline.py::WorkDay",
@@ -20221,11 +20246,6 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_aisle_extremal_bins"
     },
     {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn"
-    },
-    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_affinity",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn"
@@ -20259,11 +20279,6 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign.score_of"
-    },
-    {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_place_one"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -20349,11 +20364,6 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion.builder"
-    },
-    {
-      "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
@@ -38783,6 +38793,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_gc_cb",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_ledger_over",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_ledger_over",
       "public": false
     },
     {

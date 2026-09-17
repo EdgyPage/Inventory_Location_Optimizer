@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>build_ranked_labor_pool_fn</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def build_ranked_labor_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, geo_memos=None)</code></pre>
+<pre class="sig"><code>def build_ranked_labor_pool_fn(affinity, wp, ledger, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, geo_memos=None)</code></pre>
 <section class="doc">Pool twin of build_ranked_labor_fn — same signature, plus the optional caller-owned
 geometry memo (`_build_travel_balanced_pool_fn`, which carries the whole argument).
 Omitted, as every production call omits it, this is the builder it always was.</section>

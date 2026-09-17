@@ -15378,6 +15378,13 @@
       "kind": "function",
       "signature": "(phase, info, _st=_GC_STATE)"
     },
+    "Optimization/simdriver/strategy_runner.py::_ledger_over": {
+      "decorators": [],
+      "doc": "The evaluator's copy-on-write books, as the ledger every builder now takes.\n\n`state` is keyed `aisle_<book>` because `Inbound.gain`'s copier tables key on that and\n`Inbound/` may not import the placement engine; `PlacementPolicy.state_names` is the one\nplace that mapping lives. A book this family does not commit to is simply absent, and the\nledger gives it a shared `_UnboundBook` that reads empty and REFUSES a write -- so a\nvirtual placement cannot advance a live dict nobody copied, which is the failure the\nhand-written per-family lists existed to avoid.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(state) -> _AisleLedger"
+    },
     "Optimization/simdriver/strategy_runner.py::_map_lap_pct": {
       "decorators": [],
       "doc": "Share of assigned UNITS the optimal map solved exactly, or None for a non-map arm.\n\nUnits rather than classes: at catalogue scale the classes small enough for the exact\nsolver hold a tiny slice of the inventory, so a class-weighted figure would read far\nmore favourably than the placement it produced.",
@@ -15442,7 +15449,7 @@
     },
     "Optimization/simdriver/strategy_runner.py::_pool_travel_balanced": {
       "decorators": [],
-      "doc": "`rank_labor` and `rank_cartlabor`: one pool class, one seam, the cart term apart.\n\n`_aisle_pick_load_sum` is the LPT balance's running total and `_aisle_vol_sum` the\ncart's \u2014 both committed to by `take`, so both are in the record's `ledger_terms` and\ntherefore copied; `_sku_pick_load_product` / `_sku_vol_product` are per-SKU constants it\nonly reads, and stay live.",
+      "doc": "`rank_labor` and `rank_cartlabor`: one pool class, one seam, the cart term apart.\n\n`_aisle_pick_load_sum` is the LPT balance's running total and `_aisle_vol_sum` the\ncart's \u2014 both committed to by `take`, so both are in the record's `ledger_terms` and\ntherefore copied, and both ride the ledger. `_sku_pick_load_product` /\n`_sku_vol_product` are per-SKU constants it only READS, stay live, and stay their own\nparameters -- which is the line ticket 21 draws between the two.",
       "is_async": false,
       "kind": "function",
       "signature": "(cart: bool)"
@@ -23778,7 +23785,7 @@
       "doc": "Compose a per-unit AssignmentFn from a named aisle SCORER + direction.\n\nShared by the travel (f_s*D - beta*co_occur) and cohesion (demand-weighted lift)\npolicies; they differ only in the score tuple and which D-rank bin represents\neach aisle.  The returned closure carries a programmatic ``.name`` (e.g.\n'travel_min') so downstream processing can build/identify functions by name.\n\nWhen ``aisle_index`` (mgr._aisle_index) is supplied, Step 1 reads the\npre-sorted per-aisle index directly (O(N_aisles)) instead of scanning a flat\ncandidates list \u2014 the same fast path as build_load_*.  The candidates argument\nis then ignored (the manager passes None).  bin_minimize picks the head (min-D)\nor tail (max-D) of each aisle's ascending-by-D list, identical to\n_aisle_extremal_bins, so placements are unchanged.",
       "is_async": false,
       "kind": "function",
-      "signature": "(name, *, score_kind, maximize, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, aisle_index=None)"
+      "signature": "(name, *, score_kind, maximize, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, aisle_index=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign": {
       "decorators": [],
@@ -23799,7 +23806,7 @@
       "doc": "Per-unit co-demand fn (place_one) \u2014 same scoring as the wave, one unit at a time.\nUsed for the ranked policy's stragglers; accumulates positions like the wave.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, compact, name)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, compact, name)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_co_demand_place_one.assign": {
       "decorators": [],
@@ -23820,7 +23827,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn.open_pool": {
       "decorators": [],
@@ -23834,7 +23841,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn.open_pool": {
       "decorators": [],
@@ -23848,7 +23855,7 @@
       "doc": "`open_pool` shared by the four ranked-assign arms (tmin / tmax / rank_random /\nrank_popularity).  Mirrors `_ranked_assign_impl`'s parameter list exactly.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None, aisle_key=None)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None, aisle_key=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_ranked_assign_pool_fn.open_pool": {
       "decorators": [],
@@ -23862,7 +23869,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None, geo_memos=None)"
+      "signature": "(affinity, wp, ledger, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None, geo_memos=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_travel_balanced_pool_fn.open_pool": {
       "decorators": [],
@@ -23904,7 +23911,7 @@
       "doc": "Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`\nand `expn` actually run; kept as the frozen oracle the port is tested against.\n\nUnits are placed in the same pick-effort order as\n_ranked_assign_impl and membership is committed incrementally, but the BIN choice is\nposition-aware: the aisle is scored by demand-weighted lift to its members (MAX for\ncompact / MIN for expand), and within it the bin NEAREST (compact) / FARTHEST (expand)\nthe partners' column centroid is taken \u2014 vs the extremal-D head.  Each placement also\nappends (x_phys, idx) to aisle_member_pos so later units in the wave see it.\n\nTHIN DRIVER over `_CoDemandPool` since ticket 04. It was a second implementation of the same\nscoring rule, and the wave form has had no production caller since the pool inversion --\n14 of 17 shipped rules are pooled and the other three have no group path at all. What it\nis FOR is the equivalence suites, and they gain from this rather than lose: the reference\nthey compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain\ncontract (pool driven in the wave's own order == wave) instead of an echo of it.\n\n`pool.order(units)` is the sort the body used to do inline, and driving through it is the\nwhole claim: given the same order, the pool makes bit-identical decisions. A drain that\ndeclines that order gets a different -- and intentionally different -- answer.",
       "is_async": false,
       "kind": "function",
-      "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)"
+      "signature": "(units, candidates_fn, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)"
     },
     "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row": {
       "decorators": [],
@@ -23939,14 +23946,14 @@
       "doc": "Shared core for ranked-minimizing and ranked-maximizing assignment.\n\nSUPERSEDED by `_RankedAssignPool`, which is what the four arms actually run.  Kept as\nthe frozen oracle the port is tested against, and as the straggler-path reference.\n\nPriority formula (pick-effort x frequency + co-occurrence):\n  priority = f_i x (pick_intercept + pick_weight_coef x log(weight)\n                                    + pick_volume_coef x log(volume))\n             + beta x co_occur\n\nSorted descending by priority; highest-priority unit claims the extremal-D\nbin first within each same-BinKey group.  minimize=True -> lowest-D bin\n(easiest access); minimize=False -> highest-D bin (hardest access).\n\nW (task workload) remains a measurement metric only; this formula\ndrives bin placement at reorder time.\n\nTHIN DRIVER over `_RankedAssignPool` since ticket 04. It was a second implementation of\nthe same scoring rule and has had no production caller since the pool inversion. The\nreference it used to BE now lives in `Tests/unit/test_ranked_assign_pool_equivalence.py`\nas `_oracle_ranked_assign_impl`, frozen verbatim -- this family was the last one whose\ntest read a live production impl as its oracle.\n\n`pool.order(units)` is the sort this body did inline. Note the pool takes the SCAN branch\nwhenever `aisle_selector` is given and the heap branch otherwise, which is exactly the\nsplit the wave had; a caller that wants the heap passes `aisle_key` to the pool directly,\nand the wave never knew how to do anything but scan.",
       "is_async": false,
       "kind": "function",
-      "signature": "(units: list, candidates_fn, affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None) -> list"
+      "signature": "(units: list, candidates_fn, affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float, minimize: bool, aisle_selector=None, order_key=None) -> list"
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_minlabor_impl": {
       "decorators": [],
       "doc": "Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.\n\nSUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;\nkept as the frozen oracle the port is tested against.\n\nModels the objective E[task labor] = \u03a3_s f_s\u00b7[ M(y_s)\u00b7(intercept + q_s\u00b7v_s) + D ] and\nplaces each unit in the (aisle, bin) that minimises its MARGINAL contribution:\n\n    cost(s, b) = f_s\u00b7( M(y_b)\u00b7(intercept + v_s) + D_b )  \u2212  \u03bb\u00b7\u03a3_{partners p in aisle} lift(s,p)\u00b7f_p\n\nwhere v_s = handle_var (per-unit weight/volume term), M(y) = height bracket multiplier,\nD_b = x_speed\u00b7x_phys + y_speed\u00b7y_phys.  This fuses three slotting levers into one score:\n  \u2022 golden-zone height  \u2014 the M(y_b)\u00b7v_s term pushes heavy/frequent SKUs to low brackets;\n  \u2022 effort-to-front     \u2014 the D_b term pulls them to near, low bins;\n  \u2022 affinity compaction \u2014 the \u2212\u03bb\u00b7delta_lift aisle reward co-locates demand partners in the\n    SAME aisle (the big travel win: fewer aisle-tasks), and within the chosen aisle the bin\n    is pulled toward the partners' column centroid (+x_speed\u00b7|x\u2212cx|) to shorten the sweep.\n\nmaximize=True flips every extremum (argmax score, farthest/highest bins, scatter partners)\nto deliberately MAXIMISE the objective \u2014 a worst-case upper-bound sanity control (Rank_maxlabor)\nthat brackets how much the minimiser is worth.  Unlike _travel_balanced_impl (Rank_labor) there\nis NO LPT load term \u2014 this MINIMISES (or maximises) total labor, it does not BALANCE it.  Units\nare placed highest expected_labor first so the costliest SKUs claim the best (or worst) slots.\n\nBoth the aisle pre-screen AND the final bin choice scan only per-(aisle,bracket) extremal-D\ndeque ends \u2014 O(units\u00b7aisles\u00b7brackets), independent of bins-per-aisle.  The chosen bin is popped\nfrom its deque end, so the ends are always live (no stale-bin bookkeeping).\n\nTHIN DRIVER over `_MinLaborPool` since ticket 04. It was a second implementation of the same\nscoring rule, and the wave form has had no production caller since the pool inversion --\n14 of 17 shipped rules are pooled and the other three have no group path at all. What it\nis FOR is the equivalence suites, and they gain from this rather than lose: the reference\nthey compare against is the FROZEN oracle in `Tests/calltree/test_rank_cache_equivalence.py`, and this leg is now the drain\ncontract (pool driven in the wave's own order == wave) instead of an echo of it.\n\n`pool.order(units)` is the sort the body used to do inline, and driving through it is the\nwhole claim: given the same order, the pool makes bit-identical decisions. A drain that\ndeclines that order gets a different -- and intentionally different -- answer.",
       "is_async": false,
       "kind": "function",
-      "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
+      "signature": "(units, candidates_fn, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False)"
     },
     "Warehouse/placement/Assignment_Functions.py::_require_affinity": {
       "decorators": [],
@@ -23981,7 +23988,7 @@
       "doc": "Travel- AND height-aware LPT load balance (Rank_labor).\n\nThe expected labor of placing a unit in a bin is freq\u00b7qty times the per-pick cost\nTHERE:  height_mult(y_bin)\u00b7(pick_intercept + handle_var) + D_bin, where handle_var is\nthe per-unit weight/volume handling, height_mult(y) scales the WHOLE at-location pick\n(intercept + handling), and D_bin = x_speed\u00b7x_phys + y_speed\u00b7y_phys is travel.  Each\nunit is placed in the specific empty bin that minimises the resulting BUSIEST aisle's\ntotal labor (greedy LPT).  So a bin is only chosen high/far when the aisle's load is\nlow enough to absorb the extra handling/travel \u2014 heavy, frequently-picked SKUs gravitate\nto low, near bins.\n\nWithin an aisle the best bin is SKU-dependent (high handle_var prefers low brackets),\nso bins are grouped per aisle by height bracket, each a min-D deque; for each unit we\nscan one min-D representative per (aisle, bracket) \u2014 O(units \u00b7 aisles \u00b7 n_brackets).\n\ncart (optional) makes this Rank_cartlabor: a tuple (aisle_vol_sum, sku_vol_product,\nexpected_batch_skus, total_freq) that adds each aisle's EXPECTED CART-SWAP cost to its\nbalanced load, so the balancer disperses volume that would overflow a cart.  Default\nNone \u21d2 byte-identical Rank_labor.\n\nTHIN DRIVER over `_TravelBalancedPool` since ticket 04. It was a second implementation of the same\nscoring rule, and the wave form has had no production caller since the pool inversion --\n14 of 17 shipped rules are pooled and the other three have no group path at all. What it\nis FOR is the equivalence suites, and they gain from this rather than lose: the reference\nthey compare against is the FROZEN oracle in `Tests/unit/test_travel_balanced_equivalence.py`, and this leg is now the drain\ncontract (pool driven in the wave's own order == wave) instead of an echo of it.\n\n`pool.order(units)` is the sort the body used to do inline, and driving through it is the\nwhole claim: given the same order, the pool makes bit-identical decisions. A drain that\ndeclines that order gets a different -- and intentionally different -- answer.",
       "is_async": false,
       "kind": "function",
-      "signature": "(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
+      "signature": "(units, candidates_fn, affinity, wp, ledger, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion": {
       "decorators": [],
@@ -23995,14 +24002,14 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, aisle_index=None)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, aisle_index=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement": {
       "decorators": [],
       "doc": "One Placement (ranked place_wave + per-unit place_one) for cluster_map (capped=False)\nor cluster_map_rank (capped=True).  Reads mgr._bin_pref / mgr._map_target at call time, so\nbuild_optimal_map must have run (wired in strategies._build_cluster_map[_rank]).",
       "is_async": false,
       "kind": "function",
-      "signature": "(mgr, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, *, capped) -> Placement"
+      "signature": "(mgr, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, *, capped) -> Placement"
     },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool": {
       "decorators": [],
@@ -24085,7 +24092,7 @@
       "doc": "One Placement (place_one + ranked place_wave) for co-demand compaction (compact=True)\nor expansion (compact=False).  Wired by strategies._build_compaction/_build_expansion.",
       "is_async": false,
       "kind": "function",
-      "signature": "(compact, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0) -> Placement"
+      "signature": "(compact, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0) -> Placement"
     },
     "Warehouse/placement/Assignment_Functions.py::build_optmap_fn": {
       "decorators": [],
@@ -24134,7 +24141,7 @@
       "doc": "Cart-swap-aware LPT labor balancer (Rank_cartlabor).  Same as build_ranked_labor_fn\nbut the balanced aisle load also includes each aisle's EXPECTED cart-swap cost\n(cart_swap_coef\u00b7max(0, expected_aisle_volume/cart_capacity \u2212 1)), so high-volume demand\nthat would overflow a cart is dispersed across aisles.  With the big store cart the term\nis ~0 (aisles rarely fill a cart) so store plans barely move; with the small fulfillment\ncart it bites.  Returns (unit, bin) pairs.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, aisle_pick_load_sum: dict, sku_pick_load_product: dict, aisle_vol_sum: dict, sku_vol_product: dict, expected_batch_skus: float, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, sku_pick_load_product: dict, sku_vol_product: dict, expected_batch_skus: float, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_cartlabor_fn.ranked_assign": {
       "decorators": [],
@@ -24148,14 +24155,14 @@
       "doc": "Pool twin of build_ranked_cartlabor_fn \u2014 same signature.\n\n`total_freq` is summed HERE, once when the policy is built, exactly as the wave builder\ndoes it: a per-pool sum over the same dict would be the same value today but would make\na dict-order change silently repricing every cart penalty.\n\nWhich is the whole reason it can be passed IN.  A caller that rebuilds this policy per\nevaluation rather than per arm -- there is one, the inbound gain evaluator -- would turn\n\"once when the policy is built\" into once per pool open, an O(catalogue) sum in an\nO(yard^2)-per-drain loop, and would re-expose exactly the dict-order hazard the\nparagraph above closes.  Such a caller hoists the sum to its own arm scope and hands it\ndown; it must be `sum(freq_by_sku.values())` over this same dict and nothing else.\nNone -- every production call -- sums here as before.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, total_freq=None, geo_memos=None)"
+      "signature": "(affinity, wp, ledger, sku_pick_load_product, sku_vol_product, expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, total_freq=None, geo_memos=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn": {
       "decorators": [],
       "doc": "Travel-aware LPT labor balancer (see _travel_balanced_impl): places each unit in\nthe specific empty bin that minimises the busiest aisle's total expected labor,\nwhere labor = freq\u00b7qty\u00b7(pick_time + travel_time).  Returns (unit, bin) pairs.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, aisle_pick_load_sum: dict, sku_pick_load_product: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, sku_pick_load_product: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_labor_fn.ranked_assign": {
       "decorators": [],
@@ -24169,14 +24176,14 @@
       "doc": "Pool twin of build_ranked_labor_fn \u2014 same signature, plus the optional caller-owned\ngeometry memo (`_build_travel_balanced_pool_fn`, which carries the whole argument).\nOmitted, as every production call omits it, this is the builder it always was.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, geo_memos=None)"
+      "signature": "(affinity, wp, ledger, sku_pick_load_product, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0, geo_memos=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn": {
       "decorators": [],
       "doc": "Ranked assignment: high pick-effort items get highest-D (hardest) bins.\n\nMirror of build_ranked_minimizing_assignment_fn \u2014 strategy-C upper bound.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_assignment_fn.ranked_assign": {
       "decorators": [],
@@ -24197,7 +24204,7 @@
       "doc": "Worst-case sanity control: greedy MAXIMISER of expected task labor (Rank_maxlabor) \u2014\nthe exact mirror of build_ranked_minlabor_fn (high/far bins, scatter co-demanded SKUs).\nIt should land WORST on the objective_task_labor metric, bracketing the minimiser so the\nlever's direction and magnitude are verifiable.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, aisle_member_pos: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_maxlabor_fn.ranked_assign": {
       "decorators": [],
@@ -24211,14 +24218,14 @@
       "doc": "Pool twin of build_ranked_maxlabor_fn \u2014 same signature.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_assignment_fn": {
       "decorators": [],
       "doc": "Ranked assignment: high pick-effort items get lowest-D (easiest) bins.\n\nSame parameter signature as build_trip_minimizing_assignment_fn.  Used as the\nplace_wave of a ranked Placement (place_one = build_trip_minimizing for stragglers).",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_minimizing_assignment_fn.ranked_assign": {
       "decorators": [],
@@ -24239,7 +24246,7 @@
       "doc": "Greedy minimiser of expected task labor (see _ranked_minlabor_impl): golden-zone\nheight + effort-to-front + affinity compaction fused into one marginal-cost score.\nThe opposite of build_ranked_labor_fn (which BALANCES aisle load).  `beta` is \u03bb, the\naffinity-reward weight that converts lift\u00b7freq into the labor (time) units of the score.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, aisle_member_pos: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_minlabor_fn.ranked_assign": {
       "decorators": [],
@@ -24253,14 +24260,14 @@
       "doc": "Pool twin of build_ranked_minlabor_fn \u2014 same signature.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_fn": {
       "decorators": [],
       "doc": "Ablation: order units by expected_popularity (freq*qty) and place each into the\naisle with the LEAST \u03a3 popularity (aisle_demand_sum); nearest-D bin within it,\nnearest-aisle as the tiebreak.  Disperses demand mass evenly across aisles.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_fn._selector": {
       "decorators": [],
@@ -24281,7 +24288,7 @@
       "doc": "Pool twin of build_ranked_popularity_fn \u2014 same signature.\n\nIts selector reads the LIVE `aisle_demand_sum`, which `take` itself increments, so the\naisle choice depends on what this pool has already placed.  That is pool state and ports\nas-is; what it means is that this arm's result moves when the service order moves.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)"
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_popularity_pool_fn._key": {
       "decorators": [],
@@ -24295,7 +24302,7 @@
       "doc": "Ranked assignment: rank units by pick-effort priority (same as\nranked-minimizing), but place each into a UNIFORM-RANDOM aisle's\nminimum-travel-cost bin instead of the globally min-D aisle.\n\nAblation control: keeps the ranking (incl. demand-weighted lift) so the only\ndifference from ranked-minimizing is random vs D-optimal aisle selection \u2014\nisolating whether the trip-min aisle choice is necessary.",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0, rng: random.Random | None=None)"
+      "signature": "(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0, rng: random.Random | None=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_assignment_fn.ranked_assign": {
       "decorators": [],

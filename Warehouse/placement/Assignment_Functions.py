@@ -303,8 +303,7 @@ def _require_demand(freq_map, policy: str, what: str) -> None:
             "Refusing to place without the demand frequencies it weights by.")
 
 
-def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
-                          aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp, ledger,
                           freq_by_idx, freq_by_sku, qty_by_sku, beta,
                           aisle_index=None):
     """Compose a per-unit AssignmentFn from a named aisle SCORER + direction.
@@ -335,8 +334,10 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
     # else.  `over` BINDS the dicts it is handed rather than copying them, so the writes
     # below land wherever the caller's dicts live -- the warehouse's own, or the gain
     # evaluator's copy-on-write wrappers.
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum)
+    # The ledger ARRIVES now (ticket 21); it was built here out of three dicts threaded
+    # down the whole parameter chain to be reassembled into what the caller already held.
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum = ledger.demand_sum
 
     def assign(unit, candidates):
         sku = unit.order.sku
@@ -385,12 +386,11 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp,
 def _travel_or_cohesion(name, score_kind, maximize):
     """Make a builder with the legacy (affinity, wp, ...state..., beta) signature that
     routes through the shared core."""
-    def builder(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, aisle_index=None):
+    def builder(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
+                beta=1.0, aisle_index=None):
         return _build_aisle_score_fn(
             name, score_kind=score_kind, maximize=maximize, affinity=affinity, wp=wp,
-            aisle_sku_sets=aisle_sku_sets, aisle_idx_sets=aisle_idx_sets,
-            aisle_demand_sum=aisle_demand_sum, freq_by_idx=freq_by_idx,
+            ledger=ledger, freq_by_idx=freq_by_idx,
             freq_by_sku=freq_by_sku, qty_by_sku=qty_by_sku, beta=beta,
             aisle_index=aisle_index)
     builder.__name__ = f'build_{name}_assignment_fn'
@@ -478,9 +478,7 @@ def _ranked_assign_impl(
     candidates_fn,
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -522,7 +520,7 @@ def _ranked_assign_impl(
     wp = _wp_for(wp, units[0])       # per-regime cost in a mixed warehouse
     pool = _RankedAssignPool(
         list(candidates_fn(units[0])), affinity, wp,
-        aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+        ledger.sku_sets, ledger.idx_sets, ledger.demand_sum,
         freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
         aisle_selector=aisle_selector, order_key=order_key)
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
@@ -568,8 +566,7 @@ def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
     return (mass, wx / mass) if mass > 0 else (0.0, None)
 
 
-def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
-                           aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+def _co_demand_ranked_impl(units, candidates_fn, affinity, wp, ledger,
                            freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool):
     """Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`
     and `expn` actually run; kept as the frozen oracle the port is tested against.
@@ -595,8 +592,8 @@ def _co_demand_ranked_impl(units, candidates_fn, affinity, wp,
     if not units:
         return []
     pool = _CoDemandPool(list(candidates_fn(units[0])), affinity, wp,
-                         aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                         aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+                         ledger.sku_sets, ledger.idx_sets, ledger.demand_sum,
+                         ledger.member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
                          beta, compact)
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
@@ -736,9 +733,14 @@ class _CoDemandPool(_Pool):
         return chosen, score
 
 
-def _build_co_demand_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                             aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+def _build_co_demand_pool_fn(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
                              beta, compact):
+    # The books this family commits to, under the names the body already used.  The ledger is
+    # built ONCE per policy by the caller, from the same `PlacementPolicy.ledger_terms` the
+    # gain evaluator copies -- so the signature and the copy list cannot disagree (ticket 21).
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum, aisle_member_pos = ledger.demand_sum, ledger.member_pos
+
     def open_pool(candidates, rep=None):
         return _CoDemandPool(candidates, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                              aisle_demand_sum, aisle_member_pos, freq_by_idx,
@@ -746,16 +748,17 @@ def _build_co_demand_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle
     return open_pool
 
 
-def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                               aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku,
+def _build_co_demand_place_one(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
                                compact, name):
     """Per-unit co-demand fn (place_one) — same scoring as the wave, one unit at a time.
     Used for the ranked policy's stragglers; accumulates positions like the wave."""
     x_pace, y_pace = sec_per_inch(wp.x_speed), sec_per_inch(wp.y_speed)   # ft/s -> s/inch
     sku_to_idx = affinity._sku_to_idx
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum,
-                              member_pos=aisle_member_pos)
+    # The ledger ARRIVES now (ticket 21).  It was built here out of four dicts that had been
+    # threaded down the whole parameter chain to be reassembled into the object the caller
+    # already had.
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum, aisle_member_pos = ledger.demand_sum, ledger.member_pos
 
     def assign(unit, candidates):
         if not candidates:
@@ -795,8 +798,7 @@ def _build_co_demand_place_one(affinity, wp, aisle_sku_sets, aisle_idx_sets, ais
     return assign
 
 
-def build_co_demand_placement(compact, affinity, wp,
-                              aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+def build_co_demand_placement(compact, affinity, wp, ledger,
                               freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0) -> Placement:
     """One Placement (place_one + ranked place_wave) for co-demand compaction (compact=True)
     or expansion (compact=False).  Wired by strategies._build_compaction/_build_expansion."""
@@ -804,12 +806,10 @@ def build_co_demand_placement(compact, affinity, wp,
     _require_affinity(affinity, name)          # co-demand is meaningless without lift data
     _require_demand(freq_by_idx, name, 'freq_by_idx (the partner-centroid weight)')
     place_one = _build_co_demand_place_one(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-        freq_by_idx, freq_by_sku, qty_by_sku, compact, name)
+        affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, compact, name)
 
     open_pool = _build_co_demand_pool_fn(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-        freq_by_idx, freq_by_sku, qty_by_sku, beta, compact)
+        affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact)
     open_pool.name = name
     return Placement(name, place_one, open_pool=open_pool)
 
@@ -987,12 +987,13 @@ class _RankedAssignPool(_Pool):
 
 
 def _build_ranked_assign_pool_fn(
-    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-    freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
+    affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
     aisle_selector=None, order_key=None, aisle_key=None,
 ):
     """`open_pool` shared by the four ranked-assign arms (tmin / tmax / rank_random /
     rank_popularity).  Mirrors `_ranked_assign_impl`'s parameter list exactly."""
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum = ledger.demand_sum
     def open_pool(candidates, rep=None):
         return _RankedAssignPool(
             candidates, affinity,
@@ -1006,9 +1007,7 @@ def _build_ranked_assign_pool_fn(
 def build_ranked_minimizing_assignment_fn(
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -1021,8 +1020,7 @@ def build_ranked_minimizing_assignment_fn(
     """
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_assign_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            units, candidates_fn, affinity, wp, ledger,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
         )
     return ranked_assign
@@ -1036,9 +1034,7 @@ def build_ranked_minimizing_pool_fn(*a, **kw):
 def build_ranked_maximizing_assignment_fn(
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -1050,8 +1046,7 @@ def build_ranked_maximizing_assignment_fn(
     """
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_assign_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            units, candidates_fn, affinity, wp, ledger,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=False,
         )
     return ranked_assign
@@ -1065,9 +1060,7 @@ def build_ranked_maximizing_pool_fn(*a, **kw):
 def build_ranked_uniform_assignment_fn(
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -1086,8 +1079,7 @@ def build_ranked_uniform_assignment_fn(
 
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_assign_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            units, candidates_fn, affinity, wp, ledger,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
             aisle_selector=lambda bw, bb: _rng.choice(list(bb.keys())),
         )
@@ -1121,9 +1113,7 @@ def _score_expected_labor(unit) -> float:
 def build_ranked_popularity_fn(
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -1133,12 +1123,11 @@ def build_ranked_popularity_fn(
     aisle with the LEAST Σ popularity (aisle_demand_sum); nearest-D bin within it,
     nearest-aisle as the tiebreak.  Disperses demand mass evenly across aisles."""
     def _selector(head_D, head_bin):
-        return min(head_D, key=lambda aid: (aisle_demand_sum.get(aid, 0.0), head_D[aid]))
+        return min(head_D, key=lambda aid: (ledger.demand_sum.get(aid, 0.0), head_D[aid]))
 
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_assign_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            units, candidates_fn, affinity, wp, ledger,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
             aisle_selector=_selector, order_key=_score_expected_popularity,
         )
@@ -1146,8 +1135,7 @@ def build_ranked_popularity_fn(
 
 
 def build_ranked_popularity_pool_fn(
-    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-    freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
+    affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
 ):
     """Pool twin of build_ranked_popularity_fn — same signature.
 
@@ -1160,10 +1148,9 @@ def build_ranked_popularity_pool_fn(
     # evictions and the reclaim drain in SEPARATE phases before placement
     # (`strategy_runner` calls `reloader.reload` then `check_reorders`).
     def _key(aid, head_D):
-        return (aisle_demand_sum.get(aid, 0.0), head_D[aid])
+        return (ledger.demand_sum.get(aid, 0.0), head_D[aid])
     return _build_ranked_assign_pool_fn(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-        freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
+        affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize=True,
         aisle_key=_key, order_key=_score_expected_popularity)
 
 
@@ -1172,10 +1159,8 @@ def build_ranked_popularity_pool_fn(
 _NO_RUN_SKU = object()
 
 
-def _travel_balanced_impl(units, candidates_fn, affinity, wp,
-                          aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                          aisle_pick_load_sum, sku_pick_load_product,
-                          freq_by_sku, qty_by_sku, cart=None):
+def _travel_balanced_impl(units, candidates_fn, affinity, wp, ledger,
+                          sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None):
     """Travel- AND height-aware LPT load balance (Rank_labor).
 
     The expected labor of placing a unit in a bin is freq·qty times the per-pick cost
@@ -1212,7 +1197,7 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0])       # per-regime cost in a mixed warehouse
     pool = _TravelBalancedPool(
         list(candidates_fn(units[0])), affinity, wp,
-        aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum,
+        ledger.sku_sets, ledger.idx_sets, ledger.demand_sum, ledger.pick_load_sum,
         sku_pick_load_product, freq_by_sku, qty_by_sku, cart=cart)
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
@@ -1481,10 +1466,14 @@ class _TravelBalancedPool(_Pool):
         return chosen, marginal
 
 
-def _build_travel_balanced_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets,
-                                   aisle_demand_sum, aisle_pick_load_sum,
-                                   sku_pick_load_product, freq_by_sku, qty_by_sku,
-                                   cart=None, geo_memos=None):
+def _build_travel_balanced_pool_fn(affinity, wp, ledger, sku_pick_load_product,
+                                   freq_by_sku, qty_by_sku, cart=None, geo_memos=None):
+    # `sku_pick_load_product` is NOT on the ledger, and that is the line ticket 21 draws:
+    # the ledger carries the AISLE books this family COMMITS to (`ledger_terms`), and `take`
+    # only READS the per-SKU tables -- which is exactly why they are absent from the gain
+    # evaluator's copy list too.
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum, aisle_pick_load_sum = ledger.demand_sum, ledger.pick_load_sum
     # id(resolved wp) -> (wp, {id(bin): (bin, aisle_id, D, height_mult)}).  Keyed by profile
     # because D and M depend on it; the wp is kept in the value so a recycled id() cannot alias
     # a stale table.  Lives as long as the placement function, i.e. one arm.
@@ -1514,10 +1503,7 @@ def _build_travel_balanced_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets,
 def build_ranked_labor_fn(
     affinity,
     wp,
-    aisle_sku_sets        : dict,
-    aisle_idx_sets        : dict,
-    aisle_demand_sum      : dict,
-    aisle_pick_load_sum   : dict,
+    ledger,
     sku_pick_load_product : dict,
     freq_by_idx           : dict,
     freq_by_sku           : dict,
@@ -1529,35 +1515,28 @@ def build_ranked_labor_fn(
     where labor = freq·qty·(pick_time + travel_time).  Returns (unit, bin) pairs."""
     def ranked_assign(units: list, candidates_fn) -> list:
         return _travel_balanced_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-            aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku)
+            units, candidates_fn, affinity, wp, ledger,
+            sku_pick_load_product, freq_by_sku, qty_by_sku)
     return ranked_assign
 
 
 def build_ranked_labor_pool_fn(
-    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-    aisle_pick_load_sum, sku_pick_load_product, freq_by_idx, freq_by_sku,
+    affinity, wp, ledger, sku_pick_load_product, freq_by_idx, freq_by_sku,
     qty_by_sku, beta: float = 1.0, geo_memos=None,
 ):
     """Pool twin of build_ranked_labor_fn — same signature, plus the optional caller-owned
     geometry memo (`_build_travel_balanced_pool_fn`, which carries the whole argument).
     Omitted, as every production call omits it, this is the builder it always was."""
     return _build_travel_balanced_pool_fn(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-        aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
+        affinity, wp, ledger, sku_pick_load_product, freq_by_sku, qty_by_sku,
         geo_memos=geo_memos)
 
 
 def build_ranked_cartlabor_fn(
     affinity,
     wp,
-    aisle_sku_sets        : dict,
-    aisle_idx_sets        : dict,
-    aisle_demand_sum      : dict,
-    aisle_pick_load_sum   : dict,
+    ledger,
     sku_pick_load_product : dict,
-    aisle_vol_sum         : dict,
     sku_vol_product       : dict,
     expected_batch_skus   : float,
     freq_by_idx           : dict,
@@ -1574,16 +1553,14 @@ def build_ranked_cartlabor_fn(
     total_freq = sum(freq_by_sku.values())
     def ranked_assign(units: list, candidates_fn) -> list:
         return _travel_balanced_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-            aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
-            cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq))
+            units, candidates_fn, affinity, wp, ledger,
+            sku_pick_load_product, freq_by_sku, qty_by_sku,
+            cart=(ledger.vol_sum, sku_vol_product, expected_batch_skus, total_freq))
     return ranked_assign
 
 
 def build_ranked_cartlabor_pool_fn(
-    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-    aisle_pick_load_sum, sku_pick_load_product, aisle_vol_sum, sku_vol_product,
+    affinity, wp, ledger, sku_pick_load_product, sku_vol_product,
     expected_batch_skus, freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
     total_freq=None, geo_memos=None,
 ):
@@ -1602,16 +1579,13 @@ def build_ranked_cartlabor_pool_fn(
     None -- every production call -- sums here as before."""
     total_freq = sum(freq_by_sku.values()) if total_freq is None else float(total_freq)
     return _build_travel_balanced_pool_fn(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-        aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku,
-        cart=(aisle_vol_sum, sku_vol_product, expected_batch_skus, total_freq),
+        affinity, wp, ledger, sku_pick_load_product, freq_by_sku, qty_by_sku,
+        cart=(ledger.vol_sum, sku_vol_product, expected_batch_skus, total_freq),
         geo_memos=geo_memos)
 
 
-def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
-                          aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                          aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam,
-                          maximize=False):
+def _ranked_minlabor_impl(units, candidates_fn, affinity, wp, ledger,
+                          freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=False):
     """Greedy MINIMISER (or, with maximize=True, MAXIMISER) of expected total task labor.
 
     SUPERSEDED by `_MinLaborPool`, which is what `rank_minlabor` and `rank_maxlabor` run;
@@ -1656,7 +1630,7 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp,
     wp = _wp_for(wp, units[0])       # per-regime cost in a mixed warehouse
     pool = _MinLaborPool(
         list(candidates_fn(units[0])), affinity, wp,
-        aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+        ledger.sku_sets, ledger.idx_sets, ledger.demand_sum, ledger.member_pos,
         freq_by_idx, freq_by_sku, qty_by_sku, lam, maximize=maximize)
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
@@ -1870,9 +1844,11 @@ class _MinLaborPool(_Pool):
         return chosen, best_score
 
 
-def _build_minlabor_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-                            aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam,
-                            maximize=False):
+def _build_minlabor_pool_fn(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
+                            lam, maximize=False):
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum, aisle_member_pos = ledger.demand_sum, ledger.member_pos
+
     def open_pool(candidates, rep=None):
         return _MinLaborPool(
             candidates, affinity,
@@ -1885,10 +1861,7 @@ def _build_minlabor_pool_fn(affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_
 def build_ranked_minlabor_fn(
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
-    aisle_member_pos : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -1901,30 +1874,25 @@ def build_ranked_minlabor_fn(
     _require_affinity(affinity, 'rank_minlabor')
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_minlabor_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-            aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta)
+            units, candidates_fn, affinity, wp, ledger,
+            freq_by_idx, freq_by_sku, qty_by_sku, lam=beta)
     return ranked_assign
 
 
 def build_ranked_minlabor_pool_fn(
-    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-    freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
+    affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
 ):
     """Pool twin of build_ranked_minlabor_fn — same signature."""
     _require_affinity(affinity, 'rank_minlabor')
     return _build_minlabor_pool_fn(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-        freq_by_idx, freq_by_sku, qty_by_sku, lam=beta, maximize=False)
+        affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
+        lam=beta, maximize=False)
 
 
 def build_ranked_maxlabor_fn(
     affinity,
     wp,
-    aisle_sku_sets   : dict,
-    aisle_idx_sets   : dict,
-    aisle_demand_sum : dict,
-    aisle_member_pos : dict,
+    ledger,
     freq_by_idx      : dict,
     freq_by_sku      : dict,
     qty_by_sku       : dict,
@@ -1937,22 +1905,19 @@ def build_ranked_maxlabor_fn(
     _require_affinity(affinity, 'rank_maxlabor')
     def ranked_assign(units: list, candidates_fn) -> list:
         return _ranked_minlabor_impl(
-            units, candidates_fn, affinity, wp,
-            aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
-            aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, lam=beta,
-            maximize=True)
+            units, candidates_fn, affinity, wp, ledger,
+            freq_by_idx, freq_by_sku, qty_by_sku, lam=beta, maximize=True)
     return ranked_assign
 
 
 def build_ranked_maxlabor_pool_fn(
-    affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-    freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
+    affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta: float = 1.0,
 ):
     """Pool twin of build_ranked_maxlabor_fn — same signature."""
     _require_affinity(affinity, 'rank_maxlabor')
     return _build_minlabor_pool_fn(
-        affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
-        freq_by_idx, freq_by_sku, qty_by_sku, lam=beta, maximize=True)
+        affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
+        lam=beta, maximize=True)
 
 
 def build_optmap_fn(mgr, capped=False):
@@ -2182,8 +2147,7 @@ def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, fre
     return min(tied, key=lambda a: _closest_abs(prefs_by_aisle[a], target))
 
 
-def build_cluster_map_placement(mgr, affinity, wp,
-                                aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos,
+def build_cluster_map_placement(mgr, affinity, wp, ledger,
                                 freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, *, capped) -> Placement:
     """One Placement (ranked place_wave + per-unit place_one) for cluster_map (capped=False)
     or cluster_map_rank (capped=True).  Reads mgr._bin_pref / mgr._map_target at call time, so
@@ -2192,9 +2156,9 @@ def build_cluster_map_placement(mgr, affinity, wp,
     _require_affinity(affinity, name)          # cohesion is meaningless without lift data
     _require_demand(freq_by_idx, name, 'freq_by_idx (the cohesion weight)')
     x_pace = sec_per_inch(wp.x_speed)
-    ledger = AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets,
-                              demand_sum=aisle_demand_sum,
-                              member_pos=aisle_member_pos)
+    # The ledger ARRIVES now (ticket 21).
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_member_pos = ledger.member_pos
 
     pref = mgr._bin_pref
 

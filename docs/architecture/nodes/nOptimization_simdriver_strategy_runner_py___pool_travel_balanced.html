@@ -19,8 +19,9 @@
 
 `_aisle_pick_load_sum` is the LPT balance&#x27;s running total and `_aisle_vol_sum` the
 cart&#x27;s — both committed to by `take`, so both are in the record&#x27;s `ledger_terms` and
-therefore copied; `_sku_pick_load_product` / `_sku_vol_product` are per-SKU constants it
-only reads, and stay live.</section>
+therefore copied, and both ride the ledger. `_sku_pick_load_product` /
+`_sku_vol_product` are per-SKU constants it only READS, stay live, and stay their own
+parameters -- which is the line ticket 21 draws between the two.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py.html"><code>Optimization.simdriver.strategy_runner</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___pool_travel_balanced">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_pool_travel_balanced">Source ↗</a></p>
 </article>

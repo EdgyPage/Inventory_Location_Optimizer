@@ -64,6 +64,7 @@ from Warehouse.layout.Storage_Primitive import Storage_Size
 from Warehouse.layout.Warehouse_Builder import AisleConfig, Warehouse_Builder, WarehouseConfig
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from Optimization.metrics.Simulation_Analytics import extract_batch_stats, extract_task_stats
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 
 def _build_affinity_store(inventory: Inventory, top_k: int = 20, seed: int = 0) -> AffinityStore:
@@ -268,7 +269,7 @@ def run_benchmark(
     _fbi, _fbs, _qbs = {}, {}, {}
     manager_B.placement = Placement('travel_min', build_trip_minimizing_assignment_fn(
         affinity_store, wp,
-        manager_B._aisle_sku_sets, manager_B._aisle_idx_sets, manager_B._aisle_demand_sum,
+        _AisleLedger.over(sku_sets=manager_B._aisle_sku_sets, idx_sets=manager_B._aisle_idx_sets, demand_sum=manager_B._aisle_demand_sum),
         _fbi, _fbs, _qbs,
     ))
 
@@ -281,7 +282,7 @@ def run_benchmark(
     manager_C.init_placement_state(affinity_store)
     manager_C.placement = Placement('travel_max', build_trip_maximizing_assignment_fn(
         affinity_store, wp,
-        manager_C._aisle_sku_sets, manager_C._aisle_idx_sets, manager_C._aisle_demand_sum,
+        _AisleLedger.over(sku_sets=manager_C._aisle_sku_sets, idx_sets=manager_C._aisle_idx_sets, demand_sum=manager_C._aisle_demand_sum),
         _fbi, _fbs, _qbs,
     ))
 

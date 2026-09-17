@@ -26,6 +26,7 @@ if _ROOT not in sys.path:
 
 
 from Warehouse.placement.Assignment_Functions import build_ranked_minimizing_assignment_fn
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 
 class _Bin:
@@ -71,7 +72,7 @@ def _bench(n_bins, n_aisles, n_units, placed_idx_total, rng):
 
     units = _make_units(n_units, rng)
     fn = build_ranked_minimizing_assignment_fn(
-        aff, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+        aff, wp, _AisleLedger.over(sku_sets=aisle_sku_sets, idx_sets=aisle_idx_sets, demand_sum=aisle_demand_sum),
         freq_by_idx, freq_by_sku={}, qty_by_sku={}, beta=1.0)
 
     t0 = time.perf_counter()

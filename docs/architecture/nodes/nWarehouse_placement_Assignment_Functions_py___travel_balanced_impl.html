@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_travel_balanced_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _travel_balanced_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)</code></pre>
+<pre class="sig"><code>def _travel_balanced_impl(units, candidates_fn, affinity, wp, ledger, sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None)</code></pre>
 <section class="doc">Travel- AND height-aware LPT load balance (Rank_labor).
 
 The expected labor of placing a unit in a bin is freq·qty times the per-pick cost

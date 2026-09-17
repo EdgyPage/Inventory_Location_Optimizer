@@ -34,6 +34,7 @@ from Warehouse.placement.Assignment_Functions import (
     _D_map, _travel_balanced_impl)
 from Warehouse.kernel.cost_model import height_multiplier, per_pick, sec_per_inch
 from Warehouse.inventory.inventory_common import _wp_for
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 # ── the frozen oracle: the shipped loop, verbatim (renamed only) ─────────────
 
@@ -202,8 +203,22 @@ def _rand_wave(rng: random.Random, n_skus, units_per_sku, n_aisles, bins_per_ais
     return units, bins, freq, qty, plp, vol
 
 
-def _pool_as_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets,
-                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
+def _oracle_as_impl(units, candidates_fn, affinity, wp, ledger,
+                    sku_pick_load_product, freq_by_sku, qty_by_sku, cart=None):
+    """The FROZEN oracle, reached through the shape the impl takes since ticket 21.
+
+    THE ORACLE'S BODY IS NOT RESHAPED, and that is the point. It is a hand-copy of the retired
+    algorithm, and rewriting it to match a new signature would re-freeze it against the very
+    change it exists to check -- the hazard ticket 21 was sequenced to avoid. So the ledger is
+    unpacked HERE, in an adapter, and the frozen body above is untouched.
+    """
+    return _oracle_travel_balanced_impl(
+        units, candidates_fn, affinity, wp,
+        ledger.sku_sets, ledger.idx_sets, ledger.demand_sum, ledger.pick_load_sum,
+        sku_pick_load_product, freq_by_sku, qty_by_sku, cart=cart)
+
+
+def _pool_as_impl(units, candidates_fn, affinity, wp, ledger, sku_pick_load_product,
                   freq_by_sku, qty_by_sku, cart=None):
     """`_TravelBalancedPool` driven with the impl's own signature, so the harness below
     compares three things instead of two.
@@ -213,6 +228,8 @@ def _pool_as_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_
     bit-identical decisions. A drain that later declines that order gets a different (and
     intentionally different) answer, which is not what this file is for."""
     from Warehouse.placement.Assignment_Functions import _TravelBalancedPool
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum, aisle_pick_load_sum = ledger.demand_sum, ledger.pick_load_sum
     if not units:
         return []
     pool = _TravelBalancedPool(
@@ -231,7 +248,7 @@ def _run_both(units, bins, freq, qty, plp, vol=None, cart_on=False, waves=1,
     aff = _Affinity([u.order.sku for u in units])
     wp = _wp()
     outs = []
-    for impl in (_oracle_travel_balanced_impl, _travel_balanced_impl, _pool_as_impl):
+    for impl in (_oracle_as_impl, _travel_balanced_impl, _pool_as_impl):
         st = _mk_state(aids)
         avs = {a: 0.0 for a in aids}
         remaining_bins = list(bins)
@@ -239,8 +256,10 @@ def _run_both(units, bins, freq, qty, plp, vol=None, cart_on=False, waves=1,
         for _w in range(waves):
             cart = ((avs, dict(vol), 50.0, sum(freq.values())) if cart_on else None)
             res = impl(list(units), lambda _u: list(remaining_bins), aff, wp,
-                       st['aisle_sku_sets'], st['aisle_idx_sets'],
-                       st['aisle_demand_sum'], st['aisle_pick_load_sum'],
+                       _AisleLedger.over(sku_sets=st['aisle_sku_sets'],
+                                         idx_sets=st['aisle_idx_sets'],
+                                         demand_sum=st['aisle_demand_sum'],
+                                         pick_load_sum=st['aisle_pick_load_sum']),
                        plp, freq, qty, cart=cart)
             seq.append([(id(u), id(b) if b is not None else None) for u, b in res])
             if vanish_bins_after_wave:
@@ -351,18 +370,19 @@ def test_empty_candidates():
     aff = _Affinity([u.order.sku for u in units])
     wp = _wp()
     st_a, st_b = _mk_state([1]), _mk_state([1])
-    ra = _oracle_travel_balanced_impl(list(units), lambda _u: [], aff, wp,
-                                      st_a['aisle_sku_sets'], st_a['aisle_idx_sets'],
-                                      st_a['aisle_demand_sum'], st_a['aisle_pick_load_sum'],
+    ra = _oracle_as_impl(list(units), lambda _u: [], aff, wp,
+                                      _AisleLedger.over(sku_sets=st_a['aisle_sku_sets'], idx_sets=st_a['aisle_idx_sets'],
+                                        demand_sum=st_a['aisle_demand_sum'],
+                                        pick_load_sum=st_a['aisle_pick_load_sum']),
                                       plp, freq, qty)
     rb = _travel_balanced_impl(list(units), lambda _u: [], aff, wp,
-                               st_b['aisle_sku_sets'], st_b['aisle_idx_sets'],
-                               st_b['aisle_demand_sum'], st_b['aisle_pick_load_sum'],
+                               _AisleLedger.over(sku_sets=st_b['aisle_sku_sets'], idx_sets=st_b['aisle_idx_sets'], demand_sum=st_b['aisle_demand_sum'], pick_load_sum=st_b['aisle_pick_load_sum']),
                                plp, freq, qty)
     st_c = _mk_state([1])
     rc = _pool_as_impl(list(units), lambda _u: [], aff, wp,
-                       st_c['aisle_sku_sets'], st_c['aisle_idx_sets'],
-                       st_c['aisle_demand_sum'], st_c['aisle_pick_load_sum'],
+                       _AisleLedger.over(sku_sets=st_c['aisle_sku_sets'], idx_sets=st_c['aisle_idx_sets'],
+                                        demand_sum=st_c['aisle_demand_sum'],
+                                        pick_load_sum=st_c['aisle_pick_load_sum']),
                        plp, freq, qty)
     key = lambda r: [(id(u), b) for u, b in r]           # noqa: E731
     assert key(ra) == key(rb) == key(rc)

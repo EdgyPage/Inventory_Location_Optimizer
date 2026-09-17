@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_co_demand_ranked_impl</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _co_demand_ranked_impl(units, candidates_fn, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)</code></pre>
+<pre class="sig"><code>def _co_demand_ranked_impl(units, candidates_fn, affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool)</code></pre>
 <section class="doc">Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`
 and `expn` actually run; kept as the frozen oracle the port is tested against.
 

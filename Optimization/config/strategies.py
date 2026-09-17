@@ -55,6 +55,12 @@ class StrategyContext:
     orders      : Any = None   # inventory.orders — needed to build the optimal map
     expected_batch_skus : float = 0.0   # k = mean_fraction·N: expected distinct SKUs per
                                         # batch, for the Rank_cartlabor expected-cart term
+    #: THE AISLE BOOKS THIS FAMILY COMMITS TO, as one object (ticket 21).  Filled by
+    #: `strategy_runner._timed_build` from the family's own `PlacementPolicy.ledger_terms` --
+    #: the same declaration the gain evaluator copies before every virtual placement.  Twelve
+    #: builders below named `mgr._aisle_*` one dict at a time; a thirteenth naming one too few
+    #: was not a refusal, it was a policy writing where no reader follows.
+    ledger      : Any = None
 
 
 @dataclass
@@ -94,7 +100,7 @@ def _build_uniform_trip_min_ranked(mgr, ctx: StrategyContext) -> None:
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
         open_pool=build_ranked_uniform_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
 
 
@@ -106,7 +112,7 @@ def _build_rank_popularity(mgr, ctx: StrategyContext) -> None:
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
         open_pool=build_ranked_popularity_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_popularity)
 
@@ -120,8 +126,7 @@ def _build_rank_labor(mgr, ctx: StrategyContext) -> None:
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
         open_pool=build_ranked_labor_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
+            ctx.ledger, mgr._sku_pick_load_product,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -136,9 +141,8 @@ def _build_rank_cartlabor(mgr, ctx: StrategyContext) -> None:
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
         open_pool=build_ranked_cartlabor_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            mgr._aisle_pick_load_sum, mgr._sku_pick_load_product,
-            mgr._aisle_vol_sum, mgr._sku_vol_product, ctx.expected_batch_skus,
+            ctx.ledger, mgr._sku_pick_load_product,
+            mgr._sku_vol_product, ctx.expected_batch_skus,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -153,8 +157,7 @@ def _build_rank_minlabor(mgr, ctx: StrategyContext) -> None:
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
         open_pool=build_ranked_minlabor_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            mgr._aisle_member_pos,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -167,8 +170,7 @@ def _build_rank_maxlabor(mgr, ctx: StrategyContext) -> None:
         build_uniform_aisle_trip_min_assignment_fn(ctx.wp),
         open_pool=build_ranked_maxlabor_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
-            mgr._aisle_member_pos,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         order_score=_score_expected_labor)
 
@@ -202,7 +204,7 @@ def _build_cluster_map(mgr, ctx: StrategyContext) -> None:
     mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
     mgr.placement = build_cluster_map_placement(
         mgr, ctx.affinity, ctx.wp,
-        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.ledger,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta, capped=False)
 
 
@@ -213,7 +215,7 @@ def _build_cluster_map_rank(mgr, ctx: StrategyContext) -> None:
     mgr.build_optimal_map(ctx.orders, ctx.freq_by_sku, ctx.qty_by_sku, ctx.wp)
     mgr.placement = build_cluster_map_placement(
         mgr, ctx.affinity, ctx.wp,
-        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.ledger,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta, capped=True)
 
 
@@ -222,11 +224,11 @@ def _build_trip_min(mgr, ctx: StrategyContext) -> None:
         'ranked_min',
         build_trip_minimizing_assignment_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         open_pool=build_ranked_minimizing_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
 
 
@@ -235,11 +237,11 @@ def _build_trip_max(mgr, ctx: StrategyContext) -> None:
         'ranked_max',
         build_trip_maximizing_assignment_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
         open_pool=build_ranked_maximizing_pool_fn(
             ctx.affinity, ctx.wp,
-            mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+            ctx.ledger,
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
 
 
@@ -249,7 +251,7 @@ def _build_max_cluster(mgr, ctx: StrategyContext) -> None:
     # Reads mgr._aisle_index when the worker armed it (init_travel_costs ran).
     mgr.placement = Placement('cohesion_max', build_cluster_maximizing_assignment_fn(
         ctx.affinity, ctx.wp,
-        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        ctx.ledger,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta,
         aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None)))
 
@@ -258,7 +260,7 @@ def _build_min_cluster(mgr, ctx: StrategyContext) -> None:
     # Anti-affinity control: each SKU goes to the aisle where its cohesion is LOWEST.
     mgr.placement = Placement('cohesion_min', build_cluster_minimizing_assignment_fn(
         ctx.affinity, ctx.wp,
-        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        ctx.ledger,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta,
         aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None)))
 
@@ -268,7 +270,7 @@ def _build_compaction(mgr, ctx: StrategyContext) -> None:
     # within-aisle sweep path is short (min ΣW).  Reads/maintains mgr._aisle_member_pos.
     mgr.placement = build_co_demand_placement(
         True, ctx.affinity, ctx.wp,
-        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.ledger,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
 
 
@@ -277,7 +279,7 @@ def _build_expansion(mgr, ctx: StrategyContext) -> None:
     # upper bound that brackets how much the co-demand placement lever is worth.
     mgr.placement = build_co_demand_placement(
         False, ctx.affinity, ctx.wp,
-        mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum, mgr._aisle_member_pos,
+        ctx.ledger,
         ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta)
 
 

@@ -206,6 +206,16 @@ def _timed_build(strat, mgr, ctx) -> float:
     from "never measured".
     """
     t0 = time.perf_counter()
+    # THE LEDGER, BUILT ONCE PER POLICY (ticket 21).  Twelve builders in `strategies.py` named
+    # `mgr._aisle_*` one dict at a time; `PlacementPolicy.ledger_terms` already declared which
+    # books each family commits to, and now that declaration IS the object they receive -- the
+    # same one the gain evaluator copies before every virtual placement.  A family that names
+    # a book it does not write gets a shared `_UnboundBook` that REFUSES the write and says so.
+    # Read through `state_names` (`_aisle_<book>`), the same spelling `_gain_bundle_for` uses
+    # for its copy list -- one mapping, declared once on the record, rather than two.
+    _pol = _POLICY_BY_KEY.get(strat.restock)
+    ctx.ledger = _AisleLedger.over(**{n[len('aisle_'):]: getattr(mgr, '_' + n)
+                                      for n in getattr(_pol, 'state_names', ())})
     strat.build(mgr, ctx)
     return time.perf_counter() - t0
 
@@ -328,6 +338,19 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
 # docstring gives: `_make_pool` rebuilds the policy for every virtual placement, so anything
 # computed once per arm would otherwise be recomputed O(yard^2) times per drain.
 
+def _ledger_over(state) -> _AisleLedger:
+    """The evaluator's copy-on-write books, as the ledger every builder now takes.
+
+    `state` is keyed `aisle_<book>` because `Inbound.gain`'s copier tables key on that and
+    `Inbound/` may not import the placement engine; `PlacementPolicy.state_names` is the one
+    place that mapping lives. A book this family does not commit to is simply absent, and the
+    ledger gives it a shared `_UnboundBook` that reads empty and REFUSES a write -- so a
+    virtual placement cannot advance a live dict nobody copied, which is the failure the
+    hand-written per-family lists existed to avoid.
+    """
+    return _AisleLedger.over(**{k[len('aisle_'):]: v for k, v in state.items()})
+
+
 def _pool_rank_popularity(sctx, mgr):
     def _factory(cands, state, wp_local):
         # The arm's OWN builder over the copies — its selector then closes over
@@ -335,8 +358,7 @@ def _pool_rank_popularity(sctx, mgr):
         # the live one, so a future tiebreak change cannot leave the evaluator
         # pricing a stale policy under the arm's name.
         return _af.build_ranked_popularity_pool_fn(
-            sctx.affinity, wp_local, state['aisle_sku_sets'],
-            state['aisle_idx_sets'], state['aisle_demand_sum'],
+            sctx.affinity, wp_local, _ledger_over(state),
             sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
             beta=sctx.beta)(cands)
     return _factory
@@ -347,6 +369,9 @@ def _pool_rank_random(sctx, mgr):
         # First-live-aisle stand-in for the RNG draw: deterministic consumption
         # under expectation pricing (head-key insertion order is first-appearance
         # in cands — the pool's own documented, stable order).
+        #
+        # The POOL CLASS, not a builder, so this one still names the three books: a pool
+        # class is handed the dicts it scans, and only the BUILDERS took a ledger (ticket 21).
         return _af._RankedAssignPool(
             cands, sctx.affinity, wp_local, state['aisle_sku_sets'],
             state['aisle_idx_sets'], state['aisle_demand_sum'],
@@ -360,8 +385,9 @@ def _pool_travel_balanced(cart: bool):
 
     `_aisle_pick_load_sum` is the LPT balance's running total and `_aisle_vol_sum` the
     cart's — both committed to by `take`, so both are in the record's `ledger_terms` and
-    therefore copied; `_sku_pick_load_product` / `_sku_vol_product` are per-SKU constants it
-    only reads, and stay live.
+    therefore copied, and both ride the ledger. `_sku_pick_load_product` /
+    `_sku_vol_product` are per-SKU constants it only READS, stay live, and stay their own
+    parameters -- which is the line ticket 21 draws between the two.
     """
     def _make(sctx, mgr):
         geo: dict = {}                 # arm-level bin geometry, across evaluations
@@ -371,18 +397,16 @@ def _pool_travel_balanced(cart: bool):
         total_freq = sum(sctx.freq_by_sku.values()) if cart else None
 
         def _factory(cands, state, wp_local):
-            ass, ais = state['aisle_sku_sets'], state['aisle_idx_sets']
-            ads, apl = state['aisle_demand_sum'], state['aisle_pick_load_sum']
+            led = _ledger_over(state)
             if cart:
                 return _af.build_ranked_cartlabor_pool_fn(
-                    sctx.affinity, wp_local, ass, ais, ads, apl,
-                    mgr._sku_pick_load_product, state['aisle_vol_sum'],
-                    mgr._sku_vol_product, sctx.expected_batch_skus,
+                    sctx.affinity, wp_local, led,
+                    mgr._sku_pick_load_product, mgr._sku_vol_product,
+                    sctx.expected_batch_skus,
                     sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
                     beta=sctx.beta, total_freq=total_freq, geo_memos=geo)(cands)
             return _af.build_ranked_labor_pool_fn(
-                sctx.affinity, wp_local, ass, ais, ads, apl,
-                mgr._sku_pick_load_product,
+                sctx.affinity, wp_local, led, mgr._sku_pick_load_product,
                 sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
                 beta=sctx.beta, geo_memos=geo)(cands)
         return _factory
@@ -396,9 +420,7 @@ def _pool_rank_minlabor(sctx, mgr):
         # centroid then sums in placement order.  It is the quiet one — two levels down,
         # and a shallow copy would hand the pool the live inner lists.
         return _af.build_ranked_minlabor_pool_fn(
-            sctx.affinity, wp_local, state['aisle_sku_sets'],
-            state['aisle_idx_sets'], state['aisle_demand_sum'],
-            state['aisle_member_pos'],
+            sctx.affinity, wp_local, _ledger_over(state),
             sctx.freq_by_idx, sctx.freq_by_sku, sctx.qty_by_sku,
             beta=sctx.beta)(cands)
     return _factory

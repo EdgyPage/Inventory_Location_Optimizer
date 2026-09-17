@@ -34,6 +34,7 @@ from Warehouse.placement.Assignment_Functions import (
 )
 from Optimization.metrics.Workload import WorkloadParams, aisle_workload, aisle_workload_components
 from Optimization.metrics.Simulation_Analytics import expected_task_labor, task_time_breakdown
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 
 def _cfg() -> PickConfig:
@@ -139,7 +140,7 @@ def test_rank_labor_is_travel_aware():
     units = [_Unit(c) for _ in range(8)]
     ass, aix, ads, apl = defaultdict(set), defaultdict(set), defaultdict(float), defaultdict(float)
     spl = {100: 1.0 * 1.0 * 10.0}
-    fn = build_ranked_labor_fn(_aff([100]), _wp(), ass, aix, ads, apl, spl,
+    fn = build_ranked_labor_fn(_aff([100]), _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, pick_load_sum=apl), spl,
                                {}, {100: 1.0}, {100: 1.0})
     res = fn(units, lambda u: list(bins))
     placed = [b for _, b in res if b is not None]
@@ -158,7 +159,7 @@ def test_rank_popularity_balances_demand():
     units = [_Unit(c) for c in carts]
     ass, aix, ads = defaultdict(set), defaultdict(set), defaultdict(float)
     fbs = {c.sku: c._f for c in carts}; qbs = {c.sku: 1.0 for c in carts}
-    fn = build_ranked_popularity_fn(_aff([c.sku for c in carts]), _wp(), ass, aix, ads,
+    fn = build_ranked_popularity_fn(_aff([c.sku for c in carts]), _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads),
                                     {}, fbs, qbs)
     res = fn(units, lambda u: list(bins))
     assert all(b is not None for _, b in res)
@@ -174,7 +175,7 @@ def test_rank_random_disperses_across_aisles():
     ass, aix, ads = defaultdict(set), defaultdict(set), defaultdict(float)
     fbs = {c.sku: 1.0 for c in carts}; qbs = {c.sku: 1.0 for c in carts}
     fn = build_ranked_uniform_assignment_fn(_aff([c.sku for c in carts]), _wp(),
-                                            ass, aix, ads, {}, fbs, qbs,
+                                            _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads), {}, fbs, qbs,
                                             rng=random.Random(0))
     res = fn(units, lambda u: list(bins))
     aisles = {b.location[0] for _, b in res if b is not None}
@@ -239,7 +240,7 @@ def test_rank_labor_height_vs_travel_tradeoff():
         c = _Cart(7, 1.0, 1.0, 1.0, handle_var=handle_var)
         ass, aix, ads, apl = (defaultdict(set), defaultdict(set),
                               defaultdict(float), defaultdict(float))
-        fn = build_ranked_labor_fn(_aff([7]), _wp_h(brackets), ass, aix, ads, apl,
+        fn = build_ranked_labor_fn(_aff([7]), _wp_h(brackets), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, pick_load_sum=apl),
                                    {7: 0.0}, {}, {7: 1.0}, {7: 1.0})
         res = fn([_Unit(c)], lambda u: [bin_low, bin_high])
         return res[0][1]
@@ -261,7 +262,7 @@ def test_minlabor_picks_golden_zone_and_front_bin():
     aff = _aff_csr([100])
     ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
                           defaultdict(float), defaultdict(lambda: defaultdict(list)))
-    fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
+    fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                   {}, {100: 1.0}, {100: 1.0})
     res = fn([_Unit(c)], lambda u: [high_near, low_far, low_near])
     b = res[0][1]
@@ -279,7 +280,7 @@ def test_maxlabor_picks_high_far_bin():
     aff = _aff_csr([100])
     ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
                           defaultdict(float), defaultdict(lambda: defaultdict(list)))
-    fn = build_ranked_maxlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
+    fn = build_ranked_maxlabor_fn(aff, _wp_h(brackets), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                   {}, {100: 1.0}, {100: 1.0})
     res = fn([_Unit(c)], lambda u: [near_low, far_high])
     b = res[0][1]
@@ -300,7 +301,7 @@ def test_minlabor_compacts_codemanded_into_one_aisle():
     freq_by_idx = {idx[1]: 2.0, idx[2]: 1.0}
     ass, aix, ads, amp = (defaultdict(set), defaultdict(set),
                           defaultdict(float), defaultdict(lambda: defaultdict(list)))
-    fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), ass, aix, ads, amp,
+    fn = build_ranked_minlabor_fn(aff, _wp_h(brackets), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                   freq_by_idx, {1: 2.0, 2: 1.0}, {1: 1.0, 2: 1.0}, beta=100.0)
     res = fn([_Unit(c1), _Unit(c2)], lambda u: list(bins))
     placed = [b for _, b in res]
@@ -427,10 +428,9 @@ def _cartlabor_place(cap, cart_on):
     a_sku, a_idx = defaultdict(set), defaultdict(set)
     a_dem, a_pl, a_vol = dd(), dd(), dd()
     if cart_on:
-        fn = build_ranked_cartlabor_fn(affinity, wp, a_sku, a_idx, a_dem, a_pl, {},
-                                       a_vol, sku_vol, 1.0, {}, freq, qty)
+        fn = build_ranked_cartlabor_fn(affinity, wp, _AisleLedger.over(sku_sets=a_sku, idx_sets=a_idx, demand_sum=a_dem, pick_load_sum=a_pl, vol_sum=a_vol), {}, sku_vol, 1.0, {}, freq, qty)
     else:
-        fn = build_ranked_labor_fn(affinity, wp, a_sku, a_idx, a_dem, a_pl, {}, {}, freq, qty)
+        fn = build_ranked_labor_fn(affinity, wp, _AisleLedger.over(sku_sets=a_sku, idx_sets=a_idx, demand_sum=a_dem, pick_load_sum=a_pl), {}, {}, freq, qty)
     pairs = fn(units, lambda u: bins)
     return {u.order.sku: (b.location[0] if b else None) for u, b in pairs}
 
@@ -600,7 +600,7 @@ def test_cluster_map_cohesion_pulls_codemanded_into_one_aisle():
     idx = aff._sku_to_idx
     fbi = {idx[1]: 2.0, idx[2]: 1.0}
     ass, aix, ads, amp = _cm_state()
-    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+    plc = build_cluster_map_placement(mgr, aff, _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                       fbi, {1: 2.0, 2: 1.0}, {1: 1.0, 2: 1.0},
                                       beta=1.0, capped=False)
     c1 = _Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)   # higher expected_labor → placed first
@@ -623,7 +623,7 @@ def test_cluster_map_reports_the_cost_that_chose_the_bin():
     aff = _aff_csr([1, 2], [(1, 2, 4.0)])
     idx = aff._sku_to_idx
     ass, aix, ads, amp = _cm_state()
-    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+    plc = build_cluster_map_placement(mgr, aff, _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                       {idx[1]: 2.0, idx[2]: 1.0}, {1: 2.0}, {1: 1.0},
                                       beta=1.0, capped=False)
     b, score = plc.open_pool(list(bins)).take(_Unit(_Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)))
@@ -640,7 +640,7 @@ def test_cluster_map_capped_fallback_reports_no_cost():
     aff = _aff_csr([1, 2], [(1, 2, 4.0)])
     idx = aff._sku_to_idx
     ass, aix, ads, amp = _cm_state()
-    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+    plc = build_cluster_map_placement(mgr, aff, _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                       {idx[1]: 2.0, idx[2]: 1.0}, {1: 2.0}, {1: 1.0},
                                       beta=1.0, capped=True)
     b, score = plc.open_pool(list(bins)).take(_Unit(_Cart(1, 5.0, 2.0, 1.0, handle_var=5.0)))
@@ -656,7 +656,7 @@ def test_cluster_map_anchors_at_favored_location_then_compacts():
     aff = _aff_csr([7], [])
     fbi = {aff._sku_to_idx[7]: 1.0}
     ass, aix, ads, amp = _cm_state()
-    plc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+    plc = build_cluster_map_placement(mgr, aff, _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                       fbi, {7: 1.0}, {7: 1.0}, beta=1.0, capped=False)
     assert plc.place_one(_Unit(_Cart(7, 1, 1, 1)), [prime, mid, far]) is mid   # matched tier
 
@@ -670,11 +670,11 @@ def test_cluster_map_rank_caps_prime_like_map_rank():
     aff = _aff_csr([7], [])
     fbi = {aff._sku_to_idx[7]: 1.0}
     ass, aix, ads, amp = _cm_state()
-    unc = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+    unc = build_cluster_map_placement(mgr, aff, _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                       fbi, {7: 1.0}, {7: 1.0}, beta=1.0, capped=False)
     assert unc.place_one(_Unit(_Cart(7, 1, 1, 1)), [prime, bad]) is prime    # |1−5|<|12−5|
     ass, aix, ads, amp = _cm_state()
-    cap = build_cluster_map_placement(mgr, aff, _wp(), ass, aix, ads, amp,
+    cap = build_cluster_map_placement(mgr, aff, _wp(), _AisleLedger.over(sku_sets=ass, idx_sets=aix, demand_sum=ads, member_pos=amp),
                                       fbi, {7: 1.0}, {7: 1.0}, beta=1.0, capped=True)
     assert cap.place_one(_Unit(_Cart(7, 1, 1, 1)), [prime, bad]) is bad      # prime off-limits
 

@@ -34,6 +34,7 @@ from Warehouse.picking.Pick import PickConfig
 
 # Reuse the mixed-catalog helpers from the sibling channel test.
 from test_fulfillment_channels import _mixed_inventory, _ff_order, _plan
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 
 # ── strategies_for ───────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ def test_opt_cohesion_stock_places_fulfillment_units():
     freq_by_idx = {aff._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in plan.sampled if c.sku in aff._sku_to_idx}
     fn = build_cluster_maximizing_assignment_fn(
-        aff, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        aff, wp, _AisleLedger.over(sku_sets=mgr._aisle_sku_sets, idx_sets=mgr._aisle_idx_sets, demand_sum=mgr._aisle_demand_sum),
         freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0, aisle_index=mgr._aisle_index)
     mgr.placement = Placement('cohesion_max', fn)         # the opt/policy-stock placement
     mgr.enqueue_all(plan.sampled)                         # stock THROUGH the cohesion policy

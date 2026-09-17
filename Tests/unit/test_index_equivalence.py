@@ -38,6 +38,7 @@ from Optimization.metrics.Workload import WorkloadParams
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, BatchConfig, Task
 from perf_simulation import _build_inventory, _build_affinity_store, _build_warehouse_cfg
+from Warehouse.inventory.aisle_ledger import AisleLedger as _AisleLedger
 
 SEED, N_SKUS, BINS_PER_AISLE, N_BATCHES, N_PICKERS = 42, 2000, 100, 60, 5
 
@@ -89,7 +90,7 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in inventory.orders if c.sku in affinity._sku_to_idx}
     mgr.placement = Placement('cohesion_min', build_cluster_minimizing_assignment_fn(
-        affinity, wp, mgr._aisle_sku_sets, mgr._aisle_idx_sets, mgr._aisle_demand_sum,
+        affinity, wp, _AisleLedger.over(sku_sets=mgr._aisle_sku_sets, idx_sets=mgr._aisle_idx_sets, demand_sum=mgr._aisle_demand_sum),
         freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
         aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None)))
     return wh, mgr

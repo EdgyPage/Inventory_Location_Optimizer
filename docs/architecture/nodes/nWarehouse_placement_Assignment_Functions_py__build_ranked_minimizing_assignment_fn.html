@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>build_ranked_minimizing_assignment_fn</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def build_ranked_minimizing_assignment_fn(affinity, wp, aisle_sku_sets: dict, aisle_idx_sets: dict, aisle_demand_sum: dict, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)</code></pre>
+<pre class="sig"><code>def build_ranked_minimizing_assignment_fn(affinity, wp, ledger, freq_by_idx: dict, freq_by_sku: dict, qty_by_sku: dict, beta: float=1.0)</code></pre>
 <section class="doc">Ranked assignment: high pick-effort items get lowest-D (easiest) bins.
 
 Same parameter signature as build_trip_minimizing_assignment_fn.  Used as the
