@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_cluster_map_choose_aisle</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None)</code></pre>
+<pre class="sig"><code>def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None, cold_index=None)</code></pre>
 <section class="doc">Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap.
 
 Same argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is

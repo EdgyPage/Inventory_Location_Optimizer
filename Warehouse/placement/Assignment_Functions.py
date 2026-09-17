@@ -45,6 +45,112 @@ def _closest_abs(prefs: list[float], target: float) -> float:
     return best
 
 
+
+class _AislePrefIndex:
+    """Every live aisle's bin prefs, MERGED once and maintained as bins are consumed.
+
+    Answers the cold-start tie-break -- "the live aisle whose pref is closest to `target`" --
+    in O(log N + k) against O(A) for the per-aisle `min(tied, key=_closest_abs(...))` it
+    replaces, where k is the number of entries at the exact minimal gap (1 or 2 in practice).
+
+    THE TIE ORDER IS THE WHOLE DIFFICULTY, and it is not the obvious one. The scan it replaces
+    is `min(tied, key=...)`, and `min` returns the FIRST element achieving the minimum -- so
+    among aisles whose closest pref is equally distant, the winner is the EARLIEST IN
+    `by_aisle` ITERATION ORDER, not the lowest pref and not the lowest aisle id. `rank` carries
+    that order (fixed when the group is built) and the walk below breaks ties on it.
+
+    Consumption uses the same alive-chain trick as `_PrefPool`: a taken bin is spliced out of
+    both directions so no tombstone is ever re-scanned. It is kept in multiset-sync with
+    `prefs_by_aisle` by the one caller that removes, which is `_place`.
+    """
+
+    __slots__ = ('_pref', '_rank', '_aid', '_alive', '_nxt', '_prv', '_n')
+
+    def __init__(self, by_aisle, prefs_by_aisle):
+        rank = {aid: i for i, aid in enumerate(by_aisle)}     # by_aisle ITERATION order
+        keyed = sorted(((p, rank[aid], aid)
+                        for aid, lst in by_aisle.items() if lst
+                        for p in prefs_by_aisle[aid]),
+                       key=lambda k: (k[0], k[1]))
+        self._pref = [k[0] for k in keyed]
+        self._rank = [k[1] for k in keyed]
+        self._aid = [k[2] for k in keyed]
+        n = self._n = len(keyed)
+        self._alive = [True] * n
+        self._nxt = list(range(n + 1))
+        self._prv = list(range(-1, n))
+
+    def _find_nxt(self, i: int) -> int:
+        nxt, n = self._nxt, self._n
+        root = i
+        while root < n and not self._alive[root]:
+            root = nxt[root]
+        while i != root:
+            i, nxt[i] = nxt[i], root
+        return root
+
+    def _find_prv(self, i: int) -> int:
+        prv = self._prv
+        root = i
+        while root >= 0 and not self._alive[root]:
+            root = prv[root + 1]
+        while i != root and i >= 0:
+            i, prv[i + 1] = prv[i + 1], root
+        return root
+
+    def remove(self, aid: int, p: float) -> None:
+        """Drop ONE entry for `(aid, p)` -- the bin `_place` just took."""
+        i = bisect.bisect_left(self._pref, p)
+        while i < self._n and self._pref[i] == p:
+            if self._alive[i] and self._aid[i] == aid:
+                self._alive[i] = False
+                self._nxt[i] = i + 1
+                self._prv[i + 1] = i - 1
+                return
+            i += 1
+
+    def closest(self, target):
+        """The aisle with the smallest `|pref - target|`; ties to the earliest `by_aisle` rank.
+
+        `target is None` means the scan it replaces is `min(tied, key=prefs[a][0])` -- the aisle
+        holding the globally smallest pref -- which is the first alive entry.
+        """
+        if target is None:
+            i = self._find_nxt(0)
+            return self._aid[i] if i < self._n else None
+
+        p = bisect.bisect_left(self._pref, target)
+        r = self._find_nxt(p)
+        l = self._find_prv(p - 1)
+        best_gap = None
+        best_rank = best_aid = None
+        # Walk outward. Each side is visited while it can still TIE the best gap, because a tie
+        # can be won on rank by an entry further out in pref order.
+        while True:
+            cand = None
+            if r < self._n and l >= 0:
+                gr, gl = self._pref[r] - target, target - self._pref[l]
+                cand = r if gr < gl else l
+            elif r < self._n:
+                cand = r
+            elif l >= 0:
+                cand = l
+            if cand is None:
+                break
+            gap = abs(self._pref[cand] - target)
+            if best_gap is not None and gap > best_gap:
+                break
+            if best_gap is None or gap < best_gap:
+                best_gap, best_rank, best_aid = gap, self._rank[cand], self._aid[cand]
+            elif self._rank[cand] < best_rank:
+                best_rank, best_aid = self._rank[cand], self._aid[cand]
+            if cand == r:
+                r = self._find_nxt(r + 1)
+            else:
+                l = self._find_prv(l - 1)
+        return best_aid
+
+
 class _PrefPool:
     """A wave-local pool of candidate bins sorted by `pref`, with O(log) closest-to-target
     queries and O(α) consumption (a bin taken by one unit is invisible to later queries).
@@ -2088,7 +2194,7 @@ def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
 
 
 def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target,
-                              lifts=None):
+                              lifts=None, cold_index=None):
     """Cohesion-first aisle: max Σ(lift−1)·f to members, tie-break / cold-start by anchor gap.
 
     Same argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is
@@ -2117,6 +2223,20 @@ def _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row, aisle_idx_sets, fre
     # saves.  It does NOT change the complexity class -- the scan is still O(|live|) per
     # placement and |live| still grows linearly with the catalogue.  See
     # docs/design/COMPLEXITY_ROUND_FINDINGS.md for the structural fix and why it is separate.
+    # THE COLD START, answered without scanning (ticket 05).  `cold_index` is not None only
+    # when the caller has established that this SKU has NO partner placed ANYWHERE -- and then
+    # `_delta_lift_from_row` returns exactly 0.0 for every aisle (the intersection is empty in
+    # all of them), so `best` is 0.0 and `tied` is every live aisle in `by_aisle` order.  That
+    # is the whole of both scans, and the tie-break that remains -- "the live aisle whose pref
+    # is closest to `target`" -- is a nearest-neighbour query the merged index answers in
+    # O(log N + k) against O(A) here.
+    #
+    # This is the GROWING case, not a corner: the tied fraction was measured rising 3.0% ->
+    # 14.4% across a 16x ladder (`docs/design/COMPLEXITY_ROUND_FINDINGS.md` section 3.5.1),
+    # because `tied` is aisles whose lift compares exactly equal and a SKU with no partners
+    # placed gives every one of them 0.0.
+    if cold_index is not None:
+        return cold_index.closest(target)
     best: float = -math.inf
     tied: list = []
     if lifts is None:
@@ -2172,7 +2292,8 @@ def build_cluster_map_placement(mgr, affinity, wp, ledger,
                           for aid, lst in by_aisle.items()}
         return by_aisle, prefs_by_aisle
 
-    def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None):
+    def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None,
+               pref_index=None, live_idx=None):
         """Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state.
 
         `run_cache` (place_wave only) reuses the SKU's affinity row AND the per-aisle
@@ -2188,6 +2309,19 @@ def build_cluster_map_placement(mgr, affinity, wp, ledger,
         order flipped, moving one placement at 8k-SKU meso scale."""
         target = mgr._map_target.get(sku)
         lifts = None
+        # IS THIS SKU COLD?  One `isdisjoint` against the LIVE union of placed indices, instead
+        # of one `_delta_lift_from_row` per live aisle.  `live_idx` is maintained by the pool
+        # (seeded at open, one add per commit) -- the straggler path has no pool and passes
+        # None, keeping the scan it always had.
+        #
+        # `_delta_lift_from_row` sums over `row & aisle_idx_sets[aid]`, and every aisle's set is
+        # a SUBSET of the live union, so an empty intersection with the union is an empty
+        # intersection with every aisle: exactly 0.0 each, with no float addition performed at
+        # all.  That is what makes this byte-identical rather than merely equal -- the concern
+        # `_place`'s run-cache paragraph was written about is summation ORDER, and here there is
+        # no summation.
+        cold = (pref_index is not None and live_idx is not None
+                and not _affinity_row(affinity, sku).keys() & live_idx)
         if run_cache is not None and run_cache.get('sku') == sku:
             row, lifts = run_cache['row'], run_cache['lifts']
         else:
@@ -2197,20 +2331,33 @@ def build_cluster_map_placement(mgr, affinity, wp, ledger,
                          for a, lst in by_aisle.items() if lst}
                 run_cache.update(sku=sku, row=row, lifts=lifts)
         aid = _cluster_map_choose_aisle(by_aisle, prefs_by_aisle, row,
-                                        aisle_idx_sets, freq_by_idx, target, lifts=lifts)
+                                        aisle_idx_sets, freq_by_idx, target, lifts=lifts,
+                                        cold_index=pref_index if cold else None)
         if aid is None:
             return None, None
         _mass, cx = _demand_weighted_partner_centroid(
             affinity, sku, aisle_member_pos[aid], freq_by_idx)
         chosen, cost = _cluster_map_pick_bin(by_aisle[aid], pref, target, cx, x_pace, capped)
         by_aisle[aid].remove(chosen)
+        _p_chosen = pref.get(id(chosen), 0.0)
         plst = prefs_by_aisle[aid]                        # drop the chosen bin's pref (multiset-sync)
-        k = bisect.bisect_left(plst, pref.get(id(chosen), 0.0))
-        if k < len(plst) and plst[k] == pref.get(id(chosen), 0.0):
+        k = bisect.bisect_left(plst, _p_chosen)
+        if k < len(plst) and plst[k] == _p_chosen:
             del plst[k]
+        if pref_index is not None:
+            # The THIRD structure in multiset-sync, and the reason the merged index is a piece
+            # of work rather than a line: it has to be maintained as bins are consumed, or the
+            # next cold query answers from bins this wave already handed out.
+            pref_index.remove(aid, _p_chosen)
         if sku not in aisle_sku_sets[aid]:
             ledger.add_sku(aid, sku, demand=f_s * q_s)
-        ledger.add_bin(aid, affinity._sku_to_idx.get(sku), chosen.x_phys)
+        _idx_s = affinity._sku_to_idx.get(sku)
+        ledger.add_bin(aid, _idx_s, chosen.x_phys)
+        if live_idx is not None and _idx_s is not None:
+            # The union the cold check reads, kept LIVE.  `_ClusterMapPool._all_idx` is frozen
+            # for the group ON PURPOSE (it ranks the order), so this is a second set with a
+            # different job rather than a reuse of that one.
+            live_idx.add(_idx_s)
         if run_cache is not None and run_cache.get('sku') == sku:
             # The commit may have grown THIS aisle's idx-set: recompute its delta fresh so
             # the next same-SKU unit sees exactly what a full per-unit recompute would.
@@ -2248,13 +2395,20 @@ def build_cluster_map_placement(mgr, affinity, wp, ledger,
         back would reintroduce exactly the bug above.
         """
 
-        __slots__ = ('_by_aisle', '_prefs', '_all_idx', '_run_cache')
+        __slots__ = ('_by_aisle', '_prefs', '_all_idx', '_run_cache',
+                     '_pref_index', '_live_idx')
 
         def __init__(self, candidates):
             self._by_aisle, self._prefs = _group(candidates)   # one tier, once per group
             self._all_idx = (set().union(*aisle_idx_sets.values())
                              if aisle_idx_sets else set())
             self._run_cache: dict = {}          # same-SKU run reuse; _place owns the rules
+            # THE COLD-START PAIR (ticket 05).  `_live_idx` is the union `_all_idx` is a frozen
+            # copy of -- frozen there by decision, because `sort_key` ranks the whole group
+            # against the pre-group union and must not drift as the wave places.  This one
+            # tracks, because "has this SKU any partner placed YET" is a question about now.
+            self._live_idx = set(self._all_idx)
+            self._pref_index = _AislePrefIndex(self._by_aisle, self._prefs)
 
         def __len__(self):
             return sum(len(lst) for lst in self._by_aisle.values())
@@ -2275,7 +2429,7 @@ def build_cluster_map_placement(mgr, affinity, wp, ledger,
             c = unit.order
             return _place(c.sku, self._by_aisle, self._prefs,
                           freq_by_sku.get(c.sku, 0.0), qty_by_sku.get(c.sku, 0.0),
-                          self._run_cache)
+                          self._run_cache, self._pref_index, self._live_idx)
 
     def open_pool(candidates, rep=None):
         return _ClusterMapPool(candidates)

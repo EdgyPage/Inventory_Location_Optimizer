@@ -426,7 +426,16 @@ def _run_arm(strategy, patch=None):
 def test_cluster_map_cache_matches_frozen_oracle():
     new = _run_arm('uni_cluster_map_rank_norsl')
     def _patch():
-        af._cluster_map_choose_aisle = _oracle_choose_aisle
+        # WRAPPED, so the frozen body below stays verbatim: `_cluster_map_choose_aisle` gained
+        # a `cold_index` keyword in ticket 05, and the oracle -- a hand-copy of the algorithm as
+        # of 831571f -- must not grow a parameter to match it.
+        #
+        # AND THE WRAPPER DROPS IT ON PURPOSE. `cold_index` is the O(log N) short-circuit for
+        # the cold start; the oracle is the O(A) scan it replaces. Ignoring it here is what
+        # makes this test compare the fast path against the slow one over a WHOLE ARM, which is
+        # the strongest statement available that the short-circuit moves no placement.
+        af._cluster_map_choose_aisle = (
+            lambda *a, cold_index=None, **kw: _oracle_choose_aisle(*a, **kw))
     oracle = _run_arm('uni_cluster_map_rank_norsl', _patch)
     assert new == oracle, (
         f'cluster_map SKU-run cache diverged from the frozen oracle: {new[:3]} vs {oracle[:3]}')

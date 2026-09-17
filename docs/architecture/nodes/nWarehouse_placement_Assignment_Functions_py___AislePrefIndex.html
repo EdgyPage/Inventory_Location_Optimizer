@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_AislePrefIndex · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___AislePrefIndex" data-id="Warehouse/placement/Assignment_Functions.py::_AislePrefIndex">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_AislePrefIndex</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_AislePrefIndex</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _AislePrefIndex</code></pre>
+<section class="doc">Every live aisle&#x27;s bin prefs, MERGED once and maintained as bins are consumed.
+
+Answers the cold-start tie-break -- &quot;the live aisle whose pref is closest to `target`&quot; --
+in O(log N + k) against O(A) for the per-aisle `min(tied, key=_closest_abs(...))` it
+replaces, where k is the number of entries at the exact minimal gap (1 or 2 in practice).
+
+THE TIE ORDER IS THE WHOLE DIFFICULTY, and it is not the obvious one. The scan it replaces
+is `min(tied, key=...)`, and `min` returns the FIRST element achieving the minimum -- so
+among aisles whose closest pref is equally distant, the winner is the EARLIEST IN
+`by_aisle` ITERATION ORDER, not the lowest pref and not the lowest aisle id. `rank` carries
+that order (fixed when the group is built) and the walk below breaks ties on it.
+
+Consumption uses the same alive-chain trick as `_PrefPool`: a taken bin is spliced out of
+both directions so no tombstone is ever re-scanned. It is kept in multiset-sync with
+`prefs_by_aisle` by the one caller that removes, which is `_place`.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__ClusterMapPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___AislePrefIndex">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_AislePrefIndex">Source ↗</a></p>
+</article>
+</main>
+</body></html>

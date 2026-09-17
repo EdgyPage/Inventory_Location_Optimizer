@@ -23476,6 +23476,47 @@
       "kind": "module",
       "signature": null
     },
+    "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex": {
+      "decorators": [],
+      "doc": "Every live aisle's bin prefs, MERGED once and maintained as bins are consumed.\n\nAnswers the cold-start tie-break -- \"the live aisle whose pref is closest to `target`\" --\nin O(log N + k) against O(A) for the per-aisle `min(tied, key=_closest_abs(...))` it\nreplaces, where k is the number of entries at the exact minimal gap (1 or 2 in practice).\n\nTHE TIE ORDER IS THE WHOLE DIFFICULTY, and it is not the obvious one. The scan it replaces\nis `min(tied, key=...)`, and `min` returns the FIRST element achieving the minimum -- so\namong aisles whose closest pref is equally distant, the winner is the EARLIEST IN\n`by_aisle` ITERATION ORDER, not the lowest pref and not the lowest aisle id. `rank` carries\nthat order (fixed when the group is built) and the walk below breaks ties on it.\n\nConsumption uses the same alive-chain trick as `_PrefPool`: a taken bin is spliced out of\nboth directions so no tombstone is ever re-scanned. It is kept in multiset-sync with\n`prefs_by_aisle` by the one caller that removes, which is `_place`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, by_aisle, prefs_by_aisle)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_nxt": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int) -> int"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_prv": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int) -> int"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.closest": {
+      "decorators": [],
+      "doc": "The aisle with the smallest `|pref - target|`; ties to the earliest `by_aisle` rank.\n\n`target is None` means the scan it replaces is `min(tied, key=prefs[a][0])` -- the aisle\nholding the globally smallest pref -- which is the first alive entry.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, target)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.remove": {
+      "decorators": [],
+      "doc": "Drop ONE entry for `(aid, p)` -- the bin `_place` just took.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, p: float) -> None"
+    },
     "Warehouse/placement/Assignment_Functions.py::_CLUSTER_MAP_W_CENT": {
       "decorators": [],
       "doc": null,
@@ -23970,7 +24011,7 @@
       "doc": "Cohesion-first aisle: max \u03a3(lift\u22121)\u00b7f to members, tie-break / cold-start by anchor gap.\n\nSame argmax as ``max(live, key=(lift, -anchor_gap))`` but LAZY: the O(B) anchor-gap scan is\nreplaced by an O(log) ``_closest_abs`` bisect on the aisle's pre-sorted ``prefs_by_aisle`` and\nis evaluated ONLY for the aisles tied at the max lift (in the warm case, one aisle wins on lift\n\u2192 no gap work at all).  ``row`` is the SKU's pre-sliced affinity row (hoisted once per unit).\n\n``lifts`` may carry the delta values precomputed by a caller's same-SKU run cache (a\nsuperset keyed by aisle); values for the current live aisles are read from it instead\nof recomputed \u2014 identical numbers, because within a same-SKU run the member idx-sets\ngain only the SKU's own index, which (self-pairs are not stored) is never in ``row``.",
       "is_async": false,
       "kind": "function",
-      "signature": "(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None)"
+      "signature": "(by_aisle, prefs_by_aisle, row, aisle_idx_sets, freq_by_idx, target, lifts=None, cold_index=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_cluster_map_pick_bin": {
       "decorators": [],
@@ -24137,7 +24178,7 @@
       "doc": "Shared aisle+bin choice; mutates the chosen aisle's bin list + pref list + aisle state.\n\n`run_cache` (place_wave only) reuses the SKU's affinity row AND the per-aisle\ndelta-lift values across a same-SKU run (sorted_units clusters same-SKU units:\nidentical priority, stable sort).  Byte-identity argument: within a run the ONLY\nidx-set that mutates is the winner's (commit adds this SKU's own index), and the\nwinner's cached delta is recomputed fresh right after each commit below.  Every\nother aisle's set is untouched, so its cached value is bit-for-bit what a fresh\nrecompute would return \u2014 same operands AND same summation order (an unmutated\nset iterates identically; _delta_lift_from_row's iterate-the-smaller-side branch\nsees the same lengths).  A value-only argument is NOT enough here: the first cut\ncached across the winner's set growth and drifted by one ulp when the summation\norder flipped, moving one placement at 8k-SKU meso scale.",
       "is_async": false,
       "kind": "function",
-      "signature": "(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None)"
+      "signature": "(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None, pref_index=None, live_idx=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement.open_pool": {
       "decorators": [],

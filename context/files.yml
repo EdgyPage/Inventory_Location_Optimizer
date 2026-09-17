@@ -3781,6 +3781,22 @@ files:
       - {name: "test_an_exhausted_pool_reports_nothing", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
       - {name: "test_a_stale_winner_key_would_send_the_next_unit_to_the_wrong_aisle", file: "Tests/unit/test_co_demand_pool_equivalence.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_cold_start_tie_break.py":
+    purpose: "Fences _AislePrefIndex, the merged sorted array that answers cluster_map's COLD-START tie-break in O(log N + k) against the O(A) per-aisle scan it replaces -- the growing case, measured rising 3.0% to 14.4% of a scan already fitting k=1.99. The whole difficulty is the tie ORDER: `min` returns the FIRST element achieving the minimum, so equal gaps go to the earliest aisle in by_aisle ITERATION order, not the lowest pref or the lowest id -- so the collisions are CONSTRUCTED (the winner deliberately holds both the higher id and the higher pref) rather than hoped for, and a randomised leg interleaves consumption because the index is a third structure in multiset-sync."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_equal_gaps_go_to_the_EARLIEST_aisle_in_by_aisle_order", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_the_tie_is_not_broken_on_aisle_id_or_on_pref", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_an_exact_hit_still_respects_the_order", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_a_tie_can_be_won_from_further_out_in_pref_order", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_target_None_is_the_globally_smallest_pref", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_a_consumed_bin_stops_answering", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_an_emptied_aisle_disappears_exactly_as_the_scan_skips_it", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_removing_one_of_several_equal_prefs_leaves_the_rest", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_an_empty_index_answers_None", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_the_index_matches_the_scan_under_interleaved_consumption", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+      - {name: "test_the_randomised_leg_actually_produces_ties", file: "Tests/unit/test_cold_start_tie_break.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_config_reaches_the_worker.py":
     purpose: "The fifth-seam guard, stated generically rather than per knob: a spawned worker cannot import sim_config, every spec accessor is threaded into workunits._shared or declared parent-only, and no accessor snapshots CONFIG at import."
     layer: "tests"

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tests/unit/test_cold_start_tie_break.py · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="file">
+<h1><code>Tests/unit/test_cold_start_tie_break.py</code></h1>
+<p class="meta">layer <span class="chip">tests</span></p>
+<p class="purpose">Fences _AislePrefIndex, the merged sorted array that answers cluster_map&#x27;s COLD-START tie-break in O(log N + k) against the O(A) per-aisle scan it replaces -- the growing case, measured rising 3.0% to 14.4% of a scan already fitting k=1.99. The whole difficulty is the tie ORDER: `min` returns the FIRST element achieving the minimum, so equal gaps go to the earliest aisle in by_aisle ITERATION order, not the lowest pref or the lowest id -- so the collisions are CONSTRUCTED (the winner deliberately holds both the higher id and the higher pref) rather than hoped for, and a randomised leg interleaves consumption because the index is a third structure in multiset-sync.</p>
+<section><h2>Key symbols</h2><ul class="rel"><li><code>test_equal_gaps_go_to_the_EARLIEST_aisle_in_by_aisle_order</code> <span class="dim">function</span></li><li><code>test_the_tie_is_not_broken_on_aisle_id_or_on_pref</code> <span class="dim">function</span></li><li><code>test_an_exact_hit_still_respects_the_order</code> <span class="dim">function</span></li><li><code>test_a_tie_can_be_won_from_further_out_in_pref_order</code> <span class="dim">function</span></li><li><code>test_target_None_is_the_globally_smallest_pref</code> <span class="dim">function</span></li><li><code>test_a_consumed_bin_stops_answering</code> <span class="dim">function</span></li><li><code>test_an_emptied_aisle_disappears_exactly_as_the_scan_skips_it</code> <span class="dim">function</span></li><li><code>test_removing_one_of_several_equal_prefs_leaves_the_rest</code> <span class="dim">function</span></li><li><code>test_an_empty_index_answers_None</code> <span class="dim">function</span></li><li><code>test_the_index_matches_the_scan_under_interleaved_consumption</code> <span class="dim">function</span></li><li><code>test_the_randomised_leg_actually_produces_ties</code> <span class="dim">function</span></li></ul></section>
+<section><h2>Nodes in this file <span class="count">(0)</span></h2><table class="tbl"><tr><th>kind</th><th>name</th><th class="num">fan-in</th><th class="num">fan-out</th></tr><tr><td class='dim' colspan='4'>no graph nodes (test/asset file)</td></tr></table></section>
+
+</article>
+</main>
+</body></html>

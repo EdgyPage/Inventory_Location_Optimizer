@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_place</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None)</code></pre>
+<pre class="sig"><code>def _place(sku, by_aisle, prefs_by_aisle, f_s, q_s, run_cache=None, pref_index=None, live_idx=None)</code></pre>
 <section class="doc">Shared aisle+bin choice; mutates the chosen aisle&#x27;s bin list + pref list + aisle state.
 
 `run_cache` (place_wave only) reuses the SKU&#x27;s affinity row AND the per-aisle

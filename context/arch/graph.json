@@ -19981,6 +19981,16 @@
       "src": "Warehouse/placement/Assignment_Functions.py"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_nxt",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.closest"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_prv",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.closest"
+    },
+    {
       "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__"
@@ -20329,6 +20339,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_demand",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__init__"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
@@ -47959,6 +47974,54 @@
       "kind": "module",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "Warehouse.placement.Assignment_Functions",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_AislePrefIndex",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_nxt",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_find_nxt",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_prv",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_find_prv",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.closest",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "closest",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.remove",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "remove",
       "public": true
     },
     {
