@@ -3228,8 +3228,7 @@ files:
       - {name: "test_drop_bin_is_per_bin_and_leaves_the_levels_alone", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_drop_sku_subtracts_only_on_the_last_bin", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_last_when_zero_is_the_difference_between_the_two_old_copies", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
-      - {name: "test_lift_delta_is_taken_against_the_post_discard_index_set", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
-      - {name: "test_the_eight_aisle_aliases_are_the_ledger_s_own_dicts", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
+      - {name: "test_the_seven_aisle_aliases_are_the_ledger_s_own_dicts", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_the_three_products_survive_the_rebind_in_init_demand_state", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_a_real_manager_s_ledger_reconciles_after_setup", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
     notes: ""
@@ -4713,8 +4712,6 @@ files:
       - {name: "test_emptying_a_bin_queues_it_for_reclaim", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_reclaim_returns_the_bin_to_the_available_index_and_clears_every_trace", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_reorder_trigger_sets_the_flag_and_leaves_the_initial_baseline_alone", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_load_aware_reorder_maintains_aisle_state_for_both_directions", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
-      - {name: "test_a_sku_already_on_order_is_not_reordered_again", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
       - {name: "test_end_to_end_mini_sim_picks_restocks_and_places_for_five_batches", file: "Tests/unit/test_placement_lifecycle.py", kind: "function"}
     notes: ""
   "Tests/unit/test_placement_selection_is_not_a_scan.py":
@@ -6514,8 +6511,6 @@ files:
     purpose: "placement (assignment) functions."
     layer: "wh_placement"
     key_symbols:
-      - {name: "build_load_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
-      - {name: "build_load_maximizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_co_demand_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}

@@ -9018,7 +9018,7 @@
     },
     "Optimization/metrics/Simulation_Analytics.py::snapshot_aisle_metrics": {
       "decorators": [],
-      "doc": "Capture the trip-cost equation state for every aisle in the manager.\n\nCall once per batch after check_reorders() and before picks \u2014 the same\nmoment as build_pre_snapshot() \u2014 so the snapshot reflects the current\nwarehouse layout after any reorder placements.\n\nFields captured\n---------------\nn_skus     : len(_aisle_sku_sets[aid])            \u2014 unique SKUs in aisle\nn_bins     : sum(_aisle_sku_counts[aid].values())  \u2014 occupied bin count\ndemand_sum : _aisle_demand_sum[aid]               \u2014 \u03a3 f_i * q_i secondary score\nlift_sum   : _aisle_lift_sum[aid]                 \u2014 affinity co-location quality\n\nStrategy A note\n---------------\nFor uniform placement (no affinity), _aisle_sku_sets / _aisle_lift_sum /\n_aisle_demand_sum are never populated.  Only aisles touched by B/C reorders\nwill have non-zero values.  Strategy A produces no rows here by design \u2014\nit has no structured placement state to track.",
+      "doc": "Capture the trip-cost equation state for every aisle in the manager.\n\nCall once per batch after check_reorders() and before picks \u2014 the same\nmoment as build_pre_snapshot() \u2014 so the snapshot reflects the current\nwarehouse layout after any reorder placements.\n\nFields captured\n---------------\nn_skus     : len(_aisle_sku_sets[aid])            \u2014 unique SKUs in aisle\nn_bins     : sum(_aisle_sku_counts[aid].values())  \u2014 occupied bin count\ndemand_sum : _aisle_demand_sum[aid]               \u2014 \u03a3 f_i * q_i secondary score\n\nStrategy A note\n---------------\nFor uniform placement (no affinity), _aisle_sku_sets / _aisle_demand_sum\nare never populated.  Only aisles touched by B/C reorders\nwill have non-zero values.  Strategy A produces no rows here by design \u2014\nit has no structured placement state to track.",
       "is_async": false,
       "kind": "function",
       "signature": "(manager: object, batch_id: int, run_id: int=0) -> list"
@@ -9440,7 +9440,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('b87cfbb8d041', '02a78953886c', '798778f4fae1'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('c6bacfdb5c77', 'b87cfbb8d041', '02a78953886c'..."
     },
     "Optimization/persistence/Picking_Data.py::TaskStats": {
       "decorators": [
@@ -19643,13 +19643,13 @@
     },
     "Warehouse/inventory/aisle_ledger.py": {
       "decorators": [],
-      "doc": "aisle_ledger.py \u2014 what each aisle currently holds, priced.\n\nThe **aisle ledger** (CONTEXT.md) is one concept kept in eleven parallel dicts: which SKUs an\naisle holds, which matrix indices they translate to, how many bins each occupies, where those\nbins sit, and the four priced LEVELS that membership implies \u2014 lift, demand, pick load and\ncart volume \u2014 plus the three per-SKU products those levels are summed from.\n\n    \u250c\u2500 membership \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 priced levels \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 per-SKU products \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n    \u2502 sku_sets              \u2502 lift_sum               \u2502 sku_demand_product          \u2502\n    \u2502 idx_sets              \u2502 demand_sum             \u2502 sku_pick_load_product       \u2502\n    \u2502 sku_counts            \u2502 pick_load_sum          \u2502 sku_vol_product             \u2502\n    \u2502 member_pos            \u2502 vol_sum                \u2502                             \u2502\n    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nWhy this module exists\n----------------------\nThe eleven dicts had TWO writers who did not know about each other.  The *add* half lived\ninside the placement policies \u2014 ten hand-copied commit blocks in `Assignment_Functions.py`,\neach maintaining a DIFFERENT SUBSET \u2014 while `_execute_placement` committed only `sku_counts`.\nThe *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals\ninline twin whose docstring asked a human to KEEP THE TWO IN SYNC.\n\nThey were not in sync, and nothing could have said so:\n\n- `vol_sum` was incremented by `rank_cartlabor` and decremented by neither drop path, so the\n  cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the\n  scoring expression, so it moved placements, not just a recorded number.\n- `lift_sum` was decremented by both drop paths and incremented only by a production-dead\n  family, so it decayed monotonically in every shipped arm.\n\nBoth are the same failure: a quantity whose add and drop live in different files, maintained by\ndifferent people at different times, with no place that owns the pair.\n\nWhat is and is NOT in here\n--------------------------\n`init_lift_state` on the manager does two jobs and only one of them is the ledger's \u2014 it also\nrebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle\nstate.  Those stay on the manager.  This module owns the aisle's own books and nothing else.\n\nPer-BIN and per-SKU are separate operations, deliberately\n---------------------------------------------------------\n`member_pos` records a COLUMN POSITION PER LIVE BIN, while the priced levels are SKU-once.  Four\nof the ten historical commit blocks correctly kept the index add and the `member_pos` append\nOUTSIDE the `if sku not in sku_sets[aid]` guard for exactly this reason.  So the interface is a\npair at each end \u2014 `add_bin`/`add_sku` and `drop_bin`/`drop_sku` \u2014 and the guard stays at the\ncall site, where each caller already has it.  Collapsing either pair into one method would\nquietly change which SKUs' positions are tracked.\n\nFloat discipline\n----------------\nEvery level is a running float sum, so its value depends on accumulation ORDER.  `add_sku` takes\nthe already-multiplied scalar from the caller rather than recomputing it from `f` and `q`: some\nhistorical blocks accumulate `+= f_s * q_s` and others `+= fq` computed earlier, and re-deriving\neither would move the last bits.  `drop_sku` clamps at zero exactly as the hand-written\ndecrements did.",
+      "doc": "aisle_ledger.py \u2014 what each aisle currently holds, priced.\n\nThe **aisle ledger** (CONTEXT.md) is one concept kept in ten parallel dicts: which SKUs an\naisle holds, which matrix indices they translate to, how many bins each occupies, where those\nbins sit, and the three priced LEVELS that membership implies \u2014 demand, pick load and cart\nvolume \u2014 plus the three per-SKU products those levels are summed from.\n\n    \u250c\u2500 membership \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 priced levels \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500 per-SKU products \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n    \u2502 sku_sets              \u2502 demand_sum             \u2502 sku_demand_product          \u2502\n    \u2502 idx_sets              \u2502 pick_load_sum          \u2502 sku_pick_load_product       \u2502\n    \u2502 sku_counts            \u2502 vol_sum                \u2502 sku_vol_product             \u2502\n    \u2502 member_pos            \u2502                        \u2502                             \u2502\n    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nWhy this module exists\n----------------------\nThese dicts had TWO writers who did not know about each other.  The *add* half lived\ninside the placement policies \u2014 ten hand-copied commit blocks in `Assignment_Functions.py`,\neach maintaining a DIFFERENT SUBSET \u2014 while `_execute_placement` committed only `sku_counts`.\nThe *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals\ninline twin whose docstring asked a human to KEEP THE TWO IN SYNC.\n\nThey were not in sync, and nothing could have said so:\n\n- `vol_sum` was incremented by `rank_cartlabor` and decremented by neither drop path, so the\n  cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the\n  scoring expression, so it moved placements, not just a recorded number.\n- `lift_sum` was decremented by both drop paths and incremented only by a production-dead\n  family, so it decayed monotonically in every shipped arm.  It was write-only end to end \u2014\n  no Quantity, figure, view or experiment read its column \u2014 so it was DELETED rather than\n  repaired, along with the `load_min`/`load_max` family that was its only in-memory reader.\n\nBoth are the same failure: a quantity whose add and drop live in different files, maintained by\ndifferent people at different times, with no place that owns the pair.\n\nWhat is and is NOT in here\n--------------------------\n`init_lift_state` on the manager does two jobs and only one of them is the ledger's \u2014 it also\nrebuilds `_bin_sku`, `_current_quantities` and the per-SKU bin indexes, none of which are aisle\nstate.  Those stay on the manager.  This module owns the aisle's own books and nothing else.\n\nPer-BIN and per-SKU are separate operations, deliberately\n---------------------------------------------------------\n`member_pos` records a COLUMN POSITION PER LIVE BIN, while the priced levels are SKU-once.  Four\nof the ten historical commit blocks correctly kept the index add and the `member_pos` append\nOUTSIDE the `if sku not in sku_sets[aid]` guard for exactly this reason.  So the interface is a\npair at each end \u2014 `add_bin`/`add_sku` and `drop_bin`/`drop_sku` \u2014 and the guard stays at the\ncall site, where each caller already has it.  Collapsing either pair into one method would\nquietly change which SKUs' positions are tracked.\n\nFloat discipline\n----------------\nEvery level is a running float sum, so its value depends on accumulation ORDER.  `add_sku` takes\nthe already-multiplied scalar from the caller rather than recomputing it from `f` and `q`: some\nhistorical blocks accumulate `+= f_s * q_s` and others `+= fq` computed earlier, and re-deriving\neither would move the last bits.  `drop_sku` clamps at zero exactly as the hand-written\ndecrements did.",
       "kind": "module",
       "signature": null
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger": {
       "decorators": [],
-      "doc": "The aisle ledger: eleven dicts, one owner, one add/drop pair at each grain.\n\nThe dicts are exposed as plain attributes, not properties.  They are read on the placement\nhot path by closures that hoist them once outside their loop, and an indirection there is a\nper-candidate cost \u2014 the same argument `inventory_zoning` records for staying a mixin.",
+      "doc": "The aisle ledger: ten dicts, one owner, one add/drop pair at each grain.\n\nThe dicts are exposed as plain attributes, not properties.  They are read on the placement\nhot path by closures that hoist them once outside their loop, and an indirection there is a\nper-candidate cost \u2014 the same argument `inventory_zoning` records for staying a mixin.",
       "kind": "class",
       "signature": ""
     },
@@ -19683,10 +19683,10 @@
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.drop_sku": {
       "decorators": [],
-      "doc": "Decrement the SKU's bin count; on its LAST bin, retire it and subtract its levels.\n\nReturns True when the SKU left the aisle.  Every subtraction is clamped at zero, as\nthe two hand-written copies were.\n\n`lift_delta_fn` is a CALLABLE, not a scalar, and the distinction is load-bearing: the\noriginal computed `2.0 * affinity.delta_lift_idxs(sku, idx_sets[aid])` *after* the\nindex was discarded, so a precomputed value would be taken against a different set and\nchange the result.  It is called with the post-discard index set.  Passing a callable\nalso keeps this module free of any affinity knowledge.\n\n`last_when_zero` reproduces the difference between the two original copies: the cold\npath used `elif n == 1`, so a defensive n == 0 fell through and did nothing; the hot\ntwin used a bare `else`, treating n == 0 like n == 1.  The twin's callers pass True.",
+      "doc": "Decrement the SKU's bin count; on its LAST bin, retire it and subtract its levels.\n\nReturns True when the SKU left the aisle.  Every subtraction is clamped at zero, as\nthe two hand-written copies were.\n\n`last_when_zero` reproduces the difference between the two original copies: the cold\npath used `elif n == 1`, so a defensive n == 0 fell through and did nothing; the hot\ntwin used a bare `else`, treating n == 0 like n == 1.  The twin's callers pass True.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, aid: int, sku: int, idx: int | None, lift_delta_fn=None, *, last_when_zero: bool=False) -> bool"
+      "signature": "(self, aid: int, sku: int, idx: int | None, *, last_when_zero: bool=False) -> bool"
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.holds": {
       "decorators": [],
@@ -19704,7 +19704,7 @@
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile": {
       "decorators": [],
-      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.\n\n`lift_sum` is deliberately NOT checked: it is not a sum over per-SKU products but a\npairwise quantity over the aisle's index set, so reconciling it needs the affinity store.\nIt is also write-only end to end and is being deleted.",
+      "doc": "Every priced level must equal the sum of its members' products.  [] when sound.\n\nThis is the assertion the eleven loose dicts made impossible to write, and the reason\nboth drifts survived for the life of their features.  Returns findings rather than\nraising so a caller can report them all at once.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, *, tol: float=1e-06) -> list[str]"
@@ -22899,27 +22899,6 @@
       "kind": "function",
       "signature": "(candidates, rep=None)"
     },
-    "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn": {
-      "decorators": [],
-      "doc": "Shared core for the load-minimising/maximising AssignmentFns (they differed only\nin extremum direction + the min-only early-termination prune).\n\nGreedily extremises the L2 norm of predicted aisle loads\nL_a = W + \u03bb*(W/k)^\u03b3 * lift_sum.\n\nDual-optimisation algorithm\n---------------------------\n1. Reduce candidates to one bin per aisle (extremal-D bin) \u2014 exact by\n   monotonicity of delta_l2 in D within a fixed aisle.\n2. Sort the O(N_aisles) representatives by D (ascending when minimising;\n   descending when maximising \u2014 largest travel cost first has the highest\n   potential delta_l2).\n3. Evaluate aisles in that order with LAZY CSR queries (delta_lift computed\n   only when the aisle is actually reached, not upfront for all aisles).\n4. Early termination (MINIMISING ONLY): once the best score has delta_l2 = 0\n   (no affinity partners in the winning aisle), any remaining aisle with\n   D \u2265 best_old_L cannot improve \u2014 old_L \u2265 D \u2265 best_old_L and\n   delta_l2 \u2265 0 = best_delta_l2.  With sparse top-20 affinity most aisles\n   have delta_lift = 0, so the termination typically fires after the first\n   few aisles.  No such prune exists when maximising: a low-D aisle can\n   still win on very high affinity lift.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(params: LoadParams, affinity: AffinityStore, wp: Any, aisle_sku_sets: dict[int, set[int]], aisle_lift_sum: dict[int, float], aisle_idx_sets: dict[int, set[int]], aisle_index: dict | None=None, *, maximize: bool=False) -> AssignmentFn"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn._L": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(D: float, ls: float) -> float"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn.assign": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(unit: Any, candidates: list[Any] | None) -> Any | None"
-    },
     "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn": {
       "decorators": [],
       "doc": null,
@@ -23240,20 +23219,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(compact, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0) -> Placement"
-    },
-    "Warehouse/placement/Assignment_Functions.py::build_load_maximizing_assignment_fn": {
-      "decorators": [],
-      "doc": "Greedily MAXIMISE the L2 norm of predicted aisle loads (see _build_load_assignment_fn).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(params, affinity, wp, aisle_sku_sets, aisle_lift_sum, aisle_idx_sets, aisle_index=None) -> AssignmentFn"
-    },
-    "Warehouse/placement/Assignment_Functions.py::build_load_minimizing_assignment_fn": {
-      "decorators": [],
-      "doc": "Greedily MINIMISE the L2 norm of predicted aisle loads (see _build_load_assignment_fn).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(params, affinity, wp, aisle_sku_sets, aisle_lift_sum, aisle_idx_sets, aisle_index=None) -> AssignmentFn"
     },
     "Warehouse/placement/Assignment_Functions.py::build_optmap_fn": {
       "decorators": [],

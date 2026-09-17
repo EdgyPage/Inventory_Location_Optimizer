@@ -14,17 +14,11 @@
 <h1><span class="kind kind-function">function</span> <code>drop_sku</code></h1>
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_aisle_ledger_py.html"><code>Warehouse/inventory/aisle_ledger.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def drop_sku(self, aid: int, sku: int, idx: int | None, lift_delta_fn=None, *, last_when_zero: bool=False) -&gt; bool</code></pre>
+<pre class="sig"><code>def drop_sku(self, aid: int, sku: int, idx: int | None, *, last_when_zero: bool=False) -&gt; bool</code></pre>
 <section class="doc">Decrement the SKU&#x27;s bin count; on its LAST bin, retire it and subtract its levels.
 
 Returns True when the SKU left the aisle.  Every subtraction is clamped at zero, as
 the two hand-written copies were.
-
-`lift_delta_fn` is a CALLABLE, not a scalar, and the distinction is load-bearing: the
-original computed `2.0 * affinity.delta_lift_idxs(sku, idx_sets[aid])` *after* the
-index was discarded, so a precomputed value would be taken against a different set and
-change the result.  It is called with the post-discard index set.  Passing a callable
-also keeps this module free of any affinity knowledge.
 
 `last_when_zero` reproduces the difference between the two original copies: the cold
 path used `elif n == 1`, so a defensive n == 0 fell through and did nothing; the hot

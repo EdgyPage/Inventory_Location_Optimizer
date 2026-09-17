@@ -17,21 +17,21 @@
 <pre class="sig"><code>Warehouse.inventory.aisle_ledger</code></pre>
 <section class="doc">aisle_ledger.py — what each aisle currently holds, priced.
 
-The **aisle ledger** (CONTEXT.md) is one concept kept in eleven parallel dicts: which SKUs an
+The **aisle ledger** (CONTEXT.md) is one concept kept in ten parallel dicts: which SKUs an
 aisle holds, which matrix indices they translate to, how many bins each occupies, where those
-bins sit, and the four priced LEVELS that membership implies — lift, demand, pick load and
-cart volume — plus the three per-SKU products those levels are summed from.
+bins sit, and the three priced LEVELS that membership implies — demand, pick load and cart
+volume — plus the three per-SKU products those levels are summed from.
 
     ┌─ membership ──────────┬─ priced levels ────────┬─ per-SKU products ──────────┐
-    │ sku_sets              │ lift_sum               │ sku_demand_product          │
-    │ idx_sets              │ demand_sum             │ sku_pick_load_product       │
-    │ sku_counts            │ pick_load_sum          │ sku_vol_product             │
-    │ member_pos            │ vol_sum                │                             │
+    │ sku_sets              │ demand_sum             │ sku_demand_product          │
+    │ idx_sets              │ pick_load_sum          │ sku_pick_load_product       │
+    │ sku_counts            │ vol_sum                │ sku_vol_product             │
+    │ member_pos            │                        │                             │
     └───────────────────────┴────────────────────────┴─────────────────────────────┘
 
 Why this module exists
 ----------------------
-The eleven dicts had TWO writers who did not know about each other.  The *add* half lived
+These dicts had TWO writers who did not know about each other.  The *add* half lived
 inside the placement policies — ten hand-copied commit blocks in `Assignment_Functions.py`,
 each maintaining a DIFFERENT SUBSET — while `_execute_placement` committed only `sku_counts`.
 The *drop* half lived in `inventory_reorder.py` in two copies, the second a hoisted-locals
@@ -43,7 +43,9 @@ They were not in sync, and nothing could have said so:
   cart-swap penalty that arm competes on grew for the length of a run.  It is READ in the
   scoring expression, so it moved placements, not just a recorded number.
 - `lift_sum` was decremented by both drop paths and incremented only by a production-dead
-  family, so it decayed monotonically in every shipped arm.
+  family, so it decayed monotonically in every shipped arm.  It was write-only end to end —
+  no Quantity, figure, view or experiment read its column — so it was DELETED rather than
+  repaired, along with the `load_min`/`load_max` family that was its only in-memory reader.
 
 Both are the same failure: a quantity whose add and drop live in different files, maintained by
 different people at different times, with no place that owns the pair.

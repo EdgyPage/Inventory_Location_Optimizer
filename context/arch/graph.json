@@ -20246,16 +20246,6 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_build_co_demand_pool_fn.open_pool"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_aisle_extremal_bins",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn.assign"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_aisle_index_for_unit",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn.assign"
-    },
-    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn.open_pool"
@@ -20469,16 +20459,6 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_require_demand",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_co_demand_placement"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::build_load_maximizing_assignment_fn"
-    },
-    {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn",
-      "kind": "calls",
-      "src": "Warehouse/placement/Assignment_Functions.py::build_load_minimizing_assignment_fn"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_OptMapPool",
@@ -47408,30 +47388,6 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_build_load_assignment_fn",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn._L",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_L",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_build_load_assignment_fn.assign",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "assign",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_build_minlabor_pool_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -47796,22 +47752,6 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "build_co_demand_placement",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::build_load_maximizing_assignment_fn",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "build_load_maximizing_assignment_fn",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::build_load_minimizing_assignment_fn",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "build_load_minimizing_assignment_fn",
       "public": true
     },
     {
