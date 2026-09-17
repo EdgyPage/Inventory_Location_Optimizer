@@ -115,3 +115,4 @@
 - [Placement oracles pin agreement, not truth](placement-oracles-pin-agreement-not-truth.md) — they compare a family's pool half to its wave half against a FROZEN hand-copy, so a shared-state fix is invisible and a signature change re-freezes them
 - [A DDL change moves two tables](a-ddl-change-moves-two-tables.md) — the table AND simulation_runs (it carries sim_schema_id); verify column-by-column, and the only test that catches a dropped column is an integration roundtrip
 - [Renaming a local needs AST positions](renaming-a-local-needs-ast-positions.md) — a word-boundary regex rename still rewrote two English comments and nothing failed; rewrite identifier tokens at their AST (lineno, col_offset)
+- [Two instruments named t_save](two-instruments-named-t-save.md) — runtime_metrics' stopwatch is alive; the calltree's SECTION_MAP attribution read 0.000000 for a month; say which one before quoting a saving number

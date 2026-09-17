@@ -451,8 +451,11 @@ def test_switching_the_scenario_sampler_moves_no_measurement_at_fixture_scale():
 def test_a_traced_arm_actually_spends_time_in_t_save():
     """THE GAP THIS FILE HAD, and it hid a dead section for over a month.
 
-    Every test above asks whether an anchor RESOLVES. All of them resolved, and `t_save` still
-    read **0.000000 in every archived capture** -- because its eight `save_<table>` anchors had
+    Every test above asks whether an anchor RESOLVES. All of them resolved, and this
+    instrument's `t_save` still read **0.000000 in every archived capture** -- while
+    `runtime_metrics.save_s`, a stopwatch measuring the same subject, read ~31% of the arm.
+    Two instruments, one name, and only the one nobody reads was dead. The cause: its eight
+    `save_<table>` anchors had
     zero production callers (the write path was `save_checkpoint_bundle`, never anchored) and
     its ninth only fires at a checkpoint boundary a short capture never reaches. Memory
     `symbol-table-relationship-not-verified-by-symbols`: a gate that resolves NAMES cannot

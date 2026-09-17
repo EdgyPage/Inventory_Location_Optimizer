@@ -104,7 +104,15 @@ paragraphs went with the guard -- they were only ever describing the guard.
 channel is DATA: the bundle's characteristic failure (an argument accepted and never inserted)
 needed a 16-parameter signature to be expressible, and an unknown channel raises now.
 
-### THE DEFECT -- `t_save` has been measuring nothing since at least 2026-08-18
+### THE DEFECT -- the CALLTREE's `t_save` has been measuring nothing since at least 2026-08-18
+
+**Scope this precisely, because two instruments share the name.** `runtime_metrics`' `save_s`
+is a wall-clock stopwatch in `strategy_runner` (`asm.timers.add('save', ...)`), it is alive,
+and it is where every published saving number comes from -- the ~31% section share and the
+8.72 -> 4.87 s/arm of memory `calltree-framework-first-findings` round 2 are both its. What is
+dead is the CALLTREE's `SECTION_MAP` attribution, which is a different instrument answering a
+different question (which FUNCTIONS the seconds went to). That split is why nobody noticed: the
+name looked healthy in the instrument people read.
 
 Eight of `SECTION_MAP`'s nine `t_save` anchors were the `save_<table>` wrappers this ticket
 names as having zero production callers. Production went through `save_checkpoint_bundle`,
@@ -119,7 +127,8 @@ checkpoint boundary a short capture never reaches.
     capture__cfg-none   2026-09-14        0.000000
     capture__inbound    2026-09-14        0.000000
 
-Every one. `test_calltree_anchors` could not catch it: it resolves every anchor NAME, and
+Every one -- and `capture__seed-42`'s own run had a live `save_s`. `test_calltree_anchors`
+could not catch it: it resolves every anchor NAME, and
 every name resolved -- the fourth instance in this effort of memory
 `symbol-table-relationship-not-verified-by-symbols`. Nine anchors become two, pointed at
 `CheckpointBuffer._write`, plus a ratchet that writes through the production path and asserts

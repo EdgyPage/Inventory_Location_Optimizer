@@ -70,7 +70,9 @@ SECTION_MAP: dict[str, str] = {
     'extract_picks'                   : 't_extract',
     # ONE ANCHOR FOR EIGHT.  Eight `save_<table>` names stood here and every one of them had
     # zero production callers: the write path went through `save_checkpoint_bundle`, which was
-    # never anchored, so `t_save` read 0.000000 in EVERY archived capture.  Ticket 07 collapsed
+    # never anchored, so THIS instrument's `t_save` read 0.000000 in EVERY archived capture.
+    # (`runtime_metrics.save_s` is a different instrument with the same subject -- a stopwatch
+    # in strategy_runner -- and it was alive throughout, which is why nobody noticed.)  Ticket 07 collapsed
     # the writers into `CheckpointBuffer`, where `_write` is the one place a checkpoint row is
     # inserted -- and `close()` runs it at every run end, so a capture that never reaches a
     # checkpoint still measures the section.  `test_a_traced_arm_actually_spends_time_in_t_save`
