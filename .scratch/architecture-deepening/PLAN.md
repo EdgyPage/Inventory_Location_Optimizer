@@ -172,7 +172,7 @@ count DOWN, which it permits.
 | 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
 | - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
 | - | 20 | **RESOLVED** | `aisle_metrics.pick_load_sum` deleted -- wrong on 15 of 17 arms, no reader |
-| - | 21 | not started | **UNBLOCKED** by 04: one implementation per family to move now, not two |
+| - | 21 | **RESOLVED** | builders take an AisleLedger (91 params -> 68); the 04 sequencing window had closed, so this paid the second oracle re-freeze |
 | - | 22 | **RESOLVED** | `gain.py` 1,410 -> 865 lines + gain_cow + gain_bundle; the rebinding trap proved closed |
 | - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
 | - | 24 | **RESOLVED** | the decision: `ArmAssembly` lives in `strategy_runner.py`; a new module would be a cycle |
