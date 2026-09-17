@@ -831,11 +831,6 @@ def _build_parser() -> argparse.ArgumentParser:
              'trailer #N draws the same lead in every arm. 0 constructs no RNG at all. '
              'Above 0 REQUIRES --inbound-standing-yard and a non-zero median.')
     parser.add_argument(
-        '--inbound-global-policy', default=CONFIG['global']['inbound_global_policy'],
-        metavar='NAME',
-        help='v1 trailer order at BOTH dock moments (ignored once the standing yard splits '
-             'it into the yard and dock policies below).')
-    parser.add_argument(
         '--inbound-local-policy', default=CONFIG['global']['inbound_local_policy'],
         metavar='NAME', help='Load-pallet order WITHIN a trailer.')
     parser.add_argument(

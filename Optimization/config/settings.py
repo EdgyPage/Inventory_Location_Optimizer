@@ -176,7 +176,6 @@ INBOUND_LEAD_SPREAD = 0.0        # sigma of the lognormal around that median, DI
                                  # by dispatch seq (a spread would half-work -- arrival-batch
                                  # shifts visible, order scrambling invisible) and a spread
                                  # over a zero median degenerates to constant zero.
-INBOUND_GLOBAL_POLICY = 'fifo'   # trailer order at BOTH dock moments (Inbound/priorities.py)
 INBOUND_LOCAL_POLICY = 'fifo'    # load-pallet order within a trailer
 INBOUND_TRAILER_BOUND = None     # the dock's k_cap analog, in TRAILERS; None = unbounded
                                  # (inert under fifo -- shipped for the interface, by decision)

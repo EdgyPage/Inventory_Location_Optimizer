@@ -267,8 +267,10 @@ def test_aisle_metrics_roundtrip():
     db = _tmp('sim_am.db')
     init_run_db(db)
     rid = create_run(db, 'uni_rank_labor_norsl')
+    # `lift_sum` was an eighth field here until 2026-09-16.  It was write-only end to end
+    # and was deleted with the load_min/load_max family that was its only reader.
     rec = AisleMetricRecord(run_id=rid, batch_id=2, aisle_id=7, n_skus=3, n_bins=5,
-                            demand_sum=1.5, lift_sum=0.4, pick_load_sum=2.75)
+                            demand_sum=1.5, pick_load_sum=2.75)
     save_aisle_metrics(db, rid, [rec])
     got = {a.aisle_id: a for a in load_aisle_metrics(db, rid, batch_id=2)}[7]
 

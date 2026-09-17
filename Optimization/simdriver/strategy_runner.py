@@ -1785,7 +1785,6 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 lead_sigma=_inb_spec['lead_sigma'],
                 lead_seed=_inb_spec['lead_seed'],
                 doors=_inb_spec['doors'],
-                global_policy=_inb_spec['global_policy'],
                 local_policy=_inb_spec['local_policy'],
                 bound=_inb_spec['bound'])
         mgr.packer = _inbound_packer   # per-trailer portions pack as the pieces they are

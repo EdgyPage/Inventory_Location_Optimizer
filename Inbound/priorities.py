@@ -125,10 +125,15 @@ def ordering(fn):
     return fn
 
 
-GLOBAL_POLICIES: dict = {'fifo': _fifo_trailer}
+#: `GLOBAL_POLICIES` lived here until 2026-09-16, holding one entry.  It was a seam with a
+#: single adapter: the standing yard REPLACED the global decision rather than deferring it
+#: (`YardTransit` hardcodes 'fifo' and its docstring says this registry is unread there),
+#: so no second entry could ever arrive.  v1's `TrailerTransit` now calls `_fifo_trailer`
+#: directly.  `LOCAL_POLICIES` is also single-entry and is KEPT: the order items come off
+#: one trailer is a plausible future axis, and unlike the global one it was never replaced.
 LOCAL_POLICIES: dict = {'fifo': _fifo_pallet}
-#: The standing yard's split of the global decision (see the module docstring).  ADDITIVE:
-#: nothing here changes what GLOBAL_POLICIES means to the v1 path.  The space-aware arms
+#: The standing yard's split of the global decision (see the module docstring).  The
+#: space-aware arms
 #: land here as entries — pure keys or `@ordering` functions alike — not as rewiring:
 #: `lifo` is seeded below; the gain family (`gain_myopic` / `gain_forecast` /
 #: `gain_gated` / `futuresight`) registers itself from `Inbound/gain.py` at package
@@ -169,12 +174,6 @@ def view_needs(policy: str) -> frozenset:
                        f'entry (POLICY_VIEW_NEEDS) — a missing row would pass the '
                        f'coupled-composability gate by defaulting to "reads nothing"')
     return POLICY_VIEW_NEEDS[policy]
-
-
-def global_key(policy: str):
-    if policy not in GLOBAL_POLICIES:
-        raise KeyError(f'unknown global priority {policy!r}; known: {sorted(GLOBAL_POLICIES)}')
-    return GLOBAL_POLICIES[policy]
 
 
 def local_key(policy: str):

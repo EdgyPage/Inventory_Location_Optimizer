@@ -68,7 +68,7 @@ from math import exp
 import numpy as np
 
 from Inbound.priorities import (
-    DockContext, bounded_order, dock_key, global_key, local_key, yard_key)
+    DockContext, _fifo_trailer, bounded_order, dock_key, local_key, yard_key)
 from Inbound.trailer import Trailer, Trailer53
 
 #: The lead draw's DOMAIN TAG — the middle entropy word that keeps this stream disjoint
@@ -100,7 +100,7 @@ class TrailerTransit:
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
-                 doors: int = DEFAULT_DOCK_DOORS, global_policy: str = 'fifo',
+                 doors: int = DEFAULT_DOCK_DOORS,
                  local_policy: str = 'fifo', bound: int | None = None):
         self.trailer_type = trailer_type if trailer_type is not None else Trailer53
         # `lead_s` is the MEDIAN once `lead_sigma` is positive, and the whole lead when it
@@ -109,7 +109,10 @@ class TrailerTransit:
         self.lead_sigma = float(lead_sigma)
         self.lead_seed = int(lead_seed)
         self.doors = int(doors)
-        self._global = global_key(global_policy)
+        # v1's trailer order, by arrival.  This was `global_key(global_policy)` against a
+        # one-entry registry until 2026-09-16; the standing yard replaced that decision
+        # rather than deferring it, so no second entry could ever arrive.
+        self._global = _fifo_trailer
         self._local = local_key(local_policy)
         self.bound = bound
         self._open: Trailer | None = None       # loading at the ordering site
@@ -343,8 +346,10 @@ class YardTransit(TrailerTransit):
       trailer left through rather than re-derived downstream from the null pattern: the
       two producers know which they are, and a reader inferring `discarded` from "never
       staged" would silently reclassify the day someone stages a trailer they then drop.
-    * `INBOUND_GLOBAL_POLICY` and the parent's global registry are UNREAD here — the
-      yard/dock registries are the standing model's split of that decision.
+    * The parent's trailer order is UNREAD here — the yard/dock registries are the
+      standing model's split of that decision.  There was a `GLOBAL_POLICIES` registry and
+      an `INBOUND_GLOBAL_POLICY` knob behind it until 2026-09-16; this class is the reason
+      they could never gain a second entry, so both were deleted.
     """
 
     #: What `_receive` probes (via getattr, default False) to find the standing surfaces.
@@ -361,7 +366,7 @@ class YardTransit(TrailerTransit):
                  allocation: str = 'split', door_team: int | None = None):
         super().__init__(trailer_type, lead_s=lead_s, lead_sigma=lead_sigma,
                          lead_seed=lead_seed, doors=doors,
-                         global_policy='fifo', local_policy=local_policy, bound=bound)
+                         local_policy=local_policy, bound=bound)
         self._yard_key = yard_key(yard_policy)
         self._dock_key = dock_key(dock_policy)
         if allocation not in ('split', 'merged'):

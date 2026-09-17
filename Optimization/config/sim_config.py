@@ -186,7 +186,6 @@ CONFIG = {
         'inbound_dock_doors'    : _s.INBOUND_DOCK_DOORS,
         'inbound_lead_minutes'  : _s.INBOUND_LEAD_MINUTES,
         'inbound_lead_spread'   : _s.INBOUND_LEAD_SPREAD,
-        'inbound_global_policy' : _s.INBOUND_GLOBAL_POLICY,
         'inbound_local_policy'  : _s.INBOUND_LOCAL_POLICY,
         'inbound_trailer_bound' : _s.INBOUND_TRAILER_BOUND,
         # The standing yard (real doors, split yard/dock priorities, door-team crews,
@@ -487,7 +486,7 @@ KNOBS: tuple[Knob, ...] = (
              's_pick_store', 's_pick_ff', 's_put'), family='staffing', spec_from=None),
     *_knobs(('inbound_trailer_type', 'inbound_dock_doors',
              'inbound_lead_minutes', 'inbound_lead_spread',
-             'inbound_global_policy', 'inbound_local_policy', 'inbound_trailer_bound',
+             'inbound_local_policy', 'inbound_trailer_bound',
              'inbound_standing_yard', 'inbound_crew_allocation',
              'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
              'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
@@ -1049,7 +1048,6 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
         # else -- the draw is stateless, so there is no generator to re-plumb.
         'lead_sigma': lead_sigma,
         'lead_seed': int(seed_world()),
-        'global_policy': str(g.get('inbound_global_policy') or 'fifo'),
         'local_policy': str(g.get('inbound_local_policy') or 'fifo'),
         'bound': g.get('inbound_trailer_bound'),
         # The standing yard.  `standing` False keeps every key inert; the driver binds
