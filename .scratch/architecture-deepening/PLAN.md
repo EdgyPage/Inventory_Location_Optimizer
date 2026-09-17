@@ -164,7 +164,7 @@ count DOWN, which it permits.
 | 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
 | 5 | 11 | **RESOLVED** | one write declaration per table (20); the ratchet deleted its regex and found a third defect |
 | 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
-| 5 | 13 | not started | **UNBLOCKED** -- 11 landed, and architecture-drift/05 is resolved (207a8d71): a false-equivalence bug, not the fingerprint hazard it claimed |
+| 5 | 13 | **RESOLVED** | one ContractStore behind two stores; the four invariants found two documents deleted by 6adf378e, and a test that had been taught to expect the damage |
 | 5 | 14 | **RESOLVED** | one Span table; SectionTimers.SECTIONS/COLUMNS and the stacked-graph partition all derived, and record_arm builds its INSERT |
 | 5 | 15 | not started | **UNBLOCKED** by 11 |
 | 6 | 16 | **RESOLVED** | one at-bin put expression; the objective drops its term by name. File split -> 22 |
