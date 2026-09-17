@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GainBundle · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_bundle_py__GainBundle" data-id="Inbound/gain_bundle.py::GainBundle">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_bundle_py.html"><code>Inbound/gain_bundle.py</code></a> <span class="sep">›</span> <span class="here"><code>GainBundle</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>GainBundle</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_bundle_py.html"><code>Inbound/gain_bundle.py</code></a></p>
+
+<pre class="sig"><code>class GainBundle</code></pre>
+<section class="doc">Everything arm-specific the evaluator needs, injected by the driver.
+
+Three adapters, and the bundle picks exactly one.  `uniform` selects the uniform
+adapter (`fifo`: no pool, no direction — the tier&#x27;s mean and a seat count).  Else
+`pool_factory` None selects the merge adapter (extremal-D family, direction
+`minimize`); otherwise the pool adapter calls `pool_factory(candidates, state, wp)`,
+where `state` is a FRESH copy per evaluation of every live aisle dict the arm&#x27;s pool
+commits to: `aisle_state` names them (manager attribute -&gt; the live dict) and
+`AISLE_COPIERS` above says how each is copied.  Those names are the seam&#x27;s whole
+vocabulary, which is what keeps it fixed -- a family that commits to one more dict is
+a driver branch plus one more name, never a wider signature here.  `expect_heads` prices
+each unit at the mean over `heads_of(pool)` before consuming (rank_random&#x27;s no-RNG
+expectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because
+their home (`wh_inventory`) is a forbidden import — the broker rule.
+
+`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to
+sort a tier by, so nothing reads it.  It is left at its default rather than
+refused, because the merge adapter&#x27;s default is the same value.
+
+The two days-denominated knobs ride here because the gate entry has no other
+channel to CONFIG (`inbound_spec()` -&gt; driver -&gt; bundle, the five-seam path).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_bundle_py__GainBundle">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain_bundle.py#:~:text=class%20GainBundle">Source ↗</a></p>
+</article>
+</main>
+</body></html>

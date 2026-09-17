@@ -35,6 +35,13 @@ from Inbound import gain
 # production looks it up — a shape that fell out of both tables would fail collection
 # rather than quietly skip.
 
+# THE TABLES ARE READ THROUGH THEIR MODULE, and this file is the reason.  It REBINDS
+# `AISLE_VIEWS` to sabotage the views; a `from ... import AISLE_VIEWS` anywhere in the
+# chain would bind the name at import and never see the rebinding, so the sabotage would
+# stop biting and this file would go on passing.  `Inbound.gain` does not re-export them.
+from Inbound import gain_cow                                        # noqa: E402
+
+
 def _live_floats():
     return {3: 2.5, 1: 0.0, 2: -1.25}
 
@@ -61,8 +68,8 @@ def _pair(name, make_live):
     Independent because the eager copy is the oracle: sharing one live dict would let a
     write through the view show up in the oracle and make every comparison vacuous.
     """
-    view = gain.AISLE_VIEWS[name](make_live())
-    eager = gain.AISLE_COPIERS[name](make_live())
+    view = gain_cow.AISLE_VIEWS[name](make_live())
+    eager = gain_cow.AISLE_COPIERS[name](make_live())
     return view, eager
 
 
@@ -160,7 +167,7 @@ def test_get_reads_an_overlaid_value_not_the_live_one(name, make_live):
 def test_setitem_is_visible_to_every_reader_and_invisible_to_the_live_dict(name, make_live):
     live = make_live()
     snapshot = {k: _frozen(v) for k, v in live.items()}
-    view = gain.AISLE_VIEWS[name](live)
+    view = gain_cow.AISLE_VIEWS[name](live)
 
     fresh = view[404]                            # a materialized value of the right shape
     view[7] = fresh
@@ -178,7 +185,7 @@ def test_a_write_through_getitem_never_reaches_the_live_dict(name, make_live):
     """The mutable shapes are the dangerous ones: `d[aid].add(...)` / `.append(...)`."""
     live = make_live()
     snapshot = {k: _frozen(v) for k, v in live.items()}
-    view = gain.AISLE_VIEWS[name](live)
+    view = gain_cow.AISLE_VIEWS[name](live)
 
     got = view[3]
     if isinstance(got, set):
@@ -200,7 +207,7 @@ def test_the_three_views_share_one_implementation_of_the_mapping_protocol():
     re-specialises one of them, this names which.  `__getitem__` is the ONE method a shape
     is allowed to own, because how a miss materializes IS the difference between them.
     """
-    views = [gain._CowFloats, gain._CowSets, gain._CowListsByKey]
+    views = [gain_cow._CowFloats, gain_cow._CowSets, gain_cow._CowListsByKey]
     shared = ('__setitem__', 'get', '__contains__', '__iter__', '__len__',
               'keys', 'items', 'values', '__init__')
     for meth in shared:
@@ -214,7 +221,7 @@ def test_the_three_views_share_one_implementation_of_the_mapping_protocol():
 
 def test_every_view_is_slotted_so_a_pool_cannot_grow_state_on_it():
     """A view is opened per pool; a stray attribute would be per-pool heap nobody frees."""
-    for v in (gain._CowFloats, gain._CowSets, gain._CowListsByKey):
+    for v in (gain_cow._CowFloats, gain_cow._CowSets, gain_cow._CowListsByKey):
         inst = v({})
         with pytest.raises(AttributeError):
             inst.scratch = 1

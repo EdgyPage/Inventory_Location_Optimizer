@@ -57,8 +57,8 @@ from Warehouse.kernel.timeline import (
 from collections import namedtuple as _namedtuple
 
 from Inbound.dock import Dock as _Dock, DockSpec as _DockSpec
+from Inbound.gain_cow import AISLE_VIEWS as _AISLE_VIEWS
 from Inbound.gain import (
-    AISLE_VIEWS as _AISLE_VIEWS,
     GAIN_POLICIES as _GAIN_POLICIES, GainBundle as _GainBundle,
     OneOwnerBundle as _OneOwnerBundle, SiteGainBundle as _SiteGainBundle)
 from Inbound.pack import packer as _inbound_packer
@@ -210,7 +210,8 @@ def _timed_build(strat, mgr, ctx) -> float:
 
 # ── the two vocabularies, checked against each other at import ────────────────────────
 #
-# `AisleLedger.POLICY_BOOKS` is the list of books a placement policy writes; `AISLE_VIEWS`
+# `AisleLedger.POLICY_BOOKS` is the list of books a placement policy writes;
+# `gain_cow.AISLE_VIEWS`
 # is how the gain evaluator makes each one copy-on-write for a VIRTUAL placement.  They are
 # named differently because `Inbound/` may not import the placement engine (the broker
 # rule), so the gain module keys on the MANAGER attribute the driver hands it -- and the
@@ -222,7 +223,7 @@ def _timed_build(strat, mgr, ctx) -> float:
 _POLICY_STATE_NAMES = frozenset('aisle_' + b for b in _AisleLedger.POLICY_BOOKS)
 if _POLICY_STATE_NAMES != set(_AISLE_VIEWS):
     raise RuntimeError(
-        f'Inbound.gain.AISLE_VIEWS and AisleLedger.POLICY_BOOKS disagree: '
+        f'Inbound.gain_cow.AISLE_VIEWS and AisleLedger.POLICY_BOOKS disagree: '
         f'{sorted(_POLICY_STATE_NAMES ^ set(_AISLE_VIEWS))}. Every book a placement policy '
         f'can write needs a copy-on-write view, or a virtual placement writes into the live '
         f'warehouse; a view for a book no policy writes is dead weight on every pool open.')

@@ -41,19 +41,26 @@ _BATCHES, _WHISTLE = 4, 20.0
 _ARMS = ('uni_rank_labor_norsl', 'uni_rank_minlabor_norsl', 'uni_rank_random_norsl')
 
 
+# THE TABLES ARE READ THROUGH THEIR MODULE, and this file is the reason.  It REBINDS
+# `AISLE_VIEWS` to sabotage the views; a `from ... import AISLE_VIEWS` anywhere in the
+# chain would bind the name at import and never see the rebinding, so the sabotage would
+# stop biting and this file would go on passing.  `Inbound.gain` does not re-export them.
+from Inbound import gain_cow                                        # noqa: E402
+
+
 def _digest(strategy, views=None):
     """End state of one inbound run: counters, every occupied bin, and the LIVE aisle dicts."""
     import hashlib
     import calltree_scenarios as cs
 
-    saved = gain.AISLE_VIEWS
+    saved = gain_cow.AISLE_VIEWS
     if views is not None:
-        gain.AISLE_VIEWS = views
+        gain_cow.AISLE_VIEWS = views
     try:
         assets = cs.build_assets(strategy=strategy, **_SCENARIO)
         res = cs.run_meso(assets, n_batches=_BATCHES, seed=11, recv_deadline=_WHISTLE)
     finally:
-        gain.AISLE_VIEWS = saved
+        gain_cow.AISLE_VIEWS = saved
 
     h = hashlib.sha256()
     h.update(repr((res.picks, res.placements, res.reorders, res.skipped)).encode())
@@ -74,27 +81,27 @@ def _digest(strategy, views=None):
 
 def test_the_two_tables_cover_each_other():
     """A name with a copier and no view falls silently back to the 40x path."""
-    assert set(gain.AISLE_VIEWS) == set(gain.AISLE_COPIERS), \
+    assert set(gain_cow.AISLE_VIEWS) == set(gain_cow.AISLE_COPIERS), \
         'AISLE_VIEWS and AISLE_COPIERS name different dicts — every aisle dict needs both'
-    assert len(gain.AISLE_VIEWS) >= 6
+    assert len(gain_cow.AISLE_VIEWS) >= 6
 
 
 def test_each_view_leaves_its_live_dict_untouched():
     """PURITY, at the unit level: a view may be written through and the source must not move."""
     live_sets = {1: {10, 11}, 2: {12}}
-    v = gain._CowSets(live_sets)
+    v = gain_cow._CowSets(live_sets)
     v[1].add(99)
     assert live_sets == {1: {10, 11}, 2: {12}}, 'a virtual placement advanced the live sets'
     assert 99 in v[1] and 10 in v[1]
 
     live_floats = {1: 2.5}
-    f = gain._CowFloats(live_floats)
+    f = gain_cow._CowFloats(live_floats)
     f[1] += 1.5
     assert live_floats == {1: 2.5}, 'a virtual placement advanced the live floats'
     assert f[1] == 4.0 and f.get(9, 0.0) == 0.0
 
     live_lists = {1: {7: [1.0, 2.0]}}
-    L = gain._CowListsByKey(live_lists)
+    L = gain_cow._CowListsByKey(live_lists)
     L[1][7].append(3.0)
     assert live_lists == {1: {7: [1.0, 2.0]}}, 'a virtual placement advanced the live lists'
     assert L[1][7] == [1.0, 2.0, 3.0]
@@ -129,15 +136,15 @@ def test_the_view_copies_strictly_less_than_the_copy():
     tally = {'cow': 0, 'eager': 0}
 
     def _run(mode):
-        saved_views = gain.AISLE_VIEWS
-        saved_get = gain._CowSets.__getitem__
+        saved_views = gain_cow.AISLE_VIEWS
+        saved_get = gain_cow._CowSets.__getitem__
         if mode == 'eager':
-            src = gain._copy_of_sets
+            src = gain_cow._copy_of_sets
 
             def counted(d):
                 tally['eager'] += sum(len(v) for v in d.values())
                 return src(d)
-            gain.AISLE_VIEWS = dict(saved_views, aisle_sku_sets=counted,
+            gain_cow.AISLE_VIEWS = dict(saved_views, aisle_sku_sets=counted,
                                     aisle_idx_sets=counted)
         else:
             def counted_get(self, k):
@@ -145,13 +152,13 @@ def test_the_view_copies_strictly_less_than_the_copy():
                     s = self._live.get(k)
                     tally['cow'] += len(s) if s is not None else 0
                 return saved_get(self, k)
-            gain._CowSets.__getitem__ = counted_get
+            gain_cow._CowSets.__getitem__ = counted_get
         try:
             a = cs.build_assets(strategy='uni_rank_labor_norsl', **_SCENARIO)
             cs.run_meso(a, n_batches=_BATCHES, seed=11, recv_deadline=_WHISTLE)
         finally:
-            gain.AISLE_VIEWS = saved_views
-            gain._CowSets.__getitem__ = saved_get
+            gain_cow.AISLE_VIEWS = saved_views
+            gain_cow._CowSets.__getitem__ = saved_get
 
     _run('eager')
     _run('cow')
@@ -164,7 +171,7 @@ def test_the_view_copies_strictly_less_than_the_copy():
 
 def test_every_view_shape_reproduces_the_eager_copy_exactly():
     """EQUIVALENCE, one arm per view shape, against the frozen eager table."""
-    eager = dict(gain.AISLE_COPIERS)
+    eager = dict(gain_cow.AISLE_COPIERS)
     seen = {}
     for arm in _ARMS:
         cow_digest, cow_res = _digest(arm)

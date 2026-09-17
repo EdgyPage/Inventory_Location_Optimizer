@@ -172,7 +172,7 @@ count DOWN, which it permits.
 | - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
 | - | 20 | **RESOLVED** | `aisle_metrics.pick_load_sum` deleted -- wrong on 15 of 17 arms, no reader |
 | - | 21 | not started | NEW, split from 02B: the pool builders take loose dicts, not a ledger. Ride ticket 04's oracle re-freeze |
-| - | 22 | not started | NEW, split from 16: `Inbound/gain.py` is 1,398 lines and four modules |
+| - | 22 | **RESOLVED** | `gain.py` 1,410 -> 865 lines + gain_cow + gain_bundle; the rebinding trap proved closed |
 | - | 23 | **RESOLVED** | the seed prices only the arm's terms; `reconcile()` is unconditional again |
 | - | 24 | **RESOLVED** | the decision: `ArmAssembly` lives in `strategy_runner.py`; a new module would be a cycle |
 

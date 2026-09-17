@@ -63,16 +63,26 @@ files:
     purpose: "the unload-plan evaluator: EXPECTED FUTURE WORK, faithful-to-arm."
     layer: "inbound"
     key_symbols:
-      - {name: "AISLE_COPIERS", file: "Inbound/gain.py", kind: "const"}
-      - {name: "AISLE_VIEWS", file: "Inbound/gain.py", kind: "const"}
-      - {name: "GainBundle", file: "Inbound/gain.py", kind: "class"}
-      - {name: "OneOwnerBundle", file: "Inbound/gain.py", kind: "class"}
-      - {name: "SiteGainBundle", file: "Inbound/gain.py", kind: "class"}
       - {name: "plan_order", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_myopic", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_forecast", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_gated", file: "Inbound/gain.py", kind: "function"}
       - {name: "futuresight", file: "Inbound/gain.py", kind: "function"}
+    notes: ""
+  "Inbound/gain_bundle.py":
+    purpose: "which arm owns a unit, and what the evaluator may ask of it."
+    layer: "inbound"
+    key_symbols:
+      - {name: "GainBundle", file: "Inbound/gain_bundle.py", kind: "class"}
+      - {name: "OneOwnerBundle", file: "Inbound/gain_bundle.py", kind: "class"}
+      - {name: "SiteGainBundle", file: "Inbound/gain_bundle.py", kind: "class"}
+    notes: ""
+  "Inbound/gain_cow.py":
+    purpose: "how a VIRTUAL placement sees the aisle books without advancing them."
+    layer: "inbound"
+    key_symbols:
+      - {name: "AISLE_COPIERS", file: "Inbound/gain_cow.py", kind: "const"}
+      - {name: "AISLE_VIEWS", file: "Inbound/gain_cow.py", kind: "const"}
     notes: ""
   "Inbound/pack.py":
     purpose: "what arrived, how it packed, and what a single delivery would have produced."

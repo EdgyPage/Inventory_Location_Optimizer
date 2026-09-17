@@ -875,247 +875,6 @@
       "kind": "module",
       "signature": null
     },
-    "Inbound/gain.py::AISLE_COPIERS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'aisle_sku_sets': _copy_of_sets, 'aisle_idx_sets': _copy_of_sets, 'aisle_demand_sum': _copy_of_floats, 'aisle_pick_load_sum': _copy_of_floats, 'aisle_vol_sum': _copy_of_floats, 'aisle_member_pos':..."
-    },
-    "Inbound/gain.py::AISLE_VIEWS": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "{'aisle_sku_sets': _CowSets, 'aisle_idx_sets': _CowSets, 'aisle_demand_sum': _CowFloats, 'aisle_pick_load_sum': _CowFloats, 'aisle_vol_sum': _CowFloats, 'aisle_member_pos': _CowListsByKey}"
-    },
-    "Inbound/gain.py::GainBundle": {
-      "decorators": [],
-      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\nThree adapters, and the bundle picks exactly one.  `uniform` selects the uniform\nadapter (`fifo`: no pool, no direction \u2014 the tier's mean and a seat count).  Else\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls `pool_factory(candidates, state, wp)`,\nwhere `state` is a FRESH copy per evaluation of every live aisle dict the arm's pool\ncommits to: `aisle_state` names them (manager attribute -> the live dict) and\n`AISLE_COPIERS` above says how each is copied.  Those names are the seam's whole\nvocabulary, which is what keeps it fixed -- a family that commits to one more dict is\na driver branch plus one more name, never a wider signature here.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\n`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to\nsort a tier by, so nothing reads it.  It is left at its default rather than\nrefused, because the merge adapter's default is the same value.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
-      "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::GainBundle.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, fee_threshold_days: float=DEFAULT_FEE_THRESHOLD_DAYS, urgency_horizon_days: float=DEFAULT_URGENCY_HORIZON_DAYS)"
-    },
-    "Inbound/gain.py::OneOwnerBundle": {
-      "decorators": [],
-      "doc": "The single-channel bundle provider: `for_key` ignores the key and hands back\nthe ONE `GainBundle` it holds \u2014 that same instance, never a copy.\n\nThe evaluator always resolves its arm machinery through `for_key`, so a run with\none channel needs something to resolve THROUGH.  This is it, and it is why there is\nno second path: a bare bundle is refused at `_Evaluator.__init__` rather than\nsniffed for, so the pricing hot path has one shape whether or not the site dock's\ncomposite is what answers.  Byte-identity is structural \u2014 the object the evaluator\nreads is the object the driver built.\n\n`key` is unused BY CONSTRUCTION, not by accident: one owner has one answer.  The\ncursor hands it `None` before the first group is keyed (`_Evaluator.b`), which this\nadapter answers like any other key.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::OneOwnerBundle.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, bundle: GainBundle)"
-    },
-    "Inbound/gain.py::OneOwnerBundle.fee_threshold_days": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> float"
-    },
-    "Inbound/gain.py::OneOwnerBundle.for_key": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, key)"
-    },
-    "Inbound/gain.py::OneOwnerBundle.urgency_horizon_days": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> float"
-    },
-    "Inbound/gain.py::SiteGainBundle": {
-      "decorators": [],
-      "doc": "The site dock's bundle provider: ONE `GainBundle` per channel, dispatched by the\nBinKey's OWN regime \u2014 the composite of 05 decision 1.\n\nA mixed trailer's store units must be priced by the store arm's pool and its\nfulfillment units by the fulfillment arm's.  `place_load` already groups a load by\nBinKey and `regime_of_key` reads the regime straight off that key (regime is itself a\nBinKey component), so the charter's \"per-unit, keyed by owning channel\" needs no\nper-unit loop: the seam is one level coarser and free.  This is the SAME owner\nresolution the site receiving coordinator makes at its step-4 handoff\n(`regime_of(item.unit)`) \u2014 one fact, read through the key the loop already holds.\n\n# \u2500\u2500 two whole bundles, not one bundle with keyed fields \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nEach owner is the WHOLE `GainBundle` `_gain_bundle_for` built for that leaf, from that\nleaf's own `mgr` / `strat` / `sctx`.  `_gain_bundle_for` is called twice and is\notherwise untouched, which is what keeps each half FAITHFUL TO ITS ARM structurally\nrather than by argument: neither is rebuilt, reinterpreted or averaged, so the\ncomposite adds nothing neither arm would do.  Owner-keyed FIELDS on one bundle were\nthe rejected alternative \u2014 `GainBundle.__init__`'s cross-field refusals (an\n`expect_heads` with no pool; a `uniform` carrying one) would silently stop applying,\nbecause the five arm fields would no longer sit on one object to be checked against\neach other.\n\n# \u2500\u2500 what is NOT keyed, and the refusal that makes that safe \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nHalf the bundle is already site-wide: `binkey_of` and `tier_ranks_for` are pure,\n`put_speed` is the one put crew's (`put_crew_spec()` \u2014 one site CONFIG), and the\ngate's `fee_threshold_days` / `urgency_horizon_days` are site CONFIG too.  `wp_of`\nneeds no keying because on the payload this code actually receives the two owners'\ncopies are IDENTICAL FUNCTIONS OF DIFFERENT DATA and the refusal below covers them:\n`workunits` sets `ch_wp.by_regime = None` on every mixed-catalogue channel leaf, so\n`_wp_for(wp, unit)` returns that leaf's own `wp` unchanged and dispatches nothing.\n(An earlier draft of this paragraph said `_wp_for` \"ALREADY dispatches per regime\".\nIt does not, here \u2014 the per-regime table is nulled one layer up, and it is the leaf's\nown regime-pure `wp` that makes the answer right.  A false justification is how the\nnext change goes wrong.)\n\nSo those five are REFUSED at `bind` when two owners disagree, rather than resolved.\nThey cannot differ on a lawful run \u2014 both come from one `inbound_spec()` and one\n`put_crew` record \u2014 which is exactly why a silent first-wins would never be noticed.\nTwo of them are also what makes `for_key(None)` honest: the evaluator resolves with a\nNone cursor to key its groups in the first place, and answering that with the\nfirst-bound owner is only lawful because every owner answers it the same.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::SiteGainBundle.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::SiteGainBundle.__repr__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::SiteGainBundle.bind": {
-      "decorators": [],
-      "doc": "Serve `regime`'s units with `bundle`.  Called once per leaf, at leaf build, by\nthe driver that owns both leaves \u2014 the same shape `SiteReceiving.bind` and\n`PutawayPool.bind` have, and for the same reason: a leaf cannot see the site.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, regime: str, bundle: GainBundle) -> None"
-    },
-    "Inbound/gain.py::SiteGainBundle.fee_threshold_days": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> float"
-    },
-    "Inbound/gain.py::SiteGainBundle.for_key": {
-      "decorators": [],
-      "doc": "The arm machinery owning `key`'s group \u2014 `regime_of_key`, never `regime_of`.\n\nA BinKey is a plain tuple, so `regime_of` would fall through every getattr and\nanswer 'store' for a fulfillment key, silently and always in the same direction\n(`Inbound/site_space.py` hit the same trap on the bin side).\n\n`None` is the evaluator's pre-cursor read \u2014 `place_load` calls `binkey_of` to form\nthe groups before any of them is keyed \u2014 and it is answered with the FIRST-BOUND\nowner.  That is exact rather than arbitrary: `bind` refuses owners whose site-wide\nfields differ, so every owner answers those reads identically.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, key) -> GainBundle"
-    },
-    "Inbound/gain.py::SiteGainBundle.owners": {
-      "decorators": [
-        "property"
-      ],
-      "doc": "The bound regimes, in bind order \u2014 observability for the driver and the tests.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> tuple"
-    },
-    "Inbound/gain.py::SiteGainBundle.urgency_horizon_days": {
-      "decorators": [
-        "property"
-      ],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self) -> float"
-    },
-    "Inbound/gain.py::_CowFloats": {
-      "decorators": [],
-      "doc": "`{aisle: float}` -- and floats need NO copy at all.\n\nA float is immutable, so a read falls straight through to the live dict; only a write\nneeds an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write\nlands in the overlay rather than on the manager's dict.\n\nA miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the shape this\nreplaces -- so `len()` and iteration order are unchanged.",
-      "kind": "class",
-      "signature": "(_CowView)"
-    },
-    "Inbound/gain.py::_CowFloats.__getitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
-    },
-    "Inbound/gain.py::_CowListsByKey": {
-      "decorators": [],
-      "doc": "`{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.\n\nTwo levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so\na shallow copy would hand the pool the live inner list.  An access materializes that one\naisle's whole inner mapping, which is still one of forty-six.",
-      "kind": "class",
-      "signature": "(_CowView)"
-    },
-    "Inbound/gain.py::_CowListsByKey.__getitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
-    },
-    "Inbound/gain.py::_CowSets": {
-      "decorators": [],
-      "doc": "`{aisle: set}`.\n\nUnlike floats the value is MUTABLE and the caller does `d[aid].add(sku)` -- and\n`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an\naccess materializes that ONE aisle's set.  Bounded by the aisles a pool touches\n(measured 1.22), not by the warehouse (46).",
-      "kind": "class",
-      "signature": "(_CowView)"
-    },
-    "Inbound/gain.py::_CowSets.__getitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
-    },
-    "Inbound/gain.py::_CowView": {
-      "decorators": [],
-      "doc": "Copy-on-write over one of the manager's `{aisle: ...}` dicts.\n\nA virtual placement must never advance the live bookkeeping, and the original way to\nguarantee that was to hand the pool an EAGER copy of the whole dict.  The measurement in\nfront of this block is why that stopped: a pool's candidates are the free bins of ONE\nBinKey, living in one or two aisles, while the copy walked all forty-six -- 9.3M set\nentries copied per run, at 12.59 pool opens per placement.\n\nA view pays for the aisles the pool actually touches instead.  Reads fall through to the\nlive dict; the first access to an aisle whose value is MUTABLE materializes that one\naisle into an overlay, and every write lands in the overlay.  The purity rule is\nunchanged -- it is the price that moved.\n\n# -- what a subclass owns, and what it does not --------------------------------------\n\n`__getitem__` ONLY.  How a miss materializes IS the difference between the shapes: a\nfloat needs no copy at all (it is immutable, so a read can fall straight through), a set\nneeds its own set, and the minlabor shape needs a whole inner mapping.  The remaining\neight methods never differed, and were three byte-identical copies until this base\nexisted; `Tests/unit/test_gain_cow_protocol.py` asserts they stay one implementation and\nthat `__getitem__` stays three.\n\n# -- where the laziness stops, deliberately -------------------------------------------\n\n`values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the\nLIVE container and the caller could mutate it -- the precise failure the eager copy\nexisted to prevent.  `_RankedAssignPool.__init__` builds\n`set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets\ncorrectness and no win.  Every other ranked family reads by key and gets both.\n\nSlotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is\nopened per pool, and a stray attribute would be per-pool heap nobody frees.",
-      "kind": "class",
-      "signature": ""
-    },
-    "Inbound/gain.py::_CowView.__contains__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
-    },
-    "Inbound/gain.py::_CowView.__getitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k)"
-    },
-    "Inbound/gain.py::_CowView.__init__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, live)"
-    },
-    "Inbound/gain.py::_CowView.__iter__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowView.__len__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowView.__setitem__": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k, v)"
-    },
-    "Inbound/gain.py::_CowView.get": {
-      "decorators": [],
-      "doc": "Read WITHOUT materializing -- which is the whole reason a pool ever calls it.\n\nThe fall-through hands back the LIVE value for a key the overlay has not taken.\nThat is read-only by contract: a caller that mutates what `get` returned writes\ninto the manager's own dict.  Callers that intend to write use `__getitem__`.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, k, default=None)"
-    },
-    "Inbound/gain.py::_CowView.items": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowView.keys": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
-    "Inbound/gain.py::_CowView.values": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
-    },
     "Inbound/gain.py::_Evaluator": {
       "decorators": [],
       "doc": "One plan's virtual placement state \u2014 built per entry call, dies with it.\n\nOwns the sort-once structures (per-key bins in arm-D order, computed lazily the\nfirst time a key is touched and NEVER rebuilt \u2014 the structure the Tier-1 sabotage\ntest perturbs), the consumed-bin set the greedy advances, and the pricing.  Reads\nthe frozen `SpaceView` and the bundle provider; its only writes are its own\nbookkeeping.\n\n# \u2500\u2500 the owner cursor, and why ONE evaluator can serve two leaves \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`b` is not a field: it resolves `provider.for_key(self._key)`, and `_key` is set in\n`_params` \u2014 which `place_load` calls exactly once per BinKey group, before it\nbranches on the adapter, so every read that follows a group's `_params` sees that\ngroup's arm.  Under `OneOwnerBundle` that is one instance for every key and the\nindirection is inert; under `SiteGainBundle` it is the WHOLE dispatch, at the\ngranularity the loop already has.\n\nThe property this rests on: **a spill chain never crosses regimes.**  `_chain`\nvaries only `size`, holding `handling` / `category` / `unit_category` fixed, and\nregime is read off exactly those three (`inventory_common`: regime is itself a\nBinKey component).  Every other cache here \u2014 `_sorted_now`, `_sorted_pred`, `_wp`,\n`_chain_cache`, `_worst`, `_mom`, `taken` \u2014 is BinKey- or bin-id-keyed.  So two\nowners share this object with zero cross-talk, and nothing here needs to know which\nof them it is serving.  Take that property away and the caches, not the cursor, are\nwhat goes wrong.\n\nOne read precedes any cursor: `place_load` calls `self.b.binkey_of(u)` to key the\ngroups in the first place, with `_key` still None.  That is lawful because the\nthree site-wide fields (`binkey_of`, `tier_ranks_for`, `put_speed`) are the same\nobject for every owner \u2014 a provider that made THEM vary per key would be answering\na different question than this evaluator asks.",
@@ -1243,27 +1002,6 @@
       "kind": "function",
       "signature": "(self, units, excluded, predicted: bool, *, alloc=None)"
     },
-    "Inbound/gain.py::_copy_of_floats": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(d)"
-    },
-    "Inbound/gain.py::_copy_of_lists_by_key": {
-      "decorators": [],
-      "doc": "Two levels down: {aisle: {sku_idx: [x_phys, ...]}}, and the lists are appended to.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(d)"
-    },
-    "Inbound/gain.py::_copy_of_sets": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(d)"
-    },
     "Inbound/gain.py::_load_units": {
       "decorators": [],
       "doc": "The candidate's remaining planned load \u2014 pending[taken:], the plans-at-arrival\ncontract.  A candidate with no plan is a wiring error, never a silent zero: in\nproduction every yard/staged trailer was planned (or discarded) before any\nranking runs.",
@@ -1277,13 +1015,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, name: str)"
-    },
-    "Inbound/gain.py::_site_wide_disagreement": {
-      "decorators": [],
-      "doc": "`(field, ref value, other value)` for the first SITE-WIDE field two owners answer\ndifferently, or None when they agree on all of them.\n\n`put_speed` is checked on the two paces the evaluator actually READS (`x_pace` /\n`y_pace`), not on the profile object: the driver builds a `SpeedProfile` per leaf from\none payload record, so two equal-valued instances are the lawful case and an identity\ntest here would refuse every coupled run.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(ref: GainBundle, other: GainBundle)"
     },
     "Inbound/gain.py::_window_rates": {
       "decorators": [],
@@ -1341,6 +1072,301 @@
       "is_async": false,
       "kind": "function",
       "signature": "(t)"
+    },
+    "Inbound/gain_bundle.py": {
+      "decorators": [],
+      "doc": "gain_bundle \u2014 which arm owns a unit, and what the evaluator may ask of it.\n\nOne mixed trailer is priced per unit by the OWNING channel's arm, so something has to answer\n\"whose arm is this?\" before anything can be priced. These three do, through one protocol:\n\n- `GainBundle`      \u2014 everything arm-specific the evaluator needs, driver-built and\n                      driver-injected, because `Inbound -> wh_inventory / wh_placement` are\n                      forbidden edges and the broker holds what it is handed.\n- `OneOwnerBundle`  \u2014 a single-channel run: `for_key` ignores the key and returns the one\n                      bundle it holds.\n- `SiteGainBundle`  \u2014 two arms over one mixed trailer, resolved by the key's own regime.\n\n## Why this is its own module\n\nThe deletion test again, and `gain.py:57-60` states it: deleting the trio brings `if coupled:`\nback into the PRICING PATH, which is exactly what it exists to prevent. There is one\nresolution rule and no coupling branch anywhere below it.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/gain_bundle.py::GainBundle": {
+      "decorators": [],
+      "doc": "Everything arm-specific the evaluator needs, injected by the driver.\n\nThree adapters, and the bundle picks exactly one.  `uniform` selects the uniform\nadapter (`fifo`: no pool, no direction \u2014 the tier's mean and a seat count).  Else\n`pool_factory` None selects the merge adapter (extremal-D family, direction\n`minimize`); otherwise the pool adapter calls `pool_factory(candidates, state, wp)`,\nwhere `state` is a FRESH copy per evaluation of every live aisle dict the arm's pool\ncommits to: `aisle_state` names them (manager attribute -> the live dict) and\n`AISLE_COPIERS` above says how each is copied.  Those names are the seam's whole\nvocabulary, which is what keeps it fixed -- a family that commits to one more dict is\na driver branch plus one more name, never a wider signature here.  `expect_heads` prices\neach unit at the mean over `heads_of(pool)` before consuming (rank_random's no-RNG\nexpectation).  `wp_of` / `binkey_of` / `tier_ranks_for` are handed over because\ntheir home (`wh_inventory`) is a forbidden import \u2014 the broker rule.\n\n`minimize` is INERT under `uniform`: a uniform draw has no extremal direction to\nsort a tier by, so nothing reads it.  It is left at its default rather than\nrefused, because the merge adapter's default is the same value.\n\nThe two days-denominated knobs ride here because the gate entry has no other\nchannel to CONFIG (`inbound_spec()` -> driver -> bundle, the five-seam path).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain_bundle.py::GainBundle.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, fee_threshold_days: float=DEFAULT_FEE_THRESHOLD_DAYS, urgency_horizon_days: float=DEFAULT_URGENCY_HORIZON_DAYS)"
+    },
+    "Inbound/gain_bundle.py::OneOwnerBundle": {
+      "decorators": [],
+      "doc": "The single-channel bundle provider: `for_key` ignores the key and hands back\nthe ONE `GainBundle` it holds \u2014 that same instance, never a copy.\n\nThe evaluator always resolves its arm machinery through `for_key`, so a run with\none channel needs something to resolve THROUGH.  This is it, and it is why there is\nno second path: a bare bundle is refused at `_Evaluator.__init__` rather than\nsniffed for, so the pricing hot path has one shape whether or not the site dock's\ncomposite is what answers.  Byte-identity is structural \u2014 the object the evaluator\nreads is the object the driver built.\n\n`key` is unused BY CONSTRUCTION, not by accident: one owner has one answer.  The\ncursor hands it `None` before the first group is keyed (`_Evaluator.b`), which this\nadapter answers like any other key.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain_bundle.py::OneOwnerBundle.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, bundle: GainBundle)"
+    },
+    "Inbound/gain_bundle.py::OneOwnerBundle.fee_threshold_days": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Inbound/gain_bundle.py::OneOwnerBundle.for_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key)"
+    },
+    "Inbound/gain_bundle.py::OneOwnerBundle.urgency_horizon_days": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle": {
+      "decorators": [],
+      "doc": "The site dock's bundle provider: ONE `GainBundle` per channel, dispatched by the\nBinKey's OWN regime \u2014 the composite of 05 decision 1.\n\nA mixed trailer's store units must be priced by the store arm's pool and its\nfulfillment units by the fulfillment arm's.  `place_load` already groups a load by\nBinKey and `regime_of_key` reads the regime straight off that key (regime is itself a\nBinKey component), so the charter's \"per-unit, keyed by owning channel\" needs no\nper-unit loop: the seam is one level coarser and free.  This is the SAME owner\nresolution the site receiving coordinator makes at its step-4 handoff\n(`regime_of(item.unit)`) \u2014 one fact, read through the key the loop already holds.\n\n# \u2500\u2500 two whole bundles, not one bundle with keyed fields \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nEach owner is the WHOLE `GainBundle` `_gain_bundle_for` built for that leaf, from that\nleaf's own `mgr` / `strat` / `sctx`.  `_gain_bundle_for` is called twice and is\notherwise untouched, which is what keeps each half FAITHFUL TO ITS ARM structurally\nrather than by argument: neither is rebuilt, reinterpreted or averaged, so the\ncomposite adds nothing neither arm would do.  Owner-keyed FIELDS on one bundle were\nthe rejected alternative \u2014 `GainBundle.__init__`'s cross-field refusals (an\n`expect_heads` with no pool; a `uniform` carrying one) would silently stop applying,\nbecause the five arm fields would no longer sit on one object to be checked against\neach other.\n\n# \u2500\u2500 what is NOT keyed, and the refusal that makes that safe \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nHalf the bundle is already site-wide: `binkey_of` and `tier_ranks_for` are pure,\n`put_speed` is the one put crew's (`put_crew_spec()` \u2014 one site CONFIG), and the\ngate's `fee_threshold_days` / `urgency_horizon_days` are site CONFIG too.  `wp_of`\nneeds no keying because on the payload this code actually receives the two owners'\ncopies are IDENTICAL FUNCTIONS OF DIFFERENT DATA and the refusal below covers them:\n`workunits` sets `ch_wp.by_regime = None` on every mixed-catalogue channel leaf, so\n`_wp_for(wp, unit)` returns that leaf's own `wp` unchanged and dispatches nothing.\n(An earlier draft of this paragraph said `_wp_for` \"ALREADY dispatches per regime\".\nIt does not, here \u2014 the per-regime table is nulled one layer up, and it is the leaf's\nown regime-pure `wp` that makes the answer right.  A false justification is how the\nnext change goes wrong.)\n\nSo those five are REFUSED at `bind` when two owners disagree, rather than resolved.\nThey cannot differ on a lawful run \u2014 both come from one `inbound_spec()` and one\n`put_crew` record \u2014 which is exactly why a silent first-wins would never be noticed.\nTwo of them are also what makes `for_key(None)` honest: the evaluator resolves with a\nNone cursor to key its groups in the first place, and answering that with the\nfirst-bound owner is only lawful because every owner answers it the same.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.__repr__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.bind": {
+      "decorators": [],
+      "doc": "Serve `regime`'s units with `bundle`.  Called once per leaf, at leaf build, by\nthe driver that owns both leaves \u2014 the same shape `SiteReceiving.bind` and\n`PutawayPool.bind` have, and for the same reason: a leaf cannot see the site.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, regime: str, bundle: GainBundle) -> None"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.fee_threshold_days": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.for_key": {
+      "decorators": [],
+      "doc": "The arm machinery owning `key`'s group \u2014 `regime_of_key`, never `regime_of`.\n\nA BinKey is a plain tuple, so `regime_of` would fall through every getattr and\nanswer 'store' for a fulfillment key, silently and always in the same direction\n(`Inbound/site_space.py` hit the same trap on the bin side).\n\n`None` is the evaluator's pre-cursor read \u2014 `place_load` calls `binkey_of` to form\nthe groups before any of them is keyed \u2014 and it is answered with the FIRST-BOUND\nowner.  That is exact rather than arbitrary: `bind` refuses owners whose site-wide\nfields differ, so every owner answers those reads identically.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key) -> GainBundle"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.owners": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The bound regimes, in bind order \u2014 observability for the driver and the tests.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Inbound/gain_bundle.py::SiteGainBundle.urgency_horizon_days": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> float"
+    },
+    "Inbound/gain_bundle.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['GainBundle', 'OneOwnerBundle', 'SiteGainBundle']"
+    },
+    "Inbound/gain_bundle.py::_site_wide_disagreement": {
+      "decorators": [],
+      "doc": "`(field, ref value, other value)` for the first SITE-WIDE field two owners answer\ndifferently, or None when they agree on all of them.\n\n`put_speed` is checked on the two paces the evaluator actually READS (`x_pace` /\n`y_pace`), not on the profile object: the driver builds a `SpeedProfile` per leaf from\none payload record, so two equal-valued instances are the lawful case and an identity\ntest here would refuse every coupled run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ref: GainBundle, other: GainBundle)"
+    },
+    "Inbound/gain_cow.py": {
+      "decorators": [],
+      "doc": "gain_cow \u2014 how a VIRTUAL placement sees the aisle books without advancing them.\n\nThe inbound gain evaluator prices a placement by actually making it, in a pool opened over\nthe arm's own builder. A virtual placement must therefore never touch the LIVE bookkeeping,\nand what \"a copy\" IS belongs to the DICT rather than to the arm reading it \u2014 two families\nsharing a dict share its copier. So the shapes are declared here, once.\n\n## Why this is its own module\n\nIt was ~200 lines inside a 1,410-line `gain.py` that is really four things: this, the owner\nresolution, the evaluator, and the entries. The deletion test passes loudly \u2014 removing it\nbrings back a MEASURED 37.8x copy blow-up at every `_make_pool` \u2014 it simply is not the same\nmodule as the evaluator.\n\n## READ THE TABLES THROUGH THIS MODULE, never through a bare imported name\n\n`Tests/unit/test_gain_cow_equivalence.py` REBINDS `AISLE_VIEWS` to sabotage the views, and\nits own docstring calls that the saving throw: without it the file passes if the views are\nquietly pointed back at the eager copiers. A reader that did `from Inbound.gain_cow import\nAISLE_VIEWS` would bind the name at import and never see the rebinding \u2014 the sabotage would\nstop sabotaging, silently, and the file would go on passing.\n\nThat is not hypothetical: `test_gain_bundle_labor_families.py` records it happening once\nalready, when `_make_pool` moved from `AISLE_COPIERS` to `AISLE_VIEWS`. So `_Evaluator` reads\n`_cow.AISLE_VIEWS[n]`, and `gain.py` does not re-export either table.",
+      "kind": "module",
+      "signature": null
+    },
+    "Inbound/gain_cow.py::AISLE_COPIERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'aisle_sku_sets': _copy_of_sets, 'aisle_idx_sets': _copy_of_sets, 'aisle_demand_sum': _copy_of_floats, 'aisle_pick_load_sum': _copy_of_floats, 'aisle_vol_sum': _copy_of_floats, 'aisle_member_pos':..."
+    },
+    "Inbound/gain_cow.py::AISLE_VIEWS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'aisle_sku_sets': _CowSets, 'aisle_idx_sets': _CowSets, 'aisle_demand_sum': _CowFloats, 'aisle_pick_load_sum': _CowFloats, 'aisle_vol_sum': _CowFloats, 'aisle_member_pos': _CowListsByKey}"
+    },
+    "Inbound/gain_cow.py::_CowFloats": {
+      "decorators": [],
+      "doc": "`{aisle: float}` -- and floats need NO copy at all.\n\nA float is immutable, so a read falls straight through to the live dict; only a write\nneeds an overlay.  `_ads[aid] += fq` is `__getitem__` then `__setitem__`, and the write\nlands in the overlay rather than on the manager's dict.\n\nA miss CREATES the entry at 0.0, matching `defaultdict(float)` -- the shape this\nreplaces -- so `len()` and iteration order are unchanged.",
+      "kind": "class",
+      "signature": "(_CowView)"
+    },
+    "Inbound/gain_cow.py::_CowFloats.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain_cow.py::_CowListsByKey": {
+      "decorators": [],
+      "doc": "`{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.\n\nTwo levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so\na shallow copy would hand the pool the live inner list.  An access materializes that one\naisle's whole inner mapping, which is still one of forty-six.",
+      "kind": "class",
+      "signature": "(_CowView)"
+    },
+    "Inbound/gain_cow.py::_CowListsByKey.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain_cow.py::_CowSets": {
+      "decorators": [],
+      "doc": "`{aisle: set}`.\n\nUnlike floats the value is MUTABLE and the caller does `d[aid].add(sku)` -- and\n`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an\naccess materializes that ONE aisle's set.  Bounded by the aisles a pool touches\n(measured 1.22), not by the warehouse (46).",
+      "kind": "class",
+      "signature": "(_CowView)"
+    },
+    "Inbound/gain_cow.py::_CowSets.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain_cow.py::_CowView": {
+      "decorators": [],
+      "doc": "Copy-on-write over one of the manager's `{aisle: ...}` dicts.\n\nA virtual placement must never advance the live bookkeeping, and the original way to\nguarantee that was to hand the pool an EAGER copy of the whole dict.  The measurement in\nfront of this block is why that stopped: a pool's candidates are the free bins of ONE\nBinKey, living in one or two aisles, while the copy walked all forty-six -- 9.3M set\nentries copied per run, at 12.59 pool opens per placement.\n\nA view pays for the aisles the pool actually touches instead.  Reads fall through to the\nlive dict; the first access to an aisle whose value is MUTABLE materializes that one\naisle into an overlay, and every write lands in the overlay.  The purity rule is\nunchanged -- it is the price that moved.\n\n# -- what a subclass owns, and what it does not --------------------------------------\n\n`__getitem__` ONLY.  How a miss materializes IS the difference between the shapes: a\nfloat needs no copy at all (it is immutable, so a read can fall straight through), a set\nneeds its own set, and the minlabor shape needs a whole inner mapping.  The remaining\neight methods never differed, and were three byte-identical copies until this base\nexisted; `Tests/unit/test_gain_cow_protocol.py` asserts they stay one implementation and\nthat `__getitem__` stays three.\n\n# -- where the laziness stops, deliberately -------------------------------------------\n\n`values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the\nLIVE container and the caller could mutate it -- the precise failure the eager copy\nexisted to prevent.  `_RankedAssignPool.__init__` builds\n`set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets\ncorrectness and no win.  Every other ranked family reads by key and gets both.\n\nSlotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is\nopened per pool, and a stray attribute would be per-pool heap nobody frees.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain_cow.py::_CowView.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain_cow.py::_CowView.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k)"
+    },
+    "Inbound/gain_cow.py::_CowView.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, live)"
+    },
+    "Inbound/gain_cow.py::_CowView.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_CowView.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_CowView.__setitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, v)"
+    },
+    "Inbound/gain_cow.py::_CowView.get": {
+      "decorators": [],
+      "doc": "Read WITHOUT materializing -- which is the whole reason a pool ever calls it.\n\nThe fall-through hands back the LIVE value for a key the overlay has not taken.\nThat is read-only by contract: a caller that mutates what `get` returned writes\ninto the manager's own dict.  Callers that intend to write use `__getitem__`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k, default=None)"
+    },
+    "Inbound/gain_cow.py::_CowView.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_CowView.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_CowView.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['AISLE_COPIERS', 'AISLE_VIEWS']"
+    },
+    "Inbound/gain_cow.py::_copy_of_floats": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d)"
+    },
+    "Inbound/gain_cow.py::_copy_of_lists_by_key": {
+      "decorators": [],
+      "doc": "Two levels down: {aisle: {sku_idx: [x_phys, ...]}}, and the lists are appended to.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d)"
+    },
+    "Inbound/gain_cow.py::_copy_of_sets": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d)"
     },
     "Inbound/pack.py": {
       "decorators": [],
