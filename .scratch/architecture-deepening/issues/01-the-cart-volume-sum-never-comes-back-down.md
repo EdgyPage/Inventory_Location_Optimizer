@@ -1,7 +1,7 @@
 # 01 - the cart volume sum never comes back down
 
 Type: bug
-Status: claimed
+Status: resolved
 
 **PRE-RUN. This is the only ticket that touches `develop` before the phase-2 campaign launches.**
 
@@ -59,11 +59,9 @@ the hot path in the scoring loop and is both a perf and a float-accumulation-ord
 - A test that asserts the **magnitude** of the decrement on both paths, not merely that the value
   moved. A cap/floor that can be satisfied by zero is how this class of guard goes vacuous
   (memory `reloader-cap-floors-to-zero`).
-- **The three placement equivalence files WILL fail, and should.**
-  `test_co_demand_pool_equivalence.py`, `test_ranked_assign_pool_equivalence.py`,
-  `test_travel_balanced_equivalence.py` pin float-exact agreement between the pool and wave halves;
-  both halves share the bug today, so correcting one breaks the pin. Re-baseline them and say so
-  in the commit message -- this is a named break, not a regression.
+- ~~The three placement equivalence files WILL fail, and should.~~ **This prediction was WRONG;
+  see the Answer.** They pass untouched, because they pin pool-vs-wave AGREEMENT and the fix is in
+  the manager's shared teardown that both halves read -- so both moved together and the pin held.
 - Gate 10 (~20 s), `path_guard --scan`, `docref_guard --scan`.
 - The commit message states which published results it invalidates: `rank_cartlabor` fulfillment
   arms, bounded to aisles that crossed cart capacity.
@@ -75,3 +73,50 @@ Found by the 2026-09-16 architecture review. The guard that was supposed to catc
 `sum(sum(d.values()) for d in mgr._aisle_sku_counts.values()) > 0`, and `_aisle_sku_counts` is
 written by `_execute_placement` (`Inventory_Management.py:869-872`) regardless of what the policy
 commits. It is also written against `load_min`/`load_max`, a production-dead family.
+
+## Answer
+
+**Landed.** The symmetric decrement is in both twins -- `_drop_sku_from_aisle` (the canonical
+cold path) and the hoisted inline twin in `_reclaim_empty_bins` -- guarded by
+`Tests/unit/test_aisle_vol_sum_teardown.py`, 5 tests.
+
+**The fix is a strict no-op on every non-cart arm.** `_sku_vol_product` is declared as `{}` in
+`Inventory_Manager.__init__` and only populated when `init_demand_state` is given a `wp`, so on
+the flag-off path `.get(sku, 0.0)` returns `0.0`, the `if dv:` guard never fires, and nothing
+moves. A test pins that pole explicitly. `_aisle_vol_sum` is a `defaultdict(float)`, so the
+subtraction cannot KeyError on an aisle the seed never reached.
+
+**Non-vacuity proved, not assumed.** With the source change stashed, the two teardown tests fail
+by exactly `1036.8` -- which is `0.9 * 3.0 * (8 * 8 * 6)`, the fixture's `f * q * volume` by hand.
+The other three still pass, correctly: the seed guard and the flag-off guard are independent of
+the fix, and `test_the_two_teardown_paths_agree` tests AGREEMENT, which held while both twins were
+equally wrong. That is the right behaviour for that test and worth leaving as it is.
+
+### The prediction this ticket got wrong
+
+It said the three placement equivalence suites would fail and need re-baselining. **They pass, 95
+tests, untouched.** The reasoning was wrong in a specific and reusable way: those suites pin
+float-exact agreement between a family's POOL half and its WAVE half, and this fix is in the
+manager's shared teardown that BOTH halves read. Both moved together, so the pin held. A fix to
+shared state does not break an agreement pin -- only a fix to one side of it does.
+
+**This does not soften the comparability claim.** The suites are an internal-consistency
+instrument, not an absolute-value one; they would not have detected the drift either. Placement
+decisions for `rank_cartlabor` arms still move wherever an aisle crossed cart capacity, and
+published results from those arms are still invalidated.
+
+### Verification
+
+| check | result |
+|---|---|
+| `Tests/unit/test_aisle_vol_sum_teardown.py` | 5 passed |
+| same, with the fix stashed | 2 failed (the two teardown paths), by exactly 1036.8 |
+| the three placement equivalence files | 95 passed, 0.5 s -- unchanged |
+| `Tests/unit -k "not gpu"` | 2648 passed, 1 skipped, 114 s |
+| gates 1, 2, 3, 4, 5, 7, 8, 9, 10 | green |
+| gate 6 (`Schema.profile_tree --check`) | RED, identical message to the phase-0 baseline -- pre-existing, `architecture-drift/issues/04` |
+
+The derived architecture layer was regenerated for the new test file (graph, catalog, nodes,
+site). The catalog-merge seeded its `purpose` from the docstring rather than as `TODO`, exactly as
+memory `catalog-merge-seeds-a-docstring-fragment` records; it was sharpened by hand, on one line,
+and a re-merge leaves `files.yml` byte-stable.

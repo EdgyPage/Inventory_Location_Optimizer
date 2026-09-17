@@ -47,9 +47,11 @@ The only work that touches `develop` before the campaign launches.
 **Exit:**
 - The decrement lands in `_drop_sku_from_aisle` AND its inline twin in `_reclaim_empty_bins`.
 - A test asserts the MAGNITUDE of the decrement, not merely that it moved, on both paths.
-- The three placement equivalence files are re-baselined, with the reason in the commit message:
-  they pin float-exact pool-vs-wave agreement, both halves shared the bug, correcting one breaks
-  the pin. This is a named break, not a regression.
+- ~~The three placement equivalence files are re-baselined~~ -- **this expectation was wrong.**
+  They pass untouched (95 tests): an agreement pin between a family's pool and wave halves does
+  not notice a fix to the shared state both halves read. Carry the corollary into phase 2 -- those
+  suites would not have caught this drift either, so a green equivalence run is not evidence that
+  a ledger quantity is correct.
 - Gate 10 (~20 s) green; `path_guard` and `docref_guard` green.
 - The commit says plainly which published results it invalidates: `rank_cartlabor` fulfillment
   arms, bounded to aisles that crossed cart capacity.
@@ -145,8 +147,8 @@ count DOWN, which it permits.
 
 | Phase | Ticket | Status | Commit | Note |
 |---|---|---|---|---|
-| 0 | baseline | not started | | |
-| 1 | 01 | not started | | PRE-RUN |
+| 0 | baseline | DONE | | gate 6 red, pre-existing (drift 04); all others green |
+| 1 | 01 | RESOLVED | | PRE-RUN -- landed, 5 guarding tests, non-vacuity proved |
 | 2 | 02-05 | not started | | |
 | 3 | 06-08 | not started | | |
 | 4 | 09-10 | not started | | |
@@ -157,13 +159,13 @@ count DOWN, which it permits.
 
 | # | Gate | Before | After | Owner if red |
 |---|---|---|---|---|
-| 1 | `context/verify_context.py` | | | |
-| 2 | `context/arch/verify_architecture.py` | | | |
-| 3 | `context/arch/verify_site.py --fast` | | | |
-| 4 | `runschema.contract --check` | | | |
-| 5 | `runschema.preflight --check` | | | |
-| 6 | `Schema.profile_tree --check` | | | drift 04 -- red on HEAD |
-| 7 | `context/memory/verify_memory.py` | | | |
-| 8 | `path_guard.py --scan` | | | |
-| 9 | `docref_guard.py --scan` | | | |
-| 10 | calltree + digest surface (~20 s) | | | |
+| 1 | `context/verify_context.py` | green | green | |
+| 2 | `context/arch/verify_architecture.py` | green | green | re-synced for the new test file |
+| 3 | `context/arch/verify_site.py --fast` | green | green | rebuilt, once was enough |
+| 4 | `runschema.contract --check` | green | green | |
+| 5 | `runschema.preflight --check` | green | green | |
+| 6 | `Schema.profile_tree --check` | RED | RED | drift 04 -- identical message both sides, NOT ours |
+| 7 | `context/memory/verify_memory.py` | green | green | 113 memories |
+| 8 | `path_guard.py --scan` | green | green | |
+| 9 | `docref_guard.py --scan` | green | green | |
+| 10 | calltree + digest surface (~20 s) | 62 pass / 11 s | 62 pass / 11 s | |

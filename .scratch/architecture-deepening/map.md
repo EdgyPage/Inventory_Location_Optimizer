@@ -92,9 +92,21 @@ Reached when:
   an acceptable price for a pre-run patch ON THE CONDITION that ticket 02 is the first thing that
   lands after the run.
 
-- **The equivalence suite is expected to FAIL on ticket 01, and that is a re-baseline.** It pins
-  float-exact agreement between the pool and wave halves of each ranked family; both halves share
-  the bug today, so correcting one without the other breaks the pin. Say so in the commit message.
+- **An agreement pin does not notice a fix to shared state** (2026-09-16, ticket 01). This map
+  predicted the three placement equivalence suites would fail on ticket 01 and need re-baselining.
+  **They passed, 95 tests, untouched.** They pin float-exact agreement between a family's POOL half
+  and its WAVE half, and the fix is in the manager's shared teardown that both halves read -- so
+  both moved together and the pin held. Only a fix to ONE SIDE of an agreement pin breaks it.
+  The corollary is the part to carry forward: those suites are an internal-consistency instrument,
+  not an absolute-value one, so **they would not have caught the drift either**, and a green
+  equivalence run is not evidence that a ledger quantity is correct. Ticket 02 needs
+  `run_digest.py` DB-row neutrality, not just the 4-second suite.
+
+- **Ticket 01 is RESOLVED and landed pre-run** (2026-09-16). Symmetric decrement in both twins, 5
+  guarding tests, non-vacuity proved by stashing the fix (2 fail by exactly 1036.8). Strict no-op
+  on every non-cart arm, because `_sku_vol_product` is `{}` until a `wp` is passed. Gates 1-5 and
+  7-10 green; gate 6 red with the message identical to the phase-0 baseline, so unchanged and not
+  ours. Full record in `issues/01`.
 
 - **`GLOBAL_POLICIES` is deleted; `LOCAL_POLICIES` is kept** (ticket 10). The standing yard
   REPLACED the global ranking rather than deferring it -- `YardTransit.__init__` hardcodes
