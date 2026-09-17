@@ -158,13 +158,14 @@ count DOWN, which it permits.
 | 2 | 04 | **RESOLVED** | four wave impls become thin drivers; the ranked oracle moved into its test first |
 | 2 | 05 | not started | **UNBLOCKED** by 04 |
 | 3 | 06 | **RESOLVED** | BatchState + ArmAssembly: `_build_leaf` 1,729 -> 918 lines, 149 -> 11 names, 0 nonlocal |
-| 3 | 07-08 | not started | **UNBLOCKED** by 06 |
+| 3 | 07 | **RESOLVED** | CheckpointBuffer + write_rows; 15 writers deleted, and `t_save` had been reading 0.000000 since 2026-08-18 |
+| 3 | 08 | not started | **UNBLOCKED** by 06 |
 | 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
 | 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
 | 5 | 11 | **RESOLVED** | one write declaration per table (20); the ratchet deleted its regex and found a third defect |
 | 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
 | 5 | 13 | not started | **UNBLOCKED** by 11; still waits on architecture-drift/05 |
-| 5 | 14 | not started | blocked by 07 |
+| 5 | 14 | not started | **UNBLOCKED** by 07 |
 | 5 | 15 | not started | **UNBLOCKED** by 11 |
 | 6 | 16 | **RESOLVED** | one at-bin put expression; the objective drops its term by name. File split -> 22 |
 | 6 | 17 | **RESOLVED** | ADR-0003's five rungs become a chain; `mgr.put_chain` is the knob the ADR anticipated |
