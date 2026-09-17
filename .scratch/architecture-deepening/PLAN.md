@@ -149,17 +149,39 @@ count DOWN, which it permits.
 
 ## Progress
 
-| Phase | Ticket | Status | Commit | Note |
-|---|---|---|---|---|
-| 0 | baseline | DONE | | gate 6 red, pre-existing (drift 04); all others green |
-| 1 | 01 | RESOLVED | | PRE-RUN -- landed, 5 guarding tests, non-vacuity proved |
-| 2 | 02 | part-landed | 89c4efa4 | stage A: ledger module + drop half. Stage B (10 add blocks) open |
-| 2 | 03 | part-landed | 715da1d9 | dead registries + live dispatch hints. load_*/lift_sum HELD for a decision |
-| 2 | 04-05 | not started | | |
-| 3 | 06-08 | not started | | |
-| 4 | 09-10 | not started | | |
-| 5 | 11-15 | not started | | |
-| 6 | 16-18 | not started | | |
+| Phase | Ticket | Status | Note |
+|---|---|---|---|
+| 0 | baseline | DONE | gate 6 red, pre-existing (drift 04); all others green |
+| 1 | 01 | **RESOLVED** | PRE-RUN. vol_sum drift fixed, non-vacuity proved |
+| 2 | 02 | part-landed | stage A: ledger module + drop half + reconcile(). **Stage B open** |
+| 2 | 03 | part-landed | dead registries, live dispatch hints, lift_sum + load_* deleted. **PlacementPolicy record open** |
+| 2 | 04 | not started | blocked by 03 |
+| 2 | 05 | not started | blocked by 04 |
+| 3 | 06 | not started | **UNBLOCKED** |
+| 3 | 07-08 | not started | blocked by 06 |
+| 4 | 09 | **RESOLVED** | Knob registry; write-back, record and resume restore derived |
+| 4 | 10 | **RESOLVED** | GLOBAL_POLICIES deleted |
+| 5 | 11 | not started | **UNBLOCKED** |
+| 5 | 12 | **RESOLVED** | frame table + one cache + one accessor |
+| 5 | 13 | not started | blocked by 11, and on architecture-drift/05 |
+| 5 | 14 | not started | blocked by 07 |
+| 5 | 15 | not started | blocked by 11 |
+| 6 | 16-17 | not started | blocked by 02 |
+| 6 | 18 | **RESOLVED** | closed with a reason: all three mixins stay |
+| - | 19 | **RESOLVED** | LoadParams deleted; init_lift_state renamed; delta_lift_idxs closed with a reason |
+
+**Six resolved, two part-landed, eleven open.** The three still-unblocked tickets (02 stage B,
+06, 11) are each a multi-hour refactor of a hot path and want a focused effort with the toy-run
+digest, not a tail-end slice.
+
+### Why ticket 11 has no cheap first step
+
+Its most valuable piece looks like extending `test_written_columns_are_readable` from 1 writer
+to 20. It cannot be done first: **4 of the 16 writers already defeat the existing regex**
+(`_insert_work_events` parses 1 column of its real set; `free_index`, `shift_days` and
+`site_receiving` parse none), and the only way to extend coverage without the declaration is a
+BETTER REGEX OVER SOURCE -- which is the exact repair the ticket exists to stop. The ratchet
+becomes possible once the columns are declared; it is not a way in.
 
 ### Gate baseline (fill in phase 0)
 
