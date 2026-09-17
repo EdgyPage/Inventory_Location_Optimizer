@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 
 # Shared leaf types/constants/helpers live in inventory_common (no import cycle).
 # Re-exported here so `from Inventory_Management import Placement, BinKey, ...` is unchanged.
+from Warehouse.inventory.aisle_ledger import AisleLedger
 from Warehouse.inventory.put_policy import key_for as _put_key_for
 from Warehouse.inventory.put_queue import (
     HeldItems, PutQueueSet, single_queue, store_and_fulfillment)
@@ -391,41 +392,50 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         self._bin_pref: dict[int, float] = {}
         self._map_target: dict[int, float] = {}
 
+        # ── THE AISLE LEDGER ──────────────────────────────────────────────────────────
+        # What each aisle currently holds, priced: eleven dicts that are one concept, owned
+        # by one module (Warehouse/inventory/aisle_ledger.py).  Two quantities drifted while
+        # these were eleven loose attributes with an add half in the placement policies and a
+        # drop half in reorder -- see the module docstring.
+        #
+        # The eight AISLE dicts are bound here as direct aliases, not properties: they are
+        # never rebound (only cleared and mutated), they are read on the placement hot path,
+        # and an indirection there is a per-candidate cost.  The three per-SKU PRODUCT dicts
+        # ARE rebound, by init_demand_state, so those are properties with setters below.
+        self.ledger = AisleLedger()
+
         # Persistent lift state shared with load-aware assignment functions.
-        self._aisle_sku_sets: dict[int, set[int]]         = defaultdict(set)
-        self._aisle_lift_sum: dict[int, float]             = defaultdict(float)
-        self._aisle_sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
+        self._aisle_sku_sets: dict[int, set[int]]         = self.ledger.sku_sets
+        self._aisle_lift_sum: dict[int, float]             = self.ledger.lift_sum
+        self._aisle_sku_counts: dict[int, dict[int, int]] = self.ledger.sku_counts
         # Pre-translated matrix indices mirror of _aisle_sku_sets — eliminates
         # the O(N_aisle_members) dict lookup set-comprehension in delta_lift_idxs.
-        self._aisle_idx_sets: dict[int, set[int]]         = defaultdict(set)
+        self._aisle_idx_sets: dict[int, set[int]]         = self.ledger.idx_sets
         # Per-aisle placed-member COLUMN positions: aisle → {sku_idx → [x_phys, ...]},
         # one x per LIVE bin.  Pruned on reclaim/eviction right beside _aisle_idx_sets,
         # so it holds only SKUs currently in the aisle (no stale positions, no unbounded
         # growth, and the partner-centroid scan is O(distinct SKUs in aisle)).
         # Lets co-demand compaction/expansion + the labor minimiser score a candidate
         # bin by its column distance to an entering SKU's already-placed affinity partners.
-        self._aisle_member_pos: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
+        self._aisle_member_pos: dict[int, dict[int, list[float]]] = self.ledger.member_pos
         # id(bin) → sku; needed for lift removal after storage is cleared.
         self._bin_sku: dict[int, int] = {}
 
         # Demand-based state for trip-cost assignment functions.
         # Populated by init_demand_state(); unused for strategy A.
-        self._aisle_demand_sum: dict[int, float]   = defaultdict(float)
-        self._sku_demand_product: dict[int, float] = {}   # sku -> f * q
+        self._aisle_demand_sum: dict[int, float]   = self.ledger.demand_sum
 
         # Cost-weighted twin of the demand state: expected picking labor.
         # _sku_pick_load_product[sku] = f * q * cost1 (= order.expected_labor);
         # _aisle_pick_load_sum[aid]   = Σ over the aisle's SKUs.  Maintained in lockstep
         # with the demand_sum state; read by the Rank_labor aisle-balance selector.
-        self._aisle_pick_load_sum: dict[int, float]   = defaultdict(float)
-        self._sku_pick_load_product: dict[int, float] = {}   # sku -> f * q * cost1
+        self._aisle_pick_load_sum: dict[int, float]   = self.ledger.pick_load_sum
 
         # Expected-volume twin (for the cart-swap-aware Rank_cartlabor selector):
         # _sku_vol_product[sku] = f * q * volume (raw expected picked volume mass);
         # _aisle_vol_sum[aid]   = Σ over the aisle's SKUs.  Compared to a per-cart
         # threshold to estimate expected cart swaps.  Maintained like the pick-load twin.
-        self._aisle_vol_sum: dict[int, float]   = defaultdict(float)
-        self._sku_vol_product: dict[int, float] = {}   # sku -> f * q * volume
+        self._aisle_vol_sum: dict[int, float]   = self.ledger.vol_sum
 
         # SKU → bins split by unit type for Task.from_batch lookups.
         # _SortedBins keeps each SKU's bins PERMANENTLY in `location` order — the same
@@ -605,6 +615,40 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 self._aisle_vol_sum[aid] = sum(
                     self._sku_vol_product.get(s, 0.0) for s in sku_set
                 )
+
+    # ── the ledger's three per-SKU product dicts ──────────────────────────────────────
+    #
+    # Properties rather than aliases because `init_demand_state` REBINDS these (it builds a
+    # fresh dict per call), and a plain alias would silently detach from the ledger at that
+    # point -- leaving `reconcile()` comparing a level against products nobody wrote.  The
+    # eight AISLE dicts are only ever cleared and mutated, so those stay direct aliases.
+    #
+    # Cold by construction: every hot-path consumer receives these as a parameter, hoisted
+    # once when its closure is built, never re-read per candidate.
+
+    @property
+    def _sku_demand_product(self) -> dict[int, float]:      # sku -> f * q
+        return self.ledger.sku_demand_product
+
+    @_sku_demand_product.setter
+    def _sku_demand_product(self, value: dict[int, float]) -> None:
+        self.ledger.sku_demand_product = value
+
+    @property
+    def _sku_pick_load_product(self) -> dict[int, float]:   # sku -> f * q * cost1
+        return self.ledger.sku_pick_load_product
+
+    @_sku_pick_load_product.setter
+    def _sku_pick_load_product(self, value: dict[int, float]) -> None:
+        self.ledger.sku_pick_load_product = value
+
+    @property
+    def _sku_vol_product(self) -> dict[int, float]:         # sku -> f * q * volume
+        return self.ledger.sku_vol_product
+
+    @_sku_vol_product.setter
+    def _sku_vol_product(self, value: dict[int, float]) -> None:
+        self.ledger.sku_vol_product = value
 
     @property
     def available(self) -> list[Aisle.Bin]:

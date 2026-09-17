@@ -202,52 +202,28 @@ class ReorderMixin:
     def _drop_sku_from_aisle(self, sku: int, bin_: 'Aisle.Bin') -> None:
         """Remove one bin's contribution to the per-SKU aisle state (affinity on).
 
-        The CANONICAL per-SKU aisle teardown: drop the bin's column position from
-        _aisle_member_pos, decrement the aisle's SKU count, and — when this was the
-        SKU's LAST bin in the aisle — retire it from the sku/idx sets and subtract
-        its lift/demand/pick-load/cart-volume contributions (clamped at 0).
+        Both halves now live in `AisleLedger` (Warehouse/inventory/aisle_ledger.py):
+        `drop_bin` retires the bin's column position, `drop_sku` decrements the count
+        and — on the SKU's LAST bin — retires it from the sku/idx sets and subtracts
+        its lift/demand/pick-load/cart-volume levels.
 
-        _reclaim_empty_bins carries a hoisted-locals INLINE TWIN of this logic for
-        its per-batch hot loop (deliberate micro-optimization over ~7k bins; it also
-        treats a defensive n==0 like n==1, which this cold path never reaches) —
-        KEEP THE TWO IN SYNC when editing either.
+        There used to be an INLINE TWIN of this body in `_reclaim_empty_bins`, with a
+        docstring on each asking a human to KEEP THE TWO IN SYNC.  They were not in
+        sync: `vol_sum` was subtracted by neither and `lift_sum` by both while only a
+        production-dead family added to it.  One body now serves both callers, and the
+        difference that actually mattered between them — the hot twin's bare `else`
+        treats a defensive n == 0 like n == 1, this cold path's `elif n == 1` does not —
+        is the explicit `last_when_zero` flag rather than a remark in prose.
         """
         if self._affinity is None:
             return
         aid = bin_.location[0]
         idx = self._affinity._sku_to_idx.get(sku)
-        # Drop the evicted bin's column position from _aisle_member_pos (live-bin only).
-        if idx is not None:
-            mp = self._aisle_member_pos.get(aid)
-            if mp is not None:
-                xs = mp.get(idx)
-                if xs:
-                    try:
-                        xs.remove(bin_.x_phys)
-                    except ValueError:
-                        pass
-                    if not xs:
-                        del mp[idx]
-        counts = self._aisle_sku_counts[aid]
-        n      = counts.get(sku, 0)
-        if n > 1:
-            counts[sku] = n - 1
-        elif n == 1:
-            counts.pop(sku, None)
-            self._aisle_sku_sets[aid].discard(sku)
-            if idx is not None:
-                self._aisle_idx_sets[aid].discard(idx)
-            delta = 2.0 * self._affinity.delta_lift_idxs(sku, self._aisle_idx_sets[aid])
-            self._aisle_lift_sum[aid] = max(0.0, self._aisle_lift_sum[aid] - delta)
-            d = self._sku_demand_product.get(sku, 0.0)
-            if d:
-                self._aisle_demand_sum[aid] = max(0.0, self._aisle_demand_sum[aid] - d)
-            dl = self._sku_pick_load_product.get(sku, 0.0)
-            if dl:
-                self._aisle_pick_load_sum[aid] = max(0.0, self._aisle_pick_load_sum[aid] - dl)
-            dv = self._sku_vol_product.get(sku, 0.0)
-            if dv:
-                self._aisle_vol_sum[aid] = max(0.0, self._aisle_vol_sum[aid] - dv)
+        delta_lift_idxs = self._affinity.delta_lift_idxs
+        ledger = self.ledger
+        ledger.drop_bin(aid, idx, bin_.x_phys)
+        ledger.drop_sku(aid, sku, idx,
+                        lambda idx_set: 2.0 * delta_lift_idxs(sku, idx_set))
 
     # ── pick notifications (called by PickSimulation, O(1) each) ────────────
 
@@ -381,17 +357,9 @@ class ReorderMixin:
         sku_singleton    = self._sku_singleton_bins
         sku_pallet       = self._sku_pallet_bins
         unavailable      = self._unavailable
-        aisle_sku_counts = self._aisle_sku_counts
-        aisle_sku_sets   = self._aisle_sku_sets
-        aisle_idx_sets   = self._aisle_idx_sets
-        aisle_lift_sum   = self._aisle_lift_sum
-        aisle_demand_sum = self._aisle_demand_sum
-        sku_demand_prod  = self._sku_demand_product
-        aisle_pick_load  = self._aisle_pick_load_sum
-        sku_pick_load    = self._sku_pick_load_product
-        aisle_vol_sum    = self._aisle_vol_sum
-        sku_vol_prod     = self._sku_vol_product
-        aisle_member_pos = self._aisle_member_pos
+        ledger           = self.ledger
+        ledger_drop_bin  = ledger.drop_bin
+        ledger_drop_sku  = ledger.drop_sku
         if has_affinity:
             sku_to_idx      = self._affinity._sku_to_idx
             delta_lift_idxs = self._affinity.delta_lift_idxs
@@ -404,41 +372,16 @@ class ReorderMixin:
                 if lst:
                     lst.discard(bin_)
                 if has_affinity:
-                    aid    = bin_.location[0]
-                    idx    = sku_to_idx.get(sku)
-                    # Drop THIS bin's column position so _aisle_member_pos tracks only
-                    # live bins (every reclaimed bin, not just a SKU's last one).
-                    if idx is not None:
-                        mp = aisle_member_pos.get(aid)
-                        if mp is not None:
-                            xs = mp.get(idx)
-                            if xs:
-                                try:
-                                    xs.remove(bin_.x_phys)
-                                except ValueError:
-                                    pass
-                                if not xs:
-                                    del mp[idx]
-                    counts = aisle_sku_counts[aid]
-                    n      = counts.get(sku, 0)
-                    if n > 1:
-                        counts[sku] = n - 1
-                    else:
-                        counts.pop(sku, None)
-                        aisle_sku_sets[aid].discard(sku)
-                        if idx is not None:
-                            aisle_idx_sets[aid].discard(idx)
-                        delta = 2.0 * delta_lift_idxs(sku, aisle_idx_sets[aid])
-                        aisle_lift_sum[aid] = max(0.0, aisle_lift_sum[aid] - delta)
-                        d = sku_demand_prod.get(sku, 0.0)
-                        if d:
-                            aisle_demand_sum[aid] = max(0.0, aisle_demand_sum[aid] - d)
-                        dl = sku_pick_load.get(sku, 0.0)
-                        if dl:
-                            aisle_pick_load[aid] = max(0.0, aisle_pick_load[aid] - dl)
-                        dv = sku_vol_prod.get(sku, 0.0)
-                        if dv:
-                            aisle_vol_sum[aid] = max(0.0, aisle_vol_sum[aid] - dv)
+                    aid = bin_.location[0]
+                    idx = sku_to_idx.get(sku)
+                    # Drop THIS bin's column position (every reclaimed bin, not just a
+                    # SKU's last one), then the per-SKU teardown.  `last_when_zero=True`
+                    # preserves this loop's bare `else`, which treats a defensive n == 0
+                    # like n == 1 -- the cold path's `elif n == 1` does not.
+                    ledger_drop_bin(aid, idx, bin_.x_phys)
+                    ledger_drop_sku(aid, sku, idx,
+                                    lambda idx_set, _s=sku: 2.0 * delta_lift_idxs(_s, idx_set),
+                                    last_when_zero=True)
             self._index_add(bin_)
             unavailable.pop(bin_id, None)
 
