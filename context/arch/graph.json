@@ -14061,6 +14061,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_fsize_mb",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_gc_cb",
       "kind": "ref",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
@@ -14142,6 +14147,11 @@
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::save_bin_keyframe",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_fsize_mb",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -38726,6 +38736,14 @@
       "kind": "const",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_declared_pools",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_fsize_mb",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_fsize_mb",
       "public": false
     },
     {

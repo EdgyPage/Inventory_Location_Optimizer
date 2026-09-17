@@ -132,26 +132,46 @@ class CheckpointBuffer:
 
     # ── write ─────────────────────────────────────────────────────────────────────────
 
-    def _write(self, path: str, run_id: int) -> None:
+    def _write(self, path: str, run_id: int) -> dict:
+        """Write every channel in one connection and one commit. Returns the CENSUS.
+
+        The census is `{channel: n_rows}` for the channels that actually carried rows, and it
+        exists because `save_s` could not be read as a cost. Eight arms of one toy run wrote
+        166,078-166,278 rows each -- a 1.00x spread -- while their `save_s` varied 2.8x, which
+        says the section is cost-PER-ROW and not volume. Nothing recorded the denominator, so
+        that had to be reconstructed by hand from the databases afterwards. Now it is emitted.
+
+        `len(rows)` is read BEFORE the insert: `executemany` consumes its argument, and one
+        channel already passes a generator for a documented memory reason.
+        """
+        census: dict[str, int] = {}
         con = _pd._open_db(path)
         try:
             for name, insert, skip_when_empty in self._channels:
                 rows = self._rows[name]
                 if skip_when_empty and not rows:
                     continue
+                if rows:
+                    census[name] = len(rows)
                 insert(con, run_id, rows)
             con.commit()
         finally:
             con.close()
+        return census
 
-    def flush(self, path: str, run_id: int) -> None:
-        """Write an open window and clear it. A no-op when nothing is pending."""
+    def flush(self, path: str, run_id: int) -> dict:
+        """Write an open window and clear it. A no-op when nothing is pending.
+
+        Returns `_write`'s census, or `{}` when there was nothing to write -- and an empty
+        census is the honest answer for a no-op flush, not a zero.
+        """
         if not self.pending():
-            return
-        self._write(path, run_id)
+            return {}
+        census = self._write(path, run_id)
         self.clear()
+        return census
 
-    def close(self, path: str, run_id: int) -> None:
+    def close(self, path: str, run_id: int) -> dict:
         """Run end: ALWAYS write, open window or not.
 
         This is the design decision (see the module docstring). A caller may have put rows in
@@ -159,8 +179,9 @@ class CheckpointBuffer:
         censored yard tail — and under the old `if pb:` guard those were lost whenever
         `n_batches` divided the checkpoint cadence.
         """
-        self._write(path, run_id)
+        census = self._write(path, run_id)
         self.clear()
+        return census
 
     def clear(self) -> None:
         for name, _fn, _skip in self._channels:

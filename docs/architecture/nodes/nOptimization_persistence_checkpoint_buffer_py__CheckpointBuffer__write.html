@@ -14,8 +14,17 @@
 <h1><span class="kind kind-function">function</span> <code>_write</code></h1>
 <p class="meta">layer <span class="chip">opt_persistence</span> · file <a href="../files/nOptimization_persistence_checkpoint_buffer_py.html"><code>Optimization/persistence/checkpoint_buffer.py</code></a></p>
 
-<pre class="sig"><code>def _write(self, path: str, run_id: int) -&gt; None</code></pre>
-<section class="doc empty">No docstring.</section>
+<pre class="sig"><code>def _write(self, path: str, run_id: int) -&gt; dict</code></pre>
+<section class="doc">Write every channel in one connection and one commit. Returns the CENSUS.
+
+The census is `{channel: n_rows}` for the channels that actually carried rows, and it
+exists because `save_s` could not be read as a cost. Eight arms of one toy run wrote
+166,078-166,278 rows each -- a 1.00x spread -- while their `save_s` varied 2.8x, which
+says the section is cost-PER-ROW and not volume. Nothing recorded the denominator, so
+that had to be reconstructed by hand from the databases afterwards. Now it is emitted.
+
+`len(rows)` is read BEFORE the insert: `executemany` consumes its argument, and one
+channel already passes a generator for a documented memory reason.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___open_db.html"><code>_open_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_close.html"><code>close</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer_flush.html"><code>flush</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer__write">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/checkpoint_buffer.py#:~:text=def%20_write">Source ↗</a></p>
 </article>

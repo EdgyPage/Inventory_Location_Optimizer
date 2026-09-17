@@ -30,3 +30,29 @@ exponents are depressed, so an amortizing linear arm reads as "accelerating".
 
 With both removed, exactly four of 34 arms are superlinear — `uni_cmin`, `uni_cmax`, `opt_cmin`,
 `opt_cmax` at k = 1.26–1.29. See [[a-fitted-exponent-cannot-see-its-own-shape]].
+
+## And `save_s` is COST PER ROW, not volume (measured 2026-09-17, tiny profile)
+
+Eight byte-identical toy runs, 136 arms each. Every arm wrote **166,078-166,278 rows** — a
+**1.00x spread** — while its `save_s` varied **2.8x** (0.80-2.20 s) at identical `n_bins`
+(102,800) and `n_batches` (6). **Nothing about write VOLUME will move this section.** `save_s`
+is 33-34% of total even on the tiny profile, against 48.6% deep.
+
+No save-storm signature at tiny scale (first/last completion quartile 1.04x): the documented
+storm is a deep-scale/18-worker phenomenon and the toy run cannot reproduce it.
+
+**Candidate mechanism, NOT yet measured.** `_open_db` sets `journal_mode=WAL` and
+`synchronous=NORMAL` and nothing else, so every connection runs on SQLite's stock ~2 MiB page
+cache against a database reaching ~1 GB carrying **16 indices** — three of which
+(`ix_bp_bin`, `ix_be_bin`, `ix_picks_run_sku`) have keys uncorrelated with insertion order, so
+every insert dirties a random leaf page. `CheckpointBuffer._write` opens a **fresh connection
+per flush**, so that cache is cold ~10 times per arm. `Schema.connect.writer(tuned=True)`
+already implements the fix (256 MiB cache, `temp_store=MEMORY`) and the sim-DB write path does
+not use it. This predicts the knee: linear while the hot index pages fit, then degrading — and
+**invisible at tiny scale**, which is why the toy profile cannot falsify it.
+
+Since 2026-09-17 the stopwatch is decomposed on the checkpoint log line as
+`sql=` / `pkl=` / `drn=` (summing to `db=`) with `rows=` / `dbmb=` / `walmb=` beside it, so the
+denominator no longer has to be reconstructed from the databases by hand. Read a ladder's
+`save_decomposition` block, not `save_s` alone. See [[toy-run-noise-floor-is-three-percent]]
+for what size of win that instrument can actually resolve.

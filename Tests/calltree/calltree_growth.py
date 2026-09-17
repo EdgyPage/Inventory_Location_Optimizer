@@ -362,9 +362,9 @@ def _project(ys: list, k: float, factor: float = PROJECT_FACTOR) -> float:
 #: for one; a ratio is a shape; a knee is a warning that the fit does not hold at all.
 #: Ranking ACROSS these by a shared number would invent a common unit that does not
 #: exist, so the table groups by class and sorts by magnitude WITHIN each.
-_KIND_ORDER = {'section-wall': 0, 'arm-total': 0,
+_KIND_ORDER = {'section-wall': 0, 'arm-total': 0, 'save-part': 0,
                'call-count': 1, 'flow': 1,
-               'per-placement': 2,
+               'per-placement': 2, 'per-row': 2,
                'knee': 3}
 
 
@@ -376,7 +376,9 @@ _TREND_SERIES = {'call-count':    ('functions', 'counts'),
                  'per-placement': ('flows_per_placement', 'ratios'),
                  'section-wall':  ('sections', 'walls'),
                  'arm-total':     ('arm_totals', 'values'),
-                 'arm-growth':    ('arm_growth', 'values')}
+                 'arm-growth':    ('arm_growth', 'values'),
+                 'save-part':     ('save_decomposition', 'walls'),
+                 'per-row':       ('save_decomposition', 'ratios')}
 
 
 def _severity_sort(offenders: list) -> list:
@@ -1107,7 +1109,7 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None,
             parsed = scenarios.macro_sections()   # newest run.log = the one we just made
         except scenarios.ScenarioUnavailable as e:
             print(f'  rung done but log unparsable: {e}')
-            parsed = {'sections': {}, 'source': 'unparsable'}
+            parsed = {'sections': {}, 'overlay': {}, 'census': {}, 'source': 'unparsable'}
 
         run_root = _run_root_from(out_txt)
         arms = _arm_rollup(run_root, workers) if run_root else {}
@@ -1118,6 +1120,12 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None,
                         # Kept for continuity with archived deep artifacts and renamed in the
                         # report so nothing sums them against a phase again.
                         'sections_mean_per_batch': parsed['sections'],
+                        # NOT a partition and never summed against one: `kf` is inside `pre`,
+                        # `gc` overlaps everything, and sql+pkl+drn ARE `db`.  Carried beside
+                        # the sections so the largest growing term in this tier can be fitted
+                        # apart from the two costs it was sharing a stopwatch with.
+                        'overlay_mean_per_batch': parsed.get('overlay', {}),
+                        'census_mean_per_batch': parsed.get('census', {}),
                         'source': parsed['source'], 'counts': {},
                         'run_root': run_root, 'rss': rss, 'arms': arms})
         print(f'  rung done in {wall / 60:.1f} min ({parsed["source"]})')
@@ -1174,6 +1182,7 @@ def fit_report(ladder: dict) -> dict:
               'sections': {}, 'functions': {}, 'flows': {},
               'flows_per_placement': {}, 'arm_totals': {}, 'arm_growth': {},
               'arm_growth_ex_save': {},
+              'save_decomposition': {},
               'knees': {},
               'offenders': [], 'suppressed': []}
     if len(rungs) < 3:
@@ -1208,6 +1217,52 @@ def fit_report(ladder: dict) -> dict:
                      'r2': round(r2, 3), 'last': round(ys[-1], 4),
                      'projected': round(_project(ys, slope), 4),
                      'units': 'seconds'})
+
+    # ── THE SAVE DECOMPOSITION ───────────────────────────────────────────────────
+    # `t_save` is this tier's largest growing term -- 48.6% of the run at a local k of 2.30
+    # -- and until 2026-09-17 it was ONE stopwatch over a Python drain, a SQLite flush and a
+    # pickle write with a retry loop.  Fitted HERE and not in `report['sections']` because
+    # the three sum to `db`; putting them beside it would double-count the whole section.
+    #
+    # THE RATIO IS THE POINT.  Eight arms of one toy run wrote 166,078-166,278 rows each --
+    # a 1.00x spread -- while their save_s varied 2.8x.  That is cost PER ROW, not volume,
+    # and an absolute exponent cannot tell those apart: "each write got more expensive" and
+    # "there are more writes" have different fixes.  A denominator turns a number into a claim.
+    _ov = [r.get('overlay_mean_per_batch', {}) for r in rungs]
+    _rows = [r.get('census_mean_per_batch', {}).get('n_rows', 0.0) for r in rungs]
+    for _name in ('t_save_sqlite', 't_save_pickle', 't_save_drain', 't_kf', 't_gc'):
+        ys = [o.get(_name, 0.0) for o in _ov]
+        if max(ys, default=0.0) < MIN_WALL_S:
+            continue                      # absent on meso, and zero on any pre-2026-09-17 log
+        slope, r2 = _fit_loglog(xs, ys)
+        report['save_decomposition'][_name] = {
+            'exponent': round(slope, 3), 'r2': round(r2, 3),
+            'walls': [round(y, 4) for y in ys],
+            'local': [round(k, 3) for k in _local_exponents(xs, ys)]}
+        if r2 >= MIN_R2 and slope >= FLAG_TIME_EXP:
+            report['offenders'].append(
+                {'kind': 'save-part', 'name': _name, 'exponent': round(slope, 3),
+                 'r2': round(r2, 3), 'last': round(ys[-1], 4),
+                 'projected': round(_project(ys, slope), 4), 'units': 'seconds'})
+
+        pairs = [(x, y / n) for x, y, n in zip(xs, ys, _rows) if n > 0 and y > 0]
+        if len(pairs) < 3:
+            continue
+        px, py = [p[0] for p in pairs], [p[1] for p in pairs]
+        pslope, pr2 = _fit_loglog(px, py)
+        report['save_decomposition'][_name + '_per_row'] = {
+            'exponent': round(pslope, 3), 'r2': round(pr2, 3),
+            'ratios': [round(v, 9) for v in py],
+            'local': [round(k, 3) for k in _local_exponents(px, py)],
+            'rows': [round(n, 1) for n in _rows]}
+        # Gated at FLAG_TREND_DELTA, as `flows_per_placement` is: a PER-UNIT cost that rises
+        # at all is already the finding, so the bar is far below the absolute-wall bar.
+        if pr2 >= MIN_R2 and pslope >= FLAG_TREND_DELTA:
+            report['offenders'].append(
+                {'kind': 'per-row', 'name': _name + '_per_row',
+                 'exponent': round(pslope, 3), 'r2': round(pr2, 3),
+                 'last': round(py[-1], 9), 'projected': round(_project(py, pslope), 9),
+                 'units': 'seconds per row'})
 
     names = set()
     for r in rungs:
@@ -1514,6 +1569,19 @@ def main(argv=None) -> int:
                               for k, v in report['flows'].items()},
                     'offenders': [f"{o['name']} k={o['exponent']}"
                                   for o in report['offenders'][:8]]})
+
+    _sd = report.get('save_decomposition') or {}
+    if _sd:
+        print('\nsave decomposition [sql+pkl+drn == db; a SUB-partition, never a section]')
+        for _n, _d in _sd.items():
+            _series = _d.get('walls') or _d.get('ratios') or []
+            _unit = 's/row' if _n.endswith('_per_row') else 's'
+            print(f'  {_n:26s} k={_d["exponent"]:6.2f} r2={_d["r2"]:.2f}  '
+                  f'local={_d.get("local")}  '
+                  f'[{", ".join(f"{v:.6g}{_unit}" for v in _series)}]')
+        _rws = (_sd.get('t_save_sqlite_per_row') or {}).get('rows')
+        if _rws:
+            print(f'  {"rows per checkpoint":26s} {_rws}')
 
     print(f'\nsection exponents [{report.get("sections_units", "?")}] '
           f'(expect ≈1 vs {report["knob"]}; flag ≥ {FLAG_TIME_EXP}):')

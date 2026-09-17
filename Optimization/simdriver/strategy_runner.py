@@ -555,6 +555,18 @@ def _peak_rss_mib() -> float | None:
 _CKPT_REPLACE_ATTEMPTS = 5
 _CKPT_REPLACE_DELAY    = 0.1     # seconds, multiplied by the attempt number
 
+def _fsize_mb(path: str) -> float:
+    """Size in MiB, or 0.0 when the file is not there.
+
+    A `-wal` sidecar legitimately vanishes: SQLite folds it back and removes it, so its
+    absence is a measurement and not a failure.
+    """
+    try:
+        return os.stat(path).st_size / (1 << 20)
+    except OSError:
+        return 0.0
+
+
 def save_worker_checkpoint(run_dir: str, strategy: str, next_batch_id: int) -> None:
     # Atomic: write to a temp file then os.replace, so a crash mid-write can never leave a
     # truncated checkpoint that would mis-resume (mirrors batch_precompute.write_batches).
@@ -2912,13 +2924,29 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                                  *_pending_split))
 
         if len(asm.pb) >= asm.checkpoint:
+            # THE DECOMPOSITION.  `save_s` is the deep tier's largest growing term (48.6%
+            # of the run, local k=2.30 at the top rung) and until now it was ONE stopwatch
+            # over three unrelated costs: a Python drain, the SQLite flush, and a pickle
+            # write whose `os.replace` retries up to five times with linear back-off.  An
+            # exponent fitted on their sum cannot say which of them grows.
             t_s0 = time.perf_counter()
             _bp, _be = asm.bin_rec.drain()
             asm.buf.add('bin_placements', _bp)
             asm.buf.add('bin_evictions', _be)
-            asm.buf.flush(asm.db_path, asm.run_id)
+            t_s1 = time.perf_counter()
+            _census = asm.buf.flush(asm.db_path, asm.run_id)
+            t_s2 = time.perf_counter()
             save_worker_checkpoint(asm.run_dir, asm.strategy, i + 1)
-            t_save = time.perf_counter() - t_s0
+            t_s3 = time.perf_counter()
+            t_save = t_s3 - t_s0
+            t_drain, t_sqlite, t_pickle = t_s1 - t_s0, t_s2 - t_s1, t_s3 - t_s2
+
+            # THE DENOMINATOR, and it is measured after every stopwatch has stopped.  Two
+            # `os.stat` calls, no connection: `PRAGMA page_count` would need one, and a probe
+            # that opens the database it is measuring contaminates the number it reports.
+            # A missing `-wal` is 0.0 and not an error -- SQLite folds and removes it.
+            _n_rows = sum(_census.values())
+            _db_mb, _wal_mb = _fsize_mb(asm.db_path), _fsize_mb(asm.db_path + '-wal')
 
             wall      = time.perf_counter() - asm.t_loop
             ckpt_wall = asm.ckpt_win.wall(time.perf_counter())
@@ -2952,6 +2980,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 # overlay metrics (kf ⊂ pre; gc overlaps every section) — appended AFTER
                 # the partition tokens so bench_sections' unanchored _SEC_RE still matches
                 f' kf={asm.timers.window("kf"):.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
+                # The save decomposition and its denominator, appended LAST for exactly the
+                # reason the overlay above is: `bench_sections._SEC_RE` is an unanchored
+                # search, so tokens after the partition set are invisible to it, and each of
+                # these is read by its own optional regex.  `sql`+`pkl`+`drn` sum to `db`;
+                # they are a SUB-partition of it and must never be added to the section set.
+                f' sql={t_sqlite:.2f}s pkl={t_pickle:.2f}s drn={t_drain:.2f}s'
+                f' rows={_n_rows} dbmb={_db_mb:.1f} walmb={_wal_mb:.1f}'
             )
 
             # The DB write has no window of its own (it is timed here, inside the
@@ -3011,8 +3046,17 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
 
         if len(asm.buf):
             asm.log.info(f'  Flushing final {len(asm.buf.rows("batch_stats"))} batches to DB...')
-        asm.buf.close(asm.db_path, asm.run_id)
-        asm.timers.add('save', time.perf_counter() - _ts_final)
+        _final_census = asm.buf.close(asm.db_path, asm.run_id)
+        _t_final = time.perf_counter() - _ts_final
+        asm.timers.add('save', _t_final)
+        # THE RUN-END SAVE IS ALSO `save_s` -- one event per arm, not one per checkpoint, so
+        # it appears on NO checkpoint line and the deep ladder's `db` section cannot see it.
+        # An arm's `save_s` in `runtime_metrics` is the sum of both, so an exponent fitted on
+        # the parsed checkpoint lines alone is missing this term. Logged on its own key.
+        asm.log.info(f'  [save] run-end close {_t_final:.2f}s'
+                     f' rows={sum(_final_census.values())}'
+                     f' dbmb={_fsize_mb(asm.db_path):.1f}'
+                     f' walmb={_fsize_mb(asm.db_path + "-wal"):.1f}')
 
         # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
         # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was

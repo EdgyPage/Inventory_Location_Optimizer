@@ -761,6 +761,16 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
 _MACRO_KEYMAP = {'reord': 't_reord', 'smpl': 't_sample', 'task': 't_task', 'pre': 't_pre',
                  'inv': 't_inv', 'sim': 't_sim', 'extr': 't_extract', 'db': 't_save'}
 
+# NOT A PARTITION, and deliberately not in the map above.  `kf` is a subset of `pre`, `gc`
+# overlaps every section, and `sql`/`pkl`/`drn` sum to `db` -- so every one of these would be
+# double-counted if it were added beside a section.  They ride separately for the same reason
+# `build` is dropped: the section dict has to stay summable.
+_MACRO_OVERLAY = {'kf': 't_kf', 'gc': 't_gc',
+                  'sql': 't_save_sqlite', 'pkl': 't_save_pickle', 'drn': 't_save_drain'}
+#: Not seconds at all -- the denominator `save_s` never had.  A section exponent says work
+#: grew; `rows` is what turns that into "per row" and separates a volume story from a cost one.
+_MACRO_CENSUS = {'rows': 'n_rows', 'dbmb': 'db_mb', 'walmb': 'wal_mb'}
+
 
 def macro_sections(run_log: str | None = None) -> dict:
     """Per-checkpoint mean section walls from a real run's log (bench_sections parser).
@@ -779,5 +789,13 @@ def macro_sections(run_log: str | None = None) -> dict:
         raise ScenarioUnavailable(f'no checkpoint section lines parsed from {log_path}')
     sections = {t_name: _st.fmean(d[short] for _, d in rows)
                 for short, t_name in _MACRO_KEYMAP.items()}
-    return {'sections': sections, 'checkpoints': len(rows),
+    # `.get(short, 0.0)` and not `d[short]`: an ARCHIVED run.log predating the decomposition
+    # parses fine and reads zero here, which is what "not measured" should look like rather
+    # than a KeyError halfway up a ladder that has already spent an hour.
+    overlay = {name: _st.fmean(d.get(short, 0.0) for _, d in rows)
+               for short, name in _MACRO_OVERLAY.items()}
+    census = {name: _st.fmean(d.get(short, 0.0) for _, d in rows)
+              for short, name in _MACRO_CENSUS.items()}
+    return {'sections': sections, 'overlay': overlay, 'census': census,
+            'checkpoints': len(rows),
             'source': os.path.basename(os.path.dirname(log_path)) + '/run.log'}

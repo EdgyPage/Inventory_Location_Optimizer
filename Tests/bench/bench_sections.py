@@ -30,6 +30,20 @@ _DB_RE = re.compile(r'\bdb=([\d.]+)s')
 # _SEC_RE stays untouched (it is an unanchored search; appended tokens are invisible).
 _KF_RE = re.compile(r'\bkf=([\d.]+)s')
 _GC_RE = re.compile(r'\bgc=([\d.]+)s')
+# The save DECOMPOSITION (2026-09-17), appended after the overlay for the same reason it was:
+# independent optional regexes, invisible to the unanchored _SEC_RE, zero on older logs.
+# sql + pkl + drn == db.  They are a SUB-partition of `db` and belong to no section set --
+# adding them beside `db` would double-count the whole of it, which is the mistake `build`
+# is dropped from _MACRO_KEYMAP to avoid.  `save_s` was one stopwatch over a Python drain, a
+# SQLite flush and a pickle write with a retry loop, and 48.6% of the deep tier sat under it.
+_SQL_RE = re.compile(r'\bsql=([\d.]+)s')
+_PKL_RE = re.compile(r'\bpkl=([\d.]+)s')
+_DRN_RE = re.compile(r'\bdrn=([\d.]+)s')
+# The DENOMINATOR.  Eight arms of one toy run wrote the same rows (1.00x spread) while their
+# save_s varied 2.8x -- cost per row, not volume -- and nothing recorded the row count.
+_ROWS_RE  = re.compile(r'\brows=(\d+)')
+_DBMB_RE  = re.compile(r'\bdbmb=([\d.]+)')
+_WALMB_RE = re.compile(r'\bwalmb=([\d.]+)')
 _BATCH_RE = re.compile(r'Batch\s+(\d+)/')
 _SECTIONS = ['build', 'reord', 'pre', 'sim', 'extr', 'inv', 'db']
 
@@ -81,6 +95,12 @@ def parse(log_path):
             d['kf'] = float(kf[1]) if kf else 0.0     # overlay: subset of 'pre'
             gc = _GC_RE.search(line)
             d['gc'] = float(gc[1]) if gc else 0.0     # overlay: overlaps everything
+            for _key, _re in (('sql', _SQL_RE), ('pkl', _PKL_RE), ('drn', _DRN_RE),
+                              ('dbmb', _DBMB_RE), ('walmb', _WALMB_RE)):
+                _m = _re.search(line)
+                d[_key] = float(_m[1]) if _m else 0.0   # sub-partition of 'db'; 0.0 pre-2026-09-17
+            _r = _ROWS_RE.search(line)
+            d['rows'] = float(_r[1]) if _r else 0.0
             b = _BATCH_RE.search(line)
             rows.append((int(b[1]) if b else -1, d))
     return rows

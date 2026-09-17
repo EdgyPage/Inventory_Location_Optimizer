@@ -10513,10 +10513,10 @@
     },
     "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write": {
       "decorators": [],
-      "doc": null,
+      "doc": "Write every channel in one connection and one commit. Returns the CENSUS.\n\nThe census is `{channel: n_rows}` for the channels that actually carried rows, and it\nexists because `save_s` could not be read as a cost. Eight arms of one toy run wrote\n166,078-166,278 rows each -- a 1.00x spread -- while their `save_s` varied 2.8x, which\nsays the section is cost-PER-ROW and not volume. Nothing recorded the denominator, so\nthat had to be reconstructed by hand from the databases afterwards. Now it is emitted.\n\n`len(rows)` is read BEFORE the insert: `executemany` consumes its argument, and one\nchannel already passes a generator for a documented memory reason.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, path: str, run_id: int) -> None"
+      "signature": "(self, path: str, run_id: int) -> dict"
     },
     "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.add": {
       "decorators": [],
@@ -10544,14 +10544,14 @@
       "doc": "Run end: ALWAYS write, open window or not.\n\nThis is the design decision (see the module docstring). A caller may have put rows in\nafter the last flush that belong to no window at all \u2014 the final day's close-out, the\ncensored yard tail \u2014 and under the old `if pb:` guard those were lost whenever\n`n_batches` divided the checkpoint cadence.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, path: str, run_id: int) -> None"
+      "signature": "(self, path: str, run_id: int) -> dict"
     },
     "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.flush": {
       "decorators": [],
-      "doc": "Write an open window and clear it. A no-op when nothing is pending.",
+      "doc": "Write an open window and clear it. A no-op when nothing is pending.\n\nReturns `_write`'s census, or `{}` when there was nothing to write -- and an empty\ncensus is the honest answer for a no-op flush, not a zero.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, path: str, run_id: int) -> None"
+      "signature": "(self, path: str, run_id: int) -> dict"
     },
     "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.pending": {
       "decorators": [],
@@ -15349,6 +15349,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "{p.key for p in _POLICY_BY_KEY.values() if p.gain == 'pool'}"
+    },
+    "Optimization/simdriver/strategy_runner.py::_fsize_mb": {
+      "decorators": [],
+      "doc": "Size in MiB, or 0.0 when the file is not there.\n\nA `-wal` sidecar legitimately vanishes: SQLite folds it back and removes it, so its\nabsence is a measurement and not a failure.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> float"
     },
     "Optimization/simdriver/strategy_runner.py::_futuresight_window": {
       "decorators": [],
