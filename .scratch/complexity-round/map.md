@@ -225,9 +225,16 @@ Concretely, reached when:
 
 - ~~Is `t_sample`'s archived k = 1.52 an artifact of the retired `v1` sampler?~~ **CLOSED by
   ticket 02: yes.** v1 fits 1.477 independently; v3 fits 0.822.
-- Is `cmin`'s `score_of` reachable by the run-cache `cluster_map` already uses? Same shape (the
-  winner is the only thing that changes), same byte-identity trap already documented in `_place`.
-  Ticket 17.
+- ~~Is `cmin`'s `score_of` reachable by the run-cache `cluster_map` already uses?~~ **CLOSED
+  2026-09-17: NO, not as stated.** The shape matches, but cluster_map's cache is valid because a
+  POOL owns it -- `_place`'s docstring says "place_wave only" and `_ClusterMapPool`'s says a
+  persistent `{sku: lifts}` dict "would reintroduce exactly the bug above" (the one-ulp
+  summation-order drift). `cmin`/`cmax` are `Placement(name, assign_fn)`: place_one, no pool, no
+  wave, so a closure-scoped cache IS that persistent dict. **Giving cmin a run cache means giving
+  it a POOL first**, which is a different and larger ticket and should be scheduled as one. The
+  measured ceiling (~9.5 placements per SKU run) stands; what does not is that the solution
+  transfers. This leaves `cmin`/`cmax` at k=1.29 as the round's strongest-evidenced open
+  superlinearity. See memory `a-cache-needs-a-scope-object`.
 - Does anything in the analysis half of `Optimization/` grow superlinearly? 78 of its 147 files
   are `Performance_Evaluations`, measured by NOTHING -- but an `ast` sweep finds only 3
   triple-nested sites there, over bounded axes. Expect "found nothing" to be the honest answer.
