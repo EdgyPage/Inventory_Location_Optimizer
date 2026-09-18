@@ -41,11 +41,14 @@ fulfillment-only; the rule pairing is one of several defensible draws).
 ## Decisions so far
 
 - 2026-09-18: launch at 12 workers on the one-pair view (above).
+- 2026-09-18 09:30: **the pin accepted the fresh derivation** -- `[staffing] recorded derived +
+  calibration blocks for mixed_20260816_131535__mixed_realistic_bell_lt0 in the run spec`, no
+  `[staffing]` refusal, and cell 1/10 (`k1_off_fifo`) went on to simulate. The run's code is
+  `0c213e91` (the exit-status fix; before the cmin index `8a3475ef`, which is timing-only for
+  the `tmin` arms this campaign carries and byte-identical by digest).
 
 ## Fog
 
-- Whether the pin ACCEPTS the fresh derivation on this tree (it is checked per pair after the
-  warehouse is built, ~1 h in). A refusal is a `[staffing]` RuntimeError in `run.log`.
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
 - The publish loop: which evaluation renders the WITHIN-PAIR inbound comparison across cells,
   and how the three caveats are carried on the page rather than in a footnote.
