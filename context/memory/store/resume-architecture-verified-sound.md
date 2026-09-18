@@ -30,3 +30,33 @@ cover the commonest crash shape.
 **How to apply:** on a resume, type nothing but `--resume DIR` — a deliberately-default flag is
 misclassified as explicit and loses to the saved spec. Related: [[worker-recycling-pinned-at-one]]
 (the same rehearsal proved the pin).
+
+## "SOUND" MEANT COMPLETE, NOT IDENTICAL — corrected 2026-09-18
+
+The 272/272 above is **completeness**: every arm came back. It had been read as safety. It is not
+IDENTITY, and nobody had tested identity until it was needed as a precondition for accepting
+worker recycling.
+
+Tested: kill a tiny run at 76/136 arms, resume, `run_digest` against a clean run. It came back
+complete and it came back **DIFFERENT**, twice over.
+
+1. **The whole warehouse record was written again.** `sim_assets` re-runs pair setup on resume and
+   called `save_warehouse_stats` unconditionally — a plain INSERT taking `lastrowid` as a fresh
+   `warehouse_id`. `aisle_type_stats` 63 -> 126 rows, `warehouse_stats` 1 -> 2, EXACTLY 2x.
+   Anything summing `aisle_type_stats.total_bins` read a warehouse of twice its real size.
+2. **A resume erased finished arms' batch counts.** An arm the resume finds already complete runs
+   an empty loop (`done = 0`) and `INSERT OR REPLACE` overwrote the true row from the first
+   process. `runtime.batches` read 0 instead of 6 on ten arms. Per-arm quantities get normalised
+   by `batches`, so a resumed run divided by the wrong denominator.
+
+Both fixed (e617ba67): `save_warehouse_stats` is idempotent on `warehouse_fingerprint`, and an
+empty result never replaces a real row. **Every sim DB and the warehouse DB now compare IDENTICAL
+across a resume.**
+
+**Residual, and it is not a bug:** 2 of 136 arms still read `batches=0` — arms that FINISHED in a
+worker but whose result had not reached the parent when it died. That telemetry was never captured
+and cannot be reconstructed. A hard kill costs some telemetry and no simulation output.
+
+**Why:** "it resumed" and "it resumed to the same answer" are different claims, and only the
+second one makes resume a safeguard. Related: [[toy-run-is-the-byte-identity-instrument]],
+[[pool-run-swallows-dead-arms]].

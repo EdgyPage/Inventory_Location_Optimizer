@@ -16,7 +16,8 @@
 - [Reloader cap floors to zero](reloader-cap-floors-to-zero.md) — per_aisle_cap floors to 0 TWO ways (move_limit_pct and a ref_size absent from the fixture)
 - [WAL sidecars come from readers](wal-sidecars-come-from-readers.md) — a mode=ro open creates -wal/-shm and can't remove them; unclean writer closes are not the cause
 - [Worker recycling pinned at 1](worker-recycling-pinned-at-one.md) — max_tasks_per_child > 1 deadlocked the pool at a cell boundary; pinned by decision
-- [Resume architecture verified sound](resume-architecture-verified-sound.md) — a hard mid-flight kill resumes to 272/272 from `--resume DIR` alone (2026-08-16)
+- [Resume architecture verified sound](resume-architecture-verified-sound.md) — CORRECTED: that was COMPLETENESS not identity; testing identity found two real defects (now fixed)
+- [Per-arm startup is catalogue loading](per-arm-startup-is-catalogue-loading.md) — ~30% of deep wall and GROWING (k=0.56); precompute is only ~3%, so cache the load; this retires worker recycling
 - [Affinity CSR is 41 MB in RAM](affinity-csr-is-41mb-in-ram.md) — not the 291 MB its file suggests, so RAM is never the argument for fewer workers
 - [verify_tree uses the run's own contract](verify-tree-uses-the-runs-own-contract.md) — fixing a contract never rescues a finished run; validate the fix against preflight's canaries or a fresh run
 - [Fingerprint chain verified end to end](fingerprint-chain-verified-end-to-end.md) — proven working 2026-08-16; always check ingest's BY-NAME resolve lines
