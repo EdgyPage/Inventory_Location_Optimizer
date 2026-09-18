@@ -257,3 +257,31 @@ Concretely, reached when:
   answering the slow way. **The cmin half was REFUSED with a reason**: cluster_map's run cache
   is wave-local by decision, cmin is place_one with no wave, and a closure-scoped cache is the
   persistent dict that reintroduces the drift. It needs a pool first.
+- ~~`save_s` is a real superlinearity and is nobody's ticket yet (48.6% of the run, local k 2.30).~~
+  **CLOSED by the I/O round (`docs/design/IO_ROUND_FINDINGS.md`, 145800bb..96ae11a3.)** It was
+  index maintenance on keys uncorrelated with insertion order: a checkpoint REWROTE the whole
+  index instead of appending to it, so a save's cost was set by how much had been written so far
+  rather than by how much was being written now. The last checkpoint of a run cost **20.27x** the
+  first for identical work. Fixed by building indexes at run end, holding one connection per arm,
+  and dropping three indexes `EXPLAIN QUERY PLAN` proved nothing reads. **80k rung: 11,127s ->
+  3,253s (0.292x); exponent 1.29 -> 0.95; cost per row 0.36 -> 0.05.** Gone from the offender
+  table in every form.
+  **AND THE k 2.30 KNEE IS WITHDRAWN** -- it did not reproduce (1.31, 1.33, 1.18, 1.34 on a
+  repeat). Second top-rung knee on this ladder to fail one; the fit was right, the knee was not.
+  Two things the round produced that outlive it: `save_s` is now THREE numbers plus a row count
+  on the checkpoint line, so it can be attributed at all; and a 256 MiB page cache that measured
+  0.61x BEFORE the fix measures WORSE after it -- **re-earn a lever after changing what it was
+  compensating for.**
+- ~~`cluster_map`'s warm path is meso-quadratic.~~ **CONFIRMED and closed with a number**, using
+  `Tests/calltree/scan_width.py` (the instrument the `_closest_abs` measurement needed and did
+  not keep): calls k=1.02 x mean live aisles k=0.97 = **total width k=1.99**. Real, invisible to
+  the calltree, and still 1.01-1.04 at ARM level -- not yet dominant, reopen at larger catalogues.
+  Its cold short-circuit (ticket 05) fires **0%** of the time on this configuration.
+- ~~The analysis half of `Optimization/` has never been measured.~~ **MEASURED**, off the deep
+  ladder's own logs rather than a separate run: **21-25% of every run, k=0.62** local [0.60,0.64].
+  Sublinear. Not a growth risk.
+- **cmin/cmax k~1.25 is REAL and is the tier's only remaining offender.** The "it might just be
+  save_s" hypothesis was refuted at zero run cost from the EXISTING artifact --
+  `arm_growth_ex_save` reads 1.26-1.29 with local [0.91, 1.35, 1.60, 1.48] -- and it survives the
+  I/O fix unchanged. The refusal above still holds: **it needs a pool first.** That is the
+  successor ticket.
