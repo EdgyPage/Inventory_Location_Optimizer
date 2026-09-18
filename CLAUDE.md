@@ -32,6 +32,7 @@ python context/guards/docref_guard.py --scan          # "<doc>.md section N" ref
 python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/calltree/test_calltree_anchors.py \
                 Tests/calltree/test_scan_width.py \
+                Tests/calltree/test_unload_key_tau.py \
                 Tests/unit/test_deferred_indices.py \
                 Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
@@ -46,7 +47,9 @@ database UNINDEXED and builds the indexes at run end; a regression where that bu
 created nothing would pass the digest surface (which enumerates tables) and the schema
 identity gate (which hashes the declaration) with everything green. `test_scan_width.py`
 joined for the older reason: it is a measurement instrument, and instruments that live
-outside a gate here have rotted three times.
+outside a gate here have rotted three times. `test_unload_key_tau.py` joined on 2026-09-18
+for the same reason: it pins the arithmetic of the instrument that refuted the per-trailer
+unload key, so the refutation can be re-taken with its numbers meaning the same thing.
 
 `Schema.store_index --check` joined on 2026-09-18 for a fourth silence. The DB-shape store
 had a Stop hook that ALWAYS exits 0 and no blocking form, while its sibling store had

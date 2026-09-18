@@ -2447,6 +2447,28 @@ files:
       - {name: "test_check_calls_passes_inside_tolerance", file: "Tests/calltree/test_scan_width.py", kind: "function"}
       - {name: "test_report_names_every_wrapped_key", file: "Tests/calltree/test_scan_width.py", kind: "function"}
     notes: ""
+  "Tests/calltree/test_unload_key_tau.py":
+    purpose: "Pins the unload-key instrument's arithmetic on synthetic drains and a fake trailer: an agreeing key scores tau +1 and exact n/n, a reversed one -1 and 0, two-candidate drains count for the top pick but carry no tau, ties break by seq, and keys_of reads only the remaining load. In gate 10 because instruments outside a gate here have rotted three times."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_key_that_matches_gain_scores_one_and_a_reversed_one_minus_one", file: "Tests/calltree/test_unload_key_tau.py", kind: "function"}
+      - {name: "test_two_candidate_drains_count_for_top1_but_carry_no_tau", file: "Tests/calltree/test_unload_key_tau.py", kind: "function"}
+      - {name: "test_a_tie_breaks_by_seq_which_is_fifo", file: "Tests/calltree/test_unload_key_tau.py", kind: "function"}
+      - {name: "test_keys_of_reads_the_remaining_load_only", file: "Tests/calltree/test_unload_key_tau.py", kind: "function"}
+      - {name: "test_the_report_names_every_key", file: "Tests/calltree/test_unload_key_tau.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/unload_key_tau.py":
+    purpose: "The measurement W8 stage 3 set as its own gate, kept: wraps Inbound.gain.plan_order on the inbound ladder's workload (observation only) and scores every candidate at every drain with four per-trailer keys (labour mass, demand mass, units aboard, FIFO) against gain's order by exact match, top pick and Kendall tau. 2026-09-18 at 200k SKUs of the campaign catalogue, depths 3-7: tau ~0 for all four, 0/18 exact -- refuted, so the persisted unload-value table was not built; below ~100k SKUs the yard never holds more than two trailers."
+    layer: "tests"
+    key_symbols:
+      - {name: "KEYS", file: "Tests/calltree/unload_key_tau.py", kind: "const"}
+      - {name: "keys_of", file: "Tests/calltree/unload_key_tau.py", kind: "function"}
+      - {name: "key_order", file: "Tests/calltree/unload_key_tau.py", kind: "function"}
+      - {name: "score", file: "Tests/calltree/unload_key_tau.py", kind: "function"}
+      - {name: "capture", file: "Tests/calltree/unload_key_tau.py", kind: "function"}
+      - {name: "report", file: "Tests/calltree/unload_key_tau.py", kind: "function"}
+      - {name: "main", file: "Tests/calltree/unload_key_tau.py", kind: "function"}
+    notes: ""
   "Tests/conftest.py":
     purpose: "single sys.path bootstrap for the whole suite."
     layer: "tests"

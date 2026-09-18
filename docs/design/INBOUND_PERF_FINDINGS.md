@@ -438,3 +438,39 @@ check that catches all three is the same: exercise the thing and assert it produ
   `compose_site_view` and `_unload_split`'s door teams were not exercised.
 * **The era at scale.** `run_fullfid` now reaches the era, but the measurements above at 5k-40k are
   well below the campaign's 400,000 SKUs at 40 site days.
+
+## 7. A per-trailer key does not rank the yard the way `gain` does (2026-09-18)
+
+W8 stage 3 proposed an O(T) "unload value" per trailer — a sum over the load with no pool, no
+`SpaceView` and no bundle — to stand in for the cubic greedy in `Inbound.gain.plan_order`, and
+set its gate as Kendall tau against `gain` before persisting anything. Measured with
+`Tests/calltree/unload_key_tau.py` (kept, with a test in gate 10), which wraps `plan_order` on
+the inbound ladder's own workload (`gain_forecast`, the era, receiving crew 4, uncoupled) and
+scores every candidate at every drain with four keys, observation only:
+
+| rung | `plan_order` calls | yard depth | verdict |
+|---|---|---|---|
+| 5,000 SKUs, 10 or 20 batches, crew 4 or 1 | 18–38 | always 1 | nothing to rank |
+| 40,000 SKUs, 10 batches | 18 | 1 (16), 2 (2) | nothing to rank |
+| **200,000 SKUs of the 400,000 campaign catalogue, 10 batches** | 18 | **3–7, median 4** | below |
+
+| key | exact | top-1 | tau (n ≥ 3) mean / median | min |
+|---|---|---|---|---|
+| labour mass aboard, Σ freq·qty·labor_cost | 0/18 | 9/18 | +0.03 / +0.20 | −1.00 |
+| demand mass aboard, Σ freq·qty | 0/18 | 4/18 | −0.04 / 0.00 | −0.33 |
+| units aboard | 0/18 | 4/18 | −0.05 / −0.07 | −0.33 |
+| FIFO by arrival, the control | 0/18 | 5/18 | +0.01 / 0.00 | −1.00 |
+
+**Refuted.** No key reproduces a single drain, and only labour mass beats chance on the top pick
+(half, where chance at depth four is a quarter). `gain`'s order is the CONTENTION term — each load
+priced against what the other candidates leave standing — which a sum over one load cannot
+carry; §1's fidelity ladder (ticket 04) already put the cost of dropping contention at tau
+0.58–0.94, and a key drops space entirely. The persisted `unload_value` table and its declared
+Quantity are therefore not built: they would record a number that ranks trailers unlike the
+evaluator. If the cubic drain must get cheaper, the fallback the plan named stands — an L2-style
+pool-free, contention-aware rung, which is an evaluator and not a key.
+
+Two facts to carry: contention is a property of the catalogue's arrival rate against four doors,
+so the question cannot be asked below ~100k SKUs (which is also why this document's first ladder
+read flat); and labour mass aboard is a weak prior worth trying as a tie-breaker inside an L2
+rung, not as a ranking.

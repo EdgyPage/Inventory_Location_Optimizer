@@ -122,3 +122,4 @@
 - [A test can be taught the damage](a-test-can-be-taught-the-damage.md) — a test written after a defect can assert its result as expected; 6adf378e deleted two immutable schema documents and a test said the store should hold exactly one
 - [A cache needs a scope object](a-cache-needs-a-scope-object.md) — cluster_map's run cache is valid because a POOL owns it; cmin has no wave, so the same cache there is the persistent dict that reintroduces the one-ulp drift
 - [Detached runs import the working tree](detached-runs-import-the-working-tree.md) — a spawn-per-job run re-imports the tree for EVERY unit; an edit mid-run killed all 12 campaign workers at import; launch from a git-archive copy of HEAD
+- [Unload key does not rank like gain](unload-key-does-not-rank-like-gain.md) — REFUTED: no per-trailer sum reproduces gain_forecast's yard order (tau ~0 at depths 3-7); the unload-value table was not built; contention needs >=100k SKUs
