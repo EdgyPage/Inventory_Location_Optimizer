@@ -69,3 +69,11 @@ crew has worker-local trailers in no checkpoint and is not refused under
 
 Predecessor: [[inbound-pipeline-wayfinder-decisions]] (the inbound-groundwork map, closed
 2026-08-27, whose Out-of-scope list this map started from — the same hand-off shape).
+
+**SIZING CORRECTION 2026-09-18.** The "~8.6–9.7 h wall at 4 workers" above is ticket 31's
+clock and was RESTATED by `.scratch/inbound-performance/issues/16-phase-2-restated-13-hours-not-8-6.md`
+on 2026-09-14: **~13 h at 4 workers, ~9 h at 6**, arm-slot weighted because eight of the twelve
+arm-slots are pool adapters at 3.24x (see [[inbound-pool-adapter-multiplier-is-not-13x]]). The
+164 GiB stands; pricing costs time, not memory, so the worker count is an unpriced lever and
+the pool fans out at most 12 units per cell. The launch itself is recorded in
+`.scratch/phase-2-campaign/map.md`.

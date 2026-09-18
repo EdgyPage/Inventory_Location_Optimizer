@@ -19,7 +19,8 @@ caching contract at declared freeze points — all flag-off byte-identical — a
 selected, the gain evaluator serves every family that ranking names, and
 `get_spec('inbound_policies')` builds rather than refuses — so the campaign is launchable with
 no edit and no decision in front of it. RUNNING it and PUBLISHING it are execution past this
-boundary: they decide nothing, they are a ~9 h / ~164 GiB campaign plus a publish loop, and
+boundary: they decide nothing, they are a ~9 h / ~164 GiB campaign (restated 2026-09-14 by
+inbound-performance 16: ~13 h at 4 workers, ~9 h at 6) plus a publish loop, and
 scoping them in would have redrawn the destination rather than walked to it. They are the
 successor effort's first act (see Out of scope), and closing here is the 2026-09-13 call.
 
@@ -776,7 +777,9 @@ graduated into tickets and resolved; Decisions so far is the index, ticket by ti
   the staffing pin are committed off phase 1's artifact (35), and every family the ranking names
   is served by the evaluator (20). What is left is a launch and a publish loop. Sizing, from 31's
   clock (do NOT mix with 24's, which predates the re-size): 120 coupled units — 6 rule pairs x 2
-  stock_modes x 10 cells — 30.8–35.3 h of unit-seconds, ~164 GiB, ~8.6–9.7 h wall at 4 workers.
+  stock_modes x 10 cells — 30.8–35.3 h of unit-seconds, ~164 GiB, ~8.6–9.7 h wall at 4 workers
+  (STALE: inbound-performance 16 restated this on 2026-09-14 to ~13 h at 4 workers / ~9 h at 6,
+  arm-slot weighted for the eight pool adapters; the 164 GiB stands).
   Launch detached with no console and a keep-awake (`launch-long-drivers-detached`); archive as
   you go. **Three things the campaign must publish WITH rather than discover:** the comparison is
   mostly a FULFILLMENT result (store binds 14–17 of 75 drains against fulfillment's 46–60);
