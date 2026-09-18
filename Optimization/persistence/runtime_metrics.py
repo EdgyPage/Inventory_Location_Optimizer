@@ -237,6 +237,28 @@ def record_arm(run_root: str, cell: str, res: dict, *,
     try:
         for stmt in _ALL_DDL:
             con.execute(stmt)
+        # AN EMPTY RESULT NEVER REPLACES A REAL ONE.
+        #
+        # A `--resume` re-walks every arm. One whose checkpoint marker says it already finished
+        # runs an EMPTY LOOP -- that is the marker working, not failing -- and its result dict
+        # carries `done = 0`. `INSERT OR REPLACE` below would then overwrite a true row written
+        # by the first process with a row saying the arm ran no batches.
+        #
+        # Measured on a tiny run killed at 77/136 and resumed: `batches` read 0 instead of 6 on
+        # ten arms, and since `batches` is not in the digest's runtime exclusions it is what made
+        # a resumed run compare DIFFERS against a clean one. It matters beyond the digest --
+        # per-arm quantities get normalised by `batches`, so a resumed run would divide by the
+        # wrong denominator, silently, on exactly the runs that had a failure.
+        #
+        # It still INSERTS when no row exists: an arm the parent never got to record is genuinely
+        # unknown, and a missing row is worse than an empty one.
+        if batches == 0:
+            _prior = con.execute(
+                'SELECT batches FROM runtime WHERE cell=? AND pair=? AND config=? '
+                'AND channel=? AND arm=?',
+                (cell or '', pair, config, channel, arm)).fetchone()
+            if _prior is not None and int(_prior[0] or 0) > 0:
+                return
         # Stamp + verify the store: worker-safe (warn-once) — record_arm runs per arm, deep
         # inside a sweep; a store gap must nag, not kill the arm.
         _compat.stamp_checked(con, RUNTIME_DB_FAMILY, strict=False)

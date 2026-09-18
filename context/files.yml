@@ -5484,6 +5484,19 @@ files:
       - {name: "test_the_guard_is_inert_on_every_run_that_exists_today", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_put_regime_is_stamped_because_there_is_no_join_to_gate", file: "Tests/unit/test_restock_selection.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_resume_idempotency.py":
+    purpose: "a resumed run must be byte-identical to an uninterrupted one."
+    layer: "tests"
+    key_symbols:
+      - {name: "wh", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_writing_the_same_warehouse_twice_records_it_once", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_a_genuinely_different_warehouse_is_still_recorded", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_a_null_fingerprint_still_inserts", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_the_aisle_rows_belong_to_the_returned_id", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_a_resumed_empty_arm_does_not_erase_its_real_row", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_an_arm_the_parent_never_recorded_still_inserts", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_a_real_result_still_replaces_an_earlier_real_one", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_rng_determinism.py":
     purpose: "test_rng_determinism.py"
     layer: "tests"

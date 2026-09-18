@@ -21,7 +21,19 @@ aisle_rows: list of dicts with keys
     handling_type, category, unit_type, replica_count, eff_bins_per_aisle,
     total_bins, size_small_pct, size_medium_pct, size_large_pct, size_xlarge_pct
 
-Returns the warehouse_stats.id of the inserted row.</section>
+Returns the warehouse_stats.id of the inserted row -- or of the EXISTING row when this
+warehouse is already recorded.
+
+IT IS IDEMPOTENT ON `warehouse_fingerprint`, and that is not tidiness. A `--resume` re-runs
+pair setup and calls this again; without the check it appended a second `warehouse_stats`
+row and a second full set of `aisle_type_stats` rows under a new `warehouse_id`. Measured
+2026-09-18 on a run killed at 76/136 arms and resumed: 63 -&gt; 126 aisle rows, 1 -&gt; 2 stats
+rows, while every per-arm sim DB stayed clean. Anything summing `aisle_type_stats.total_bins`
+then reads a warehouse twice its real size -- silently, and only on runs that had a failure.
+
+A NULL fingerprint (older files, see PRE_FINGERPRINT_WAREHOUSE_SCHEMA_IDS) cannot be
+deduplicated, so it still inserts. Pretending otherwise would collapse two genuinely
+different warehouses into one.</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Warehouse_Data_py___open_db.html"><code>_open_db</code></a> <span class="dim">Optimization/persistence/Warehouse_Data.py</span></li><li><a href="nSchema_connect_py__close.html"><code>close</code></a> <span class="dim">Schema/connect.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Warehouse_Data_py__save_warehouse_stats">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Warehouse_Data.py#:~:text=def%20save_warehouse_stats">Source ↗</a></p>
 </article>

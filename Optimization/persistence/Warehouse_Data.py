@@ -256,11 +256,29 @@ def save_warehouse_stats(
         handling_type, category, unit_type, replica_count, eff_bins_per_aisle,
         total_bins, size_small_pct, size_medium_pct, size_large_pct, size_xlarge_pct
 
-    Returns the warehouse_stats.id of the inserted row.
+    Returns the warehouse_stats.id of the inserted row -- or of the EXISTING row when this
+    warehouse is already recorded.
+
+    IT IS IDEMPOTENT ON `warehouse_fingerprint`, and that is not tidiness. A `--resume` re-runs
+    pair setup and calls this again; without the check it appended a second `warehouse_stats`
+    row and a second full set of `aisle_type_stats` rows under a new `warehouse_id`. Measured
+    2026-09-18 on a run killed at 76/136 arms and resumed: 63 -> 126 aisle rows, 1 -> 2 stats
+    rows, while every per-arm sim DB stayed clean. Anything summing `aisle_type_stats.total_bins`
+    then reads a warehouse twice its real size -- silently, and only on runs that had a failure.
+
+    A NULL fingerprint (older files, see PRE_FINGERPRINT_WAREHOUSE_SCHEMA_IDS) cannot be
+    deduplicated, so it still inserts. Pretending otherwise would collapse two genuinely
+    different warehouses into one.
     """
     ts = datetime.now(timezone.utc).isoformat()
     con = _open_db(path)
     try:
+        if warehouse_fingerprint is not None:
+            _seen = con.execute(
+                'SELECT id FROM warehouse_stats WHERE warehouse_fingerprint = ?',
+                (warehouse_fingerprint,)).fetchone()
+            if _seen is not None:
+                return int(_seen[0])
         cur = con.execute(
             'INSERT INTO warehouse_stats '
             '(inventory_db, timestamp, n_skus, n_pallet_units, n_singleton_units, '
