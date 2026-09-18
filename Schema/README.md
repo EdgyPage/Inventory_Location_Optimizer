@@ -14,7 +14,7 @@ These things live here, and nothing else:
 | `provenance.py` | `repo_provenance()` — the git commit/dirty stamp every descriptor and run spec carries (never raises) |
 | `profile_tree.py` | the PROFILES-tree contract: what a generated catalogue contains, its content-addressed id, and the `profile_layout.json` descriptor writers stamp |
 | `profile_resolver.py` | `ProfileTree` — descriptor-first navigation of a profiles root (`pairs`, `latest`, `binding_of`), legacy walk byte-for-byte otherwise |
-| `store_index.py` | `shapes/INDEX.json` — the store's mutable head + the DDL source fingerprint the Stop hook compares |
+| `store_index.py` | `shapes/INDEX.json` — the store's mutable head + the DDL source fingerprint the Stop hook compares; `python -m Schema.store_index --check` is the blocking form (a CLAUDE.md gate since 2026-09-18) |
 | `shapes/` | committed shape documents, one JSON per vetted id — declared ids included, since `--sync` |
 | `schemas/profile_tree/` | the profiles-tree contract's own committed store (documents + INDEX), second of the two stores here |
 | `hook_check.py` | the advisory Stop hook, watching BOTH stores (fingerprint + document stats; never imports writers; always exit 0) |
@@ -80,6 +80,11 @@ The `schema-maintainer` agent owns the whole procedure.
 The profiles-tree contract has the same two commands in one CLI: `python -m Schema.profile_tree
 --check` (the gate) and `--write` (mint/refresh; the id only moves on a real shape change —
 descriptors are forward-only, never fabricated for an old catalogue).
+
+The DB-shape store has the check half only: `python -m Schema.store_index --check` (exit 1
+when a DDL-defining source moved since the last `--sync` or an indexed shape has no committed
+document; the same cheap read the Stop hook makes, no writer imports). There is no `--write`
+because `scripts/schema_report.py --sync` is this store's only writer.
 
 ## Why anyone should care
 

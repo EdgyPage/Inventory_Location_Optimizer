@@ -1705,6 +1705,7 @@ files:
       - {name: "read_index", file: "Schema/store_index.py", kind: "function"}
       - {name: "write_index", file: "Schema/store_index.py", kind: "function"}
       - {name: "stale_reasons", file: "Schema/store_index.py", kind: "function"}
+      - {name: "main", file: "Schema/store_index.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_archgraph_extract.py":
     purpose: "test_archgraph_extract.py"
@@ -5593,6 +5594,15 @@ files:
       - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_schema_store_check.py":
+    purpose: "Pins the DB-shape store gate `python -m Schema.store_index --check` (CLAUDE.md section 1 since 2026-09-18): exit 0 on the committed tree, exit 1 with the --sync remedy printed when the DDL fingerprint moves or an indexed shape has no committed document, and the `python -m` form forwards that code -- because the Stop hook that watches the same store always exits 0 and a DDL edit shipped past every gate that day."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_current_store_exits_zero", file: "Tests/unit/test_schema_store_check.py", kind: "function"}
+      - {name: "test_a_moved_ddl_source_exits_one", file: "Tests/unit/test_schema_store_check.py", kind: "function"}
+      - {name: "test_a_missing_committed_document_exits_one", file: "Tests/unit/test_schema_store_check.py", kind: "function"}
+      - {name: "test_the_module_form_is_the_gate", file: "Tests/unit/test_schema_store_check.py", kind: "function"}
     notes: ""
   "Tests/unit/test_secondary_index_agreement.py":
     purpose: "the free-bin index and its two mirrors must agree."

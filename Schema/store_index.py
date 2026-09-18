@@ -44,8 +44,10 @@ file genuinely shares is the fingerprint, and it shares it.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import sys
 
 from Schema import fingerprint as _fingerprint
 
@@ -133,3 +135,41 @@ def stale_reasons() -> list[str]:
             out.append(f'{family}: indexed declared shape {sid} has no committed document - '
                        f'run: python scripts/schema_report.py --sync')
     return out
+
+
+def main(argv=None) -> int:
+    """`python -m Schema.store_index --check`: exit 1 if the committed shape store is stale.
+
+    THE GATE THE STOP HOOK IS NOT.  `Schema/hook_check.py` runs this same `stale_reasons()`
+    at the end of every turn and ALWAYS exits 0 -- advisory by design, so it can never block.
+    Advisory means ignorable, and on 2026-09-18 it was: two DDL-defining sources
+    (`Warehouse_Data.py`, `runtime_metrics.py`) were edited and committed with every gate in
+    CLAUDE.md section 1 green, and the only check that noticed --
+    `test_schema_compatibility.py::test_the_committed_index_is_current_with_the_tree` --
+    sits in the slow architecture tier that a routine `Tests/unit Tests/integration` subset
+    never reaches.  `Schema.profile_tree --check` already gave the OTHER store in this
+    directory a blocking form; this is the DB-shape store's, and it is the hook's own cheap
+    read (file hashes and document stats, no writer imports), so it costs well under a second.
+
+    `--check` is accepted for symmetry with the other gates and is also the default: there is
+    nothing else this CLI could do, because `scripts/schema_report.py --sync` is the only writer.
+    """
+    ap = argparse.ArgumentParser(
+        description='Check the committed DB-shape store (Schema/shapes/INDEX.json) against the tree.')
+    ap.add_argument('--check', action='store_true',
+                    help='exit 1 if a DDL-defining source changed since the last --sync, or an '
+                         'indexed declared shape has no committed document (the default action)')
+    ap.parse_args(argv)
+    reasons = stale_reasons()
+    for r in reasons:
+        print(f'[schema-db] {r}')
+    if not reasons:
+        idx = read_index() or {}
+        fams = idx.get('families') or {}
+        print(f'DB-shape store current: {len(fams)} families indexed, '
+              f'fingerprint {str(idx.get("source_fingerprint", "")).split(":", 1)[-1][:12]}.')
+    return 1 if reasons else 0
+
+
+if __name__ == '__main__':                                  # pragma: no cover
+    sys.exit(main())

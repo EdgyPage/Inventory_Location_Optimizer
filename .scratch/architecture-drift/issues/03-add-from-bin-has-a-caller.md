@@ -21,3 +21,13 @@ three defects have already hidden in exactly that gap. A silent bin mutation is 
 
 Owner: whoever owns the inbound trailer pipeline (`.scratch/inbound-groundwork`, closed
 2026-08-27).
+
+## Comments
+
+**2026-09-18, triage from the outstanding-work audit.** The matched lines were read.
+`Inbound/trailer.py:30` and `:62` are a module docstring and a method docstring citing
+`StorageCart.add_from_bin`'s perfect-packing assumption; there is no call anywhere in the file.
+The modelling decision this ticket asks for does not exist. The work is the detector, which
+scans text rather than resolving calls: skip docstrings and comments, or find callers through
+the AST (`ast.Call` whose func is an `ast.Attribute` named `add_from_bin`). Do NOT add an event
+to a path nothing calls.

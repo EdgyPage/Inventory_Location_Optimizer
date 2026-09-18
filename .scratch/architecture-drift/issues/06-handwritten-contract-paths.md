@@ -32,3 +32,15 @@ what-if scanners - and `whatif_config.py` carries nine of the eleven sites here.
 
 Fix shape: resolve through `runschema.resolver_for(base_dir)` accessors (`path` / `leaf_path` /
 `glob`), never a joined string; then re-record the baseline in the same commit.
+
+## Comments
+
+**2026-09-18, triage from the outstanding-work audit.** Re-run today the detector reports
+thirteen rows. One of them is a false positive: `Optimization/simdriver/leaf_scope.py: '_site'
+x15 (baseline 0)` is the `__slots__ = ('_site',)` entry plus fourteen `self._site` attribute
+reads -- the reserved-directory token colliding with an attribute NAME, which the detector's own
+docstring says it tries to avoid but only for longer identifiers, not for `.`-preceded ones.
+The other twelve rows (`run_layout.json`, `restock_selection.json`, `run_spec.json`,
+`resume.pkl`, `sim_meta.json` across seven files) are genuine filename literals and remain this
+ticket. Fix the detector (exclude attribute access, or match tokens only inside string literals)
+and re-baseline BEFORE migrating the twelve, or the ratchet keeps counting the attribute.

@@ -15,7 +15,7 @@ verified anchors in `context/` — see the last section before adding anything h
 
 ## 1. Commands that actually work
 
-The ten gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
+The eleven gates. **Invocation form is not interchangeable** — `context/` verifiers run by path,
 `runschema` CLIs run as modules, and the last one is a pytest selection:
 
 ```bash
@@ -25,6 +25,7 @@ python context/arch/verify_site.py --fast             # generated HTML integrity
 python -m Optimization.runschema.contract  --check    # run-tree schema not stale
 python -m Optimization.runschema.preflight --check    # output tree hasn't moved
 python -m Schema.profile_tree --check                 # profiles-tree (catalogue) schema not stale
+python -m Schema.store_index --check                  # DB-shape store (Schema/shapes/INDEX.json) not stale
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
 python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve
@@ -35,7 +36,7 @@ python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
-The tenth gate is ~25 s and exists because the instruments it covers are the ones that
+The last gate, the pytest selection, is ~25 s and exists because the instruments it covers are the ones that
 fail SILENTLY and in the direction of looking healthy. `Tests/calltree/` was in no gate at
 all until 2026-09-16, and three dead frozen oracles plus a never-executed feature were found
 rotting in it; `run_digest.py`, the byte-identity tool, was dead twice for the same reason
@@ -46,6 +47,15 @@ created nothing would pass the digest surface (which enumerates tables) and the 
 identity gate (which hashes the declaration) with everything green. `test_scan_width.py`
 joined for the older reason: it is a measurement instrument, and instruments that live
 outside a gate here have rotted three times.
+
+`Schema.store_index --check` joined on 2026-09-18 for a fourth silence. The DB-shape store
+had a Stop hook that ALWAYS exits 0 and no blocking form, while its sibling store had
+`Schema.profile_tree --check` all along. That day two DDL-defining sources were edited and
+committed with every gate green; the only check that noticed sits in `Tests/architecture`,
+the tier a routine `Tests/unit Tests/integration` subset never reaches. Editing anything in
+`Schema/store_index.py`'s `DDL_SOURCES` -- which includes `Warehouse_Data.py` and
+`runtime_metrics.py`, not only `Picking_Data.py` -- is what trips it; the remedy is always
+`python scripts/schema_report.py --sync`.
 
 It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a

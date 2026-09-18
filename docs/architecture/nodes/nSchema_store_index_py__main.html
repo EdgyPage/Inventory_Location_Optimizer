@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>main · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nSchema_store_index_py__main" data-id="Schema/store_index.py::main">
+<nav class="crumbs"><a href="../layers.html">schema</a> <span class="sep">›</span> <a href="../files/nSchema_store_index_py.html"><code>Schema/store_index.py</code></a> <span class="sep">›</span> <span class="here"><code>main</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>main</code></h1>
+<p class="meta">layer <span class="chip">schema</span> · file <a href="../files/nSchema_store_index_py.html"><code>Schema/store_index.py</code></a></p>
+
+<pre class="sig"><code>def main(argv=None) -&gt; int</code></pre>
+<section class="doc">`python -m Schema.store_index --check`: exit 1 if the committed shape store is stale.
+
+THE GATE THE STOP HOOK IS NOT.  `Schema/hook_check.py` runs this same `stale_reasons()`
+at the end of every turn and ALWAYS exits 0 -- advisory by design, so it can never block.
+Advisory means ignorable, and on 2026-09-18 it was: two DDL-defining sources
+(`Warehouse_Data.py`, `runtime_metrics.py`) were edited and committed with every gate in
+CLAUDE.md section 1 green, and the only check that noticed --
+`test_schema_compatibility.py::test_the_committed_index_is_current_with_the_tree` --
+sits in the slow architecture tier that a routine `Tests/unit Tests/integration` subset
+never reaches.  `Schema.profile_tree --check` already gave the OTHER store in this
+directory a blocking form; this is the DB-shape store&#x27;s, and it is the hook&#x27;s own cheap
+read (file hashes and document stats, no writer imports), so it costs well under a second.
+
+`--check` is accepted for symmetry with the other gates and is also the default: there is
+nothing else this CLI could do, because `scripts/schema_report.py --sync` is the only writer.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nSchema_store_index_py__read_index.html"><code>read_index</code></a> <span class="dim">Schema/store_index.py</span></li><li><a href="nSchema_store_index_py__stale_reasons.html"><code>stale_reasons</code></a> <span class="dim">Schema/store_index.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nSchema_store_index_py.html"><code>Schema.store_index</code></a> <span class="dim">Schema/store_index.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nSchema_store_index_py__main">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Schema/store_index.py#:~:text=def%20main">Source ↗</a></p>
+</article>
+</main>
+</body></html>

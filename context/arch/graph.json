@@ -16011,6 +16011,21 @@
       "src": "Schema/store_index.py"
     },
     {
+      "dst": "Schema/store_index.py::main",
+      "kind": "calls",
+      "src": "Schema/store_index.py"
+    },
+    {
+      "dst": "Schema/store_index.py::read_index",
+      "kind": "calls",
+      "src": "Schema/store_index.py::main"
+    },
+    {
+      "dst": "Schema/store_index.py::stale_reasons",
+      "kind": "calls",
+      "src": "Schema/store_index.py::main"
+    },
+    {
       "dst": "Schema/fingerprint.py::of_files",
       "kind": "calls",
       "src": "Schema/store_index.py::source_fingerprint"
@@ -40867,6 +40882,14 @@
       "module": "Schema/store_index.py",
       "name": "_REPO_ROOT",
       "public": false
+    },
+    {
+      "file": "Schema/store_index.py",
+      "id": "Schema/store_index.py::main",
+      "kind": "function",
+      "module": "Schema/store_index.py",
+      "name": "main",
+      "public": true
     },
     {
       "file": "Schema/store_index.py",

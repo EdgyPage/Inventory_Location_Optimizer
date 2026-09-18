@@ -110,3 +110,35 @@ trailing HEAD, not drift accumulating:
 layer, and regenerating is the measurement -- not a fix. A session that adds any file under
 `Tests/` or any new symbol will add catalog/graph failures on top of that, and those are its own
 to clear.
+
+**UPDATED 2026-09-18 -- three of the stable core convict PROSE or an IDENTIFIER, not code.**
+HEAD (`22e41e4f`) reads **8 failed / 412 passed**. A 55-agent audit read each stable-core
+detector against the LINE it matches, and each claim was then re-verified by hand:
+
+* `test_bin_mutation_sites::test_the_dead_site_is_still_dead` -- `Inbound/trailer.py` holds
+  `add_from_bin` at lines 30 and 62, a module docstring and a method docstring citing
+  `StorageCart.add_from_bin`'s packing assumption. There is no call. (Recorded above already;
+  now confirmed by line.)
+* `test_runtree_consumption::test_no_new_handwritten_contract_paths` -- of its thirteen rows
+  today, `Optimization/simdriver/leaf_scope.py: '_site' x15 (baseline 0)` is the `__slots__`
+  entry plus fourteen `self._site` attribute reads: the reserved-directory token `_site`
+  colliding with an attribute NAME. The other twelve rows (`run_layout.json`,
+  `restock_selection.json`, `run_spec.json`, `resume.pkl`, `sim_meta.json` across seven files)
+  are genuine filename literals and remain real debt.
+* `test_schema_compatibility::..._conditional_table_is_declared` -- the detector (the
+  function-walk near line 349) joins EVERY string constant in a function, the docstring
+  included, and convicts on `'SELECT' in blob.upper() and table in blob`. `_shift_day_select`
+  (`Picking_Data.py`, three lines) builds a select LIST and its docstring reads "The select list
+  for a `shift_days` query"; it reads nothing. The actual reader is the named query
+  `shift_day_frame` registered beside it, which the detector's `named` branch already handles.
+
+So drift tickets 03 and 07 must NOT be actioned as written (there is no caller to decide about
+and no loader to declare); 06 is MIXED -- the twelve literal rows are the ticket, the
+`leaf_scope` row is the detector. In every case the fix is the detector: skip the docstring
+node (`ast.get_docstring` / the first `Expr(Constant)`), and for the token scan exclude
+attribute access (a `.`-preceded token) or match only inside string literals.
+
+**How to apply (added):** when a stable-core failure names a file, read the matched LINE before
+opening a ticket that tells someone to change the code. A detector that scans string constants
+or word tokens matches prose, and a ticket written from its message inherits the mistake --
+three of these seven did. Related: [[symbol-table-relationship-not-verified-by-symbols]].

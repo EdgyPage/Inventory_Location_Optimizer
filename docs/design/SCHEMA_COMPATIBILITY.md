@@ -226,6 +226,7 @@ The run tree had both halves; the DB side now does too, copied mechanic for mech
 | verify at write | — | `verify_family_store`: declared shape committed, no orphaned outgoing shape; warn-once in workers, strict in data-gen CLIs |
 | block at run start | `preflight.ensure()` | the DB-shape precheck beside it in `run_simulation` (registry = what the run writes, by construction) |
 | cheap Stop hook | `runschema/hook_check.py` | `Schema/hook_check.py` over `shapes/INDEX.json` (fingerprint + document stats; never imports writers) |
+| blocking gate (CLAUDE.md section 1) | `python -m Optimization.runschema.contract --check`, `python -m Optimization.runschema.preflight --check` | `python -m Schema.store_index --check` -- the hook's read with an exit code (added 2026-09-18 after a DDL edit shipped with every gate green) |
 | mutable head + trigger | `run_tree/INDEX.json` | `shapes/INDEX.json`, written ONLY by `--sync` |
 | adopt | preflight ADOPT stage | `--accept` = `--adopt --apply` (writes the `known_ids` edit, TODO-marked) + `--sync` |
 | bind a file's own version | `resolver_for(base_dir)` | `dataset.bind(path, family)` — stamped→pinned→derived, shape loaded from the committed store |
