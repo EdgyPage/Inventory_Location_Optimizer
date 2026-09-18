@@ -70,6 +70,15 @@ fulfillment-only; the rule pairing is one of several defensible draws).
   params from `run_spec.json`, pinned the one pair, and the preflight read current with no canary.
   The working tree is free to change again; this run will not see it.
 
+- 2026-09-18 13:25: **the priced cells are bounded by `rank_random`/`rank_popularity`, not by
+  cartlabor.** Cell 3 (`gain_myopic`): those two pairs at batch 8/40 after 55 min (~4.5 h per
+  unit, ~25x unpriced), cartlabor/minlabor at 24/40, fifo done in 18.6 min (1.9x). Mechanism in
+  [02](issues/02-the-all-idx-union-under-the-evaluator.md): `_all_idx` is rebuilt from every
+  aisle on every pool open, and under the evaluator's copy-on-write view that materializes all
+  2,774 aisles, T(T+1) times per drain. Projection: ~4.5 h per priced cell, seven of them, so
+  the campaign ends around the evening of 2026-09-19 rather than tonight. The run is left to
+  run; the fix is a post-campaign ticket because it moves the cost every priced cell publishes.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
