@@ -255,6 +255,16 @@ def test_the_vintages_before_the_table_read_unknown_never_zero(tmp_path, vintage
         for c in ('put_topups', 'recv_repacks', 'recv_repacked_packs', 'free_bins'):
             con.execute(f'ALTER TABLE batch_stats DROP COLUMN {c}')
         stamp = PRE_REWORK_SIM_SCHEMA_ID
+    # THE THREE RETIRED INDEXES, PUT BACK.  `ix_bp_bin`, `ix_be_bin` and `ix_picks_run_sku`
+    # existed on every file of both vintages faked here and were removed from the schema by the
+    # deletion test (nothing read them). The observed shape records indexes, so a fake built
+    # from TODAY's schema is missing three of them and re-derives to an id neither vintage ever
+    # had -- the same trap as `lift_sum` above, in the other direction.
+    con.execute('CREATE INDEX ix_picks_run_sku ON picks (run_id, sku)')
+    con.execute('CREATE INDEX ix_bp_bin ON bin_placement '
+                '(run_id, aisle_id, bayX, bayY, batch_id)')
+    con.execute('CREATE INDEX ix_be_bin ON bin_eviction '
+                '(run_id, aisle_id, bayX, bayY, batch_id)')
     con.execute('UPDATE simulation_runs SET sim_schema_id = ?', (stamp,))
     con.commit()
     con.execute('PRAGMA wal_checkpoint(TRUNCATE)')

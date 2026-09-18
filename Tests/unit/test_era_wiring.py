@@ -441,6 +441,16 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
     for _c in ('put_spills', 'put_topups', 'recv_repacks', 'recv_repacked_packs',
                'free_bins'):
         con.execute(f'ALTER TABLE batch_stats DROP COLUMN {_c}')
+    # THE THREE RETIRED INDEXES, PUT BACK.  `ix_bp_bin`, `ix_be_bin` and `ix_picks_run_sku`
+    # existed on every file of both vintages faked here and were removed from the schema by the
+    # deletion test (nothing read them). The observed shape records indexes, so a fake built
+    # from TODAY's schema is missing three of them and re-derives to an id neither vintage ever
+    # had -- the same trap as `lift_sum` above, in the other direction.
+    con.execute('CREATE INDEX ix_picks_run_sku ON picks (run_id, sku)')
+    con.execute('CREATE INDEX ix_bp_bin ON bin_placement '
+                '(run_id, aisle_id, bayX, bayY, batch_id)')
+    con.execute('CREATE INDEX ix_be_bin ON bin_eviction '
+                '(run_id, aisle_id, bayX, bayY, batch_id)')
     con.execute('UPDATE simulation_runs SET sim_schema_id = ?',
                 (PRE_CARRY_SPLIT_SIM_SCHEMA_ID,))
     con.commit()

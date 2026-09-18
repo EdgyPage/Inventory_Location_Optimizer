@@ -200,10 +200,12 @@ _CREATE_PICKS_BATCH_IDX = """
     CREATE INDEX IF NOT EXISTS ix_picks_run_batch ON picks (run_id, batch_id)
 """
 
-_CREATE_PICKS_SKU_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_picks_run_sku ON picks (run_id, sku)
-"""
-
+# ix_picks_run_sku (run_id, sku) STOOD HERE.  NOTHING FILTERS, GROUPS OR ORDERS `picks` BY
+# `sku` -- queries select the column, none restrict by it.  EXPLAIN QUERY PLAN did name this
+# index, for `SELECT aisle_id, bayX, bayY, SUM(quantity) ... WHERE run_id=? GROUP BY ...` -- but
+# that query does not mention sku at all; the planner was simply picking the narrowest path to
+# filter `run_id`, and `ix_picks_run_batch` serves that identically.  A plan naming an index is
+# not the same as a query needing one.
 # ── Run DB schema ─────────────────────────────────────────────────────────────
 
 _CREATE_RUNS = """
@@ -817,11 +819,22 @@ _CREATE_BIN_PLACEMENT = """
     ) WITHOUT ROWID
 """
 
-_CREATE_BIN_PLACEMENT_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_bp_bin
-        ON bin_placement (run_id, aisle_id, bayX, bayY, batch_id)
-"""
-
+# ── ix_bp_bin / ix_be_bin STOOD HERE, and the deletion test removed them ────────────
+# Both indexed BIN LOCATION, and no production query used either.  Checked with EXPLAIN QUERY
+# PLAN against a real sim database rather than by reading SQL: every reader of these two tables
+# filters on `run_id` and/or `batch_id`, or scans ordered by `batch_id, seq`, and on a WITHOUT
+# ROWID table the PRIMARY KEY (run_id, batch_id, seq) IS that index.  `precompute.py`'s own
+# docstring already said so -- "Both are single ordered scans over an existing index".  Every
+# OTHER index in this schema came back with a named consumer; these came back with none.
+#
+# They arrived with `bade79c0` ("record the bin-mutation log so spatial state is
+# reconstructible"), where indexing by bin location was the obvious bet: you would expect to ask
+# what happened at one bin over time.  The readers that were eventually written reconstruct
+# state by folding the whole log forward in batch order instead, which the primary key already
+# serves.  A reasonable bet that the implementation did not take.
+#
+# IF A READER EVER NEEDS BIN LOCATION, add the index back WITH the query that wants it, and
+# re-run the deletion test rather than trusting this note to still be true.
 _CREATE_BIN_EVICTION = """
     CREATE TABLE IF NOT EXISTS bin_eviction (
         run_id   INTEGER NOT NULL REFERENCES simulation_runs(run_id),
@@ -834,11 +847,6 @@ _CREATE_BIN_EVICTION = """
         qty      INTEGER NOT NULL,   -- units removed; the unit re-enters the stock queue
         PRIMARY KEY (run_id, batch_id, seq)
     ) WITHOUT ROWID
-"""
-
-_CREATE_BIN_EVICTION_IDX = """
-    CREATE INDEX IF NOT EXISTS ix_be_bin
-        ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)
 """
 
 # ── the yard: RAW STAMPS ONLY ─────────────────────────────────────────────────
@@ -1056,7 +1064,6 @@ _CREATE_SHIFT_DAYS = """
 #: the moment of creation moved, so no vintage, no era, and no consumer can tell.
 _RUN_INDEXES = (
     _CREATE_PICKS_BATCH_IDX,
-    _CREATE_PICKS_SKU_IDX,
     _CREATE_PICKER_EVENTS_IDX,
     _CREATE_PICKER_EVENTS_TIME_IDX,
     _CREATE_WORK_EVENTS_IDX,
@@ -1066,8 +1073,6 @@ _RUN_INDEXES = (
     _CREATE_REORDER_QUEUE_IDX,
     _CREATE_BIN_SCORES_IDX,
     _CREATE_SKU_SCORES_IDX,
-    _CREATE_BIN_PLACEMENT_IDX,
-    _CREATE_BIN_EVICTION_IDX,
 )
 
 
@@ -1341,7 +1346,19 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 is no optional-fill to negotiate because there is no column on an
     #                 existing table.  The only thing that MOVED on an uncoupled run is this
     #                 stamp itself.
-    known_ids=('c37b50bf2b84',  # aisle_metrics WITH pick_load_sum: 2026-09-16 .. 2026-09-17.
+    known_ids=('d9854632d1b0',  # the three unread indexes, before the deletion test:
+                                # 2026-09-17 (145800bb .. e54489bb).  `ix_bp_bin`,
+                                # `ix_be_bin` and `ix_picks_run_sku` existed on every
+                                # run written in this window and are absent after it.
+                                # NOTHING READ ANY OF THEM -- verified with EXPLAIN
+                                # QUERY PLAN against a real sim DB -- so no consumer
+                                # loses an access path and no data moved: the rows,
+                                # the columns and the primary keys are identical on
+                                # both sides of this id.  The only difference is three
+                                # sorted copies nobody asked for.  A file from this
+                                # window still carries them and still reads correctly;
+                                # that is the whole reason this entry exists.
+              'c37b50bf2b84',  # aisle_metrics WITH pick_load_sum: 2026-09-16 .. 2026-09-17.
                                 # Same shape of finding as lift_sum above, one level subtler:
                                 # `init_demand_state` PRICED the level for every arm, but only
                                 # `rank_labor` and `rank_cartlabor` MAINTAIN it (see

@@ -32222,14 +32222,6 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION_IDX",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_CREATE_BIN_EVICTION_IDX",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_KEYFRAME",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -32250,14 +32242,6 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_CREATE_BIN_PLACEMENT",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT_IDX",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_CREATE_BIN_PLACEMENT_IDX",
       "public": false
     },
     {
@@ -32330,14 +32314,6 @@
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_CREATE_PICKS_BATCH_IDX",
-      "public": false
-    },
-    {
-      "file": "Optimization/persistence/Picking_Data.py",
-      "id": "Optimization/persistence/Picking_Data.py::_CREATE_PICKS_SKU_IDX",
-      "kind": "const",
-      "module": "Optimization/persistence/Picking_Data.py",
-      "name": "_CREATE_PICKS_SKU_IDX",
       "public": false
     },
     {

@@ -9518,7 +9518,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('c37b50bf2b84', 'c6bacfdb5c77', 'b87cfbb8d041'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('d9854632d1b0', 'c37b50bf2b84', 'c6bacfdb5c77'..."
     },
     "Optimization/persistence/Picking_Data.py::TASK_UNKNOWN_ON_OLDER_VINTAGES": {
       "decorators": [],
@@ -9612,13 +9612,6 @@
       "signature": null,
       "value_preview": "'\\n CREATE TABLE IF NOT EXISTS bin_eviction (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- run-scoped monotonic; ascending w..."
     },
-    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_EVICTION_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_be_bin\\n ON bin_eviction (run_id, aisle_id, bayX, bayY, batch_id)\\n'"
-    },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_KEYFRAME": {
       "decorators": [],
       "doc": null,
@@ -9639,13 +9632,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "\"\\n CREATE TABLE IF NOT EXISTS bin_placement (\\n run_id INTEGER NOT NULL REFERENCES simulation_runs(run_id),\\n batch_id INTEGER NOT NULL,\\n seq INTEGER NOT NULL, -- run-scoped monotonic; ascending ..."
-    },
-    "Optimization/persistence/Picking_Data.py::_CREATE_BIN_PLACEMENT_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_bp_bin\\n ON bin_placement (run_id, aisle_id, bayX, bayY, batch_id)\\n'"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_BIN_SCORES": {
       "decorators": [],
@@ -9709,13 +9695,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_batch ON picks (run_id, batch_id)\\n'"
-    },
-    "Optimization/persistence/Picking_Data.py::_CREATE_PICKS_SKU_IDX": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'\\n CREATE INDEX IF NOT EXISTS ix_picks_run_sku ON picks (run_id, sku)\\n'"
     },
     "Optimization/persistence/Picking_Data.py::_CREATE_PUT_QUEUE_STATE": {
       "decorators": [],
@@ -9883,7 +9862,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(_CREATE_PICKS_BATCH_IDX, _CREATE_PICKS_SKU_IDX, _CREATE_PICKER_EVENTS_IDX, _CREATE_PICKER_EVENTS_TIME_IDX, _CREATE_WORK_EVENTS_IDX, _CREATE_WORK_EVENTS_TIME_IDX, _CREATE_AISLE_METRICS_BATCH_IDX, _..."
+      "value_preview": "(_CREATE_PICKS_BATCH_IDX, _CREATE_PICKER_EVENTS_IDX, _CREATE_PICKER_EVENTS_TIME_IDX, _CREATE_WORK_EVENTS_IDX, _CREATE_WORK_EVENTS_TIME_IDX, _CREATE_AISLE_METRICS_BATCH_IDX, _CREATE_AISLE_METRICS_AI..."
     },
     "Optimization/persistence/Picking_Data.py::_RUN_PARAM_COLS": {
       "decorators": [],
