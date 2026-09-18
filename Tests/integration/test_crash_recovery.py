@@ -141,7 +141,7 @@ def test_plan_strategy_start_all_branches(monkeypatch, tmp_path):
     # _plan_strategy_start now lives in simdriver.workunits and resolves these via that module's
     # globals — patch there, not on the run_simulation re-export.
     monkeypatch.setattr('Optimization.simdriver.workunits.init_run_db',
-                        lambda p: calls.append(('init', p)))
+                        lambda p, **kw: calls.append(('init', p)))   # **kw: defer_indices
     monkeypatch.setattr('Optimization.simdriver.workunits.create_run',
                         lambda p, rt, params, identity=None: calls.append(('create', p)) or 999)
     monkeypatch.setattr('Optimization.simdriver.workunits.reset_strategy_db',
@@ -185,7 +185,8 @@ def test_batch_resume_is_refused_while_the_carry_is_on(monkeypatch, tmp_path):
     """
     import pytest
     calls, ckpt = [], {'v': 30}
-    monkeypatch.setattr('Optimization.simdriver.workunits.init_run_db', lambda p: None)
+    monkeypatch.setattr('Optimization.simdriver.workunits.init_run_db',
+                        lambda p, **kw: None)   # **kw: init_run_db takes defer_indices
     monkeypatch.setattr('Optimization.simdriver.workunits.create_run',
                         lambda p, rt, params, identity=None: 999)
     monkeypatch.setattr('Optimization.simdriver.workunits.reset_strategy_db',

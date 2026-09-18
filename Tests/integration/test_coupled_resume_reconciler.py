@@ -381,7 +381,7 @@ def test_batch_grain_resume_is_refused_for_a_coupled_leaf(monkeypatch, tmp_path)
     carry is a work-day knob any cell may clear, so today's coverage is a coincidence.  Both
     are switched OFF here, which is what makes this test about coupling.
     """
-    monkeypatch.setattr(wu, 'init_run_db', lambda p: None)
+    monkeypatch.setattr(wu, 'init_run_db', lambda p, **kw: None)   # **kw: defer_indices
     monkeypatch.setattr(wu, 'create_run', lambda p, rt, params, identity=None: 999)
     monkeypatch.setattr(wu, 'reset_strategy_db', lambda rd, db, key: None)
     monkeypatch.setattr(wu, 'load_worker_checkpoint', lambda rd, key: 30)

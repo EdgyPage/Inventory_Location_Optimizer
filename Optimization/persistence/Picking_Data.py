@@ -2,6 +2,7 @@ import csv
 import os
 import re
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -1029,47 +1030,91 @@ _CREATE_SHIFT_DAYS = """
 """
 
 
-def _apply_run_schema(con: sqlite3.Connection) -> None:
-    """Issue every CREATE for the run DB on an already-open connection.
+#: Every CREATE INDEX for the run DB, in the order `_apply_run_schema` always issued them.
+#:
+#: THEY ARE A TUPLE BECAUSE THE WRITE PATH SKIPS THEM.  An index is a second copy of some
+#: columns kept in a different sort order, and keeping it sorted on every insert is what made
+#: saving expensive: `bin_placement`'s primary key (run_id, batch_id, seq) only ever ascends, so
+#: a checkpoint appends to the tail of the table -- but an index keyed on BIN LOCATION scatters,
+#: so the same checkpoint rewrites pages across the whole index, and that page count grows with
+#: every checkpoint.  Measured on 12 concurrent arms x 1.5M rows x 15 flushes: the LAST
+#: checkpoint cost 20.27x the first for identical work, against 1.33x with the scattered index
+#: gone.  Building once at the end instead sorts the keys in a single pass and writes the tree
+#: bottom-up -- ~11,500 page writes against ~92,000, and the pages come out full rather than
+#: ~70% full, so the file is smaller too.
+#:
+#: THE DECLARED SHAPE IS UNCHANGED, which is the whole reason this is safe: `_apply_run_schema`
+#: below still applies both halves, so `sim_schema_id()` is byte-identical (verified: the split
+#: leaves it at d9854632d1b0) and a FINISHED database is the same artifact it always was.  Only
+#: the moment of creation moved, so no vintage, no era, and no consumer can tell.
+_RUN_INDEXES = (
+    _CREATE_PICKS_BATCH_IDX,
+    _CREATE_PICKS_SKU_IDX,
+    _CREATE_PICKER_EVENTS_IDX,
+    _CREATE_PICKER_EVENTS_TIME_IDX,
+    _CREATE_WORK_EVENTS_IDX,
+    _CREATE_WORK_EVENTS_TIME_IDX,
+    _CREATE_AISLE_METRICS_BATCH_IDX,
+    _CREATE_AISLE_METRICS_AISLE_IDX,
+    _CREATE_REORDER_QUEUE_IDX,
+    _CREATE_BIN_SCORES_IDX,
+    _CREATE_SKU_SCORES_IDX,
+    _CREATE_BIN_PLACEMENT_IDX,
+    _CREATE_BIN_EVICTION_IDX,
+)
 
-    Split out of init_run_db so sim_schema_id() can build the schema in memory and hash what
-    the writer ACTUALLY creates — the declared id is never a hand-maintained list of columns,
-    so it cannot drift from this function.
-    """
+
+def _apply_run_tables(con: sqlite3.Connection) -> None:
+    """Every table and view the run DB needs — and NO index.  What a writer creates."""
     con.execute(_CREATE_PICKS)
-    con.execute(_CREATE_PICKS_BATCH_IDX)
-    con.execute(_CREATE_PICKS_SKU_IDX)
     con.execute(_CREATE_RUNS)
     con.execute(_CREATE_BATCH_STATS)
     con.execute(_CREATE_TASK_STATS)
     con.execute(_CREATE_PICKER_EVENTS)
-    con.execute(_CREATE_PICKER_EVENTS_IDX)
-    con.execute(_CREATE_PICKER_EVENTS_TIME_IDX)
     con.execute(_CREATE_WORK_EVENTS)
-    con.execute(_CREATE_WORK_EVENTS_IDX)
-    con.execute(_CREATE_WORK_EVENTS_TIME_IDX)
     con.execute(_CREATE_WORK_EVENTS_MERGED)
     con.execute(_CREATE_AISLE_METRICS)
-    con.execute(_CREATE_AISLE_METRICS_BATCH_IDX)
-    con.execute(_CREATE_AISLE_METRICS_AISLE_IDX)
     con.execute(_CREATE_REORDER_QUEUE)
-    con.execute(_CREATE_REORDER_QUEUE_IDX)
     con.execute(_CREATE_PUT_QUEUE_STATE)
     con.execute(_CREATE_CARRYOVER)
     con.execute(_CREATE_BIN_SCORES)
-    con.execute(_CREATE_BIN_SCORES_IDX)
     con.execute(_CREATE_SKU_SCORES)
-    con.execute(_CREATE_SKU_SCORES_IDX)
     con.execute(_CREATE_BIN_PLACEMENT)
-    con.execute(_CREATE_BIN_PLACEMENT_IDX)
     con.execute(_CREATE_BIN_EVICTION)
-    con.execute(_CREATE_BIN_EVICTION_IDX)
     con.execute(_CREATE_YARD_TRAILERS)
     con.execute(_CREATE_YARD_DRAINS)
     con.execute(_CREATE_SITE_RECEIVING)
     con.execute(_CREATE_SHIFT_DAYS)
     con.execute(_CREATE_FREE_INDEX)
     _migrate_run_columns(con)
+
+
+def _apply_run_indices(con: sqlite3.Connection) -> None:
+    """Every index, idempotently.  Called once at run end, never on the write path.
+
+    Every statement is `IF NOT EXISTS`, so this is safe to re-run: an arm that was killed before
+    its run end and then resumed builds them when it finally finishes, and an arm that already
+    has them pays nothing.
+    """
+    for ddl in _RUN_INDEXES:
+        con.execute(ddl)
+
+
+def _apply_run_schema(con: sqlite3.Connection) -> None:
+    """Issue every CREATE for the run DB on an already-open connection.
+
+    Split out of init_run_db so sim_schema_id() can build the schema in memory and hash what
+    the writer ACTUALLY creates — the declared id is never a hand-maintained list of columns,
+    so it cannot drift from this function.
+
+    THIS IS THE DECLARED SHAPE and it applies BOTH halves.  The write path deliberately does
+    not: `init_run_db` creates tables only, and `build_run_indices` adds the rest once the last
+    row is in.  Keeping both halves here is what makes that invisible — a finished database
+    matches this declaration exactly, so the stamp, the vintage list and every consumer are
+    untouched.  Do not "simplify" this to the tables half.
+    """
+    _apply_run_tables(con)
+    _apply_run_indices(con)
 
 
 # Columns added to simulation_runs after runs already existed.  Every CREATE here is
@@ -1093,14 +1138,46 @@ def _migrate_run_columns(con: sqlite3.Connection) -> None:
             con.execute(f'ALTER TABLE simulation_runs ADD COLUMN {name} {decl}')
 
 
-def init_run_db(path: str) -> None:
-    """Create all tables and indexes if they don't already exist, and enable WAL mode."""
+def init_run_db(path: str, *, defer_indices: bool = False) -> None:
+    """Create the run DB and enable WAL mode.  Indexes too, unless the caller defers them.
+
+    `defer_indices=True` creates the TABLES ONLY, and the caller then owes a
+    `build_run_indices` call once its last row is written.  See `_RUN_INDEXES` for the saving
+    that buys and for why a FINISHED database is unchanged by it.
+
+    IT IS OPT-IN, AND THAT IS THE POINT.  `Schema.identity.resolve(..., verify=True)` re-derives
+    a sim DB's shape and raises `SchemaDrift` against the stamp, so a half-built database is
+    visible to any consumer that looks -- correctly, because it really is half-built.  Only a
+    writer that owns the whole lifecycle and is certain to reach its run end may take this;
+    everything else gets a complete database, because that is what it is pretending to be.
+    """
     con = _open_db(path)
     try:
-        _apply_run_schema(con)
+        _apply_run_tables(con)
+        if not defer_indices:
+            _apply_run_indices(con)
         con.commit()
     finally:
         con.close()
+
+
+def build_run_indices(path: str) -> float:
+    """Build every index in one pass, after every row is in.  Returns the seconds it took.
+
+    IT RETURNS THE SECONDS BECAUSE THE CALLER MUST CHARGE THEM.  Deferring index maintenance
+    does not delete the work, it relocates it — and relocating cost out of a measured window
+    into an unmeasured one reads as a saving and is a lie.  `strategy_runner` adds this to the
+    same `save` section the per-checkpoint writes are charged to, so `runtime_metrics.save_s`
+    still accounts for every second of it.
+    """
+    t0 = time.perf_counter()
+    con = _open_db(path)
+    try:
+        _apply_run_indices(con)
+        con.commit()
+    finally:
+        con.close()
+    return time.perf_counter() - t0
 
 
 # ── Schema identity ───────────────────────────────────────────────────────────

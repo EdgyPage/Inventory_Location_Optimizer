@@ -8406,9 +8406,19 @@
       "src": "Optimization/persistence/Picking_Data.py::SIM_DB_FAMILY"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::_migrate_run_columns",
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_indices",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::_apply_run_schema"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_tables",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::_apply_run_schema"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_migrate_run_columns",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::_apply_run_tables"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_batch_row",
@@ -8419,6 +8429,16 @@
       "dst": "Schema/dataset.py::bind",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::_query_rows"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_indices",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::build_run_indices"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_open_db",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::build_run_indices"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
@@ -8466,7 +8486,12 @@
       "src": "Optimization/persistence/Picking_Data.py::init_keyframe_db"
     },
     {
-      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_indices",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::init_run_db"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::_apply_run_tables",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::init_run_db"
     },
@@ -14059,6 +14084,11 @@
       "dst": "Optimization/simdriver/strategy_runner.py::_build_arm",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::build_run_indices",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish"
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_fsize_mb",
@@ -32476,6 +32506,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_RUN_INDEXES",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_RUN_INDEXES",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_RUN_PARAM_COLS",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -32580,10 +32618,26 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_apply_run_indices",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_apply_run_indices",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::_apply_run_schema",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_apply_run_schema",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::_apply_run_tables",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "_apply_run_tables",
       "public": false
     },
     {
@@ -32793,6 +32847,14 @@
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "_unreadable",
       "public": false
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::build_run_indices",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "build_run_indices",
+      "public": true
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",

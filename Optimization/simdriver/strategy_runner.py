@@ -102,6 +102,7 @@ from Optimization.metrics.Simulation_Analytics import (
 )
 from Optimization.persistence.Picking_Data import (
     save_bin_scores, save_sku_scores,
+    build_run_indices as _build_run_indices,
     create_run as _create_run, find_run as _find_run, init_run_db as _init_run_db,
     keyframe_db_path, init_keyframe_db, save_bin_keyframe,
 )
@@ -3057,6 +3058,19 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                      f' rows={sum(_final_census.values())}'
                      f' dbmb={_fsize_mb(asm.db_path):.1f}'
                      f' walmb={_fsize_mb(asm.db_path + "-wal"):.1f}')
+
+        # THE INDEXES, BUILT ONCE, NOW THAT EVERY ROW IS IN.  The arm wrote to an unindexed
+        # database on purpose; this is where that debt is paid, in a single sorted pass rather
+        # than scattered across fifteen checkpoints.
+        #
+        # CHARGED TO `save`, DELIBERATELY.  This work did not disappear, it moved -- and a
+        # saving measured by moving cost into an unmeasured window is not a saving.  Adding it
+        # to the same section keeps `runtime_metrics.save_s` a complete account of what an arm
+        # spent persisting itself, so the before/after comparison is honest.
+        _t_idx = _build_run_indices(asm.db_path)
+        asm.timers.add('save', _t_idx)
+        asm.log.info(f'  [save] index build {_t_idx:.2f}s'
+                     f' dbmb={_fsize_mb(asm.db_path):.1f}')
 
         # Final-checkpoint guard: a cleanly-finished arm's marker may sit at the last checkpoint
         # boundary (< n_batches) when n_batches isn't a multiple of `checkpoint` — the tail was

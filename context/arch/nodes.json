@@ -9878,6 +9878,13 @@
       "signature": null,
       "value_preview": "(('sim_schema_id', 'TEXT'),)"
     },
+    "Optimization/persistence/Picking_Data.py::_RUN_INDEXES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(_CREATE_PICKS_BATCH_IDX, _CREATE_PICKS_SKU_IDX, _CREATE_PICKER_EVENTS_IDX, _CREATE_PICKER_EVENTS_TIME_IDX, _CREATE_WORK_EVENTS_IDX, _CREATE_WORK_EVENTS_TIME_IDX, _CREATE_AISLE_METRICS_BATCH_IDX, _..."
+    },
     "Optimization/persistence/Picking_Data.py::_RUN_PARAM_COLS": {
       "decorators": [],
       "doc": null,
@@ -9969,9 +9976,23 @@
       "signature": null,
       "value_preview": "('seq', 'arrived_s', 'staged_s', 'emptied_s', 'status')"
     },
+    "Optimization/persistence/Picking_Data.py::_apply_run_indices": {
+      "decorators": [],
+      "doc": "Every index, idempotently.  Called once at run end, never on the write path.\n\nEvery statement is `IF NOT EXISTS`, so this is safe to re-run: an arm that was killed before\nits run end and then resumed builds them when it finally finishes, and an arm that already\nhas them pays nothing.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection) -> None"
+    },
     "Optimization/persistence/Picking_Data.py::_apply_run_schema": {
       "decorators": [],
-      "doc": "Issue every CREATE for the run DB on an already-open connection.\n\nSplit out of init_run_db so sim_schema_id() can build the schema in memory and hash what\nthe writer ACTUALLY creates \u2014 the declared id is never a hand-maintained list of columns,\nso it cannot drift from this function.",
+      "doc": "Issue every CREATE for the run DB on an already-open connection.\n\nSplit out of init_run_db so sim_schema_id() can build the schema in memory and hash what\nthe writer ACTUALLY creates \u2014 the declared id is never a hand-maintained list of columns,\nso it cannot drift from this function.\n\nTHIS IS THE DECLARED SHAPE and it applies BOTH halves.  The write path deliberately does\nnot: `init_run_db` creates tables only, and `build_run_indices` adds the rest once the last\nrow is in.  Keeping both halves here is what makes that invisible \u2014 a finished database\nmatches this declaration exactly, so the stamp, the vintage list and every consumer are\nuntouched.  Do not \"simplify\" this to the tables half.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con: sqlite3.Connection) -> None"
+    },
+    "Optimization/persistence/Picking_Data.py::_apply_run_tables": {
+      "decorators": [],
+      "doc": "Every table and view the run DB needs \u2014 and NO index.  What a writer creates.",
       "is_async": false,
       "kind": "function",
       "signature": "(con: sqlite3.Connection) -> None"
@@ -10158,6 +10179,13 @@
       "signature": null,
       "value_preview": "{t: sorted(set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN) for t, read in _READ_SURFACES.items() if set(WRITE_SURFACES[t]) - set(read) - _WRITE_ONLY_BY_DESIGN}"
     },
+    "Optimization/persistence/Picking_Data.py::build_run_indices": {
+      "decorators": [],
+      "doc": "Build every index in one pass, after every row is in.  Returns the seconds it took.\n\nIT RETURNS THE SECONDS BECAUSE THE CALLER MUST CHARGE THEM.  Deferring index maintenance\ndoes not delete the work, it relocates it \u2014 and relocating cost out of a measured window\ninto an unmeasured one reads as a saving and is a lie.  `strategy_runner` adds this to the\nsame `save` section the per-checkpoint writes are charged to, so `runtime_metrics.save_s`\nstill accounts for every second of it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> float"
+    },
     "Optimization/persistence/Picking_Data.py::create_run": {
       "decorators": [],
       "doc": "Insert a new simulation run row; return the assigned run_id.\n\nparams (optional): run configuration recorded for reconstruction \u2014\nkeys from _RUN_PARAM_COLS (num_pickers, x_speed, \u2026, optimal_work).\nidentity (optional): rename-proof association \u2014 keys from _IDENTITY_COLS\n(strategy_key, pair_label, config_label, warehouse_fingerprint, inventory_label).\nMissing keys are stored NULL.",
@@ -10195,10 +10223,10 @@
     },
     "Optimization/persistence/Picking_Data.py::init_run_db": {
       "decorators": [],
-      "doc": "Create all tables and indexes if they don't already exist, and enable WAL mode.",
+      "doc": "Create the run DB and enable WAL mode.  Indexes too, unless the caller defers them.\n\n`defer_indices=True` creates the TABLES ONLY, and the caller then owes a\n`build_run_indices` call once its last row is written.  See `_RUN_INDEXES` for the saving\nthat buys and for why a FINISHED database is unchanged by it.\n\nIT IS OPT-IN, AND THAT IS THE POINT.  `Schema.identity.resolve(..., verify=True)` re-derives\na sim DB's shape and raises `SchemaDrift` against the stamp, so a half-built database is\nvisible to any consumer that looks -- correctly, because it really is half-built.  Only a\nwriter that owns the whole lifecycle and is certain to reach its run end may take this;\neverything else gets a complete database, because that is what it is pretending to be.",
       "is_async": false,
       "kind": "function",
-      "signature": "(path: str) -> None"
+      "signature": "(path: str, *, defer_indices: bool=False) -> None"
     },
     "Optimization/persistence/Picking_Data.py::keyframe_db_path": {
       "decorators": [],

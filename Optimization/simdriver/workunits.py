@@ -129,14 +129,18 @@ def _plan_strategy_start(ch_run_dir, s, n_batches, db_path, run_params, identity
                     f'[{s.key}] refusing to create a second run in {db_path}: it already holds '
                     f'run_id={existing} (run dir {ch_run_dir}). The caller was expected to have '
                     f"reset this arm's DB (reset_strategy_db) before planning a fresh start.")
-        init_run_db(db_path)
+        # DEFERRED: this arm runs to a `_finish()` that calls `build_run_indices`.  Maintaining
+        # thirteen indexes across fifteen checkpoints costs more than building them once at the
+        # end, because an index keyed on anything but insertion order is rewritten in full every
+        # time rather than appended to.
+        init_run_db(db_path, defer_indices=True)
         return create_run(db_path, s.run_type, run_params,
                           identity={**identity, 'strategy_key': s.key}), 0
     ckpt = _arm_position(ch_run_dir, s.key, prev_start)
     if 0 < ckpt < n_batches:
         if granularity == 'strategy':
             reset_strategy_db(ch_run_dir, db_path, s.key)
-            init_run_db(db_path)
+            init_run_db(db_path, defer_indices=True)   # same arm, same run end
             log.info(f'  [{s.key}] strategy-level reset -> batch 0 (bit-identical)')
             return create_run(db_path, s.run_type, run_params,
                               identity={**identity, 'strategy_key': s.key}), 0

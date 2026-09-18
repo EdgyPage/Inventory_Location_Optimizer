@@ -19,8 +19,14 @@
 
 Split out of init_run_db so sim_schema_id() can build the schema in memory and hash what
 the writer ACTUALLY creates — the declared id is never a hand-maintained list of columns,
-so it cannot drift from this function.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___migrate_run_columns.html"><code>_migrate_run_columns</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__declared_sim_schema_shape.html"><code>declared_sim_schema_shape</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__init_run_db.html"><code>init_run_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
+so it cannot drift from this function.
+
+THIS IS THE DECLARED SHAPE and it applies BOTH halves.  The write path deliberately does
+not: `init_run_db` creates tables only, and `build_run_indices` adds the rest once the last
+row is in.  Keeping both halves here is what makes that invisible — a finished database
+matches this declaration exactly, so the stamp, the vintage list and every consumer are
+untouched.  Do not &quot;simplify&quot; this to the tables half.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py___apply_run_indices.html"><code>_apply_run_indices</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py___apply_run_tables.html"><code>_apply_run_tables</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__declared_sim_schema_shape.html"><code>declared_sim_schema_shape</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___apply_run_schema">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20_apply_run_schema">Source ↗</a></p>
 </article>
 </main>

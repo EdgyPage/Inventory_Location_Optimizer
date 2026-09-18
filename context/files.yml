@@ -984,6 +984,7 @@ files:
       - {name: "BinInventoryRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "PickerEventRecord", file: "Optimization/persistence/Picking_Data.py", kind: "class"}
       - {name: "init_run_db", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
+      - {name: "build_run_indices", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "declared_sim_schema_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "sim_schema_id", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "declared_keyframe_shape", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
