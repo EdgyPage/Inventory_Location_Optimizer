@@ -1,7 +1,5 @@
 """scan_width.py -- measure how WIDE a function's input is, not just how often it is called.
 
-DRAFT for Tests/calltree/scan_width.py.
-
 The calltree tracer cannot see this. It records one frame entry however wide a scan is, and it
 drops C leaves entirely -- so an O(A) scan written as a comprehension or keyed on a C method is
 invisible, while an identical lambda-keyed one is convicted. `_closest_abs` was measured at

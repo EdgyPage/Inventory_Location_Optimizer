@@ -832,3 +832,82 @@ def test_the_ex_save_series_gates_the_offender_list():
     assert t['verdict'] == 'accelerating', (
         'the control no longer accelerates on total_s, so this test no longer proves the gate '
         'is what excluded it')
+
+
+# ── the save decomposition (2026-09-17) ───────────────────────────────────────────
+#
+# This block had ZERO execution in any test until now. Every fixture ladder in this file omits
+# `overlay_mean_per_batch` and `census_mean_per_batch`, so the loop hits its `max(ys) <
+# MIN_WALL_S` guard on all five names and `continue`s -- the walls fit, the ratio construction,
+# both offender kinds and the two new `_TREND_SERIES` entries were never run. A never-executed
+# feature is the failure mode this package has already paid for three times.
+
+def _decomposed_ladder():
+    """A deep ladder whose save section is superlinear ONLY in its per-row cost.
+
+    sqlite walls k=2, rows k=1, so cost-per-row is k=1: the exact shape the real ladder showed
+    before the fix (k=1.29 factoring into rows 0.93 x per-row 0.36).
+    """
+    xs = [10000, 20000, 40000, 60000, 80000]
+    sqlite = [0.1, 0.4, 1.6, 3.6, 6.4]
+    rows = [1000.0, 2000.0, 4000.0, 6000.0, 8000.0]
+    return {'knob': 'skus', 'config': 'none', 'rungs': [
+        {'x': x, 'kwargs': {}, 'wall_s': 1.0, 'counts': {},
+         'sections_mean_per_batch': {'t_save': s},
+         'overlay_mean_per_batch': {'t_save_sqlite': s, 't_save_pickle': 0.0,
+                                    't_save_drain': 0.0},
+         'census_mean_per_batch': {'n_rows': r, 'db_mb': 10.0, 'wal_mb': 0.0}}
+        for x, s, r in zip(xs, sqlite, rows)]}
+
+
+def test_the_save_decomposition_block_actually_executes():
+    import calltree_growth as cg
+    rep = cg.fit_report(_decomposed_ladder())
+    sd = rep['save_decomposition']
+    assert sd, 'save_decomposition is empty — the block continue-d past every name again'
+    assert 't_save_sqlite' in sd and 't_save_sqlite_per_row' in sd, sorted(sd)
+    assert abs(sd['t_save_sqlite']['exponent'] - 2.0) < 0.05, sd['t_save_sqlite']
+    assert abs(sd['t_save_sqlite_per_row']['exponent'] - 1.0) < 0.05, sd['t_save_sqlite_per_row']
+
+
+def test_the_per_row_ratios_are_walls_over_rows():
+    import calltree_growth as cg
+    """The denominator is the whole point: it separates 'costlier per write' from 'more writes'."""
+    rep = cg.fit_report(_decomposed_ladder())
+    e = rep['save_decomposition']['t_save_sqlite_per_row']
+    assert abs(e['ratios'][0] - 0.1 / 1000.0) < 1e-12, e['ratios']
+    assert abs(e['ratios'][-1] - 6.4 / 8000.0) < 1e-12, e['ratios']
+    assert e['rows'] == [1000.0, 2000.0, 4000.0, 6000.0, 8000.0]
+
+
+def test_both_new_offender_kinds_are_emitted_and_ranked_in_their_cost_class():
+    import calltree_growth as cg
+    rep = cg.fit_report(_decomposed_ladder())
+    kinds = {o['kind']: o for o in rep['offenders']}
+    assert 'save-part' in kinds, [o['kind'] for o in rep['offenders']]
+    assert 'per-row' in kinds, [o['kind'] for o in rep['offenders']]
+    assert kinds['save-part']['units'] == 'seconds'
+    assert kinds['per-row']['units'] == 'seconds per row'
+    # seconds rank with seconds (class 0); a ratio ranks with ratios (class 2). Ranking across
+    # them by a shared number would invent a common unit that does not exist.
+    assert cg._KIND_ORDER['save-part'] == cg._KIND_ORDER['section-wall']
+    assert cg._KIND_ORDER['per-row'] == cg._KIND_ORDER['per-placement']
+    ordered = cg._severity_sort(rep['offenders'])
+    seconds_at = next(i for i, o in enumerate(ordered) if o['kind'] == 'save-part')
+    ratio_at = next(i for i, o in enumerate(ordered) if o['kind'] == 'per-row')
+    assert seconds_at < ratio_at, 'a cost class 0 offender must outrank a class 2 one'
+
+
+def test_a_flat_per_row_cost_is_not_an_offender():
+    import calltree_growth as cg
+    """NON-VACUITY. After the 2026-09-18 fix the real per-row exponent is 0.05 — if a flat
+    series still flagged, the tests above would pass on a detector that flags everything."""
+    lad = _decomposed_ladder()
+    for r in lad['rungs']:
+        # walls proportional to rows: cost per row is constant
+        r['overlay_mean_per_batch']['t_save_sqlite'] = \
+            r['census_mean_per_batch']['n_rows'] * 1e-4
+    rep = cg.fit_report(lad)
+    assert abs(rep['save_decomposition']['t_save_sqlite_per_row']['exponent']) < 0.01
+    assert not [o for o in rep['offenders'] if o['kind'] == 'per-row'], \
+        'a constant cost per row must not be flagged'

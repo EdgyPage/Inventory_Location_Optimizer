@@ -1109,7 +1109,8 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None,
             parsed = scenarios.macro_sections()   # newest run.log = the one we just made
         except scenarios.ScenarioUnavailable as e:
             print(f'  rung done but log unparsable: {e}')
-            parsed = {'sections': {}, 'overlay': {}, 'census': {}, 'source': 'unparsable'}
+            parsed = {'sections': {}, 'overlay': {}, 'census': {}, 'wall': {},
+                      'source': 'unparsable'}
 
         run_root = _run_root_from(out_txt)
         arms = _arm_rollup(run_root, workers) if run_root else {}
@@ -1126,6 +1127,13 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None,
                         # apart from the two costs it was sharing a stopwatch with.
                         'overlay_mean_per_batch': parsed.get('overlay', {}),
                         'census_mean_per_batch': parsed.get('census', {}),
+                        # THE WALL SPLIT, off the rung's own log.  `phase_model_s` below is
+                        # the simulation half; the analysis half runs in the SAME subprocess
+                        # and was therefore never separated from it, which is how a startup
+                        # term got described as "a fixed ~48 s per arm" when it is 25 s -> 81 s
+                        # per wave and rising (k=0.56).  A residual nobody can name is a
+                        # residual nobody fixes.
+                        'wall_split': parsed.get('wall', {}),
                         'source': parsed['source'], 'counts': {},
                         'run_root': run_root, 'rss': rss, 'arms': arms})
         print(f'  rung done in {wall / 60:.1f} min ({parsed["source"]})')
@@ -1138,6 +1146,18 @@ def run_deep_ladder(workers: int, dry_run: bool, profiles_dir=None,
                   f"{arms['slowest_arm']['arm']} at {arms['slowest_arm']['total_s']:,.0f}s")
             print(f"      n_bins={arms['n_bins']:,} peak_rss_arm={arms['peak_rss_mib_max']}M "
                   f"peak_rss_tree={rss.get('peak_total_gib')}G")
+            _ws = parsed.get('wall') or {}
+            if _ws.get('span_s'):
+                _model = arms['phase_model_s']
+                _resid = _ws['span_s'] - _model - _ws['analysis_s']
+                _waves = max(arms['arms'] / max(workers, 1), 1e-9)
+                print(f"      wall split: sim model {_model / 60:.1f}m + analysis "
+                      f"{_ws['analysis_s'] / 60:.1f}m ({_ws['analysis_s'] / _ws['span_s']:.0%}) "
+                      f"+ startup/sched {_resid / 60:.1f}m ({_resid / _waves:.0f}s per wave)")
+                _ov = parsed.get('overlay') or {}
+                if _ov.get('t_save_build'):
+                    print(f"      index build {_ov['t_save_build']:.2f}s/arm "
+                          f"({_ov['t_save_build'] * arms['arms']:,.0f}s total) -- inside save_s")
         else:
             print('      NO runtime_metrics rows — the per-arm instrument is unavailable, so '
                   'this rung has only a wall.')
@@ -1200,10 +1220,18 @@ def fit_report(ladder: dict) -> dict:
         if max(ys, default=0.0) < 0.01:
             continue
         slope, r2 = _fit_loglog(xs, ys)
+        # THE ANCHOR IS A PROPERTY OF THE SERIES, NOT OF THE VERDICT, so it is computed for
+        # every fit rather than only for the ones that qualify as offenders.  It used to be
+        # computed inside the branch below, which meant a fit too noisy to be an offender was
+        # also too noisy to be WARNED about -- exactly backwards, because a noisy fit on a
+        # sub-millisecond anchor is the case that most needs the warning.  `t_task` sat in the
+        # section table at k=2.55 on a 0.6 ms anchor, unannotated, on two consecutive ladders.
+        anchor = min((y for y in ys if y > 0), default=0.0)
         report['sections'][sec] = {'exponent': round(slope, 3), 'r2': round(r2, 3),
-                                   'walls': [round(y, 4) for y in ys]}
+                                   'walls': [round(y, 4) for y in ys],
+                                   'anchor_s': round(anchor, 6),
+                                   'noise_anchored': bool(anchor and anchor < MIN_WALL_S)}
         if r2 >= MIN_R2 and slope >= FLAG_TIME_EXP:
-            anchor = min((y for y in ys if y > 0), default=0.0)
             if anchor < MIN_WALL_S:
                 report['suppressed'].append(
                     {'kind': 'section-wall', 'name': sec, 'exponent': round(slope, 3),
@@ -1586,7 +1614,13 @@ def main(argv=None) -> int:
     print(f'\nsection exponents [{report.get("sections_units", "?")}] '
           f'(expect ≈1 vs {report["knob"]}; flag ≥ {FLAG_TIME_EXP}):')
     for sec, e in report['sections'].items():
-        print(f"  {sec:10s} k={e['exponent']:6.2f}  r²={e['r2']:.2f}")
+        # The marker is the whole point of carrying `anchor_s`: an unflagged k means "not an
+        # offender", which a reader hears as "fine", and a k fitted off a sub-millisecond point
+        # is neither.
+        _note = (f"   <- NOISE-ANCHORED on {e['anchor_s'] * 1000:.2f} ms, under the "
+                 f"{MIN_WALL_S * 1000:.0f} ms floor; do not believe this k"
+                 if e.get('noise_anchored') else '')
+        print(f"  {sec:10s} k={e['exponent']:6.2f}  r²={e['r2']:.2f}{_note}")
     if report['flows']:
         print(f'\nflow exponents (did the path run, and how fast does its work grow):')
         for name, e in sorted(report['flows'].items()):

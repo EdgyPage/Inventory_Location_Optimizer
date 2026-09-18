@@ -45,6 +45,15 @@ _ROWS_RE  = re.compile(r'\brows=(\d+)')
 _DBMB_RE  = re.compile(r'\bdbmb=([\d.]+)')
 _WALMB_RE = re.compile(r'\bwalmb=([\d.]+)')
 _BATCH_RE = re.compile(r'Batch\s+(\d+)/')
+# The two PER-ARM save lines (2026-09-18).  They are not checkpoint lines, so `parse` below
+# never sees them -- it only makes a row when `_SEC_RE` matches.  They are read by `save_tail`.
+#
+# WHY THEY MATTER: the runner charges both to the `save` section, so `runtime_metrics.save_s`
+# contains them.  The ladder's `t_save` is a mean over CHECKPOINT lines and does not.  Without
+# these, the two instruments named `save` measure different work and neither says so.
+_IDX_BUILD_RE = re.compile(r'\[save\] index build ([\d.]+)s')
+_RUN_END_RE = re.compile(r'\[save\] run-end close ([\d.]+)s')
+_TS_RE = re.compile(r'^(\d\d):(\d\d):(\d\d)\s')
 _SECTIONS = ['build', 'reord', 'pre', 'sim', 'extr', 'inv', 'db']
 
 
@@ -104,6 +113,43 @@ def parse(log_path):
             b = _BATCH_RE.search(line)
             rows.append((int(b[1]) if b else -1, d))
     return rows
+
+
+def save_tail(log_path):
+    """The per-arm save costs a checkpoint line cannot carry, plus the wall split.
+
+    Returns `{index_build_s, run_end_close_s, arms, span_s, sim_s, analysis_s}` -- means over
+    arms for the two costs, and seconds for the split.
+
+    THE SPLIT'S BOUNDARY is the last line that is either a checkpoint or a per-arm save line:
+    everything after it is the analysis half, which runs in the same subprocess. That is what
+    makes the analysis half measurable without a second run -- it was already in the log.
+    """
+    import statistics as _st
+    builds, closes, stamps, last_sim = [], [], [], None
+    with open(log_path, encoding='utf-8', errors='replace') as fh:
+        for line in fh:
+            m = _TS_RE.match(line)
+            if m:
+                t = int(m[1]) * 3600 + int(m[2]) * 60 + int(m[3])
+                stamps.append(t)
+                if _SEC_RE.search(line) or '[save] ' in line:
+                    last_sim = t
+            b = _IDX_BUILD_RE.search(line)
+            if b:
+                builds.append(float(b[1]))
+            c = _RUN_END_RE.search(line)
+            if c:
+                closes.append(float(c[1]))
+    if not stamps:
+        return {}
+    span = stamps[-1] - stamps[0]
+    sim = (last_sim - stamps[0]) if last_sim is not None else span
+    return {'index_build_s': _st.fmean(builds) if builds else 0.0,
+            'run_end_close_s': _st.fmean(closes) if closes else 0.0,
+            'arms': len(closes),
+            'span_s': float(span), 'sim_s': float(sim),
+            'analysis_s': float(span - sim)}
 
 
 def _means(rows):

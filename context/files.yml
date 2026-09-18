@@ -2178,6 +2178,7 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "parse", file: "Tests/bench/bench_sections.py", kind: "function"}
+      - {name: "save_tail", file: "Tests/bench/bench_sections.py", kind: "function"}
       - {name: "section_shares", file: "Tests/bench/bench_sections.py", kind: "function"}
       - {name: "run", file: "Tests/bench/bench_sections.py", kind: "function"}
     notes: ""
@@ -2409,6 +2410,10 @@ files:
       - {name: "test_sum_by_arm_sums_the_rows_instead_of_keeping_the_last", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_a_shared_save_knee_does_not_flag_every_arm", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
       - {name: "test_the_ex_save_series_gates_the_offender_list", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_save_decomposition_block_actually_executes", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_the_per_row_ratios_are_walls_over_rows", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_both_new_offender_kinds_are_emitted_and_ranked_in_their_cost_class", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
+      - {name: "test_a_flat_per_row_cost_is_not_an_offender", file: "Tests/calltree/test_calltree_smoke.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_rank_cache_equivalence.py":
     purpose: "frozen oracles for the Phase-6 SKU-run caches."
@@ -2422,6 +2427,21 @@ files:
       - {name: "test_co_demand_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
       - {name: "test_minlabor_cache_matches_frozen_oracle", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
       - {name: "test_minlabor_unrefreshed_cache_is_detectable", file: "Tests/calltree/test_rank_cache_equivalence.py", kind: "function"}
+    notes: ""
+  "Tests/calltree/test_scan_width.py":
+    purpose: "the width instrument, under test so it does not rot."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_it_counts_calls_and_sums_input_width", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_the_wrapped_function_still_does_its_job", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_the_original_is_restored_even_when_the_body_raises", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_a_width_of_None_counts_the_call_without_a_width", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_mean_on_a_key_with_no_calls_is_zero_not_a_crash", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_wrapping_an_INSTANCE_is_refused", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_wrapping_a_module_is_allowed", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_check_calls_raises_when_the_workload_is_wrong", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_check_calls_passes_inside_tolerance", file: "Tests/calltree/test_scan_width.py", kind: "function"}
+      - {name: "test_report_names_every_wrapped_key", file: "Tests/calltree/test_scan_width.py", kind: "function"}
     notes: ""
   "Tests/conftest.py":
     purpose: "single sys.path bootstrap for the whole suite."
@@ -3726,6 +3746,11 @@ files:
       - {name: "test_flush_is_the_one_that_may_skip", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
       - {name: "test_the_site_channel_set_is_a_real_second_adapter", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
       - {name: "test_the_channel_order_is_the_historical_save_order", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_two_flushes_share_one_connection", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_close_releases_the_connection", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_a_different_path_releases_the_first_connection", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_a_failed_insert_releases_the_connection_and_reraises", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
+      - {name: "test_flush_and_close_return_a_census_matching_what_was_written", file: "Tests/unit/test_checkpoint_buffer.py", kind: "function"}
     notes: ""
   "Tests/unit/test_checkpoint_window.py":
     purpose: "Fences CheckpointWindow: the five checkpoint counters and the window-open stamp, their exact arithmetic (running-sum dur_sum, the avg_dur zero guard, rate over the caller already-computed wall), and the guarantee that makes the extraction free -- every value dies at the log line and reaches no DB, result dict or runtime_metrics column."
@@ -3975,6 +4000,21 @@ files:
       - {name: "test_the_excluded_defaults_are_excluded_on_purpose", file: "Tests/unit/test_declared_once.py", kind: "function"}
       - {name: "test_the_env_reader_is_one_function_not_four", file: "Tests/unit/test_declared_once.py", kind: "function"}
       - {name: "test_envfile_imports_nothing_that_reads_the_environment", file: "Tests/unit/test_declared_once.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_deferred_indices.py":
+    purpose: "the run DB is written UNINDEXED and indexed at run end."
+    layer: "tests"
+    key_symbols:
+      - {name: "EXPECTED", file: "Tests/unit/test_deferred_indices.py", kind: "const"}
+      - {name: "db", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_init_run_db_still_creates_every_index_by_default", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_defer_indices_creates_none", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_build_run_indices_creates_exactly_the_roster", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_the_deferred_file_ends_up_identical_to_the_eager_one", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_building_twice_is_a_no_op", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_the_declared_shape_still_contains_every_index", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_a_tables_only_declaration_would_have_a_DIFFERENT_id", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
+      - {name: "test_the_roster_matches_the_tuple_the_writer_iterates", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
     notes: ""
   "Tests/unit/test_door_team_cap.py":
     purpose: "the door-team cap is trailer physics, and off it changes nothing."

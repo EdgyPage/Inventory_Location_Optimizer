@@ -72,3 +72,25 @@ factors cleanly into rows (k=0.93) x cost-per-row (k=0.36). See
 [[save-s-is-index-maintenance]] for the mechanism and the fix (26% cut, three commits).
 
 The **fixed ~48 s per-arm startup** in the section above is unaffected and still stands.
+
+## The "~48 s FIXED per arm" above is WRONG AT DEPTH — corrected 2026-09-18
+
+Measured by splitting each rung's wall into `Σtotal_s/workers`, the analysis tail (everything
+after the last checkpoint or `[save]` line) and the residual:
+
+| rung | wall | sim model | analysis | startup+sched | per wave |
+|---|---|---|---|---|---|
+| 10k | 6.8 m | 1.9 m | 1.7 m | 3.2 m | **25 s** |
+| 80k | 33.8 m | 16.3 m | 7.2 m | **10.2 m** | **81 s** |
+
+**25 s → 81 s per wave, k = 0.56, local `0.21, 0.60, 0.75, 1.02` — accelerating toward linear.**
+48 s is the smallest rung's figure; the "then catalogue-proportional" clause above is the part
+that generalises. A term that scales with the catalogue is **per-arm catalogue LOADING, not
+interpreter spawn**, and that distinction decides the fix: worker recycling
+([[worker-recycling-pinned-at-one]]) only helps if the catalogue survives the reuse.
+
+It is ~30% of the wall at 80k — larger than the analysis half (21%, k=0.70) and now the biggest
+non-simulation cost in the tier.
+
+The deep ladder prints this split itself since 2026-09-18, so it never has to be reconstructed
+by hand again.

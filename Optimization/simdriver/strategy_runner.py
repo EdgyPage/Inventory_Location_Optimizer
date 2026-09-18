@@ -2973,14 +2973,29 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                 f'  p2={_p2w:.2f}s'
                 f'  wall={wall:.0f}s'
                 f'  db={t_save:.2f}s'
-                # per-section breakdown of this checkpoint's batch-loop wall
-                f'  | reord={asm.timers.window("reord"):.1f}s build={asm.timers.window("build"):.1f}s'
-                f' (smpl={asm.timers.window("sample"):.1f}s task={asm.timers.window("task"):.1f}s)'
-                f' pre={asm.timers.window("pre"):.1f}s sim={asm.timers.window("sim"):.1f}s'
-                f' extr={asm.timers.window("extract"):.1f}s cons={asm.timers.window("inv"):.1f}s'
+                # per-section breakdown of this checkpoint's batch-loop wall.
+                #
+                # FOUR DECIMALS, NOT ONE.  These printed at `:.1f` until 2026-09-18, and that
+                # rounding was READ AS A MISSING MEASUREMENT: `t_pre` fitted k=nan over walls
+                # [0.0, 0.0, 0.0, 0.0001, 0.03] on two consecutive deep ladders, because the
+                # section is ~0.035 s per batch and one decimal place cannot hold it.  The
+                # section was never missing -- `runtime_metrics.pre_s` reads 90 s per arm at
+                # the top rung -- so the two instruments disagreed purely on format, which is
+                # the `two-instruments-named-t-save` shape a second time.
+                #
+                # It also gave `t_task` a noise anchor: its fit rests on a 0.6 ms point, which
+                # at one decimal is indistinguishable from zero.
+                #
+                # Every parser regex is `([\d.]+)s` and does not care how many decimals arrive,
+                # so this is safe for both `bench_sections` and `macro_sections`, and older
+                # logs keep parsing exactly as before.
+                f'  | reord={asm.timers.window("reord"):.4f}s build={asm.timers.window("build"):.4f}s'
+                f' (smpl={asm.timers.window("sample"):.4f}s task={asm.timers.window("task"):.4f}s)'
+                f' pre={asm.timers.window("pre"):.4f}s sim={asm.timers.window("sim"):.4f}s'
+                f' extr={asm.timers.window("extract"):.4f}s cons={asm.timers.window("inv"):.4f}s'
                 # overlay metrics (kf ⊂ pre; gc overlaps every section) — appended AFTER
                 # the partition tokens so bench_sections' unanchored _SEC_RE still matches
-                f' kf={asm.timers.window("kf"):.1f}s gc={_GC_STATE["pause_s"]:.2f}s'
+                f' kf={asm.timers.window("kf"):.4f}s gc={_GC_STATE["pause_s"]:.4f}s'
                 # The save decomposition and its denominator, appended LAST for exactly the
                 # reason the overlay above is: `bench_sections._SEC_RE` is an unanchored
                 # search, so tokens after the partition set are invisible to it, and each of

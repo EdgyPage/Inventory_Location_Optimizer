@@ -190,19 +190,73 @@ def test_section_vocabulary_matches_strategy_runner():
     # (t_inv logs as 'cons=' — the conservation ledger; bench_sections accepts both
     # spellings since the rename.  kf=/gc= are the 2026-08-19 overlay tokens.)
     for token in ('reord=', 'smpl=', 'task=', 'pre=', 'sim=', 'extr=', 'cons=', 'db=',
-                  'kf=', 'gc='):
+                  'kf=', 'gc=',
+                  # The save decomposition (2026-09-17).  sql+pkl+drn == db, and rows= is the
+                  # denominator that separates "each write got more expensive" from "there are
+                  # more writes".  Unpinned, a rename here silently zeroes `macro_sections`'
+                  # whole overlay and census with every test still green.
+                  'sql=', 'pkl=', 'drn=', 'rows=', 'dbmb=', 'walmb='):
         assert token in src, f'checkpoint log line lost {token!r} — macro adapter breaks'
+
+    # The two PER-ARM save lines.  They are not on a checkpoint line, so `_SEC_RE` never sees
+    # them — which is exactly why they need pinning here: the runner charges both to `save`, so
+    # `runtime_metrics.save_s` contains them and the ladder's `t_save` would not.
+    for token in ('[save] index build', '[save] run-end close'):
+        assert token in src, f'strategy_runner lost {token!r} — save_tail reads nothing'
 
     # And bench_sections' regexes must actually match the emitted shape end-to-end —
     # _SEC_RE silently rotted once when inv= became cons= (parse() returned zero rows).
     # The sample carries the appended overlay suffix to PROVE the append is non-breaking.
     import bench_sections as bsec
-    sample = ('  Batch   10/100  | reord=1.0s build=2.0s (smpl=0.5s task=1.5s) '
-              'pre=3.0s sim=4.0s extr=5.0s cons=6.0s kf=0.4s gc=0.12s')
+    # FOUR DECIMALS, because that is what the runner emits since 2026-09-18: `pre` is ~0.035 s
+    # per batch and `:.1f` rounded it to 0.0, which was read for two whole ladders as "the
+    # section is not measured" while `runtime_metrics.pre_s` sat at 90 s per arm.
+    sample = ('  Batch   10/100  db=2.5000s | reord=1.0000s build=2.0000s '
+              '(smpl=0.5000s task=0.0006s) pre=0.0355s sim=4.0000s extr=5.0000s cons=6.0000s '
+              'kf=0.4000s gc=0.1200s sql=2.1000s pkl=0.3000s drn=0.1000s '
+              'rows=166078 dbmb=23.1 walmb=4.2')
     assert bsec._SEC_RE.search(sample), \
         "bench_sections._SEC_RE no longer parses strategy_runner's checkpoint line"
     assert bsec._KF_RE.search(sample) and bsec._GC_RE.search(sample), \
         'bench_sections overlay regexes (kf=/gc=) no longer match the emitted tokens'
+
+    # A sub-0.05 s section must survive the round trip. Under the old `:.1f` it read 0.0.
+    _m = bsec._SEC_RE.search(sample)
+    assert float(_m['pre']) == 0.0355, (
+        f"a 35 ms section parsed as {_m['pre']} — the emitter is rounding it away again")
+    assert float(_m['task']) == 0.0006, 'the noise anchor must be visible, not rounded to zero'
+
+    # Every decomposition regex matches, and the sub-partition sums to the section.
+    for name, rx in (('sql', bsec._SQL_RE), ('pkl', bsec._PKL_RE), ('drn', bsec._DRN_RE),
+                     ('rows', bsec._ROWS_RE), ('dbmb', bsec._DBMB_RE),
+                     ('walmb', bsec._WALMB_RE)):
+        assert rx.search(sample), f'bench_sections lost the {name}= regex'
+    _parts = sum(float(rx.search(sample)[1])
+                 for rx in (bsec._SQL_RE, bsec._PKL_RE, bsec._DRN_RE))
+    assert abs(_parts - float(bsec._DB_RE.search(sample)[1])) < 1e-9, \
+        'sql+pkl+drn must equal db — they are a SUB-partition of it, not neighbours'
+
+    # The macro adapter's short names must be names `parse` actually PRODUCES -- run it, do not
+    # hardcode the list, or this test agrees with itself rather than with the parser. Nothing
+    # checked this before, so a typo there read zero for every rung with every test green.
+    import calltree_scenarios as _sc
+    import tempfile
+    _p = os.path.join(tempfile.mkdtemp(), 'run.log')
+    with open(_p, 'w', encoding='utf-8') as _fh:
+        _fh.write('12:00:00  x  ' + sample.strip() + '\n')
+        _fh.write('12:00:01  x    [save] run-end close 0.01s rows=5 dbmb=1.0 walmb=0.0\n')
+        _fh.write('12:00:02  x    [save] index build 0.24s dbmb=1.0\n')
+        _fh.write('12:00:09  x  done\n')
+    _produced = set(bsec.parse(_p)[0][1])
+    for short in list(_sc._MACRO_OVERLAY) + list(_sc._MACRO_CENSUS):
+        assert short in _produced, (
+            f'macro_sections maps {short!r}, which bench_sections.parse never emits')
+
+    # And the per-arm tail reader must actually see both [save] lines and split the wall.
+    _tail = bsec.save_tail(_p)
+    assert _tail['index_build_s'] == 0.24 and _tail['run_end_close_s'] == 0.01, _tail
+    assert _tail['analysis_s'] == 7.0, (
+        f"the analysis half should be the 7 s after the last save line, got {_tail}")
 
 
 def test_production_engine_identity():

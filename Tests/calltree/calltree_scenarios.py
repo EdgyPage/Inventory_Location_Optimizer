@@ -796,6 +796,16 @@ def macro_sections(run_log: str | None = None) -> dict:
                for short, name in _MACRO_OVERLAY.items()}
     census = {name: _st.fmean(d.get(short, 0.0) for _, d in rows)
               for short, name in _MACRO_CENSUS.items()}
+    # The per-arm save tail, which no checkpoint line carries.  Merged into `overlay` rather
+    # than `sections` for the usual reason: `t_save_build` is INSIDE an arm's save_s, so adding
+    # it beside `t_save` would double-count it.  `wall` is not a section at all -- it is the
+    # split of the rung's own elapsed time, and it is here because the log is the only place
+    # the simulation/analysis boundary is recorded.
+    tail = bsec.save_tail(log_path) or {}
+    overlay['t_save_build'] = tail.get('index_build_s', 0.0)
+    overlay['t_save_run_end'] = tail.get('run_end_close_s', 0.0)
     return {'sections': sections, 'overlay': overlay, 'census': census,
+            'wall': {k: tail[k] for k in ('span_s', 'sim_s', 'analysis_s', 'arms')
+                     if k in tail},
             'checkpoints': len(rows),
             'source': os.path.basename(os.path.dirname(log_path)) + '/run.log'}

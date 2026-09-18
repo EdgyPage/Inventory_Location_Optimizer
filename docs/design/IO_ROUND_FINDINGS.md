@@ -150,14 +150,32 @@ A RAM explanation was also tried and withdrawn: this host has 127.7 GiB and peak
 
 ## 5. The other three standing issues
 
-### 5.1 `cmin` / `cmax`, k ≈ 1.25 — REAL, and it needs a pool
+### 5.1 `cmin` / `cmax`, k ≈ 1.25 — REAL, and it lives in `reord_s`
 
 The cheap hypothesis was that the 1.29 might be `save_s` wearing cmin's name. **Refuted from the
 existing artifact at zero cost**: `arm_growth_ex_save` reads k = 1.26–1.29 with local exponents
 `[0.91, 1.35, 1.60, 1.48]`. It survives save removal entirely, and it survives this round's fix —
 the four arms are still the only offenders after it, at k ≈ 1.25.
 
-The verdict stands from ticket 05: a run cache here needs a **pool** first, because `cmin`/`cmax`
+**Localised 2026-09-18.** Decomposing the cmin arms by section across the post-change ladder:
+`reord_s` is **75.5 % of the arm at k = 1.42**, local `1.00, 1.49, 1.70, 1.79` — against 1.11 for
+the ladder as a whole. `save_s` is 11.8 % at k = 0.94 and everything else is ≈1.0 and under 6 %.
+So the growth is placement work in the reorder path, and it is not the I/O this round fixed.
+
+`uses_aisle_index` is declared by **exactly these two arms**, and they are the only
+affinity-scoring families with no pool, no SKU-run cache, no frozen `all_idx` and **no cold-start
+shortcut at all** — they pay a full O(#aisles) lift scan even for a SKU with zero placed
+partners, which is the case `cluster_map` short-circuits and whose share was measured rising
+3.0 % → 14.4 % across a 16× ladder.
+
+**A pool may not be the fix.** `cluster_map`'s cold short-circuit is byte-identical because an
+empty intersection with the live union means no float addition happens at all — there is no
+summation to reorder — and that argument needs a *live union*, which is a mirrored structure
+rather than a cache. A mirrored structure has no validity window, so it does not need a scope
+object. That is planned, not proven; measure the scan width first.
+
+The older verdict, kept because its reasoning is still correct for a CACHE: a run cache here
+needs a **pool** first, because `cmin`/`cmax`
 are `place_one` with no wave, and a closure-scoped cache is the persistent dict that reintroduces
 the one-ulp drift. This round sized it; it did not build it.
 
@@ -205,11 +223,35 @@ not a growth risk. Closed.
 
 ## 6. What is now the biggest thing in the deep tier
 
-Not `save_s`. After this round the two largest unaddressed costs are:
+Not `save_s`. The post-change wall, split three ways off each rung's own log:
 
-1. **the ~48 s fixed startup per arm** — `max_tasks_per_child` is pinned at 1, so every arm
-   spawns a fresh interpreter and reloads the catalogue. At 136 arms over 18 workers that is
-   ~6 min per rung, and it is why commensurability reads 0.27–0.48 rather than ~1.
-2. **the analysis half**, at 21–25 % of every run — sublinear, but a large constant.
+| rung | wall | sim model | analysis | startup + sched | per wave |
+|---|---|---|---|---|---|
+| 10k | 6.8 m | 1.9 m | 1.7 m | 3.2 m | **25 s** |
+| 80k | 33.8 m | 16.3 m | 7.2 m | **10.2 m** | **81 s** |
 
-`reord_s` (k = 1.11) is the largest per-arm section and is close to linear.
+1. **Startup + scheduling — ~30 % of the wall at 80k, and it GROWS.** 25 s → 81 s per wave,
+   k = 0.56, local `0.21, 0.60, 0.75, 1.02` — accelerating toward linear.
+
+   **The "~48 s FIXED per arm" figure recorded elsewhere is wrong at depth and is corrected
+   here.** 48 s is the smallest rung's value. A term that scales with the catalogue is not
+   interpreter spawn; it is per-arm catalogue *loading*, and that distinction decides the fix:
+   worker recycling only helps if the catalogue survives the reuse.
+
+2. **The analysis half — 21–25 % of every run**, k = 0.70 on five rungs (an earlier k = 0.62 was
+   fitted on three). Sublinear, so not a growth risk, but a large constant.
+
+3. `reord_s` (k = 1.11 overall) is the largest per-arm section and is close to linear — **except
+   on the `cmin`/`cmax` arms, where it is k = 1.42 and 75.5 % of the arm.** That is the tier's
+   only remaining offender.
+
+The ladder now prints this split itself (`save_tail` + the wall lines in `run_deep_ladder`), so
+it is measured every run rather than reconstructed by hand. Before that the residual had no name,
+and a residual nobody can name is a residual nobody fixes.
+
+### What the deferred index build actually costs
+
+Now that the two per-arm `[save]` lines are parsed, the build is visible: **4.33 s per arm at the
+80k rung**, so ~589 s of that rung's 3,253 s `save_s`. It is charged to `save_s` and every figure
+in §1 is net of it. At tiny scale it is 0.24 s per arm — the cost scales with the table, as a
+single sorted build should.

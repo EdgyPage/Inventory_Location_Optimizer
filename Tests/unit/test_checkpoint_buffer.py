@@ -242,3 +242,102 @@ def test_the_channel_order_is_the_historical_save_order():
         'reorder_queue', 'put_queue_state', 'carryover',
         'yard_trailers', 'yard_drains', 'shift_days', 'free_index',
     ]
+
+
+# ── the held connection, and the census ───────────────────────────────────────────
+#
+# The buffer opened a connection per flush until 2026-09-18. It now holds ONE per arm and
+# releases it at `close`, which matters because a WAL database's close folds the whole log back
+# into the main file and deletes it -- so the old shape paid a full fold every checkpoint. None
+# of that was covered: `_connection`, `_release` and the census return appear in no other test,
+# and `test_every_channel_reaches_the_file` above calls `flush` and never `close`, so it cannot
+# see a connection-lifetime regression at all (`_count` opens its own reader).
+
+def _opens(monkeypatch):
+    """Count `_open_db` calls without changing what it returns."""
+    from Optimization.persistence import checkpoint_buffer as cb
+    n = {'v': 0}
+    real = cb._pd._open_db
+
+    def counted(path, *a, **kw):
+        n['v'] += 1
+        return real(path, *a, **kw)
+
+    monkeypatch.setattr(cb._pd, '_open_db', counted)
+    return n
+
+
+def test_two_flushes_share_one_connection(monkeypatch):
+    """The whole point of F4: N checkpoints, one open, one fold."""
+    path, rid = _db()
+    n = _opens(monkeypatch)
+    buf = CheckpointBuffer()
+    for b in (1, 2, 3):
+        buf.append('batch_stats', _row('batch_stats', rid))
+        buf.flush(path, rid)
+    assert n['v'] == 1, f'three flushes opened {n["v"]} connections; they must share one'
+    buf.close(path, rid)
+    assert _count(path, 'batch_stats') == 3
+
+
+def test_close_releases_the_connection():
+    path, rid = _db()
+    buf = CheckpointBuffer()
+    buf.append('batch_stats', _row('batch_stats', rid))
+    buf.flush(path, rid)
+    assert buf._con is not None, 'a flush should leave the connection held'
+    buf.close(path, rid)
+    assert buf._con is None and buf._path is None, (
+        'close must release, or the run-end index build opens a second writer')
+
+
+def test_a_different_path_releases_the_first_connection():
+    """Two files are never written down at once."""
+    a, rid_a = _db()
+    b, rid_b = _db()
+    buf = CheckpointBuffer()
+    buf.append('batch_stats', _row('batch_stats', rid_a))
+    buf.flush(a, rid_a)
+    first = buf._con
+    buf.append('batch_stats', _row('batch_stats', rid_b))
+    buf.flush(b, rid_b)
+    assert buf._con is not first and buf._path == b
+    buf.close(b, rid_b)
+    assert _count(a, 'batch_stats') == 1 and _count(b, 'batch_stats') == 1
+
+
+def test_a_failed_insert_releases_the_connection_and_reraises(monkeypatch):
+    """The old per-flush `finally: close()` rolled back a half-open transaction for free.
+
+    Reuse is what makes that something to do on purpose: a connection carried forward with an
+    open transaction would poison the NEXT flush.
+    """
+    from Optimization.persistence import checkpoint_buffer as cb
+    path, rid = _db()
+    buf = CheckpointBuffer()
+    buf.append('batch_stats', _row('batch_stats', rid))
+
+    def boom(con, run_id, rows):
+        raise RuntimeError('insert exploded')
+
+    monkeypatch.setattr(cb._pd, '_insert_batch_stats', boom)
+    # the channel tuple captured the real function at import, so patch the bound entry too
+    buf._channels = tuple((n, boom if n == 'batch_stats' else f, s)
+                          for n, f, s in buf._channels)
+    with pytest.raises(RuntimeError, match='insert exploded'):
+        buf.flush(path, rid)
+    assert buf._con is None, 'a failed flush must not leave a half-open transaction held'
+
+
+def test_flush_and_close_return_a_census_matching_what_was_written():
+    """`rows=` on the log line is this dict summed; nothing else checks it."""
+    path, rid = _db()
+    buf = CheckpointBuffer()
+    buf.append('batch_stats', _row('batch_stats', rid))
+    buf.append('batch_stats', _row('batch_stats', rid))
+    buf.append('aisle_metrics', _row('aisle_metrics', rid))
+    census = buf.flush(path, rid)
+    assert census == {'batch_stats': 2, 'aisle_metrics': 1}, census
+    assert sum(census.values()) == 3
+    assert buf.flush(path, rid) == {}, 'a no-op flush reports {}, not a zero'
+    buf.close(path, rid)

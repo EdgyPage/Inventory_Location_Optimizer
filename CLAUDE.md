@@ -28,14 +28,22 @@ python -m Schema.profile_tree --check                 # profiles-tree (catalogue
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
 python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve
-python -m pytest Tests/calltree/test_calltree_smoke.py \n                Tests/calltree/test_calltree_anchors.py \n                Tests/architecture/test_digest_surface.py -q   # the instruments still measure
+python -m pytest Tests/calltree/test_calltree_smoke.py \n                Tests/calltree/test_calltree_anchors.py \n                Tests/calltree/test_scan_width.py \n                Tests/unit/test_deferred_indices.py \n                Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
-The tenth gate is ~20 s and exists because the two instruments it covers are the ones that
+The tenth gate is ~25 s and exists because the instruments it covers are the ones that
 fail SILENTLY and in the direction of looking healthy. `Tests/calltree/` was in no gate at
 all until 2026-09-16, and three dead frozen oracles plus a never-executed feature were found
 rotting in it; `run_digest.py`, the byte-identity tool, was dead twice for the same reason
-(`test_digest_surface.py` is what now notices). It deliberately does NOT include
+(`test_digest_surface.py` is what now notices). `test_deferred_indices.py` joined on 2026-09-18, and it is the only check in this repo that
+reasons about a FINISHED sim DB rather than about declared DDL. The arm writer creates its
+database UNINDEXED and builds the indexes at run end; a regression where that build quietly
+created nothing would pass the digest surface (which enumerates tables) and the schema
+identity gate (which hashes the declaration) with everything green. `test_scan_width.py`
+joined for the older reason: it is a measurement instrument, and instruments that live
+outside a gate here have rotted three times.
+
+It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a
 per-change one.
 
