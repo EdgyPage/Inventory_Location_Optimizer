@@ -200,6 +200,14 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
     + continue: never abort the run, never infinite-loop; unrecovered units keep their resume
     state and are reported with a resume command.
 
+    RETURNS THE UNRECOVERED UNIT IDS, sorted; empty on a clean run.  Until 2026-09-18 the list
+    was logged at ERROR here and returned to nobody, so a run whose EVERY worker died still
+    ran the analysis stage over an empty leaf set and exited 0 (`pool-run-swallows-dead-arms`:
+    68 arms dead on a KeyError, "All simulations complete", exit 0).  The detection was never
+    the missing piece; the propagation was.  `_run_workers_flat` -> `_run_scenario` ->
+    `_run_whatif_matrix` carry this list up, and `run_simulation._refuse_incomplete` turns it
+    into exit status 1 with no analysis.
+
     WORKER RECYCLING IS PINNED AT 1 — one fresh process per job.  `max_tasks_per_child` was
     accepted but never forwarded (`_run_whatif_matrix` dropped it, and every run is a matrix),
     so every run in this repo's history has in fact recycled at 1.  The first run that actually
@@ -265,6 +273,7 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
             log.error('    ' + _tag_of(cell, uid))
         log.error(f'  Resume with:  python Optimization/run_simulation.py --resume {base_dir}')
         log.error(bar)
+    return unfinished
 
 
 def _run_workers_flat(
@@ -280,8 +289,11 @@ def _run_workers_flat(
     skip_completed     : bool = False,
     max_retries        : int = 2,
     resume_granularity : str = 'strategy',
-) -> None:
+) -> list:
     """Flat ProcessPoolExecutor pool with automatic crash-recovery.
+
+    Returns `_supervise`'s list of unrecovered unit ids (empty on a clean run) -- see there for
+    why the list is returned and not only logged.
 
     All (pair, config, channel, strategy) units share one pool.  A worker that raises is
     isolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the
@@ -299,12 +311,14 @@ def _run_workers_flat(
     listener.start()
     log.info('  Log listener started')
     try:
-        _supervise(pairs, base_dir, shared_by_pair, max_workers, log,
-                   log_queue=log_queue, max_tasks_per_child=max_tasks_per_child,
-                   skip_completed=skip_completed, max_retries=max_retries,
-                   resume_granularity=resume_granularity, cell=cell,
-                   cell_index=cell_index, cell_total=cell_total)
+        unfinished = _supervise(
+            pairs, base_dir, shared_by_pair, max_workers, log,
+            log_queue=log_queue, max_tasks_per_child=max_tasks_per_child,
+            skip_completed=skip_completed, max_retries=max_retries,
+            resume_granularity=resume_granularity, cell=cell,
+            cell_index=cell_index, cell_total=cell_total)
     finally:
         listener.stop()
         mp_manager.shutdown()
         log.info('  Log listener stopped')
+    return unfinished

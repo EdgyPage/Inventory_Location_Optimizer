@@ -24,3 +24,19 @@ non-zero job count on a run that simulated. A green exit is not evidence; the sa
 [[coverage-e2e-swallows-worker-logs]] and [[a-grant-is-not-an-output]]. Verify a seam that reaches
 the worker (see [[config-knob-has-five-seams]]) by reading the DB (`simulation_runs`,
 `picker_events`), never the log tail.
+
+**FIXED 2026-09-18 -- exit 1, no analysis, and the resume command on the last lines.**
+The detection was never missing: `supervisor._supervise` had logged the unrecovered units at
+ERROR with a resume command since the retry driver was written. What was missing was three
+return values -- `_supervise` -> `_run_workers_flat` -> `_run_scenario` -> `_run_whatif_matrix`
+each returned None -- and a decision at the top. Now `_supervise` returns the sorted unrecovered
+unit ids, the matrix reports them as `info['unfinished'] = {cell: [ids]}` (a clean matrix is an
+empty dict), and `run_simulation._refuse_incomplete` raises `SystemExit(1)` BEFORE the analysis
+stage, so "All simulations complete." cannot print over holes and a detached driver can read the
+outcome from the status. Pinned hop by hop in `Tests/integration/test_crash_recovery.py`.
+
+**How to apply (amended):** the three greps above still hold for any run recorded before
+2026-09-18 and for a run that finished with every arm alive but blank (a blank DB is a
+`_warn_blank_arms` WARNING, not an unrecovered unit -- that class is still exit 0). For a run
+after that date, a non-zero exit IS the signal; a zero exit still does not prove the data, it
+proves the pool recovered every unit.

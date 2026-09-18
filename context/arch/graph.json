@@ -9961,6 +9961,11 @@
       "src": "Optimization/run_simulation.py::main"
     },
     {
+      "dst": "Optimization/run_simulation.py::_refuse_incomplete",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
       "dst": "Optimization/runschema/preflight.py::ensure",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
@@ -34169,6 +34174,14 @@
       "kind": "function",
       "module": "Optimization/run_simulation.py",
       "name": "_positive_int",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_simulation.py",
+      "id": "Optimization/run_simulation.py::_refuse_incomplete",
+      "kind": "function",
+      "module": "Optimization/run_simulation.py",
+      "name": "_refuse_incomplete",
       "public": false
     },
     {

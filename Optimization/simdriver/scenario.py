@@ -80,14 +80,17 @@ def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
             warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
             frozen_inventory_db=(frozen_by_pair or {}).get(label),
         )
-    _run_workers_flat(pairs, base_dir, shared_by_pair, workers, log, cell=cell,
-                      cell_index=cell_index, cell_total=cell_total,
-                      max_tasks_per_child=max_tasks_per_child,
-                      skip_completed=skip_completed,
-                      max_retries=max_retries, resume_granularity=resume_granularity)
+    unfinished = _run_workers_flat(
+        pairs, base_dir, shared_by_pair, workers, log, cell=cell,
+        cell_index=cell_index, cell_total=cell_total,
+        max_tasks_per_child=max_tasks_per_child,
+        skip_completed=skip_completed,
+        max_retries=max_retries, resume_granularity=resume_granularity)
     # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
     # batches so a blank DB is discovered NOW, not halfway through downstream analysis.
     _warn_blank_arms(base_dir, log)
+    # The pool's unrecovered unit ids, carried up rather than only logged (see `_supervise`).
+    return unfinished
 
 
 def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
@@ -96,7 +99,8 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     plain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once
     (tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze
     and samples fresh — bit-identical to the old flat run, just nested under its cell dir.  Returns
-    {'cells': [names], 'reference': name}."""
+    {'cells': [names], 'reference': name, 'unfinished': {cell: [unit ids]}} -- `unfinished` holds
+    only cells that left units unrecovered, so an empty dict is a clean matrix."""
     cells = _build_cells(spec)
     reference = reference_cell(cells, spec.get('reference'))
     # THE SHAPE GATE, restated at the driver.  `get_spec` is the single door every run comes
@@ -153,6 +157,7 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     log.info(f'Cell matrix → {base_dir}  ({len(cells)} cell(s), reference={reference}, '
              f'{"pairs" if _pairs is not None else "arms"}={_swept!r}, resume={resume})')
     log.info('  cells: ' + ', '.join(c[0] for c in cells))
+    unfinished_by_cell: dict = {}
 
     # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair — MULTI-cell only ──
     # (the scheduler is task→picker, not placement, so it doesn't affect the frozen layout).  A
@@ -202,11 +207,15 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
         # max_tasks_per_child was NOT forwarded here until 2026-08-15, so every matrix run
         # — i.e. every run, since a plain run is the single cell k1_off — silently used the
         # default 1 and the CLI flag was dead.
-        _run_scenario(scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
-                      cell=name, cell_index=ci, cell_total=n_cells,
-                      frozen_by_pair=frozen, skip_completed=resume,
-                      max_tasks_per_child=max_tasks_per_child,
-                      max_retries=max_retries, resume_granularity=resume_granularity)
+        _left = _run_scenario(
+            scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
+            cell=name, cell_index=ci, cell_total=n_cells,
+            frozen_by_pair=frozen, skip_completed=resume,
+            max_tasks_per_child=max_tasks_per_child,
+            max_retries=max_retries, resume_granularity=resume_granularity)
+        if _left:
+            unfinished_by_cell[name] = list(_left)
 
     log.info(f'\nCell matrix complete → {base_dir}')
-    return {'cells': [c[0] for c in cells], 'reference': reference}
+    return {'cells': [c[0] for c in cells], 'reference': reference,
+            'unfinished': unfinished_by_cell}

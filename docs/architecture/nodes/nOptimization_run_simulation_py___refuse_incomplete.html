@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_refuse_incomplete · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_simulation_py___refuse_incomplete" data-id="Optimization/run_simulation.py::_refuse_incomplete">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a> <span class="sep">›</span> <span class="here"><code>_refuse_incomplete</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_refuse_incomplete</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
+
+<pre class="sig"><code>def _refuse_incomplete(info: dict, base_dir: str, log) -&gt; None</code></pre>
+<section class="doc">Exit 1, and run NO analysis, when the matrix left units unrecovered.
+
+THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  `supervisor._supervise` has always
+logged the unrecovered units at ERROR with a resume command, and every level above it
+returned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run
+the analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print &quot;All
+simulations complete.&quot; and exit 0 (`pool-run-swallows-dead-arms`).  A scheduled or detached
+driver has ONLY the exit status to read.
+
+Analysis is refused rather than attempted because every downstream stage tolerates an
+empty leaf set: the what-if writers would compare against holes and say nothing.  The run
+root and every finished arm&#x27;s checkpoint are left exactly as they are, and the resume
+command reruns only what is missing -- after which the analysis runs as usual.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___refuse_incomplete">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_refuse_incomplete">Source ↗</a></p>
+</article>
+</main>
+</body></html>

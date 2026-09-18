@@ -943,6 +943,36 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 
+def _refuse_incomplete(info: dict, base_dir: str, log) -> None:
+    """Exit 1, and run NO analysis, when the matrix left units unrecovered.
+
+    THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  `supervisor._supervise` has always
+    logged the unrecovered units at ERROR with a resume command, and every level above it
+    returned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run
+    the analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print "All
+    simulations complete." and exit 0 (`pool-run-swallows-dead-arms`).  A scheduled or detached
+    driver has ONLY the exit status to read.
+
+    Analysis is refused rather than attempted because every downstream stage tolerates an
+    empty leaf set: the what-if writers would compare against holes and say nothing.  The run
+    root and every finished arm's checkpoint are left exactly as they are, and the resume
+    command reruns only what is missing -- after which the analysis runs as usual.
+    """
+    left = (info or {}).get('unfinished') or {}
+    if not left:
+        return
+    n = sum(len(v) for v in left.values())
+    bar = '!' * 72
+    log.error(bar)
+    log.error(f'  {n} unit(s) UNRECOVERED across {len(left)} cell(s); the run is INCOMPLETE and '
+              f'the analysis stage is skipped.')
+    for cell, uids in sorted(left.items()):
+        log.error(f'    {cell or "(single cell)"}: {len(uids)} unit(s)')
+    log.error(f'  Resume with:  python -m Optimization.run_simulation --resume {base_dir}')
+    log.error(bar)
+    raise SystemExit(1)
+
+
 def main():
     # FIRST statement in main, before the parser exists: `--help` is printed and exited from
     # INSIDE parse_args, so anything placed after it never runs on that path.  U+2192 (in
@@ -1291,6 +1321,7 @@ def main():
     info = _run_whatif_matrix(base_dir, pairs, log, spec_dict, resume=bool(args.resume),
                               max_retries=args.max_retries, resume_granularity=args.resume_granularity,
                               max_tasks_per_child=args.max_tasks_per_child)
+    _refuse_incomplete(info, base_dir, log)
 
     # ── one command: run the analysis in-process right after the sim (unless --no-analyze) ──
     if not args.no_analyze:

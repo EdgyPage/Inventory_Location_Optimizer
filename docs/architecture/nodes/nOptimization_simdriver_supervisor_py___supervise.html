@@ -21,6 +21,14 @@ per-unit exceptions are NOT auto-retried (near-always deterministic bad-config).
 + continue: never abort the run, never infinite-loop; unrecovered units keep their resume
 state and are reported with a resume command.
 
+RETURNS THE UNRECOVERED UNIT IDS, sorted; empty on a clean run.  Until 2026-09-18 the list
+was logged at ERROR here and returned to nobody, so a run whose EVERY worker died still
+ran the analysis stage over an empty leaf set and exited 0 (`pool-run-swallows-dead-arms`:
+68 arms dead on a KeyError, &quot;All simulations complete&quot;, exit 0).  The detection was never
+the missing piece; the propagation was.  `_run_workers_flat` -&gt; `_run_scenario` -&gt;
+`_run_whatif_matrix` carry this list up, and `run_simulation._refuse_incomplete` turns it
+into exit status 1 with no analysis.
+
 WORKER RECYCLING IS PINNED AT 1 — one fresh process per job.  `max_tasks_per_child` was
 accepted but never forwarded (`_run_whatif_matrix` dropped it, and every run is a matrix),
 so every run in this repo&#x27;s history has in fact recycled at 1.  The first run that actually

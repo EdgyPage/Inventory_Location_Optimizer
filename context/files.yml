@@ -2770,6 +2770,13 @@ files:
       - {name: "test_a_kill_inside_finalize_leaves_the_dir_resumable", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_fresh_branch_refuses_to_create_a_second_run", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_fresh_branch_is_unchanged_on_an_empty_or_absent_db", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_returns_the_unrecovered_units", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_supervise_returns_an_empty_list_on_a_clean_run", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_run_workers_flat_forwards_what_supervise_returns", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_run_scenario_forwards_what_the_pool_left", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_run_whatif_matrix_reports_unfinished_per_cell", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_refuse_incomplete_exits_one_with_the_resume_command", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_refuse_incomplete_is_silent_on_a_clean_matrix", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
     notes: ""
   "Tests/integration/test_day_cut_rollover.py":
     purpose: "the cut, end to end, across batches."

@@ -322,3 +322,111 @@ def test_fresh_branch_is_unchanged_on_an_empty_or_absent_db(tmp_path):
                                            'strategy', None, 0, False, _LOG)
     assert isinstance(rid2, int) and start2 == 0
     assert _n_runs(empty) == 1, 'the fresh branch did not create the run it was asked for'
+
+
+# ── the unrecovered list reaches the exit status (2026-09-18) ─────────────────────
+#
+# `_supervise` has always DETECTED the units it could not recover and logged them at ERROR with
+# a resume command.  It returned nothing, `_run_workers_flat`, `_run_scenario` and
+# `_run_whatif_matrix` returned nothing about it, and `main` went on to run the analysis stage
+# and print "All simulations complete." -- exit 0 with every arm dead
+# (`pool-run-swallows-dead-arms`, 2026-09-05).  The tests below pin each hop of the propagation
+# and the refusal at the top, on the same faked pool the quarantine test above uses.
+
+def test_supervise_returns_the_unrecovered_units(monkeypatch, tmp_path):
+    """The quarantine scenario above, read through the return value: 'b' failed, so ['b']."""
+    _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
+    units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
+    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
+                        lambda *a, **k: (units, dict(meta)))
+
+    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
+        done_uids.add(uid_a)
+        return {uid_b}, False
+    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
+    monkeypatch.setattr(_LOG, 'error', lambda m, *a, **k: None)
+
+    got = rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
+                        log_queue=None, max_tasks_per_child=1, skip_completed=False,
+                        max_retries=2, resume_granularity='strategy')
+    assert got == [uid_b], got
+
+
+def test_supervise_returns_an_empty_list_on_a_clean_run(monkeypatch, tmp_path):
+    """NON-VACUITY for the refusal: a clean run must come back empty, or every run exits 1."""
+    _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
+    units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
+    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
+                        lambda *a, **k: (units, dict(meta)))
+
+    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
+        done_uids.update({uid_a, uid_b})
+        return set(), False
+    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
+
+    got = rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
+                        log_queue=None, max_tasks_per_child=1, skip_completed=False,
+                        max_retries=2, resume_granularity='strategy')
+    assert got == []
+
+
+def test_run_workers_flat_forwards_what_supervise_returns(monkeypatch, tmp_path):
+    """The hop that owns the Manager and the QueueListener: the value must survive its
+    try/finally.  A real Manager is started because that is the code path."""
+    monkeypatch.setattr('Optimization.simdriver.supervisor._supervise',
+                        lambda *a, **k: [('x', 'y', 'z')])
+    got = rs._run_workers_flat([], str(tmp_path), {}, 1, _LOG)
+    assert got == [('x', 'y', 'z')]
+
+
+def test_run_scenario_forwards_what_the_pool_left(monkeypatch, tmp_path):
+    from Optimization.simdriver import scenario as sc
+    monkeypatch.setattr(sc, 'write_run_manifest', lambda *a, **k: None)
+    monkeypatch.setattr(sc, 'build_shared_assets', lambda *a, **k: {})
+    monkeypatch.setattr(sc, '_warn_blank_arms', lambda *a, **k: None)
+    monkeypatch.setattr(sc, '_run_workers_flat', lambda *a, **k: ['left'])
+    got = sc._run_scenario(str(tmp_path), [('lbl', 'i.db', 'a.db')], None, 1, _LOG)
+    assert got == ['left']
+
+
+def test_run_whatif_matrix_reports_unfinished_per_cell(monkeypatch, tmp_path):
+    """The matrix collects each cell's list under the cell's name, and a clean cell is absent
+    -- so `info['unfinished']` is empty exactly when the matrix is clean."""
+    from Optimization.simdriver import scenario as sc
+    from Optimization.config.whatif_config import SPECS
+    calls = []
+
+    def fake_scenario(scenario_base, pairs, sizing, workers, log, *, cell='', **kw):
+        calls.append(cell)
+        return [('u', cell)] if cell.endswith('_off') else []
+    monkeypatch.setattr(sc, '_run_scenario', fake_scenario)
+    monkeypatch.setattr(sc, 'build_shared_assets', lambda *a, **k: {'planned_inv_db': 'p.db'})
+    monkeypatch.setattr(sc, '_record_coverage', lambda *a, **k: None)
+
+    info = sc._run_whatif_matrix(str(tmp_path), [('lbl', 'i.db', 'a.db')], _LOG, SPECS['single'])
+    assert calls, 'the fake scenario never ran'
+    assert set(info) >= {'cells', 'reference', 'unfinished'}
+    assert info['unfinished'] == {c: [('u', c)] for c in calls if c.endswith('_off')}, info
+
+
+def test_refuse_incomplete_exits_one_with_the_resume_command(tmp_path):
+    errors = []
+    log = SimpleNamespace(error=lambda m, *a, **k: errors.append(str(m)),
+                          info=lambda *a, **k: None)
+    with pytest.raises(SystemExit) as ex:
+        rs._refuse_incomplete({'cells': ['k1_off'], 'unfinished': {'k1_off': [('a',), ('b',)]}},
+                              str(tmp_path), log)
+    assert ex.value.code == 1
+    assert any('UNRECOVERED' in m for m in errors), errors
+    assert any('--resume' in m and str(tmp_path) in m for m in errors), errors
+    assert any('skipped' in m for m in errors), 'it must say the analysis was not run'
+
+
+def test_refuse_incomplete_is_silent_on_a_clean_matrix(tmp_path):
+    """NON-VACUITY: no unfinished units, no exit, no error line."""
+    errors = []
+    log = SimpleNamespace(error=lambda m, *a, **k: errors.append(str(m)),
+                          info=lambda *a, **k: None)
+    assert rs._refuse_incomplete({'cells': ['k1_off'], 'unfinished': {}}, str(tmp_path), log) is None
+    assert rs._refuse_incomplete({'cells': ['k1_off']}, str(tmp_path), log) is None
+    assert errors == []
