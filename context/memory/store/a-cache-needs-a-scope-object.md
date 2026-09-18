@@ -39,3 +39,26 @@ lifetime is its validity window. If there isn't one, the cache is not cheap — 
 is the work. Related: [[placement-oracles-pin-agreement-not-truth]] (the oracles cannot catch a
 shared-state change, so the digest is the instrument), [[pool-tier-loop-cost-class-before-count]],
 [[map-exact-solver-rarely-fires]].
+
+**RESOLVED FOR cmin 2026-09-18 -- not a cache, an INDEX, and it needs no scope object.**
+Measured first (`Tests/calltree/scan_width.py` over the meso skus ladder's own `cmin` config,
+units matching the ladder's count exactly, 37,911 at 4,000 SKUs): live aisles scored per unit
+grow linearly with the catalogue (k 0.96: 8 -> 120 over 500 -> 8,000 SKUs), total aisle scoring
+is quadratic (k 1.98), and the inner lift term saturates (~21). The cost was the NUMBER of
+aisles scored per unit, and the cold short-circuit would have covered only 13-18% of them.
+
+The fix is `AisleLedger.partner_aisles`, the inverse of `idx_sets` (matrix index -> aisles
+holding it), MIRRORED at the ledger's three `idx_sets` write points -- so it has no validity
+window, which is the whole difference from a cache. It rides on the owner's forward dict
+(`_IdxSets.inverse`) and `over()` binds it automatically wherever that object is handed, so
+the pools' loose-dict views mirror it too and no signature moved; a copy-on-write view (the
+gain evaluator's) carries no inverse and stays on the per-aisle fold, so a virtual placement
+never touches the live one. `_co_by_aisle` then folds a unit's cohesion over touched aisles
+only, in the SAME order the old per-aisle generator used (row order when the row is shorter,
+the set walk when the members are), from the same int 0 -- pinned value-and-type exact in
+`Tests/unit/test_partner_aisles.py`, and identical aisle-level state bound vs unbound across a
+full reorder+pick run in `test_index_equivalence.py`.
+
+Effect on the 8,000-SKU rung, quiet machine: wall 41.1 s -> 21.0 s, wall k 1.60 -> 1.43, and
+`_delta_lift_from_row` is called 0 times where it was called 8.0M. The O(A) `_pick_extremal_aisle`
+loop remains (k 1.98 in width) at O(1) per aisle; that is the next term if cmin matters again.

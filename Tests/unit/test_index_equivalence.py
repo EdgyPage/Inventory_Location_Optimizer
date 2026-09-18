@@ -73,7 +73,39 @@ def _declare(orders, qty: int = 1):
     return orders
 
 
-def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
+class _Forwarding:
+    """The owner's idx_sets, read and written through a wrapper that carries NO inverse --
+    the shape a pool sees under the gain evaluator.  Every read and write reaches the owner's
+    live sets, so the manager and the scorer stay in step; only the inverse is unbound."""
+    def __init__(self, live):
+        self._live = live
+
+    def __getitem__(self, k):
+        return self._live[k]
+
+    def get(self, k, default=None):
+        return self._live.get(k, default)
+
+    def __contains__(self, k):
+        return k in self._live
+
+    def __iter__(self):
+        return iter(self._live)
+
+    def __len__(self):
+        return len(self._live)
+
+    def items(self):
+        return self._live.items()
+
+    def values(self):
+        return self._live.values()
+
+    def clear(self):
+        self._live.clear()
+
+
+def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm, partners=True):
     """Build a cluster-minimising manager — armed (index fast path) or not (scan)."""
     Aisle.next_aisle_id = 1
     random.seed(SEED)
@@ -90,7 +122,12 @@ def _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm):
     freq_by_idx = {affinity._sku_to_idx[c.sku]: c.demand.relative_frequency
                    for c in inventory.orders if c.sku in affinity._sku_to_idx}
     mgr.placement = Placement('cohesion_min', build_cluster_minimizing_assignment_fn(
-        affinity, wp, _AisleLedger.over(sku_sets=mgr._aisle_sku_sets, idx_sets=mgr._aisle_idx_sets, demand_sum=mgr._aisle_demand_sum),
+        affinity, wp, _AisleLedger.over(sku_sets=mgr._aisle_sku_sets,
+                                        # the owner's dict binds its inverse (W8 stage 2); the
+                                        # wrapper is the evaluator's shape and binds none
+                                        idx_sets=(mgr._aisle_idx_sets if partners
+                                                  else _Forwarding(mgr._aisle_idx_sets)),
+                                        demand_sum=mgr._aisle_demand_sum),
         freq_by_idx, freq_by_sku, qty_by_sku, beta=1.0,
         aisle_index=(mgr._aisle_index if mgr._travel_costs_ready else None)))
     return wh, mgr
@@ -182,3 +219,36 @@ def test_guard_silent_when_consistent(assets):
     _, wh_cfg, *_ = assets
     mgr = _fresh_mgr(wh_cfg)
     mgr._stock()   # ready=False, default fn has no index tag -> no raise
+
+
+def test_partner_index_matches_the_per_aisle_fold(assets, monkeypatch):
+    """W8 stage 2. With `partner_aisles` bound the scorer folds each unit's cohesion over the
+    aisles that hold a partner; unbound it folds per aisle as it always did. Both must
+    produce identical aisle-level state across a full reorder+pick simulation -- exact, not
+    close -- and the bound run must actually take the fast path: the per-aisle fold is
+    called strictly fewer times, and the owner ledger's inverse reconciles at the end."""
+    import Warehouse.placement.Assignment_Functions as AF
+    inventory, wh_cfg, affinity, pick_cfg, wp, batch_cfg = assets
+    calls = {'n': 0}
+    real = AF._delta_lift_from_row
+
+    def counted(*a, **k):
+        calls['n'] += 1
+        return real(*a, **k)
+    monkeypatch.setattr(AF, '_delta_lift_from_row', counted)
+
+    wh1, mgr1 = _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm=True, partners=False)
+    state_a, reord_a = _run(wh1, mgr1, pick_cfg, batch_cfg, inventory)
+    n_unbound = calls['n']
+    calls['n'] = 0
+    wh2, mgr2 = _build_cluster_mgr(wh_cfg, affinity, inventory, wp, arm=True, partners=True)
+    state_b, reord_b = _run(wh2, mgr2, pick_cfg, batch_cfg, inventory)
+    n_bound = calls['n']
+
+    assert state_a and reord_a > 0 and reord_b > 0, (reord_a, reord_b)
+    assert state_a == state_b, 'the partner-index fold moved a placement'
+    assert reord_a == reord_b
+    assert n_bound < n_unbound, (
+        f'the bound run folded per aisle {n_bound} times against {n_unbound} unbound; '
+        f'the fast path was not taken')
+    assert mgr2.ledger.reconcile() == [], mgr2.ledger.reconcile()

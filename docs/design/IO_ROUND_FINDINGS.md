@@ -179,6 +179,50 @@ needs a **pool** first, because `cmin`/`cmax`
 are `place_one` with no wave, and a closure-scoped cache is the persistent dict that reintroduces
 the one-ulp drift. This round sized it; it did not build it.
 
+#### 5.1.1 Built 2026-09-18 — an inverse index, not a cache (W8 stage 2)
+
+Measured first, with `Tests/calltree/scan_width.py` over the meso `skus` ladder's own `cmin`
+configuration (units per rung match the ladder's own count exactly — 37,911 at 4,000 SKUs, the
+same cross-check §5.2 used):
+
+| x | units | live aisles / unit | aisle scores (width) | lift calls | inner / call | wall |
+|---|---|---|---|---|---|---|
+| 500 | 4,191 | 8.2 | 34,237 | 29,483 | 3.6 | 0.4 s |
+| 1,000 | 10,891 | 16.7 | 181,498 | 160,693 | 7.2 | 1.9 s |
+| 2,000 | 18,143 | 31.2 | 566,476 | 466,621 | 13.9 | 4.8 s |
+| 4,000 | 37,911 | 59.7 | 2,263,535 | 1,854,211 | 19.2 | 14.2 s |
+| 8,000 | 76,514 | 120.2 | 9,195,611 | 7,997,764 | 21.1 | 41.1 s |
+
+Live aisles per unit k = 0.96, total aisle scoring k = 1.98, the inner lift term saturating
+(local exponents 0.99, 0.94, 0.46, 0.14). So the cost is the NUMBER of aisles scored per unit,
+and the cold short-circuit alone would have covered 13–18 % of scores — not the fix.
+
+**The fix: `AisleLedger.partner_aisles`**, the inverse of `idx_sets` (matrix index → the aisles
+holding it), mirrored at the ledger's three `idx_sets` write points, so it has no validity window
+— which is the whole difference from the cache this section ruled out. It rides on the owner's
+forward dict (`_IdxSets.inverse`) and `over()` binds it wherever that object is handed, so the
+pools' loose-dict views mirror it with no signature change; the gain evaluator's copy-on-write
+view carries no inverse and keeps the per-aisle fold, so a virtual placement never touches the
+live one. `_co_by_aisle` then folds each unit's cohesion over the aisles that hold a partner,
+in the SAME order the old per-aisle generator used, from the same int 0 — pinned exact (value
+and type) in `Tests/unit/test_partner_aisles.py`, and bound-vs-unbound identical across a full
+reorder+pick run in `test_index_equivalence.py`.
+
+| x | wall before | wall after (quiet machine) | lift calls after |
+|---|---|---|---|
+| 1,000 | 1.9 s | 1.2 s | 0 |
+| 2,000 | 4.8 s | 2.9 s | 0 |
+| 4,000 | 14.2 s | 8.5 s | 0 |
+| 8,000 | 41.1 s | **21.0 s** | 0 |
+
+Wall k 1.60 → 1.43. What remains is the O(A) `_pick_extremal_aisle` loop (width k 1.98) at O(1)
+per aisle, and `_aisle_index_for_unit`'s walk over every aisle bucket in the tier — the next term
+if `cmin`/`cmax` ever matter at scale. `tmin`/`tmax` share the scorer and take the same fast path
+on a real arm. Byte identity: the toy run (`scheduler_ab`, 136 arms, every family including
+`cmin`/`cmax`/`tmin`/`tmax`) digested IDENTICAL on the comparable surface against the
+pre-change baseline `comparison_whatif_20260917_192621` (repo `e54489bb`); the unit-level
+proof above is exact by construction, not by tolerance, and the digest is what says so.
+
 ### 5.2 `cluster_map`'s warm path — quadratic in width, linear per arm
 
 Measured with `Tests/calltree/scan_width.py`, running the ladder's own rungs through the ladder's

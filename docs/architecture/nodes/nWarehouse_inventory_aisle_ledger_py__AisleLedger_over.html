@@ -15,7 +15,7 @@
 <p class="meta">layer <span class="chip">wh_inventory</span> · file <a href="../files/nWarehouse_inventory_aisle_ledger_py.html"><code>Warehouse/inventory/aisle_ledger.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>@classmethod
-def over(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None, demand_sum=None, pick_load_sum=None, vol_sum=None, sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None, **unknown) -&gt; &#x27;AisleLedger&#x27;</code></pre>
+def over(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None, demand_sum=None, pick_load_sum=None, vol_sum=None, sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None, partner_aisles=None, **unknown) -&gt; &#x27;AisleLedger&#x27;</code></pre>
 <section class="doc">A ledger bound to dicts SOMEBODY ELSE owns, rather than ones it created.
 
 Two callers, and they are the reason this exists rather than `__init__`:

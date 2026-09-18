@@ -107,6 +107,27 @@ class _UnboundBook(dict):
 _UNBOUND = _UnboundBook()
 
 
+class _IdxSets(defaultdict):
+    """`{aisle: {matrix idx}}` that CARRIES ITS OWN INVERSE.
+
+    `partner_aisles` (`{idx: {aisle}}`) is the other half of this one structure, and the two
+    can only be kept in agreement if every ledger that writes the forward half also writes
+    the inverse.  Pools are handed the forward dict as a loose parameter (ticket 21) and build
+    their own ledger view over it, so a separate book would have to be threaded through four
+    constructors and every factory -- and one that was not would leave the owner's inverse
+    stale on that arm, silently.  Instead the owner's forward dict carries `.inverse`, and
+    `AisleLedger.over` binds the inverse whenever it is handed THIS object.  A copy-on-write
+    view of it (the gain evaluator's) is a different object with no `.inverse`, so a virtual
+    placement's ledger reads the inverse as unbound: its forward writes stay in the overlay
+    and the live inverse is never advanced from a placement that did not happen.
+    """
+    __slots__ = ('inverse',)
+
+    def __init__(self, inverse) -> None:
+        super().__init__(set)
+        self.inverse = inverse
+
+
 class AisleLedger:
     """The aisle ledger: ten dicts, one owner, one add/drop pair at each grain.
 
@@ -117,12 +138,22 @@ class AisleLedger:
 
     __slots__ = ('sku_sets', 'idx_sets', 'sku_counts', 'member_pos',
                  'demand_sum', 'pick_load_sum', 'vol_sum',
-                 'sku_demand_product', 'sku_pick_load_product', 'sku_vol_product')
+                 'sku_demand_product', 'sku_pick_load_product', 'sku_vol_product',
+                 'partner_aisles')
 
     def __init__(self) -> None:
         # ── membership ────────────────────────────────────────────────────────────────
         self.sku_sets: dict[int, set[int]] = defaultdict(set)
-        self.idx_sets: dict[int, set[int]] = defaultdict(set)
+        # THE INVERSE OF `idx_sets`: matrix index -> the aisles holding it.  Mirrored at the
+        # three places `idx_sets` is written (`add_bin`, `add_sku`, `drop_sku`) and nowhere
+        # else, which is what makes it an index and not a cache: it has no validity window
+        # to get wrong (`a-cache-needs-a-scope-object`).  `cohesion_min`/`cohesion_max` read
+        # it to fold a unit's cohesion over the aisles that hold a partner instead of scoring
+        # every live aisle -- measured at k 1.98 in the catalogue before this existed (W8
+        # stage 2, 2026-09-18).  Maintained on the OWNER always (one set-add per bin placed);
+        # a view binds it whenever it is handed the owner's `idx_sets` (see `_IdxSets`).
+        self.partner_aisles: dict[int, set[int]] = defaultdict(set)
+        self.idx_sets: dict[int, set[int]] = _IdxSets(self.partner_aisles)
         self.sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
         self.member_pos: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
         # ── priced levels ─────────────────────────────────────────────────────────────
@@ -154,7 +185,8 @@ class AisleLedger:
     #: `POLICY_BOOKS` below, which is the one the gain evaluator has to cover.
     BOOKS = ('sku_sets', 'idx_sets', 'sku_counts', 'member_pos',
              'demand_sum', 'pick_load_sum', 'vol_sum',
-             'sku_demand_product', 'sku_pick_load_product', 'sku_vol_product')
+             'sku_demand_product', 'sku_pick_load_product', 'sku_vol_product',
+             'partner_aisles')
 
     #: the books a PLACEMENT POLICY writes -- everything `add_sku` and `add_bin` touch.
     #: `sku_counts` is the manager's (`count_bin`) and the three per-SKU products are
@@ -168,11 +200,19 @@ class AisleLedger:
     #: two vocabularies against each other at import; see `strategy_runner`.
     POLICY_BOOKS = ('sku_sets', 'idx_sets', 'member_pos',
                     'demand_sum', 'pick_load_sum', 'vol_sum')
+    #: Books that bind THEMSELVES off another book rather than being declared: `over()`
+    #: binds the rider whenever it is handed the carrier's OWNER object (`_IdxSets`), and
+    #: leaves it unbound whenever it is handed a copy or a view of the carrier.  So a rider is
+    #: bound-but-undeclared by design, and the rule that "a bound book must be declared, or
+    #: the gain evaluator would not copy it" does not apply: under the evaluator the carrier
+    #: IS a copy-on-write view, and the rider is unbound with it.
+    RIDERS = {'partner_aisles': 'idx_sets'}
 
     @classmethod
     def over(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None,
              demand_sum=None, pick_load_sum=None, vol_sum=None,
              sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None,
+             partner_aisles=None,
              **unknown) -> 'AisleLedger':
         """A ledger bound to dicts SOMEBODY ELSE owns, rather than ones it created.
 
@@ -210,6 +250,11 @@ class AisleLedger:
         led.sku_pick_load_product = (_UNBOUND if sku_pick_load_product is None
                                      else sku_pick_load_product)
         led.sku_vol_product = _UNBOUND if sku_vol_product is None else sku_vol_product
+        # THE INVERSE RIDES WITH THE FORWARD DICT: handed the owner's `idx_sets`, a view
+        # binds the owner's inverse and mirrors into it; handed anything else (a plain dict,
+        # a copy-on-write view), it binds nothing and the mirror is skipped.  Explicit wins.
+        led.partner_aisles = (getattr(led.idx_sets, 'inverse', _UNBOUND)
+                              if partner_aisles is None else partner_aisles)
         return led
 
     @property
@@ -263,6 +308,9 @@ class AisleLedger:
         if idx is None:
             return
         self.idx_sets[aid].add(idx)
+        pa = self.partner_aisles
+        if pa is not _UNBOUND:
+            pa[idx].add(aid)
         self.member_pos[aid][idx].append(x_phys)
 
     def add_sku(self, aid: int, sku: int, idx: int | None = None, *,
@@ -291,6 +339,9 @@ class AisleLedger:
         self.sku_sets[aid].add(sku)
         if idx is not None:
             self.idx_sets[aid].add(idx)
+            pa = self.partner_aisles
+            if pa is not _UNBOUND:
+                pa[idx].add(aid)
         if demand is not None:
             self.demand_sum[aid] += demand
         if pick_load is not None:
@@ -342,6 +393,14 @@ class AisleLedger:
         self.sku_sets[aid].discard(sku)
         if idx is not None:
             self.idx_sets[aid].discard(idx)
+            pa = self.partner_aisles
+            # `in` then `[]`, never `.get`: under the gain evaluator this book is a
+            # copy-on-write view whose `.get` hands back the LIVE set by contract, and a
+            # discard on that would advance the real warehouse from a virtual placement.
+            # `[]` materializes the one key.  The emptied set stays (a view has no delete);
+            # readers treat an empty set as "held nowhere", which is what it means.
+            if pa is not _UNBOUND and idx in pa:
+                pa[idx].discard(aid)
 
         d = self.sku_demand_product.get(sku, 0.0)
         if d:
@@ -391,6 +450,19 @@ class AisleLedger:
                     out.append(
                         f'{level_name}[{aid}] = {have!r} but its {len(sku_set)} members '
                         f'sum to {by_hand!r} (drift {have - by_hand:+.6g})')
+        # `partner_aisles` must be exactly the inverse of `idx_sets` -- every (aisle, idx)
+        # pair in one appears in the other (an emptied set is fine).  Checked whenever the
+        # book is bound, because a mirror that drifted would not raise: it would hand
+        # `cohesion_min` a cohesion that ignores a partner, and the run would simply place
+        # differently.
+        pa = self.partner_aisles
+        if pa is not _UNBOUND and self.idx_sets is not _UNBOUND:
+            forward = {(aid, idx) for aid, s in self.idx_sets.items() for idx in s}
+            inverse = {(aid, idx) for idx, s in pa.items() for aid in s}
+            for aid, idx in sorted(forward - inverse):
+                out.append(f'partner_aisles misses aisle {aid} for idx {idx}')
+            for aid, idx in sorted(inverse - forward):
+                out.append(f'partner_aisles holds aisle {aid} for idx {idx}, which left')
         return out
 
     def assert_sound(self) -> None:

@@ -18806,6 +18806,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.transit_snapshot"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::_IdxSets",
+      "kind": "calls",
+      "src": "Warehouse/inventory/aisle_ledger.py::AisleLedger.__init__"
+    },
+    {
       "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile",
       "kind": "calls",
       "src": "Warehouse/inventory/aisle_ledger.py::AisleLedger.assert_sound"
@@ -20307,6 +20312,11 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_aisle_index_for_unit",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_co_by_aisle",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn.assign"
     },
@@ -44946,6 +44956,22 @@
     },
     {
       "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_IdxSets",
+      "kind": "class",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "_IdxSets",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_IdxSets.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
       "id": "Warehouse/inventory/aisle_ledger.py::_UNBOUND",
       "kind": "const",
       "module": "Warehouse/inventory/aisle_ledger.py",
@@ -48743,6 +48769,14 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "cost",
       "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_co_by_aisle",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_co_by_aisle",
+      "public": false
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",

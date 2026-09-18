@@ -131,6 +131,12 @@ def test_the_declared_ledger_terms_are_the_books_the_family_binds(key):
         bound |= set(led.bound)
 
     declared = set(pol.ledger_terms)
+    # A RIDER binds itself off its carrier and is unbound wherever the carrier is a copy, so
+    # it is bound-but-undeclared by design (`AisleLedger.RIDERS`); the danger this test names
+    # -- bound, undeclared, therefore uncopied by the evaluator -- cannot arise for it, and
+    # `test_partner_aisles.py` proves the unbinding under a copy-on-write view directly.
+    from Warehouse.inventory.aisle_ledger import AisleLedger
+    bound -= set(AisleLedger.RIDERS)
     assert bound == declared, (
         f'{key}: declares {sorted(declared)} but its placement binds {sorted(bound)}. '
         f'A book bound and NOT declared is the dangerous direction -- the gain evaluator '

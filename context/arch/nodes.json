@@ -20705,7 +20705,7 @@
       "doc": "A ledger bound to dicts SOMEBODY ELSE owns, rather than ones it created.\n\nTwo callers, and they are the reason this exists rather than `__init__`:\n\n- a placement policy, which is handed the aisle dicts down a long parameter\n  chain and must write through to whichever set it was given;\n- the inbound gain evaluator, which hands a policy copy-on-write wrappers so a\n  VIRTUAL placement cannot advance the real warehouse (`Inbound/gain.py`).\n\nA book left out reads as empty and REFUSES a write (`_UnboundBook`), so a family\nthat never maintains `pick_load_sum` has somewhere harmless to look without a\n`None` check on the hot path, and a family that writes a book nobody gave it\nfails loudly instead of writing where no reader can follow.\n\n**Spelled out rather than looped, deliberately.**  `**books` plus ten `setattr`s\ncost 2.00 us; this costs 0.29 us, and the difference is 23.4% of a whole pool open\nagainst 4.2% -- paid once per virtual placement in the gain evaluator, which\nrebuilds the arm's policy every time.  `**unknown` keeps the helpful refusal for a\nmisspelled book and is free (0.014 us).",
       "is_async": false,
       "kind": "function",
-      "signature": "(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None, demand_sum=None, pick_load_sum=None, vol_sum=None, sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None, **unknown) -> 'AisleLedger'"
+      "signature": "(cls, *, sku_sets=None, idx_sets=None, sku_counts=None, member_pos=None, demand_sum=None, pick_load_sum=None, vol_sum=None, sku_demand_product=None, sku_pick_load_product=None, sku_vol_product=None, partner_aisles=None, **unknown) -> 'AisleLedger'"
     },
     "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile": {
       "decorators": [],
@@ -20713,6 +20713,19 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, *, tol: float=1e-06) -> list[str]"
+    },
+    "Warehouse/inventory/aisle_ledger.py::_IdxSets": {
+      "decorators": [],
+      "doc": "`{aisle: {matrix idx}}` that CARRIES ITS OWN INVERSE.\n\n`partner_aisles` (`{idx: {aisle}}`) is the other half of this one structure, and the two\ncan only be kept in agreement if every ledger that writes the forward half also writes\nthe inverse.  Pools are handed the forward dict as a loose parameter (ticket 21) and build\ntheir own ledger view over it, so a separate book would have to be threaded through four\nconstructors and every factory -- and one that was not would leave the owner's inverse\nstale on that arm, silently.  Instead the owner's forward dict carries `.inverse`, and\n`AisleLedger.over` binds the inverse whenever it is handed THIS object.  A copy-on-write\nview of it (the gain evaluator's) is a different object with no `.inverse`, so a virtual\nplacement's ledger reads the inverse as unbound: its forward writes stay in the overlay\nand the live inverse is never advanced from a placement that did not happen.",
+      "kind": "class",
+      "signature": "(defaultdict)"
+    },
+    "Warehouse/inventory/aisle_ledger.py::_IdxSets.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, inverse) -> None"
     },
     "Warehouse/inventory/aisle_ledger.py::_UNBOUND": {
       "decorators": [],
@@ -24075,6 +24088,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(b)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_co_by_aisle": {
+      "decorators": [],
+      "doc": "{aisle: \u03a3 (lift - 1)\u00b7f_i over the SKU's partners i placed in that aisle}, for every\naisle that holds at least one partner -- and NOTHING for the aisles that hold none.\n\nBIT-IDENTICAL TO `_delta_lift_from_row` PER AISLE, by construction rather than by\ntolerance, because the placement oracles compare exact floats.  That function is a left\nfold from int 0 in one of two orders, chosen per aisle by `len(row) <= len(members)`:\n\n  * row order, filtered by membership, when the row is the shorter side.  The fold here\n    walks `row` once in that same order and adds each partner's term to every aisle the\n    inverse book says holds it -- so each aisle receives exactly the terms the old\n    generator yielded for it, in the same sequence, from the same int 0.\n  * SET order over the aisle's members when the members are the shorter side.  A set's\n    iteration order is not the row's, so those aisles are re-folded the old way, and only\n    those: touched aisles whose member set is shorter than the row.\n\nAn aisle the inverse book never names had an empty intersection, for which the old fold\nreturned int 0 (`sum` of nothing); the caller reads a missing key as that same int 0.\nCost: O(|row| + \u03a3 partners' aisles + \u03a3 members over the re-folded aisles), against the\nold O(live aisles \u00d7 min(|row|, |members|)) -- the k 1.98 term the scan-width ladder found.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(row, idx_sets, partner_aisles, freq_by_idx) -> dict"
     },
     "Warehouse/placement/Assignment_Functions.py::_co_demand_ranked_impl": {
       "decorators": [],

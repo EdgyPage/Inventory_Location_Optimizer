@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_co_by_aisle · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___co_by_aisle" data-id="Warehouse/placement/Assignment_Functions.py::_co_by_aisle">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_co_by_aisle</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_co_by_aisle</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>def _co_by_aisle(row, idx_sets, partner_aisles, freq_by_idx) -&gt; dict</code></pre>
+<section class="doc">{aisle: Σ (lift - 1)·f_i over the SKU&#x27;s partners i placed in that aisle}, for every
+aisle that holds at least one partner -- and NOTHING for the aisles that hold none.
+
+BIT-IDENTICAL TO `_delta_lift_from_row` PER AISLE, by construction rather than by
+tolerance, because the placement oracles compare exact floats.  That function is a left
+fold from int 0 in one of two orders, chosen per aisle by `len(row) &lt;= len(members)`:
+
+  * row order, filtered by membership, when the row is the shorter side.  The fold here
+    walks `row` once in that same order and adds each partner&#x27;s term to every aisle the
+    inverse book says holds it -- so each aisle receives exactly the terms the old
+    generator yielded for it, in the same sequence, from the same int 0.
+  * SET order over the aisle&#x27;s members when the members are the shorter side.  A set&#x27;s
+    iteration order is not the row&#x27;s, so those aisles are re-folded the old way, and only
+    those: touched aisles whose member set is shorter than the row.
+
+An aisle the inverse book never names had an empty intersection, for which the old fold
+returned int 0 (`sum` of nothing); the caller reads a missing key as that same int 0.
+Cost: O(|row| + Σ partners&#x27; aisles + Σ members over the re-folded aisles), against the
+old O(live aisles × min(|row|, |members|)) -- the k 1.98 term the scan-width ladder found.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___build_aisle_score_fn_assign.html"><code>assign</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___co_by_aisle">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_co_by_aisle">Source ↗</a></p>
+</article>
+</main>
+</body></html>

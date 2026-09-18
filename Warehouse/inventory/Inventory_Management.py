@@ -417,6 +417,10 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         # Pre-translated matrix indices mirror of _aisle_sku_sets — eliminates
         # the O(N_aisle_members) dict lookup set-comprehension in delta_lift_idxs.
         self._aisle_idx_sets: dict[int, set[int]]         = self.ledger.idx_sets
+        # The inverse of `_aisle_idx_sets` (matrix index -> aisles holding it); the ledger
+        # mirrors it at its own write points, so this alias exists only for the policy
+        # binding in `strategy_runner` (`_aisle_<book>`), like every other book here.
+        self._aisle_partner_aisles: dict[int, set[int]]   = self.ledger.partner_aisles
         # Per-aisle placed-member COLUMN positions: aisle → {sku_idx → [x_phys, ...]},
         # one x per LIVE bin.  Pruned on reclaim/eviction right beside _aisle_idx_sets,
         # so it holds only SKUs currently in the aisle (no stale positions, no unbounded
@@ -523,6 +527,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         self._aisle_sku_sets.clear()
         self._aisle_sku_counts.clear()
         self._aisle_idx_sets.clear()
+        self._aisle_partner_aisles.clear()
         self._aisle_member_pos.clear()
         self._bin_sku.clear()
         self._current_quantities.clear()

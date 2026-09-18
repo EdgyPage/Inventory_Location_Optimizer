@@ -4624,6 +4624,7 @@ files:
       - {name: "test_guard_raises_when_armed_with_scan_fn", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
       - {name: "test_guard_raises_when_index_fn_without_arming", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
       - {name: "test_guard_silent_when_consistent", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
+      - {name: "test_partner_index_matches_the_per_aisle_fold", file: "Tests/unit/test_index_equivalence.py", kind: "function"}
     notes: ""
   "Tests/unit/test_inventory_optimal_solver.py":
     purpose: "the map says which branch it actually took."
@@ -4874,6 +4875,19 @@ files:
       - {name: "test_initial_stock_conserves_quantity_and_carries_no_reorder_flag", file: "Tests/unit/test_palletizing.py", kind: "function"}
       - {name: "test_originals_hold_the_unflagged_template_a_reorder_is_copied_from", file: "Tests/unit/test_palletizing.py", kind: "function"}
       - {name: "test_reorder_copies_preserve_everything_the_palletizer_reads", file: "Tests/unit/test_palletizing.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_partner_aisles.py":
+    purpose: "Pins W8 stage 2 (2026-09-18): AisleLedger.partner_aisles is the exact inverse of idx_sets under random add/drop churn (reconcile names a planted extra and a planted miss), a view over the owner's idx_sets binds and mirrors it while a copy-on-write view binds nothing and never touches the live inverse, no policy declares it as a book, and _co_by_aisle reproduces _delta_lift_from_row per aisle bit for bit -- value AND type -- in both fold orders, reading int 0 for untouched aisles and 0.0 for memberless ones."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_partner_aisles_inverts_idx_sets_under_churn", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_a_drop_that_empties_the_set_leaves_it_empty", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_a_view_over_the_owners_idx_sets_binds_and_mirrors_the_inverse", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_a_view_over_a_copy_binds_nothing_and_never_touches_the_live_inverse", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_no_family_declares_the_book_and_the_evaluator_needs_no_view", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_the_fold_matches_the_per_aisle_sum_bit_for_bit", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_untouched_aisles_are_not_in_the_fold", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
+      - {name: "test_the_fold_order_is_the_row_order_not_the_set_order", file: "Tests/unit/test_partner_aisles.py", kind: "function"}
     notes: ""
   "Tests/unit/test_per_item_charge.py":
     purpose: "the per-item charge, and the hard break it is (ADR-0001)."

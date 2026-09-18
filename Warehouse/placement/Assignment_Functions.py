@@ -271,6 +271,44 @@ def _delta_lift_from_row(row, member_idx_set, freq_by_idx) -> float:
 
 # ── load-aware assignment functions ───────────────────────────────────────────
 
+def _co_by_aisle(row, idx_sets, partner_aisles, freq_by_idx) -> dict:
+    """{aisle: Σ (lift - 1)·f_i over the SKU's partners i placed in that aisle}, for every
+    aisle that holds at least one partner -- and NOTHING for the aisles that hold none.
+
+    BIT-IDENTICAL TO `_delta_lift_from_row` PER AISLE, by construction rather than by
+    tolerance, because the placement oracles compare exact floats.  That function is a left
+    fold from int 0 in one of two orders, chosen per aisle by `len(row) <= len(members)`:
+
+      * row order, filtered by membership, when the row is the shorter side.  The fold here
+        walks `row` once in that same order and adds each partner's term to every aisle the
+        inverse book says holds it -- so each aisle receives exactly the terms the old
+        generator yielded for it, in the same sequence, from the same int 0.
+      * SET order over the aisle's members when the members are the shorter side.  A set's
+        iteration order is not the row's, so those aisles are re-folded the old way, and only
+        those: touched aisles whose member set is shorter than the row.
+
+    An aisle the inverse book never names had an empty intersection, for which the old fold
+    returned int 0 (`sum` of nothing); the caller reads a missing key as that same int 0.
+    Cost: O(|row| + Σ partners' aisles + Σ members over the re-folded aisles), against the
+    old O(live aisles × min(|row|, |members|)) -- the k 1.98 term the scan-width ladder found.
+    """
+    acc: dict = {}
+    for ci, lift in row.items():
+        aids = partner_aisles.get(ci)
+        if not aids:
+            continue
+        term = (lift - 1.0) * freq_by_idx.get(ci, 0.0)
+        for aid in aids:
+            acc[aid] = acc.get(aid, 0) + term
+    n_row = len(row)
+    for aid in acc:
+        members = idx_sets[aid]
+        if n_row > len(members):
+            acc[aid] = sum((row[ci] - 1.0) * freq_by_idx.get(ci, 0.0)
+                           for ci in members if ci in row)
+    return acc
+
+
 def _D_map(cands, x_pace, y_pace) -> dict[int, float]:
     """id(bin) → travel-time D map.  The identical dict-comprehension sat at every
     ranked-impl site; ONE helper so the formula can't drift.  Paces are s/inch
@@ -444,6 +482,11 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp, ledger,
     # down the whole parameter chain to be reassembled into what the caller already held.
     aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
     aisle_demand_sum = ledger.demand_sum
+    # THE INVERSE BOOK, bound whenever the ledger was handed the OWNER's `idx_sets` (see
+    # `aisle_ledger._IdxSets`): the real arm's view is; the gain evaluator's copy-on-write
+    # view is not, so a virtual placement keeps the per-aisle fold.  Hoisted once: `bound` is
+    # a derived frozenset and `assign` is the hot path.
+    partner_aisles = ledger.partner_aisles if 'partner_aisles' in ledger.bound else None
 
     def assign(unit, candidates):
         sku = unit.order.sku
@@ -461,11 +504,23 @@ def _build_aisle_score_fn(name, *, score_kind, maximize, affinity, wp, ledger,
             best_D, best_bin_map = _aisle_extremal_bins(candidates, x_speed, y_speed, minimize=bin_minimize)
 
         row = _affinity_row(affinity, sku)     # hoist the CSR slice: once per unit, not per aisle
+        # One fold per UNIT over the aisles that hold a partner (see `_co_by_aisle`), instead
+        # of one fold per AISLE; None when the book is not bound or the SKU has no partners,
+        # in which case the per-aisle path below is the old code, untouched.
+        co_by_aid = (_co_by_aisle(row, aisle_idx_sets, partner_aisles, freq_by_idx)
+                     if (partner_aisles is not None and row) else None)
 
         def score_of(aid):
             D = best_D[aid]
-            co = (0.0 if sku in aisle_sku_sets[aid]
-                  else _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx))
+            if sku in aisle_sku_sets[aid]:
+                co = 0.0
+            elif co_by_aid is None:
+                co = _delta_lift_from_row(row, aisle_idx_sets[aid], freq_by_idx)
+            else:
+                # `_delta_lift_from_row`'s two early answers, then the fold: an aisle with no
+                # members read 0.0 there; one with members but no partner read `sum` of
+                # nothing, int 0, which is what a missing key yields here.
+                co = 0.0 if not aisle_idx_sets[aid] else co_by_aid.get(aid, 0)
             if score_kind == 'travel':
                 primary = f_s * D - beta * co
                 secondary = aisle_demand_sum[aid] + f_s * q_s
