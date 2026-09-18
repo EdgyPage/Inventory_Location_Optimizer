@@ -127,11 +127,19 @@ def save_tail(log_path):
     """
     import statistics as _st
     builds, closes, stamps, last_sim = [], [], [], None
+    # THE CLOCK IS UNWRAPPED, because the log stamps `%H:%M:%S` with no date. Seconds-of-day
+    # differences go NEGATIVE the moment a run crosses midnight, and the deep ladder is a
+    # ~1h45m job that is routinely launched in the evening. Every backwards step adds a day.
+    prev, day = None, 0
     with open(log_path, encoding='utf-8', errors='replace') as fh:
         for line in fh:
             m = _TS_RE.match(line)
             if m:
                 t = int(m[1]) * 3600 + int(m[2]) * 60 + int(m[3])
+                if prev is not None and t < prev:
+                    day += 86_400
+                prev = t
+                t += day
                 stamps.append(t)
                 if _SEC_RE.search(line) or '[save] ' in line:
                     last_sim = t

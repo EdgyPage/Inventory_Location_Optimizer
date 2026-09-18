@@ -28,7 +28,11 @@ python -m Schema.profile_tree --check                 # profiles-tree (catalogue
 python context/memory/verify_memory.py                # memory mirror + anchors still true
 python context/guards/path_guard.py --scan            # no machine-local paths in tracked files
 python context/guards/docref_guard.py --scan          # "<doc>.md section N" refs still resolve
-python -m pytest Tests/calltree/test_calltree_smoke.py \n                Tests/calltree/test_calltree_anchors.py \n                Tests/calltree/test_scan_width.py \n                Tests/unit/test_deferred_indices.py \n                Tests/architecture/test_digest_surface.py -q   # the instruments still measure
+python -m pytest Tests/calltree/test_calltree_smoke.py \
+                Tests/calltree/test_calltree_anchors.py \
+                Tests/calltree/test_scan_width.py \
+                Tests/unit/test_deferred_indices.py \
+                Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
 The tenth gate is ~25 s and exists because the instruments it covers are the ones that

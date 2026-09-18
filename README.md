@@ -92,8 +92,10 @@ batches — declares a 250 GB free-space floor; the model predicts ~59 GB of act
 a sane margin for a precondition check.
 
 **What is assumed, and where it may be wrong.** Per-row costs are treated as scale-invariant;
-they are not exactly — `ix_picks_run_sku` indexes a 16× larger SKU cardinality at production, so
-its B-tree is deeper and this model likely **under**-estimates. The events-per-pick ratio (2.14)
+they are not exactly — a secondary index on a high-cardinality column has a deeper B-tree at
+production scale, so this model likely **under**-estimates. (The concrete example used to be
+`ix_picks_run_sku`; it and two others were DROPPED on 2026-09-18 because no query used them, which
+is also why the sim DB is ~8% smaller — see `docs/design/IO_ROUND_FINDINGS.md`.) The events-per-pick ratio (2.14)
 and the snapshot scaling of `bin_inventory` are both inferred from one configuration. Treat every
 figure as one significant digit.
 

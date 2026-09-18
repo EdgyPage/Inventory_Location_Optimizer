@@ -5496,6 +5496,8 @@ files:
       - {name: "test_a_resumed_empty_arm_does_not_erase_its_real_row", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
       - {name: "test_an_arm_the_parent_never_recorded_still_inserts", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
       - {name: "test_a_real_result_still_replaces_an_earlier_real_one", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_a_run_crossing_midnight_has_a_positive_span", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
+      - {name: "test_a_normal_run_is_unaffected", file: "Tests/unit/test_resume_idempotency.py", kind: "function"}
     notes: ""
   "Tests/unit/test_rng_determinism.py":
     purpose: "test_rng_determinism.py"
@@ -5591,6 +5593,15 @@ files:
       - {name: "test_pick_fastpick_lockstep_under_lpt", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_beats_round_robin_when_imbalanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
       - {name: "test_lpt_matches_when_round_robin_already_balanced", file: "Tests/unit/test_scheduler.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_secondary_index_agreement.py":
+    purpose: "the free-bin index and its two mirrors must agree."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_mirrors_track_the_index_through_random_churn", file: "Tests/unit/test_secondary_index_agreement.py", kind: "function"}
+      - {name: "test_removing_every_bin_empties_every_mirror", file: "Tests/unit/test_secondary_index_agreement.py", kind: "function"}
+      - {name: "test_the_checker_actually_catches_a_broken_mirror", file: "Tests/unit/test_secondary_index_agreement.py", kind: "function"}
+      - {name: "test_an_armed_mirror_is_actually_armed", file: "Tests/unit/test_secondary_index_agreement.py", kind: "function"}
     notes: ""
   "Tests/unit/test_section_timers.py":
     purpose: "Fences SectionTimers: window/total split, exact float association against a running sum, the runtime_metrics payload keys, and that a forgotten final roll loses nothing."

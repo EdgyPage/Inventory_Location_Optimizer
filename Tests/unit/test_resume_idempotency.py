@@ -152,3 +152,50 @@ def test_a_real_result_still_replaces_an_earlier_real_one(tmp_path):
     rm.record_arm(res={'done': 6, 'elapsed': 12.0}, **kw)
     (row,) = rm.load_rows(str(tmp_path))
     assert row['batches'] == 6, 'a genuine re-run must still update the row'
+
+
+# ── the wall split must not wrap at midnight ──────────────────────────────────────
+#
+# `save_tail` derives the sim/analysis boundary from `%H:%M:%S` stamps with no date, as
+# seconds-of-day. A deep-ladder run is ~1h45m and is routinely launched in the evening, so a run
+# crossing midnight produced a NEGATIVE span -- and a negative analysis half would have been read
+# as "the analysis phase took no time", which is the flattering direction.
+
+def _log(tmp_path, stamps):
+    p = tmp_path / 'run.log'
+    body = []
+    for t, tail in stamps:
+        body.append(f'{t}  comparison  {tail}')
+    p.write_text('\n'.join(body) + '\n', encoding='utf-8')
+    return str(p)
+
+
+def _tail(path):
+    import os
+    import sys
+    sys.path.insert(0, os.path.join(os.getcwd(), 'Tests', 'bench'))
+    import bench_sections as bs
+    return bs.save_tail(path)
+
+
+_CKPT = ('  Batch 1/6  db=1.0000s | reord=1.0000s build=1.0000s (smpl=0.5000s task=0.5000s) '
+         'pre=1.0000s sim=1.0000s extr=1.0000s cons=1.0000s')
+
+
+def test_a_run_crossing_midnight_has_a_positive_span(tmp_path):
+    path = _log(tmp_path, [('23:59:00', _CKPT),
+                           ('23:59:30', '  [save] run-end close 0.01s rows=5 dbmb=1.0 walmb=0.0'),
+                           ('00:04:30', '  analysis done')])
+    t = _tail(path)
+    assert t['span_s'] == 330, f'span wrapped: {t}'
+    assert t['sim_s'] == 30 and t['analysis_s'] == 300, t
+    assert t['analysis_s'] > 0, 'a negative analysis half reads as "analysis was free"'
+
+
+def test_a_normal_run_is_unaffected(tmp_path):
+    """NON-VACUITY: the unwrap must not add a day to a run that never wraps."""
+    path = _log(tmp_path, [('10:00:00', _CKPT),
+                           ('10:00:30', '  [save] run-end close 0.01s rows=5 dbmb=1.0 walmb=0.0'),
+                           ('10:05:30', '  analysis done')])
+    t = _tail(path)
+    assert (t['span_s'], t['sim_s'], t['analysis_s']) == (330, 30, 300), t
