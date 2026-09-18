@@ -65,3 +65,5 @@ record the PID, and arm a Monitor whose filter covers failure signatures (`Trace
 `produced no data`) and the PID exit, not just the success line. See
 [[heredoc-python-breaks-the-spawn-pool]] for the other launch trap and
 [[pool-run-swallows-dead-arms]] for why the log must be checked afterwards.
+
+**ADDED 2026-09-18 -- the working directory must be an IMMUTABLE COPY.** The recipe above ran the phase-2 campaign from the repo itself; a half-applied edit to the tree twenty-five minutes later killed all twelve workers at import (spawn re-imports per job) and hung the driver. Point `-WorkingDirectory` at a `git archive HEAD` extraction with `.env` copied in. Full account: [[detached-runs-import-the-working-tree]].
