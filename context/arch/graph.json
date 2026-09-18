@@ -8798,12 +8798,32 @@
     {
       "dst": "Optimization/persistence/Picking_Data.py::_open_db",
       "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._connection"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._release",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._connection"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._connection",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._release",
+      "kind": "calls",
       "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write"
     },
     {
       "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.add",
       "kind": "calls",
       "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.append"
+    },
+    {
+      "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._release",
+      "kind": "calls",
+      "src": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer.close"
     },
     {
       "dst": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._write",
@@ -33262,6 +33282,22 @@
       "kind": "function",
       "module": "Optimization/persistence/checkpoint_buffer.py",
       "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._connection",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "_connection",
+      "public": false
+    },
+    {
+      "file": "Optimization/persistence/checkpoint_buffer.py",
+      "id": "Optimization/persistence/checkpoint_buffer.py::CheckpointBuffer._release",
+      "kind": "function",
+      "module": "Optimization/persistence/checkpoint_buffer.py",
+      "name": "_release",
       "public": false
     },
     {

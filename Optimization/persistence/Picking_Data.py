@@ -584,10 +584,17 @@ def _open_db(path: str, timeout: float = 60.0) -> sqlite3.Connection:
          read TWELVE until ticket 07: nine of them were `save_<table>` wrappers with no
          production caller, and they are gone.  The checkpoint path's own open/close now
          lives in `checkpoint_buffer._write`, one per flush for ALL fifteen channels instead
-         of one per table, and the reasoning below applies to it unchanged.)  Each opens and
-         closes ONCE PER CHECKPOINT FLUSH (default every 10 batches) against a sim DB that
-         reaches ~1 GB.  A `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the
-         main file every flush, on the hot path of a 40-minute arm, for no benefit — see below.
+         of one per table, and the reasoning below applies to it unchanged.)  A
+         `wal_checkpoint(TRUNCATE)` on that path would fold the whole WAL into the main file
+         every flush, on the hot path of a 40-minute arm, for no benefit — see below.
+
+         THAT ARGUMENT WAS RIGHT AND INCOMPLETE.  It refused an EXPLICIT fold per flush without
+         noticing the code was already paying an IMPLICIT one: closing the last connection to a
+         WAL database folds the log back and deletes it, and the buffer closed one every
+         checkpoint.  Since F4 the buffer HOLDS one connection for the whole arm and closes it
+         at run end, so the fold happens once.  Measured on 12 concurrent arms x 1.5M rows:
+         the write half fell from 11.1s to 5.6s.  The three remaining per-flush writers here
+         (`save_bin_keyframe`, the two score writers) keep the old shape and the old reasoning.
 
        3 are one-time setup: `init_run_db`, `create_run`, `init_keyframe_db`.  The connection
          is finished but the FILE is not; the run writes to it for the next 40 minutes, so a

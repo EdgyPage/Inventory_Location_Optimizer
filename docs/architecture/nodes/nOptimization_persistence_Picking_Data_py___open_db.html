@@ -33,10 +33,17 @@ Deliberate, and measured — not an oversight.  The closes here fall into three 
      read TWELVE until ticket 07: nine of them were `save_&lt;table&gt;` wrappers with no
      production caller, and they are gone.  The checkpoint path&#x27;s own open/close now
      lives in `checkpoint_buffer._write`, one per flush for ALL fifteen channels instead
-     of one per table, and the reasoning below applies to it unchanged.)  Each opens and
-     closes ONCE PER CHECKPOINT FLUSH (default every 10 batches) against a sim DB that
-     reaches ~1 GB.  A `wal_checkpoint(TRUNCATE)` there would fold the whole WAL into the
-     main file every flush, on the hot path of a 40-minute arm, for no benefit — see below.
+     of one per table, and the reasoning below applies to it unchanged.)  A
+     `wal_checkpoint(TRUNCATE)` on that path would fold the whole WAL into the main file
+     every flush, on the hot path of a 40-minute arm, for no benefit — see below.
+
+     THAT ARGUMENT WAS RIGHT AND INCOMPLETE.  It refused an EXPLICIT fold per flush without
+     noticing the code was already paying an IMPLICIT one: closing the last connection to a
+     WAL database folds the log back and deletes it, and the buffer closed one every
+     checkpoint.  Since F4 the buffer HOLDS one connection for the whole arm and closes it
+     at run end, so the fold happens once.  Measured on 12 concurrent arms x 1.5M rows:
+     the write half fell from 11.1s to 5.6s.  The three remaining per-flush writers here
+     (`save_bin_keyframe`, the two score writers) keep the old shape and the old reasoning.
 
    3 are one-time setup: `init_run_db`, `create_run`, `init_keyframe_db`.  The connection
      is finished but the FILE is not; the run writes to it for the next 40 minutes, so a
@@ -50,7 +57,7 @@ out, so every archived sim DB grows sidecars the moment anything fingerprints or
 No change on the WRITE side can prevent that; only `immutable=1` on the read side can, and
 that is a promise about the file that a live run cannot make.  The one writer here whose
 close is genuinely the file&#x27;s last is in `Warehouse_Data`, which does convert.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(8)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__build_run_indices.html"><code>build_run_indices</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__create_run.html"><code>create_run</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__init_keyframe_db.html"><code>init_keyframe_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__init_run_db.html"><code>init_run_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_bin_keyframe.html"><code>save_bin_keyframe</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_bin_scores.html"><code>save_bin_scores</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_sku_scores.html"><code>save_sku_scores</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer__write.html"><code>_write</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(8)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__build_run_indices.html"><code>build_run_indices</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__create_run.html"><code>create_run</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__init_keyframe_db.html"><code>init_keyframe_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__init_run_db.html"><code>init_run_db</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_bin_keyframe.html"><code>save_bin_keyframe</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_bin_scores.html"><code>save_bin_scores</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__save_sku_scores.html"><code>save_sku_scores</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_checkpoint_buffer_py__CheckpointBuffer__connection.html"><code>_connection</code></a> <span class="dim">Optimization/persistence/checkpoint_buffer.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_persistence_Picking_Data_py___open_db">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/persistence/Picking_Data.py#:~:text=def%20_open_db">Source ↗</a></p>
 </article>
 </main>
