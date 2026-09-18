@@ -42,7 +42,9 @@ _CONTROLS = {'tmax', 'cmin', 'expn', 'rank_maxlabor'}
 
 
 def _grid_keys() -> set:
-    return {rk for rk, *_ in strat._RESTOCKS}
+    # `_RESTOCKS` holds `PlacementPolicy` records since the placement-pools refactor; the
+    # tuple unpack this read until 2026-09-18 raised TypeError on every entry.
+    return {p.key for p in strat._RESTOCKS}
 
 
 def _builder_fn(entry):
@@ -66,7 +68,7 @@ def test_every_restock_rule_has_exactly_one_objective():
 
 def test_labels_match_the_grid():
     """The label is what a page prints; a mismatch renames a rule mid-report."""
-    for rk, label, *_ in strat._RESTOCKS:
+    for rk, label in ((p.key, p.label) for p in strat._RESTOCKS):
         assert obj.OBJECTIVES[rk].label == label, f'{rk}: label drifted from the grid'
 
 
@@ -112,7 +114,7 @@ def test_the_map_family_names_its_precompute_and_nobody_else_does():
 def test_every_grid_builder_is_reachable_from_exactly_one_entry():
     from collections import Counter
     declared = Counter(e.builder.partition('@')[0] for e in obj._ENTRIES)
-    grid = {fn.__name__ for _rk, _lbl, fn, *_ in strat._RESTOCKS}
+    grid = {p.build.__name__ for p in strat._RESTOCKS}
     assert set(declared) == grid, (f'builder coverage drifted — '
                                    f'missing {sorted(grid - set(declared))}, '
                                    f'stale {sorted(set(declared) - grid)}')

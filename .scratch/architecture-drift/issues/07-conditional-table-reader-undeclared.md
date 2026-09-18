@@ -1,7 +1,7 @@
 # 07 - `_shift_day_select` reads a conditional table without declaring it
 
 Type: bug
-Status: needs-triage
+Status: resolved
 
 `Tests/architecture/test_schema_compatibility.py::test_every_loader_that_reads_a_conditional_table_is_declared`
 
@@ -36,3 +36,16 @@ The real reader is the named query `shift_day_frame` registered directly beneath
 which the detector's `named` branch already covers. Do NOT add `_shift_day_select` to
 `CONDITIONAL_READS` -- declaring a non-reader is a second lie beside the first. Fix the detector
 to skip the docstring node (`ast.get_docstring`, or the first `Expr(Constant)` in the body).
+
+## Answer
+
+**`_shift_day_select` reads nothing; its docstring was matched.** The three-line helper builds
+a select LIST, and its docstring reads "The select list for a `shift_days` query" -- the words
+the detector joined into its `'SELECT' in blob and table in blob` test. The real reader is the
+named query `shift_day_frame` registered beside it, which the detector's `named` branch already
+covers. Fixed 2026-09-18: `_functions_selecting` is split into a file wrapper and
+`_functions_selecting_in(tree, table)`, which drops every bare string statement (the function's
+docstring and any nested def's) from the blob; pinned by
+`test_the_conditional_reader_scan_ignores_docstrings` on a source string with all three shapes.
+`test_every_loader_that_reads_a_conditional_table_is_declared` is green on HEAD and
+`CONDITIONAL_READS` is unchanged -- declaring a non-reader would have been a second lie.

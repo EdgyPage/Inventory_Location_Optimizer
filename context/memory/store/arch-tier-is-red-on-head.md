@@ -142,3 +142,15 @@ attribute access (a `.`-preceded token) or match only inside string literals.
 opening a ticket that tells someone to change the code. A detector that scans string constants
 or word tokens matches prose, and a ticket written from its message inherits the mistake --
 three of these seven did. Related: [[symbol-table-relationship-not-verified-by-symbols]].
+
+**FIXED 2026-09-18, same day: the tier reads 2 failed / 421 passed at HEAD.** The three
+prose-convicting detectors above now read code (an AST reference scan for `add_from_bin`; a
+`.`-bounded token with `__slots__` lines skipped for reserved directories; string statements
+dropped from the SELECT blob), each with a non-vacuity test, and 06's twelve prose rows were
+re-baselined under the counter's own comments-count policy. A FOURTH stale detector fell out of
+the same run: `test_rule_catalog.py` (three tests) unpacked `strat._RESTOCKS` as tuples, and the
+grid has held `PlacementPolicy` records since the placement-pools refactor -- `TypeError` on
+every entry, fixed by reading `p.key` / `p.label` / `p.build`. What remains is the genuine core:
+`test_key_backbone_edges_present` (drift 01) and `test_hotpaths_execute_under_e2e_driver`
+(drift 02). So of this morning's eight, six were the instruments. Tickets 03/06/07 are resolved
+with the line each detector matched; the drift map's Decisions carry the pointer.

@@ -102,7 +102,8 @@ def _count(path: str, tokens) -> dict:
     at all and that nobody touched.  That is not the debt this ratchet exists to hold.
 
     Bounded on BOTH sides, because the collisions come in both shapes: a trailing one
-    (`_site_db_path`) and a leading one (`put_site`).  The FILENAME tokens keep their raw
+    (`_site_db_path`) and a leading one (`put_site`) -- and, since 2026-09-18, an attribute
+    (`self._site`) and a slot declaration, which are identifiers too.  The FILENAME tokens keep their raw
     `count`: a `.json` or `.db` literal IS the contract's file however it is spelled, and
     only the bare directory names are ambiguous enough to collide with an identifier.
     """
@@ -114,8 +115,14 @@ def _count(path: str, tokens) -> dict:
     out = {}
     for t in tokens:
         if t.startswith('_') and '.' not in t:
-            n = len(re.findall(r'(?<![A-Za-z0-9])' + re.escape(t) + r'(?![A-Za-z0-9_])',
-                               text))
+            # AN ATTRIBUTE IS NOT A PATH.  `self._site` is a slot on `leaf_scope.py`'s site
+            # scope and `__slots__ = ('_site',)` declares it; neither joins a directory.
+            # Until 2026-09-18 both counted -- fifteen hits in one file that spells no path
+            # (architecture-drift 06) -- so the lookbehind also refuses a preceding `.`, and
+            # a `__slots__` line is skipped whole.
+            pat = re.compile(r'(?<![A-Za-z0-9.])' + re.escape(t) + r'(?![A-Za-z0-9_])')
+            n = sum(len(pat.findall(line)) for line in text.splitlines()
+                    if '__slots__' not in line)
         else:
             n = text.count(t)
         if n:
@@ -184,6 +191,25 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  # through `rt.site_dir` / `rt.site_inbound_dbs` / `rt.arm_pair_of` instead, which is why no
  # analysis module appears here.  Shrink-only.
  ('Optimization/simdriver/workunits.py', '_site'): 3,
+ # ── prose that names an artifact (re-baselined 2026-09-18, architecture-drift 06) ──────
+ # Twelve rows tripped the ratchet across the coupling and phase-2 efforts, and every one of
+ # them is PROSE: a comment, a docstring, a `--help` string, an error message or a log line
+ # that names `run_layout.json`'s `coupled`, `run_spec.json` or `restock_selection.json` so an
+ # operator knows which file to open.  None joins a path -- the counter counts comments by
+ # its own recorded policy (see `_count`), which puts documentation and hand-joins in one
+ # number.  Recorded here as the sanctioned naming class the dossier writers already occupy,
+ # at their 2026-09-18 counts.  Shrink-only: a real join must still use the resolver.  The
+ # three raised counts above (run_simulation `run_layout.json` 1->2, supervisor `resume.pkl`
+ # 1->3 and `sim_meta.json` 6->8) are the same class: a help string and two docstrings.
+ ('Optimization/config/settings.py', 'run_layout.json'): 1,
+ ('Optimization/config/sim_config.py', 'run_layout.json'): 2,
+ ('Optimization/config/sim_config.py', 'run_spec.json'): 2,
+ ('Optimization/config/whatif_config.py', 'restock_selection.json'): 9,
+ ('Optimization/config/whatif_config.py', 'run_layout.json'): 1,
+ ('Optimization/config/whatif_config.py', 'run_spec.json'): 1,
+ ('Optimization/run_restock_selection.py', 'run_layout.json'): 1,
+ ('Optimization/simconfig/staffing.py', 'restock_selection.json'): 1,
+ ('Optimization/simdriver/workunits.py', 'restock_selection.json'): 1,
  # ── the funnel's phase-1 -> phase-2 hand-off (2026-08-31) ───────────────────────────
  # The same sanctioned class as the dossier writers above, held to the same discipline: the
  # writer names the ONE document it writes, ONCE, in the module docstring. The path itself is
@@ -240,7 +266,7 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  # `_load_run_spec`, and the one literal is the operator-facing warning that has to name the
  # file the reader must go look for.  Vaguer wording would blunt the whole point of the warning.
  ('Optimization/run_analysis.py', 'run_spec.json'): 1,
- ('Optimization/run_simulation.py', 'run_layout.json'): 1,
+ ('Optimization/run_simulation.py', 'run_layout.json'): 2,
  # Raised 5 -> 6 (2026-08-16): one more operator-facing log line, same rationale as run_analysis.
  ('Optimization/run_simulation.py', 'run_spec.json'): 6,
  ('Optimization/simconfig/configs/ful_calibrated.py', 'config.json'): 1,
@@ -250,9 +276,9 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('Optimization/simdriver/scenario.py', 'warehouse.db'): 2,
  ('Optimization/simdriver/sim_assets.py', 'planned_inventory.db'): 1,
  ('Optimization/simdriver/strategy_runner.py', 'runtime_metrics.db'): 1,
- ('Optimization/simdriver/supervisor.py', 'resume.pkl'): 1,
+ ('Optimization/simdriver/supervisor.py', 'resume.pkl'): 3,
  ('Optimization/simdriver/supervisor.py', 'runtime_metrics.db'): 1,
- ('Optimization/simdriver/supervisor.py', 'sim_meta.json'): 6,
+ ('Optimization/simdriver/supervisor.py', 'sim_meta.json'): 8,
  ('Optimization/simdriver/workunits.py', 'config.json'): 1,
  ('Optimization/simdriver/workunits.py', 'resume.pkl'): 2,
  ('Optimization/simdriver/workunits.py', 'sim_meta.json'): 2,
@@ -330,3 +356,17 @@ def test_the_tokens_are_still_derived_and_distinctive():
     assert len(tokens) >= 8, f'token set collapsed to {tokens}'
     for anchor in ('run_layout.json', 'series.json', '_frozen', '_aggregate'):
         assert anchor in tokens, f'{anchor} fell out of the derived token set'
+
+
+def test_the_reserved_token_count_ignores_attributes_and_slots(tmp_path):
+    """NON-VACUITY for `_count`'s identifier rule: a slot declaration and an attribute read
+    are not path knowledge; a joined literal and a comment naming the directory still are."""
+    p = tmp_path / 'm.py'
+    p.write_text("class S:\n"
+                 "    __slots__ = ('_site',)\n"
+                 "    def __init__(self, site):\n"
+                 "        self._site = site\n"
+                 "def where(root):\n"
+                 "    return os.path.join(root, '_site')   # under _site/\n",
+                 encoding='utf-8')
+    assert _count(str(p), ('_site',)) == {'_site': 2}

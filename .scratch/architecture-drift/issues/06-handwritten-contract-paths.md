@@ -1,7 +1,7 @@
 # 06 - hand-written run-tree path knowledge increased across eleven sites
 
 Type: debt
-Status: needs-triage
+Status: resolved
 
 `Tests/architecture/test_runtree_consumption.py::test_no_new_handwritten_contract_paths`
 
@@ -44,3 +44,26 @@ The other twelve rows (`run_layout.json`, `restock_selection.json`, `run_spec.js
 `resume.pkl`, `sim_meta.json` across seven files) are genuine filename literals and remain this
 ticket. Fix the detector (exclude attribute access, or match tokens only inside string literals)
 and re-baseline BEFORE migrating the twelve, or the ratchet keeps counting the attribute.
+
+## Answer
+
+**One false positive and twelve prose rows; no new hand-joined path.** Resolved 2026-09-18.
+
+* `leaf_scope.py: '_site' x15` was the `__slots__ = ('_site',)` entry plus fourteen `self._site`
+  attribute reads: the reserved-directory token colliding with an attribute NAME. `_count` now
+  refuses a preceding `.` and skips `__slots__` lines for reserved tokens, pinned by
+  `test_the_reserved_token_count_ignores_attributes_and_slots`.
+* The other twelve rows were read one by one, and every one is prose: a comment
+  (`settings.py:263`), docstrings and help text (`sim_config.py`, `run_simulation.py:604`),
+  error messages and comments naming `restock_selection.json` (`whatif_config.py`,
+  `staffing.py:947`, `workunits.py:1138`, `run_restock_selection.py:395`), and log lines
+  (`run_simulation.py:1246`), plus two docstring lines in `supervisor.py`. None joins a path.
+  The counter counts comments by its own recorded policy, so these were re-baselined as the
+  sanctioned naming class the dossier writers already occupy, in one dated block with the
+  reasoning, and the three existing counts that grew were raised with the same note.
+
+The ratchet is green on HEAD. What this leaves open is the POLICY, not the code: a counter
+that puts documentation and hand-joins in one number will trip again the next time someone
+documents a file by name. If that becomes a nuisance, the change is to count filename tokens
+only inside string literals that are arguments to a path join, which is a policy decision and
+not this ticket's.

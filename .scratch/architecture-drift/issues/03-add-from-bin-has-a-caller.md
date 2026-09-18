@@ -1,7 +1,7 @@
 # 03 - `add_from_bin` acquired a caller and emits no event
 
 Type: decision
-Status: needs-triage
+Status: resolved
 
 `Tests/architecture/test_bin_mutation_sites.py::test_the_dead_site_is_still_dead`
 
@@ -31,3 +31,14 @@ The modelling decision this ticket asks for does not exist. The work is the dete
 scans text rather than resolving calls: skip docstrings and comments, or find callers through
 the AST (`ast.Call` whose func is an `ast.Attribute` named `add_from_bin`). Do NOT add an event
 to a path nothing calls.
+
+## Answer
+
+**No caller exists; the detector matched prose.** `Inbound/trailer.py:30` and `:62` are a module
+docstring and a method docstring citing `StorageCart.add_from_bin`'s perfect-packing assumption.
+Fixed 2026-09-18 by making the scan read code: `_references_add_from_bin` parses each file and
+convicts only an `ast.Attribute` or `ast.Name` reference (a call, a bound-method pass, an alias),
+never a string constant or a comment, with a non-vacuity test for both directions
+(`test_the_caller_scan_reads_code_not_prose`). `test_the_dead_site_is_still_dead` is green on
+HEAD with no change to `Inbound/trailer.py`. The modelling decision this ticket asked for was
+never on the table.

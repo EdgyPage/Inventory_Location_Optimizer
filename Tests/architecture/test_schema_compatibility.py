@@ -326,6 +326,20 @@ def _functions_selecting(relpath: str, table: str) -> set:
     """
     with open(os.path.join(_ROOT, *relpath.split('/')), encoding='utf-8') as fh:
         tree = ast.parse(fh.read(), filename=relpath)
+    return _functions_selecting_in(tree, table)
+
+
+def _functions_selecting_in(tree: ast.Module, table: str) -> set:
+    """The AST half of `_functions_selecting`, on a parsed module -- so the scan can be
+    tested on a source string without a file under the repo root.
+
+    A DOCSTRING IS NOT A QUERY.  Every string constant in a function used to feed the scan,
+    the docstring included, and `_shift_day_select` -- three lines that build a select LIST,
+    whose docstring reads "The select list for a `shift_days` query" -- was convicted as an
+    undeclared reader of `shift_days` (architecture-drift 07).  Bare string statements (the
+    function's docstring and any nested def's) are left out of the blob; SQL never lives in
+    one.  Module-level `Query(...)` registrations are unaffected: their SQL is an argument.
+    """
     # {query name} for every registered query whose canonical SQL names this table.
     named = set()
     for node in ast.walk(tree):
@@ -343,8 +357,12 @@ def _functions_selecting(relpath: str, table: str) -> set:
     for node in ast.walk(tree):
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
+        prose = {id(stmt.value) for stmt in ast.walk(node)
+                 if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant)
+                 and isinstance(stmt.value.value, str)}
         pieces = [lit.value for lit in ast.walk(node)
-                  if isinstance(lit, ast.Constant) and isinstance(lit.value, str)]
+                  if isinstance(lit, ast.Constant) and isinstance(lit.value, str)
+                  and id(lit) not in prose]
         blob = '\n'.join(pieces)
         if 'SELECT' in blob.upper() and table in blob:
             out.add(node.name)
@@ -2407,3 +2425,21 @@ def test_the_gate_would_have_caught_run_whatif_labor():
     threaded = ('requires=REQUIRES' in broken
                 or 'check_requirements(REQUIRES' in broken)
     assert not threaded, 'the detection is not sensitive to the thing it detects'
+
+
+def test_the_conditional_reader_scan_ignores_docstrings():
+    """NON-VACUITY for `_functions_selecting_in`: a function whose only mention of the table
+    is its docstring (or a nested def's) is not a reader; one that executes a SELECT is."""
+    src = (
+        'def _shift_day_select(cols):\n'
+        '    """The select list for a `shift_days` query: every column by name."""\n'
+        "    return ', '.join(cols)\n"
+        'def load_days(con):\n'
+        '    """Rows."""\n'
+        "    return con.execute('SELECT day FROM shift_days').fetchall()\n"
+        'def nested(con):\n'
+        '    def inner():\n'
+        '        """SELECT nothing FROM shift_days -- prose in a nested docstring."""\n'
+        '    return inner\n')
+    got = _functions_selecting_in(ast.parse(src), 'shift_days')
+    assert got == {'load_days'}, got

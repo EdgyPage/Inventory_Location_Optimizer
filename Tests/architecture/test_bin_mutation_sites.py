@@ -16,6 +16,7 @@ if it mutates a bin and emits nothing, spatial reconstruction is lossy again.
 """
 from __future__ import annotations
 
+import ast
 import os
 import re
 
@@ -95,6 +96,38 @@ def test_the_two_recorded_sites_are_the_ones_the_recorder_wraps():
     assert 'Warehouse/inventory/inventory_reorder.py' in found, 'EVICT site vanished'
 
 
+def _references_add_from_bin(source: str) -> bool:
+    """True when SOURCE refers to `add_from_bin` in CODE: an attribute access or a bare
+    name, which is what a call, a bound-method pass and an alias all are.  A docstring or a
+    comment that names it is prose, and prose is not a caller.
+
+    Until 2026-09-18 this was `'add_from_bin' in fh.read()`, and it convicted
+    `Inbound/trailer.py` for two docstrings citing the method's packing assumption
+    (architecture-drift 03) -- a test that matches prose writes tickets about code that does
+    not exist.  A file that does not parse stays on the substring rule, conservatively.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return 'add_from_bin' in source
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == 'add_from_bin':
+            return True
+        if isinstance(node, ast.Name) and node.id == 'add_from_bin':
+            return True
+    return False
+
+
+def test_the_caller_scan_reads_code_not_prose():
+    """NON-VACUITY for the scan below: a call, a bound-method pass and an alias are callers;
+    a docstring and a comment are not."""
+    assert _references_add_from_bin('cart.add_from_bin(b)\n')
+    assert _references_add_from_bin('f = cart.add_from_bin\n')
+    assert _references_add_from_bin('from x import add_from_bin\nadd_from_bin(b)\n')
+    assert not _references_add_from_bin('"""cites StorageCart.add_from_bin verbatim."""\n')
+    assert not _references_add_from_bin('x = 1  # see add_from_bin\n')
+
+
 def test_the_dead_site_is_still_dead():
     """`StorageCart.add_from_bin` mutates a bin but has zero callers, which is the only reason
     it needs no log event. If something starts calling it, that stops being true."""
@@ -111,7 +144,7 @@ def test_the_dead_site_is_still_dead():
                     or os.path.abspath(path) == os.path.abspath(__file__)):
                 continue
             with open(path, encoding='utf-8') as fh:
-                if 'add_from_bin' in fh.read():
+                if _references_add_from_bin(fh.read()):
                     callers.append(os.path.relpath(path, _ROOT))
 
     assert not callers, (f'add_from_bin now has callers: {callers} — it mutates a bin and emits '

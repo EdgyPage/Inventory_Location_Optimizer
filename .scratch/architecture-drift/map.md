@@ -58,7 +58,16 @@ a total is never the evidence — the individual assertion is.
 
 ## Decisions so far
 
-(none yet — opened 2026-09-16)
+- 2026-09-18 — **03, 06 and 07 were the detectors, not the code.** Each was read at the line it
+  matched: 03's caller is two docstrings, 07's loader is a docstring that says "select list",
+  and 06's fifteen-hit file is an attribute named `_site`. All three scans now read code
+  (AST references; a `.`-bounded token with `__slots__` lines skipped; string statements
+  dropped from the SELECT blob), each with a non-vacuity test, and 06's remaining twelve rows
+  were re-baselined as prose naming an artifact under the counter's own comments-count policy.
+  See [03](issues/03-add-from-bin-has-a-caller.md), [06](issues/06-handwritten-contract-paths.md),
+  [07](issues/07-conditional-table-reader-undeclared.md). The lesson is in
+  `arch-tier-is-red-on-head`: read the matched LINE before writing a ticket that tells someone
+  to change code.
 
 ## Fog
 

@@ -1779,6 +1779,7 @@ files:
       - {name: "test_no_unrecorded_bin_mutation_site_exists", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
       - {name: "test_every_allowed_site_still_exists", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
       - {name: "test_the_two_recorded_sites_are_the_ones_the_recorder_wraps", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
+      - {name: "test_the_caller_scan_reads_code_not_prose", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
       - {name: "test_the_dead_site_is_still_dead", file: "Tests/architecture/test_bin_mutation_sites.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_column_semantics.py":
@@ -1992,6 +1993,7 @@ files:
       - {name: "test_the_baseline_is_armed", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
       - {name: "test_no_new_handwritten_contract_paths", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
       - {name: "test_the_tokens_are_still_derived_and_distinctive", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
+      - {name: "test_the_reserved_token_count_ignores_attributes_and_slots", file: "Tests/architecture/test_runtree_consumption.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_schema_compatibility.py":
     purpose: "a consumer's columns must survive EVERY schema its family vets."
@@ -2063,6 +2065,7 @@ files:
       - {name: "test_every_declared_Requires_is_threaded_or_declared_only", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_declaration_only_list_is_shrink_only_and_honest", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
       - {name: "test_the_gate_would_have_caught_run_whatif_labor", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
+      - {name: "test_the_conditional_reader_scan_ignores_docstrings", file: "Tests/architecture/test_schema_compatibility.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_schema_identity.py":
     purpose: "every registered DB family must have a trustworthy shape id."
