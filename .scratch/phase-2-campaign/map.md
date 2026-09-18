@@ -79,6 +79,16 @@ fulfillment-only; the rule pairing is one of several defensible draws).
   the campaign ends around the evening of 2026-09-19 rather than tonight. The run is left to
   run; the fix is a post-campaign ticket because it moves the cost every priced cell publishes.
 
+- 2026-09-18 15:26: **cell 3's random pair is not settling.** Its four-batch checkpoint windows
+  took 37, 55 and 78 minutes (batches 4-8, 8-12, 12-16), about twenty minutes more each, while
+  every other unit of the cell finished by 14:23. Six windows remain; extrapolated, that unit
+  ends near 06:00 on 2026-09-19 and each later priced cell would take a similar day, so the
+  campaign as launched is a four-to-five-day run. The growth is the cubic drain under a yard
+  that keeps deepening beneath a policy that places poorly, on top of ticket 02's per-open
+  union. Options put to the user: let it run; stop, drop pair 5 (`rank_random`/`rank_popularity`,
+  the negative control) and relaunch fresh, running pair 5 alone after ticket 02; or fix ticket
+  02 first. Recommended the second. Awaiting the decision; the run continues meanwhile.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
