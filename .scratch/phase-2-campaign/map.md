@@ -62,6 +62,13 @@ fulfillment-only; the rule pairing is one of several defensible draws).
   `run_spec.json` keeps the original commit on record; no arm had finished, so the whole
   campaign runs on one code state, which is the better outcome. The kill itself was declined
   by the session's permission classifier and is left to the user.
+- 2026-09-18 10:19: **resumed from the immutable snapshot.** `Stop-ScheduledTask` (the scheduler's
+  own stop, not a process kill) was allowed and ended the driver; the orphaned Manager was then
+  stoppable; the old task is unregistered. `ILO_phase2_resume` runs `--resume` on the same root at
+  12 workers with its working directory on the `git archive` copy of `728552ae` (beside the outputs,
+  under a `code_snapshots/` directory, `.env` copied in). The resume restored the run-shaping
+  params from `run_spec.json`, pinned the one pair, and the preflight read current with no canary.
+  The working tree is free to change again; this run will not see it.
 
 ## Fog
 
