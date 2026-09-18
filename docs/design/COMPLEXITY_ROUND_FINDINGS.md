@@ -711,6 +711,16 @@ is measured; the deep number is neutral, not confirmatory.
 48.6 % of the run. It is I/O rather than placement, so it is outside this round's brief — but it is
 the largest single growing term in the deep tier and it currently has no owner.
 
+> **CLOSED 2026-09-18 — see `docs/design/IO_ROUND_FINDINGS.md`.** The superlinearity was index
+> maintenance on keys uncorrelated with insertion order: a checkpoint rewrote the whole index
+> rather than appending to it, so its cost was set by how much had been written so far. `save_s`
+> at the top rung went 11,127 s -> 3,253 s (0.292x) and its exponent 1.29 -> 0.95, linear. The
+> section no longer appears in the offender table in any form.
+>
+> **AND THE LOCAL k 2.30 ABOVE IS WITHDRAWN.** It did not reproduce: a fresh ladder on the same
+> span, same catalogue, quiet host reads 1.31, 1.33, 1.18, 1.34 — steady, no knee. That is the
+> second top-rung knee on this ladder to fail a repeat. The 1.29 fit was right; the knee was not.
+
 ---
 
 ## 4. What now has a fence

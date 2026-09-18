@@ -2349,6 +2349,12 @@ files:
       - {name: "to_capture_dict", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
       - {name: "write_capture", file: "Tests/calltree/calltree_tracer.py", kind: "function"}
     notes: ""
+  "Tests/calltree/scan_width.py":
+    purpose: "measure how WIDE a function's input is, not just how often it is called."
+    layer: "tests"
+    key_symbols:
+      - {name: "ScanWidth", file: "Tests/calltree/scan_width.py", kind: "class"}
+    notes: ""
   "Tests/calltree/test_calltree_anchors.py":
     purpose: "drift gate: the framework's anchors into product code hold."
     layer: "tests"

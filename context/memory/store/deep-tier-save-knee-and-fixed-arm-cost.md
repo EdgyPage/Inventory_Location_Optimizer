@@ -56,3 +56,19 @@ Since 2026-09-17 the stopwatch is decomposed on the checkpoint log line as
 denominator no longer has to be reconstructed from the databases by hand. Read a ladder's
 `save_decomposition` block, not `save_s` alone. See [[toy-run-noise-floor-is-three-percent]]
 for what size of win that instrument can actually resolve.
+
+## THE KNEE DID NOT REPRODUCE — it is withdrawn (2026-09-17)
+
+A fresh 5-rung ladder on the same 8x span, same catalogue, quiet host, with `save_s` decomposed,
+reads `t_save` **k=1.29 with local exponents 1.31, 1.33, 1.18, 1.34** — steady, no knee. The
+`2.295` recorded above does not survive a repeat, exactly as the 2026-08 ladder's 18,343 s knee
+did not (`STRESS_TEST_FINDINGS.md:409`, withdrawn). **Two knees at the top rung of this ladder
+have now both failed to reproduce; treat a top-rung jump here as machine variance until a second
+run shows it.** `_knee` is still the right detector — it is the reporting that must wait.
+
+What IS real and did reproduce: `save_s` is ~46% of the deep tier (11,127 s of 24,290 s at 80k),
+and it is superlinear at k=1.29. The cause is not a cliff — it is index maintenance, and it
+factors cleanly into rows (k=0.93) x cost-per-row (k=0.36). See
+[[save-s-is-index-maintenance]] for the mechanism and the fix (26% cut, three commits).
+
+The **fixed ~48 s per-arm startup** in the section above is unaffected and still stands.
