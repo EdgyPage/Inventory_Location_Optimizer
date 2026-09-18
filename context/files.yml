@@ -6366,6 +6366,16 @@ files:
       - {name: "test_the_view_and_the_in_memory_merge_declare_the_same_order", file: "Tests/unit/test_work_events.py", kind: "function"}
       - {name: "test_the_merge_orders_a_batch_boundary_by_emission_not_backwards", file: "Tests/unit/test_work_events.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_worker_recycling_pin.py":
+    purpose: "the recycling pin is a DECISION, so it gets a test."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_supervise_hardcodes_recycle_at_one", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_parameter_is_accepted_and_deliberately_shadowed", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_pool_is_built_with_the_pinned_value", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_cli_refuses_a_larger_value_loudly", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_reason_survives_in_the_source", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_yard_metrics.py":
     purpose: "the yard's measurement surface, end to end and at its edges."
     layer: "tests"

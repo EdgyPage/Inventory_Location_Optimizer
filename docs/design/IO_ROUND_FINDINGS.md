@@ -219,6 +219,31 @@ and no extra run was needed. Simulation ends at the last per-arm `[save] run-end
 **k = 0.62, local `[0.60, 0.64]` — sublinear.** It is a fifth to a quarter of every run and it is
 not a growth risk. Closed.
 
+Refitted on all five rungs of the post-change ladder: **k = 0.70**, local `0.56, 0.68, 0.92,
+0.75`. Still clearly sublinear; the 0.62 above was three rungs.
+
+### 5.3.1 `--granularity graph` does NOT cut it — measured, and the first answer was wrong
+
+`analyze_run` already carries `--granularity {config,graph}`, and its own docstring says `config`
+"emits one job per channel-run (a handful per cell, so a large `--workers` is mostly idle)" while
+`graph` "is what actually saturates a big pool on a re-analysis". The job-count claim is true:
+on the 10k rung, `config` emitted **4** jobs and `graph` **112**, a 28x difference.
+
+**The wall claim is not.** Re-analysing that rung at `--workers 24`:
+
+| order | config | graph | |
+|---|---|---|---|
+| config first | 116.5 s | 94.5 s | graph 0.81x — looks like a 19% win |
+| **graph first** | **97.3 s** | **99.9 s** | **config 0.97x — the sign flips** |
+
+**The 19% was the cold cache, not the granularity.** Whichever ran first paid for warming a run
+tree the analysis half reads heavily, and reversing the order reverses the result. A single
+ordered pair would have shipped a 19% saving that does not exist.
+
+So more parallelism is not the lever here: 28x the jobs finishes no sooner, which says the
+analysis half is not starved of workers at this scale. Whatever it is bound by, it is not job
+granularity. **Do not re-propose this without a new measurement that controls for order.**
+
 ---
 
 ## 6. What is now the biggest thing in the deep tier
@@ -237,6 +262,26 @@ Not `save_s`. The post-change wall, split three ways off each rung's own log:
    here.** 48 s is the smallest rung's value. A term that scales with the catalogue is not
    interpreter spawn; it is per-arm catalogue *loading*, and that distinction decides the fix:
    worker recycling only helps if the catalogue survives the reuse.
+
+   **Worker recycling may be revisited (user decision, 2026-09-18) — but the blocker is
+   DETECTION, not resume.** The deadlock is a HANG: zero CPU, one live worker of eighteen, no
+   exception, no exit. `_supervise` is a bounded retry driver that fires on *hard worker death*;
+   a deadlocked pool never dies, so nothing rebuilds it. And the detection gap is wider than
+   recycling — every worker can die and `run_simulation` still exits 0. Resume itself is the
+   part that is already sound: a hard mid-flight kill resumes to 272/272 from `--resume DIR`
+   alone. So the safeguard that unpins this is a **stall detector** — no unit completed in N
+   minutes ⇒ tear the pool down and let the existing retry path resubmit from on-disk
+   checkpoints — plus a proof that a resumed run is byte-identical to an uninterrupted one.
+
+   **A second reason to measure before unpinning.** The pin's
+   own docstring prices it at "~10 s of spawn per job against a job that runs for minutes" and
+   notes that "workers reload their assets per job anyway". The split above sharpens that second
+   clause into the decisive one: if the term scales with the catalogue, it is the reload — and a
+   recycled worker performs the reload regardless, so recycling would buy the smaller half.
+   `Tests/unit/test_worker_recycling_pin.py` now pins the decision so it cannot be undone by a
+   refactor; a deadlock reproduction is deliberately NOT written, because it needs a real
+   two-cell run and its failure mode is a hang. Anyone reopening this measures the spawn/load
+   split first.
 
 2. **The analysis half — 21–25 % of every run**, k = 0.70 on five rungs (an earlier k = 0.62 was
    fitted on three). Sublinear, so not a growth risk, but a large constant.
