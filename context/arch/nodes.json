@@ -15294,6 +15294,13 @@
       "kind": "function",
       "signature": "(args: dict, unit: dict | None=None, pool=None, site_gain=None, site=None) -> '_Leaf'"
     },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._charge": {
+      "decorators": [],
+      "doc": "Charge a span measured OUTSIDE this leaf to one of its sections.\n\nCoupled units only: the driver times the site drive once and hands every leaf the\nsame number, because the drive is the SITE's receive and put drain done on every\nleaf's behalf.  Charged rather than lapped so that no leaf's lap is ever open while\nanother leaf, or the site, is running -- which is the whole discipline that keeps a\nleaf's sections a partition of that leaf's own work.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(section: str, seconds: float) -> None"
+    },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._finish": {
       "decorators": [],
       "doc": "The run-end half: flush the unflushed window, close the last day, censor the\nstanding yard, release the graph, and return this leaf's result dict.",

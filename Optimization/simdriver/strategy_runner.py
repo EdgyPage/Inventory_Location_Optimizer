@@ -791,6 +791,7 @@ class _Leaf:
     # `_fire_reorders` triggered gets back to it.  Never called on an uncoupled leaf, which
     # ran its own composition inside `replenish` and already has the answer.
     note_triggered: object            # (dict) -> None
+    charge   : object                 # (str, float) -> None -- a span timed by the driver
 
 
 def _check_declared_crew(args: dict, k_pickers: int, *, site_crews: bool = True) -> None:
@@ -2394,11 +2395,33 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # must land AFTER that receive for BOTH leaves -- none of which a leaf running
             # its own composition can produce.  The unit drives `SiteReceiving.drain` once
             # for every leaf and hands back what this one triggered (`note_triggered`).
+            #
+            # THE LAP CLOSES HERE, on this path as on the other.  Until 2026-09-18 it did
+            # not: the lap opened at the top of this function stayed open across the site
+            # drive AND across the sibling leaf's replenish -- and the second leaf's stayed
+            # open across the first leaf's ENTIRE step -- until each leaf's own
+            # `split('reord')` in `_step`.  So a coupled unit charged the drive to both
+            # leaves and the first leaf's whole batch to the second leaf's `reord_s`.  A lap
+            # is this leaf's and closes before this leaf yields; the drive is charged by the
+            # driver through `_charge`, once, deliberately.
+            asm.timers.split('reord')
             return
         bstate.triggered = asm.mgr.check_reorders(put_deadline=_put_deadline,
                                               recv_deadline=_recv_deadline,
                                               now_s=asm.arm_clock)
         asm.ckpt_win.add('reorders', len(bstate.triggered))
+        asm.timers.split('reord')
+
+    def _charge(section: str, seconds: float) -> None:
+        """Charge a span measured OUTSIDE this leaf to one of its sections.
+
+        Coupled units only: the driver times the site drive once and hands every leaf the
+        same number, because the drive is the SITE's receive and put drain done on every
+        leaf's behalf.  Charged rather than lapped so that no leaf's lap is ever open while
+        another leaf, or the site, is running -- which is the whole discipline that keeps a
+        leaf's sections a partition of that leaf's own work.
+        """
+        asm.timers.add(section, seconds)
 
     def _note_triggered(trig: dict) -> None:
         """Record what the SITE drain fired for THIS leaf.  Coupled units only.
@@ -2414,6 +2437,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         """Batch `i`, for this leaf. Was `for i in range(start_i, n_batches):`; the body
         below is that loop's, unchanged, so a carry rebound here is rebound in the
         enclosing setup scope exactly as it was between iterations."""
+        # A NEW LAP, this leaf's own.  `_replenish` closed its lap before yielding, so on a
+        # coupled unit the sibling's replenish and the site drive ran on nobody's lap (the
+        # drive reaches `reord` through `_charge`).  Everything from here to the
+        # `split('reord')` below is this leaf's own step-head, and it lands in `reord` as it
+        # always did -- on a one-leaf unit the two laps abut, so the section totals are the
+        # same seconds split at one more clock read.
+        asm.timers.start()
         # The six the replenishment half bound; see the seeds above `_replenish`.
         # Layout-quality snapshot AFTER re-slot + reorder, BEFORE this batch's picks.
         batch_rm, batch_rp = asm.mgr.pop_churn()
@@ -3201,7 +3231,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                  channel=args.get('channel_name'),
                  n_catalogue=asm.n_catalogue, n_skus=asm.n_skus,
                  replenish=_replenish, step=_step, finish=_finish,
-                 note_triggered=_note_triggered)
+                 note_triggered=_note_triggered, charge=_charge)
 
 
 def _run_strategy_worker_impl(args: dict) -> dict:
@@ -3284,9 +3314,21 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # with ONE lead tick over one yard and ONE receive at one dock -- and phase 5
             # routed from inside the coordinator, so the site's receive lands before EVERY
             # leaf's put drain rather than after the earlier one's.
+            _t_drive = time.perf_counter()
             _trig = _sitedock.drive(i, _pool)
+            _drive_s = time.perf_counter() - _t_drive
             for lf in leaves:
                 lf.note_triggered(_trig)
+                # THE DRIVE IS CHARGED, NOT LAPPED, and to EVERY leaf in full.  It is the
+                # site's receive and put drain done on every leaf's behalf, so each leaf's
+                # `reord_s` carries it -- the reading a one-leaf site-docked unit has always
+                # given, where the drive fell inside that leaf's own lap.  Two consequences
+                # a reader must know: a leaf's `reord_s` includes the site's work, and
+                # summing the leaves' `reord_s` counts the drive once per leaf.  Until
+                # 2026-09-18 both leaves' laps were simply left open across the drive, which
+                # charged it twice AND charged the first leaf's whole step to the second
+                # leaf's `reord_s` (the second lap was still open through all of it).
+                lf.charge('reord', _drive_s)
         for lf in leaves:
             lf.step(i)
         if _sitedock is not None:

@@ -34,6 +34,7 @@ import os
 import queue
 import sqlite3
 import logging
+import time
 
 import pytest
 
@@ -671,3 +672,136 @@ def test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle(site, monkeypa
     for tr in transits:
         assert tr.gain_bundle is site_gain, (
             'a leaf hung its own bundle on its transit; one site is one gain provider')
+
+
+# ── the timer laps partition each leaf's OWN work (2026-09-18) ────────────────────
+#
+# `SectionTimers` is a lap counter: `start()` sets a cursor, `split(s)` charges the time
+# since the cursor to `s` and moves it.  A coupled unit interleaves two leaves and a site
+# drive through ONE loop, and until 2026-09-18 each leaf opened its lap in `_replenish` and
+# did not close it until its own `split('reord')` in `_step`.  Between the two lay the
+# sibling's replenish, the site drive, and -- for the second leaf -- the first leaf's ENTIRE
+# step.  So `reord_s` carried the drive on both leaves and the first leaf's whole batch on
+# the second, and `Sum(total_s) - Sum(sections)` (the calltree ladder's batch-loop residual)
+# read nonsense on exactly the run shape the phase-2 campaign publishes `reord_s` from.
+#
+# The invariant that names the defect: A LAP IS PRIVATE.  No other timers instance records
+# a lap event between a lap's opening and its closing split.  The site drive is charged, not
+# lapped, to every leaf by the driver: once per batch, the same seconds to each.
+
+
+class _RecordingTimers(sr.SectionTimers):
+    """`SectionTimers` that logs every lap event with its instance id and the clock.
+
+    Subclassing a `__slots__` class adds a `__dict__`; nothing here is pickled, since the
+    unit runs in-process under `_run_strategy_worker`.
+    """
+    EVENTS: list = []                                   # (timers_id, kind, sections, value)
+
+    def start(self, now=None):
+        t = time.perf_counter() if now is None else now
+        type(self).EVENTS.append((id(self), 'start', (), t))
+        super().start(now=t)
+
+    def split(self, *sections, now=None):
+        t = time.perf_counter() if now is None else now
+        type(self).EVENTS.append((id(self), 'split', tuple(sections), t))
+        return super().split(*sections, now=t)
+
+    def add(self, section, seconds):
+        type(self).EVENTS.append((id(self), 'add', (section,), seconds))
+        super().add(section, seconds)
+
+
+def _intruded_laps(events):
+    """Every charged lap inside which another timers instance recorded a lap event.
+
+    A lap opens at a `start` or a `split` (both set the cursor) and is CHARGED by the next
+    `split` on the same instance; a lap that ends in `start` charges nothing and is not a
+    lap.  `add` events never move a cursor and are ignored on both sides.  Returns
+    `(owner, sections_charged, intruders)` triples; empty means every lap was private.
+    """
+    bad = []
+    opened = {}
+    for k, (tid, kind, secs, _v) in enumerate(events):
+        if kind == 'add':
+            continue
+        if kind == 'split' and tid in opened:
+            j = opened[tid]
+            intruders = sorted({e[0] for e in events[j + 1:k]
+                                if e[0] != tid and e[1] in ('start', 'split')})
+            if intruders:
+                bad.append((tid, secs, intruders))
+        opened[tid] = k
+    return bad
+
+
+def _synthetic(fixed: bool):
+    """Two leaves, one batch, in the pre-fix and post-fix choreographies.  The clock values
+    are labels: only ORDER matters to `_intruded_laps`."""
+    A, B = 1, 2
+
+    def step(who, t):
+        return [(who, 'split', ('reord',), t), (who, 'split', ('sim',), t + 1),
+                (who, 'split', ('inv',), t + 2)]
+    if not fixed:
+        return ([(A, 'start', (), 0), (B, 'start', (), 1)]           # both laps open ...
+                + step(A, 10) + step(B, 20))                         # ... across everything
+    return ([(A, 'start', (), 0), (A, 'split', ('reord',), 1),
+             (B, 'start', (), 2), (B, 'split', ('reord',), 3),
+             (A, 'add', ('reord',), 0.5), (B, 'add', ('reord',), 0.5),
+             (A, 'start', (), 10)] + step(A, 11)
+            + [(B, 'start', (), 20)] + step(B, 21))
+
+
+def test_the_lap_checker_convicts_the_old_choreography_and_clears_the_new():
+    """NON-VACUITY for the measurement below: the invariant must fail on the defect it
+    names, and the worse half of it -- the second leaf's reord lap swallowing the first
+    leaf's whole step -- must be among the convictions."""
+    old = _intruded_laps(_synthetic(fixed=False))
+    assert old, 'the pre-fix choreography must show an intruded lap'
+    assert any(owner == 2 and secs == ('reord',) and 1 in intr
+               for owner, secs, intr in old), old
+    assert _intruded_laps(_synthetic(fixed=True)) == []
+
+
+def test_a_coupled_leafs_laps_are_private_and_the_drive_is_charged_once_per_batch(
+        site, monkeypatch):
+    """THE MEASUREMENT.  A site-docked coupled unit through the real seam, with the timers
+    recording: no leaf's lap contains another leaf's lap event, every leaf receives the
+    site drive as one `add('reord', s)` per batch, both leaves receive the same seconds,
+    and each leaf's `t_reord` result is at least its drive charges and at most its elapsed.
+    """
+    _standing_yard(monkeypatch, site)
+    monkeypatch.setattr(sr, 'SectionTimers', _RecordingTimers)
+    _RecordingTimers.EVENTS = []
+    coupled_units, _ = _prepare(site, name='run_timer_laps')
+    ua = coupled_units[0]
+    ua['log_queue'] = queue.Queue()
+    res = sr._run_strategy_worker(ua)
+    ev = _RecordingTimers.EVENTS
+    n_batches = rs.CONFIG['global']['n_batches']
+
+    # Leaf order is first-appearance order: the first leaf replenishes first on batch 0.
+    owners = list(dict.fromkeys(e[0] for e in ev))
+    assert len(owners) == 2, f'expected one timers per leaf, saw {len(owners)}'
+    intruded = _intruded_laps(ev)
+    assert intruded == [], (
+        "a leaf lap contained another leaf's lap event -- the drive or the sibling's work "
+        f'is being charged to a leaf section: {intruded[:3]}')
+
+    drive = {o: [v for (t, k, s, v) in ev if t == o and k == 'add' and s == ('reord',)]
+             for o in owners}
+    for o in owners:
+        assert len(drive[o]) == n_batches, (o, len(drive[o]), n_batches)
+        assert all(v > 0.0 for v in drive[o]), drive[o]
+    a, b = owners
+    assert drive[a] == drive[b], 'the drive is ONE measurement handed to every leaf'
+
+    # `res['leaves']` is positional with the unit's leaves, and the timers were built in
+    # that order.  `t_reord` carries the drive plus the leaf's own laps, never more than the
+    # leaf lived.
+    assert len(res['leaves']) == 2
+    for o, leaf_res in zip(owners, res['leaves']):
+        assert leaf_res['t_reord'] >= sum(drive[o]) - 1e-9, (leaf_res['t_reord'], sum(drive[o]))
+        assert leaf_res['t_reord'] <= leaf_res['elapsed'], leaf_res

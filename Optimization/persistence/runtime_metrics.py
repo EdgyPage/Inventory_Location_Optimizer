@@ -10,6 +10,18 @@ durations.  The `cost` chart family (Performance_Evaluations/cost/, a RUN-scope 
 to rank rules by what they cost to run and to show WHERE the time goes, so recurring hot-paths (e.g.
 a reorder/reslot-dominated arm — the valid-aisle recompute suspicion) stay visible — and so a WMS
 reader can be told what scoring one arriving unit costs.
+
+ON A COUPLED UNIT (two channel leaves through one batch loop, `--couple-channels`) each leaf
+writes its own row, and two things about those rows are decided rather than incidental.
+`total_s` is the UNIT loop's wall on both rows -- a leaf's clock starts before the loop and
+stops after it, so it includes the sibling's work.  `reord_s` on each row carries the SITE
+drive (one receive, one put drain, for both leaves) in full, charged by the driver to every
+leaf once per batch: the reading a one-leaf site-docked unit has always given.  So a leaf's
+`reord_s` includes the site's work, and summing the two leaves' `reord_s` counts the drive
+twice.  Until 2026-09-18 the leaves' timer laps were left open across the drive and across
+each other instead, which charged the drive to both AND the first leaf's entire step to the
+second leaf's `reord_s`; every coupled `reord_s` written before that date is inflated by the
+sibling's step (`Tests/e2e/test_coupled_unit_e2e.py`, the lap-privacy tests).
 """
 from __future__ import annotations
 

@@ -38741,6 +38741,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._charge",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_charge",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._finish",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",

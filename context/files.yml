@@ -2499,6 +2499,8 @@ files:
       - {name: "test_a_coupled_site_dock_matches_the_two_docks_it_replaces", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_pair_reconciles_across_both_leaves_and_the_site_dock", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
       - {name: "test_a_coupled_unit_binds_both_arms_into_one_site_gain_bundle", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_the_lap_checker_convicts_the_old_choreography_and_clears_the_new", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
+      - {name: "test_a_coupled_leafs_laps_are_private_and_the_drive_is_charged_once_per_batch", file: "Tests/e2e/test_coupled_unit_e2e.py", kind: "function"}
     notes: ""
   "Tests/e2e/test_draw_probability.py":
     purpose: "the gate for the draw-probability characterisation: the counts are the run's own batch sequence, a chunk prefix is a shorter draw, and the unbiased estimator beats the plug-in's Jensen bias."
