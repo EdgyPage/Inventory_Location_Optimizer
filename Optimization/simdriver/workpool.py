@@ -180,6 +180,26 @@ def _explain_worker_death(log, worker_module: str, *, timeout_s: float = 300.0) 
     return 'import-failure'
 
 
+class InlineExecutor:
+    """An executor that runs each submit at once, in this process -- the one-worker case of
+    a driver (`workers <= 1`) and the executor tests hand a pool.  Same `submit` /
+    `shutdown` surface as `ProcessPoolExecutor`, no processes, no threads."""
+
+    def __init__(self, *a, **kw):
+        pass
+
+    def submit(self, fn, *args, **kwargs):
+        fut = concurrent.futures.Future()
+        try:
+            fut.set_result(fn(*args, **kwargs))
+        except BaseException as exc:                                   # noqa: BLE001
+            fut.set_exception(exc)
+        return fut
+
+    def shutdown(self, wait=True, *, cancel_futures=False):
+        pass
+
+
 class _CellBook:
     """The pool's books for ONE cell: what was submitted, what resolved, and how."""
     __slots__ = ('jobs', 'done', 'failed', 'order')
@@ -208,10 +228,13 @@ class WorkPool:
     result is the driver's `strategy FAILED`, as before), never a raise out of the pool.
     `executor_factory(max_workers)` builds the executor; the sim driver passes the spawn pool
     with recycling pinned (`supervisor._sim_executor`), the analysis driver one without, and
-    tests a thread pool.  `resume_hint` is the command the UNRECOVERED block names."""
+    tests a thread pool.  `resume_hint` is the command the UNRECOVERED block names.
+    `worker_logging` False skips the Manager and the QueueListener (`log_queue` stays None):
+    the analysis workers log to their own stdout logger and never take the queue, and a
+    Manager is a process nobody should start for nothing."""
 
     def __init__(self, max_workers, log, *, executor_factory, run_root=None, max_retries=2,
-                 on_success=None, on_failure=None, resume_hint=None):
+                 on_success=None, on_failure=None, resume_hint=None, worker_logging=True):
         self.max_workers = int(max_workers or 1)
         self.log = log
         self.run_root = run_root
@@ -220,6 +243,7 @@ class WorkPool:
         self._on_success = on_success or (lambda cell, key, payload, res: None)
         self._on_failure = on_failure or (lambda cell, key, payload, exc: None)
         self._resume_hint = resume_hint
+        self._worker_logging = bool(worker_logging)
         self.pool = None
         self.broke = False
         self.log_queue = None
@@ -236,12 +260,13 @@ class WorkPool:
 
     # ── lifetime ────────────────────────────────────────────────────────────────────────
     def __enter__(self):
-        self._manager = multiprocessing.Manager()
-        self.log_queue = self._manager.Queue(-1)
-        self._listener = logging.handlers.QueueListener(
-            self.log_queue, *self.log.handlers, respect_handler_level=True)
-        self._listener.start()
-        self.log.info('  Log listener started')
+        if self._worker_logging:
+            self._manager = multiprocessing.Manager()
+            self.log_queue = self._manager.Queue(-1)
+            self._listener = logging.handlers.QueueListener(
+                self.log_queue, *self.log.handlers, respect_handler_level=True)
+            self._listener.start()
+            self.log.info('  Log listener started')
         self.pool = self._factory(self.max_workers)
         return self
 
@@ -258,9 +283,10 @@ class WorkPool:
                 else:
                     self.pool.shutdown(wait=True)
         finally:
-            self._listener.stop()
-            self._manager.shutdown()
-            self.log.info('  Log listener stopped')
+            if self._listener is not None:
+                self._listener.stop()
+                self._manager.shutdown()
+                self.log.info('  Log listener stopped')
         return False
 
     # ── submission and dispatch ─────────────────────────────────────────────────────────

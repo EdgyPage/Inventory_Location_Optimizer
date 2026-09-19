@@ -73,6 +73,16 @@ def test_the_pool_is_built_with_the_pinned_value():
         'the factory takes no recycling argument: a caller cannot plumb the CLI value through')
 
 
+def test_the_analysis_executor_is_deliberately_unpinned():
+    """The other factory: analysis jobs are seconds long and share loaded contexts across
+    co-scheduled graphs, so recycling would cost a context reload per graph.  Pinned as
+    NOT pinned, so a tidy-up that copies the sim pin here has to read why."""
+    from Optimization import run_analysis
+    src = inspect.getsource(run_analysis._analysis_executor)
+    assert 'max_tasks_per_child' not in src
+    assert 'context' in src.lower(), 'the reason the analysis pool recycles is gone from its source'
+
+
 def test_the_pool_class_builds_no_executor_of_its_own():
     """The pin escaped once into a second factory nobody checked.  `WorkPool` takes its
     executor from the caller and names `max_tasks_per_child` nowhere."""

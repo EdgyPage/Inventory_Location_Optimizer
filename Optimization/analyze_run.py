@@ -75,12 +75,16 @@ def analyze_run(base_dir, log, *, cells=None, workers=1, preset='BY_INITIAL', re
     except Exception:                                              # noqa: BLE001
         coupled = False
 
+    # EVERY CELL'S GRAPHS THROUGH ONE POOL (`run_analysis.analyze_cells`): the cells used to
+    # run one after another, each with its own pool and three stage barriers, so most of a
+    # big --workers idled for most of the stage.  The rollups follow, per cell, because each
+    # reads its own cell's rendered tables.
+    log.info('  graphs: ' + ', '.join(name for name, _d in cell_items)
+             + ('' if coupled else '  (+ rollup per cell)'))
+    _step(log, 'graphs',
+          lambda: run_analysis.analyze_cells(cell_items, log, workers=workers, preset=preset,
+                                             granularity=granularity))
     for name, cell_dir in cell_items:
-        log.info(f'  cell {name}: graphs' + ('' if coupled else ' + rollup'))
-        _step(log, f'{name}/graphs',
-              lambda cd=cell_dir: run_analysis.run_analysis(cd, log, workers=workers,
-                                                            preset=preset,
-                                                            granularity=granularity))
         # THE ROLLUP IS SKIPPED OUTRIGHT on a coupled run rather than left to fail: it
         # REFUSES one (its validity argument is channel independence, which a site dock
         # voids), and a `ValueError` caught by `_step` would print `analysis step failed`

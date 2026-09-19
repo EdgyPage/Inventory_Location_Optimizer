@@ -16,7 +16,6 @@ Run:  python -m pytest Tests/integration/test_unit_identity_is_carried.py -q
 """
 from __future__ import annotations
 
-import concurrent.futures
 import logging
 
 from Optimization.simdriver import supervisor as sv
@@ -26,29 +25,12 @@ from Optimization.simdriver.workunits import _stamp_identity
 _LOG = logging.getLogger('test_unit_identity')
 
 
-class _InlinePool:
-    """An executor stand-in that runs each submit immediately in this process."""
-
-    def __init__(self, *a, **kw):
-        pass
-
-    def submit(self, fn, sa):
-        fut = concurrent.futures.Future()
-        try:
-            fut.set_result(fn(sa))
-        except BaseException as exc:                                   # noqa: BLE001
-            fut.set_exception(exc)
-        return fut
-
-    def shutdown(self, wait=True, cancel_futures=False):
-        pass
-
-
 def _run(remaining, meta, monkeypatch, worker):
     monkeypatch.setattr(sv, '_run_strategy_worker', worker)
     books = sv.SimBooks(_LOG, run_root=None)
     books.register('k1_off', meta)
-    with wp.WorkPool(1, _LOG, executor_factory=lambda n: _InlinePool(), max_retries=0,
+    with wp.WorkPool(1, _LOG, executor_factory=wp.InlineExecutor, max_retries=0,
+                     worker_logging=False,
                      on_success=books.on_success, on_failure=books.on_failure) as pool:
         pool.submit('k1_off', sv.sim_jobs('k1_off', remaining))
         left = pool.finish(rebuild=lambda c: [])

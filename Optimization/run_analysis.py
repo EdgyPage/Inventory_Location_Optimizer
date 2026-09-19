@@ -10,11 +10,13 @@ run-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join �
 rooted at the RUN root (this module receives a CELL dir from analyze_run), and
 Tests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.
 
-Parallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across
-all pairs × configs fed to one ProcessPoolExecutor, then a second flat pool for the
-cross-profile aggregate stage.  `--granularity config` (default) = one job per config (context
-loaded once, shared across its graphs); `--granularity graph` = one job per (config, graph)
-for maximum core utilization on sparse runs.
+Parallelism is ONE work pool for the whole run (`simdriver.workpool.WorkPool`, the same class
+the simulation drives): `analyze_cells` submits every cell's config jobs as it builds them,
+and each cell's aggregate and site jobs are built by a continuation once that cell's config
+jobs have resolved -- no cell waits for another, and no stage barrier idles the pool.
+`--granularity config` (default) = one job per config (context loaded once, shared across
+its graphs); `--granularity graph` = one job per (config, graph) for maximum core
+utilization on sparse runs.
 
 Usage:
   python run_analysis.py <base_dir>                        # default preset BY_INITIAL
@@ -40,7 +42,9 @@ _REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__fil
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from Optimization.simdriver.cells import Cell, cell_scope
 from Optimization.simdriver.sim_assets import build_shared_assets
+from Optimization.simdriver.workpool import InlineExecutor, Job, WorkPool
 from Optimization.config.sim_config import (CONFIG, INBOUND_KEYS, STAFFING_KEYS, staffing_spec,
                                             staffing_provenance, regime_sizing_from_config,
                                             _setup_logging, _OUTPUT_DIR)
@@ -95,6 +99,7 @@ def _staffing_record() -> dict:
 _CFG_CTX: dict = {}
 _SITE_CTX: dict = {}
 _AGG_CTX: dict = {}
+_CTX_CELL: list = [None]       # the cell the caches above belong to
 
 
 def _worker_log() -> logging.Logger:
@@ -150,6 +155,13 @@ def _run_job(job: dict):
     (target, error, access_tally) — the tally is this job's broker grant/denial counts,
     carried back to the parent for the run-end `[access]` summary."""
     log = _worker_log()
+    # ONE pool over every cell (2026-09-19): the context caches below are keyed by
+    # cell-specific paths, so a stale entry can never be reused for the wrong cell --
+    # but nothing would ever free them.  Evicted when the cell changes, which under
+    # the pool's per-cell submission order is once per cell per worker.
+    if job.get('cell') != _CTX_CELL[0]:
+        _CFG_CTX.clear(); _SITE_CTX.clear(); _AGG_CTX.clear()
+        _CTX_CELL[0] = job.get('cell')
     preset = PRESETS[job['preset']]
     # registry must be populated in this (child) process
     assert len(EVAL_BY_KEY) >= len(preset['keys']), 'evaluation registry not populated'
@@ -195,27 +207,6 @@ def _merge_tally(total: dict, part: dict) -> None:
     for key, (n, msg) in part.get('errors', {}).items():
         prev_n, _prev = total['errors'].get(key, (0, ''))
         total['errors'][key] = (prev_n + n, msg)
-
-
-def _drain(pool, jobs, log) -> dict:
-    """Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the
-    merged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs."""
-    tally = {'granted': {}, 'denied': {}, 'errors': {}, 'era': {}}
-    if pool is None:
-        for job in jobs:
-            tgt, err, part = _run_job(job)
-            _merge_tally(tally, part)
-            if err:
-                log.error(f'  Analysis failed for {tgt}: {err}')
-        return tally
-    futures = [pool.submit(_run_job, job) for job in jobs]
-    log.info(f'  Running {len(futures)} jobs across the pool...')
-    for fut in concurrent.futures.as_completed(futures):
-        tgt, err, part = fut.result()
-        _merge_tally(tally, part)
-        if err:
-            log.error(f'  Analysis failed for {tgt}: {err}')
-    return tally
 
 
 # ── job-list construction ────────────────────────────────────────────────────────
@@ -574,62 +565,56 @@ def _apply_run_shape(base_dir: str, log: logging.Logger) -> int | None:
     return spec.get('max_skus')
 
 
-def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
-                 preset: str = 'BY_INITIAL', granularity: str = 'config',
-                 cli_set: dict | None = None, only=()) -> None:
-    """Re-run analysis on all completed sims under *base_dir* via the registry.
+# ── the pool: every cell's three stages through ONE WorkPool ─────────────────────
 
-    Two sequential flat-pool stages (config, then cross-profile aggregate); each stage is a
-    single ProcessPoolExecutor sized by `workers` (workers<=1 runs inline)."""
-    cli_set = cli_set or {}
-    if preset not in PRESETS:
-        raise ValueError(f'unknown preset {preset!r}; choices: {sorted(PRESETS)}')
+def _analysis_executor(max_workers: int):
+    """The analysis pool's executor: a spawn `ProcessPoolExecutor` WITHOUT the sim pool's
+    recycling pin (`supervisor._sim_executor`).  Analysis jobs are seconds long, and
+    `'graph'` granularity co-schedules the graphs of one leaf on whatever worker gets them,
+    reusing a loaded context (`_CFG_CTX` and its siblings) -- a fresh process per job would
+    reload the context per graph.  The caches are evicted per CELL in `_run_job` instead, so
+    one pool over ten cells does not hold ten cells' contexts."""
+    return concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
 
-    rt, cell = _tree_for(base_dir)
-    # THE fix for the standalone path: restore the run's own shaping params before any
-    # warehouse is rebuilt.  Harmless in-process (run_simulation already set the same values).
-    max_skus = _apply_run_shape(base_dir, log)
-    pool = (concurrent.futures.ProcessPoolExecutor(max_workers=workers)
-            if workers and workers > 1 else None)
-    tally = {'granted': {}, 'denied': {}, 'errors': {}, 'era': {}}
-    try:
-        if only:
-            log.info(f'  PARTIAL re-render: only {sorted(only)} — output dirs are NOT '
-                     f'wiped, every other artifact is left as it is')
-        cfg_jobs = _config_jobs(base_dir, rt, preset, granularity, cli_set, log, max_skus,
-                                only=only)
-        log.info(f'  Config stage: {len(cfg_jobs)} job(s)  '
-                 f'(preset={preset}, granularity={granularity}, workers={workers})')
-        _merge_tally(tally, _drain(pool, cfg_jobs, log))
 
-        # aggregate stage needs every series doc on disk first
-        log.info('  Building cross-profile aggregate suites...')
-        agg_jobs = _aggregate_jobs(base_dir, rt, cell, preset, granularity, cli_set, log,
-                                   only=only)
-        _merge_tally(tally, _drain(pool, agg_jobs, log))
+def _cell_record(rt, cell: str):
+    """The cell's own record from the run descriptor as a `Cell`, or None when the run has no
+    descriptor (a scratch tree) or the descriptor predates the record.
 
-        # THE SITE STAGE, a third flat pool over the same workers: one job per (pair) on a
-        # COUPLED run, reading the contract's `site_inbound_db` beside both leaves' own
-        # DBs.  Zero jobs on every uncoupled run, which is the whole archive — stated in the
-        # log either way, because "no jobs" and "jobs that produced nothing" are different
-        # claims and only the `[render]` summary separates them.
-        site_jobs = _site_jobs(base_dir, rt, cell, preset, granularity, cli_set, log,
-                               only=only)
-        log.info(f'  Site stage: {len(site_jobs)} job(s)  (coupled pairs only)')
-        _merge_tally(tally, _drain(pool, site_jobs, log))
-    finally:
-        if pool is not None:
-            pool.shutdown()
+    APPLIED BEFORE A CELL'S JOBS ARE BUILT (`cells.cell_scope`), because two things the
+    config stage stamps on `sim_result` are CELL-axis values read off the RUN-level CONFIG
+    `_apply_run_shape` restored: the inbound keys `_sim_result_from_meta` copies (phase 2's
+    axis sets `dock_doors`, `door_team` and `fee_threshold_days` per cell, so `inb_off`
+    reported a dock ceiling it did not have) and `sizing.aisle_split`, which
+    `regime_sizing_from_config()` reads and `_apply_run_shape` never restores (a `ks` sweep
+    was analyzed under the LAST cell's split, every cell of it).  The descriptor records
+    exactly what the driver applied (`Cell._asdict()`), so this is the same write, per cell,
+    undone when the cell's jobs are built."""
+    for rec in (getattr(rt, 'layout', None) or {}).get('cells') or ():
+        if isinstance(rec, dict) and rec.get('name') == cell and 'scheduler' in rec:
+            return Cell(rec['name'], rec.get('split'),
+                        dict(rec.get('zoning') or {'enabled': False}),
+                        rec.get('scheduler') or 'round_robin', rec.get('inbound'))
+    return None
 
+
+def _job_key(job: dict) -> tuple:
+    """A job's identity within its cell: stage, the directory it renders into, its keys."""
+    return (job['stage'], job.get('run_dir') or job.get('out_dir'), tuple(job['eval_keys']))
+
+
+def _log_summaries(tally: dict, log: logging.Logger, cell: str) -> None:
+    """The run-end summaries, per cell -- three claims that must stay separate."""
+    tag = f'[{cell}] ' if cell else ''
     # Run-end access summary — "did every consumer get what it asked for", from the log alone.
     n_granted = sum(tally['granted'].values())
     n_denied = sum(tally['denied'].values())
     if n_denied:
         per_eval = ', '.join(f'{k} x{n}' for k, n in sorted(tally['denied'].items()))
-        log.warning(f'[access] run summary: {n_granted} granted, {n_denied} DENIED '
+        log.warning(f'{tag}[access] run summary: {n_granted} granted, {n_denied} DENIED '
                     f'({per_eval}) — see the DENIED lines above for reasons')
     else:
-        log.info(f'[access] run summary: all {n_granted} evaluation requests granted, 0 denials')
+        log.info(f'{tag}[access] run summary: all {n_granted} evaluation requests granted, 0 denials')
 
     # Run-end ERA summary, beside the access one and deliberately NOT inside it.  An era
     # shortfall is a fact about the RUN's vintage, not about this pipeline: the file was
@@ -640,7 +625,7 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
     n_era = sum(tally.get('era', {}).values())
     if n_era:
         per_eval = ', '.join(f'{k} x{n}' for k, n in sorted(tally['era'].items()))
-        log.info(f'[era] run summary: {n_era} evaluation(s) skipped — this run cannot '
+        log.info(f'{tag}[era] run summary: {n_era} evaluation(s) skipped — this run cannot '
                  f'answer them ({per_eval}); see the [era] lines above for which '
                  f'capability each needed')
 
@@ -652,10 +637,120 @@ def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
     errs = tally.get('errors', {})
     if errs:
         per_eval = '; '.join(f'{k} x{n}: {msg}' for k, (n, msg) in sorted(errs.items()))
-        log.warning(f'[render] run summary: {len(errs)} evaluation(s) RAISED and produced '
+        log.warning(f'{tag}[render] run summary: {len(errs)} evaluation(s) RAISED and produced '
                     f'nothing — {per_eval}')
     else:
-        log.info('[render] run summary: no evaluation raised')
+        log.info(f'{tag}[render] run summary: no evaluation raised')
+
+
+def analyze_cells(cell_items, log: logging.Logger, *, workers: int = 1,
+                  preset: str = 'BY_INITIAL', granularity: str = 'config',
+                  cli_set: dict | None = None, only=()) -> dict:
+    """Every cell's three stages -- config, aggregate, site -- through ONE pool.
+
+    `cell_items` is `[(cell_name, cell_dir), ...]`.  Until 2026-09-19 `analyze_run` ran the
+    cells one after another and each opened its own pool with three barriers inside it
+    (config, then aggregate, then site), so on a ten-cell run most of a big `--workers` sat
+    idle for most of the stage.  Now the parent builds each cell's config jobs (the shape
+    rebuild per pair, the output-dir pre-pass) and submits them; the cell's aggregate and
+    site jobs are built by a CONTINUATION once its config jobs have resolved -- they must
+    be, because `_aggregate_jobs` reads the series docs the config stage wrote -- and
+    submitted behind whatever is already queued.  No cell waits for another.
+
+    A rebuild after a hard worker death re-emits the job dicts already in hand.  It must
+    never re-run `_config_jobs` and its siblings: their pre-pass wipes the output dirs, and
+    a wipe with sibling jobs finished would delete what they rendered.
+
+    Returns `{cell: tally}`; the per-cell summaries are logged here."""
+    cli_set = cli_set or {}
+    if preset not in PRESETS:
+        raise ValueError(f'unknown preset {preset!r}; choices: {sorted(PRESETS)}')
+    cell_items = list(cell_items)
+    if not cell_items:
+        return {}
+    # THE fix for the standalone path: restore the run's own shaping params before any
+    # warehouse is rebuilt.  Harmless in-process (run_simulation already set the same values).
+    # Once: the spec is the RUN's, resolved from any cell dir's parent.
+    max_skus = _apply_run_shape(cell_items[0][1], log)
+    if only:
+        log.info(f'  PARTIAL re-render: only {sorted(only)} — output dirs are NOT '
+                 f'wiped, every other artifact is left as it is')
+    tallies = {cell: {'granted': {}, 'denied': {}, 'errors': {}, 'era': {}}
+               for cell, _dir in cell_items}
+    in_hand: dict = {}                              # cell -> {key: job dict}, for a rebuild
+
+    def _as_jobs(cell, jobs):
+        out = []
+        for job in jobs:
+            job['cell'] = cell                      # the worker evicts its caches on a change
+            key = _job_key(job)
+            in_hand.setdefault(cell, {})[key] = job
+            out.append(Job(key=key, fn=_run_job, payload=job))
+        return out
+
+    def _on_success(cell, key, job, res):
+        tgt, err, part = res
+        _merge_tally(tallies[cell], part)
+        if err:
+            log.error(f'  Analysis failed for {tgt}: {err}')
+
+    def _on_failure(cell, key, job, exc):
+        log.error(f'  Analysis failed for {job.get("run_dir") or job.get("out_dir")}: {exc!r}')
+
+    factory = _analysis_executor if workers and workers > 1 else InlineExecutor
+    with WorkPool(max(1, workers or 1), log, executor_factory=factory, worker_logging=False,
+                  on_success=_on_success, on_failure=_on_failure) as pool:
+        for cell, cell_dir in cell_items:
+            rt, _cell = _tree_for(cell_dir)
+            rec = _cell_record(rt, cell)
+
+            def _under_the_cell(build, rec=rec):
+                if rec is None:
+                    return build()
+                with cell_scope(rec):
+                    return build()
+
+            cfg_jobs = _under_the_cell(lambda: _config_jobs(
+                cell_dir, rt, preset, granularity, cli_set, log, max_skus, only=only))
+            log.info(f'  [{cell}] Config stage: {len(cfg_jobs)} job(s)  '
+                     f'(preset={preset}, granularity={granularity}, workers={workers})')
+            jobs = _as_jobs(cell, cfg_jobs)
+            pool.submit(cell, jobs)
+
+            def _after_config(cell=cell, cell_dir=cell_dir, rt=rt, under=_under_the_cell):
+                # aggregate stage needs every series doc on disk first
+                log.info(f'  [{cell}] Building cross-profile aggregate suites...')
+                agg = under(lambda: _aggregate_jobs(cell_dir, rt, cell, preset, granularity,
+                                                    cli_set, log, only=only))
+                # THE SITE STAGE: one job per pair on a COUPLED run, reading the contract's
+                # `site_inbound_db` beside both leaves' own DBs.  Zero jobs on every
+                # uncoupled run, which is the whole archive — stated in the log either way,
+                # because "no jobs" and "jobs that produced nothing" are different claims
+                # and only the `[render]` summary separates them.
+                site = under(lambda: _site_jobs(cell_dir, rt, cell, preset, granularity,
+                                                cli_set, log, only=only))
+                log.info(f'  [{cell}] Site stage: {len(site)} job(s)  (coupled pairs only)')
+                pool.submit(cell, _as_jobs(cell, agg + site))
+            pool.when_done(cell, [j.key for j in jobs], _after_config)
+            pool.absorb()
+        left = pool.finish(rebuild=lambda cell: [Job(key=k, fn=_run_job, payload=j)
+                                                 for k, j in in_hand.get(cell, {}).items()])
+    for cell, _dir in cell_items:
+        _log_summaries(tallies[cell], log, cell if len(cell_items) > 1 else '')
+    if left:
+        log.error(f'  [analysis] {sum(len(v) for v in left.values())} job(s) never completed '
+                  f'across {len(left)} cell(s); their artifacts are missing or stale')
+    return tallies
+
+
+def run_analysis(base_dir: str, log: logging.Logger, workers: int = 1,
+                 preset: str = 'BY_INITIAL', granularity: str = 'config',
+                 cli_set: dict | None = None, only=()) -> None:
+    """Re-run analysis on ONE cell -- `base_dir` is a CELL dir: the standalone CLI and the
+    harness entry -- through the same pool `analyze_cells` drives a whole run with."""
+    _rt, cell = _tree_for(base_dir)
+    analyze_cells([(cell, base_dir)], log, workers=workers, preset=preset,
+                  granularity=granularity, cli_set=cli_set, only=only)
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────────
