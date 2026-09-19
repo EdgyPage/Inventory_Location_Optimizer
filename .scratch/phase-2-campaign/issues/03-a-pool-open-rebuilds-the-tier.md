@@ -100,6 +100,12 @@ so the fold holds for the run. Pinned three ways in `test_frozen_tier.py`: plain
 per-aisle fold), the owner ledger (the inverse), and a view with an aisle overridden before
 the run -- eager and sliced, exact -- plus the fold's arithmetic term for term.
 
-- The cell-level digest of `_probe_unload_ref` (root `comparison_whatif_20260919_093001`,
-  launched 09:30 from snapshot `a58f67c2`) against the stopped run's finished cells
-  (`comparison_whatif_20260919_002111`) is recorded below when it lands.
+- Toy digest after the third cut, on the WIDENED `_toy_priced` (five families, 20 units):
+  baseline `comparison_whatif_20260919_122111` from a snapshot of `231d4f9d` (the last
+  placement code before this ticket) vs candidate `comparison_whatif_20260919_122139` from
+  HEAD `38bc098d`: **IDENTICAL on 40 arms**.
+- The first probe (`comparison_whatif_20260919_093001`, snapshot `a58f67c2`) was stopped
+  after its fifo cell digested IDENTICAL (8 arms) against the stopped campaign's cell 1 --
+  the priced cell was pacing no faster on that cut. Relaunched from `38bc098d`.
+- The cell-level digest of that relaunch against the stopped run's finished cells is
+  recorded below when it lands (`comparison_whatif_20260919_002111` is the reference).
