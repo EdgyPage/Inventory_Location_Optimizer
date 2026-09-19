@@ -32,7 +32,18 @@ filled from the live dict and then appended to would have held.  The live dict d
 not change during a pool&#x27;s life (the purity rule), so the live half is stable.
 
 A missing key creates an empty list, as the `defaultdict(list)` it replaces did; there
-is no delete, because the drop path runs against the live book only.</section>
+is no delete, because the drop path runs against the live book only.
+
+READS ARE C-SPEED OR THEY ARE A REGRESSION.  The first draft yielded `items()` from a
+Python generator, one `k in o` per member, and the centroid -- which folds every member
+of the winning aisle on every unit -- went from 85 s to 292 s on the same unit, three
+times what the whole-aisle copy had cost.  So: an aisle whose lists this pool never wrote
+hands back the LIVE dict&#x27;s own `items()` (the overwhelming case: a winner is read before
+it is written), and an aisle it did write merges once into a plain dict -- live keys in
+live order, the overlay&#x27;s list in place of the live one, created keys appended -- cached
+until the overlay gains a KEY (an append to an existing copied list is visible through
+the merge, since it holds the same list object).  A written aisle therefore pays one
+O(members) merge per new key, on its next read; the old view paid one per first touch.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_cow_py___CowListsByKey___getitem__.html"><code>__getitem__</code></a> <span class="dim">Inbound/gain_cow.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_cow_py___CowInner">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain_cow.py#:~:text=class%20_CowInner">Source ↗</a></p>
 </article>

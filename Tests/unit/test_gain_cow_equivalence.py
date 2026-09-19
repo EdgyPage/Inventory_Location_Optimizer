@@ -107,6 +107,31 @@ def test_each_view_leaves_its_live_dict_untouched():
     assert L[1][7] == [1.0, 2.0, 3.0]
 
 
+def test_the_inner_view_iterates_in_the_materialised_copys_order():
+    """`_CowInner.items()` is what the partner centroid folds, in iteration order, into a
+    float -- so the order must be exactly the old whole-aisle copy's: live keys in live
+    order (the overlay's list where one exists), then the keys the overlay created, in
+    creation order.  And reads of an UNWRITTEN aisle come straight off the live dict."""
+    live = {1: {30: [1.0], 10: [2.0, 3.0], 20: [4.0]}}
+    L = gain_cow._CowListsByKey(live)
+    inner = L[1]
+    assert list(inner.items()) == [(30, [1.0]), (10, [2.0, 3.0]), (20, [4.0])]
+    assert inner.items() is live[1].items() or list(inner.items()) == list(live[1].items())
+    inner[10].append(9.0)                    # write: copies that one list only
+    inner[99].append(5.0)                    # a created key: appended last
+    inner[5].append(6.0)                     # another: after it
+    assert list(inner.items()) == [(30, [1.0]), (10, [2.0, 3.0, 9.0]), (20, [4.0]),
+                                   (99, [5.0]), (5, [6.0])]
+    assert list(inner) == [30, 10, 20, 99, 5] and len(inner) == 5
+    assert live[1] == {30: [1.0], 10: [2.0, 3.0], 20: [4.0]}, 'the live lists moved'
+    inner[10].append(11.0)                   # an append to a copied list is seen without a rebuild
+    assert dict(inner.items())[10] == [2.0, 3.0, 9.0, 11.0]
+    assert inner.get(30) is live[1][30] and inner.get(404) is None and 404 not in inner
+    import pytest as _pt
+    with _pt.raises(TypeError):
+        del inner[10]
+
+
 def test_a_view_that_shares_the_live_container_is_caught():
     """SABOTAGE. Purity passing above proves nothing unless a broken view would fail it.
 

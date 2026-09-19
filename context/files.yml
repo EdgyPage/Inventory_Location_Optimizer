@@ -4584,6 +4584,7 @@ files:
     key_symbols:
       - {name: "test_the_two_tables_cover_each_other", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
       - {name: "test_each_view_leaves_its_live_dict_untouched", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
+      - {name: "test_the_inner_view_iterates_in_the_materialised_copys_order", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
       - {name: "test_a_view_that_shares_the_live_container_is_caught", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
       - {name: "test_the_view_copies_strictly_less_than_the_copy", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}
       - {name: "test_every_view_shape_reproduces_the_eager_copy_exactly", file: "Tests/unit/test_gain_cow_equivalence.py", kind: "function"}

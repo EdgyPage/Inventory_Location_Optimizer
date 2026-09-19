@@ -1247,7 +1247,7 @@
     },
     "Inbound/gain_cow.py::_CowInner": {
       "decorators": [],
-      "doc": "One aisle's `{sku_idx: [x_phys, ...]}` over the LIVE inner mapping: a read falls\nthrough to the live list (read-only by contract, like `_CowView.get`), and a write --\n`inner[idx].append(...)` -- copies THAT one list, never the aisle.\n\nWHY.  `_CowListsByKey` used to materialise an aisle's whole inner mapping (every SKU's\nlist) the first time a pool touched it.  The min-labor pool touches every aisle it\nwins, every pool open: 768k materialisations for 71 s on a six-day coupled unit at\ncampaign scale (ticket 03), copying hundreds of lists to append to one.\n\nORDER IS THE CONTRACT.  `_demand_weighted_partner_centroid` folds `member_pos.items()`\nin iteration order, so this must iterate exactly as the materialised copy did: the\nlive keys in live order (with the overlay's list substituted where one exists), then\nthe keys the overlay created, in creation order -- which is what a copy that was\nfilled from the live dict and then appended to would have held.  The live dict does\nnot change during a pool's life (the purity rule), so the live half is stable.\n\nA missing key creates an empty list, as the `defaultdict(list)` it replaces did; there\nis no delete, because the drop path runs against the live book only.",
+      "doc": "One aisle's `{sku_idx: [x_phys, ...]}` over the LIVE inner mapping: a read falls\nthrough to the live list (read-only by contract, like `_CowView.get`), and a write --\n`inner[idx].append(...)` -- copies THAT one list, never the aisle.\n\nWHY.  `_CowListsByKey` used to materialise an aisle's whole inner mapping (every SKU's\nlist) the first time a pool touched it.  The min-labor pool touches every aisle it\nwins, every pool open: 768k materialisations for 71 s on a six-day coupled unit at\ncampaign scale (ticket 03), copying hundreds of lists to append to one.\n\nORDER IS THE CONTRACT.  `_demand_weighted_partner_centroid` folds `member_pos.items()`\nin iteration order, so this must iterate exactly as the materialised copy did: the\nlive keys in live order (with the overlay's list substituted where one exists), then\nthe keys the overlay created, in creation order -- which is what a copy that was\nfilled from the live dict and then appended to would have held.  The live dict does\nnot change during a pool's life (the purity rule), so the live half is stable.\n\nA missing key creates an empty list, as the `defaultdict(list)` it replaces did; there\nis no delete, because the drop path runs against the live book only.\n\nREADS ARE C-SPEED OR THEY ARE A REGRESSION.  The first draft yielded `items()` from a\nPython generator, one `k in o` per member, and the centroid -- which folds every member\nof the winning aisle on every unit -- went from 85 s to 292 s on the same unit, three\ntimes what the whole-aisle copy had cost.  So: an aisle whose lists this pool never wrote\nhands back the LIVE dict's own `items()` (the overwhelming case: a winner is read before\nit is written), and an aisle it did write merges once into a plain dict -- live keys in\nlive order, the overlay's list in place of the live one, created keys appended -- cached\nuntil the overlay gains a KEY (an append to an existing copied list is visible through\nthe merge, since it holds the same list object).  A written aisle therefore pays one\nO(members) merge per new key, on its next read; the old view paid one per first touch.",
       "kind": "class",
       "signature": ""
     },
@@ -1292,6 +1292,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_CowInner._view": {
+      "decorators": [],
+      "doc": "The merged mapping, in the materialised copy's order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
     },
     "Inbound/gain_cow.py::_CowInner.get": {
       "decorators": [],

@@ -1181,7 +1181,27 @@
       "src": "Inbound/gain_cow.py::AISLE_COPIERS"
     },
     {
-      "dst": "Inbound/gain_cow.py::_CowInner.items",
+      "dst": "Inbound/gain_cow.py::_CowInner._view",
+      "kind": "calls",
+      "src": "Inbound/gain_cow.py::_CowInner.__iter__"
+    },
+    {
+      "dst": "Inbound/gain_cow.py::_CowInner._view",
+      "kind": "calls",
+      "src": "Inbound/gain_cow.py::_CowInner.__len__"
+    },
+    {
+      "dst": "Inbound/gain_cow.py::_CowInner._view",
+      "kind": "calls",
+      "src": "Inbound/gain_cow.py::_CowInner.items"
+    },
+    {
+      "dst": "Inbound/gain_cow.py::_CowInner._view",
+      "kind": "calls",
+      "src": "Inbound/gain_cow.py::_CowInner.keys"
+    },
+    {
+      "dst": "Inbound/gain_cow.py::_CowInner._view",
       "kind": "calls",
       "src": "Inbound/gain_cow.py::_CowInner.values"
     },
@@ -23144,6 +23164,14 @@
       "kind": "function",
       "module": "Inbound/gain_cow.py",
       "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_CowInner._view",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "_view",
       "public": false
     },
     {

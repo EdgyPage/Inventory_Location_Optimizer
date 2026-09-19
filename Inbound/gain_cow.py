@@ -302,13 +302,25 @@ class _CowInner:
 
     A missing key creates an empty list, as the `defaultdict(list)` it replaces did; there
     is no delete, because the drop path runs against the live book only.
+
+    READS ARE C-SPEED OR THEY ARE A REGRESSION.  The first draft yielded `items()` from a
+    Python generator, one `k in o` per member, and the centroid -- which folds every member
+    of the winning aisle on every unit -- went from 85 s to 292 s on the same unit, three
+    times what the whole-aisle copy had cost.  So: an aisle whose lists this pool never wrote
+    hands back the LIVE dict's own `items()` (the overwhelming case: a winner is read before
+    it is written), and an aisle it did write merges once into a plain dict -- live keys in
+    live order, the overlay's list in place of the live one, created keys appended -- cached
+    until the overlay gains a KEY (an append to an existing copied list is visible through
+    the merge, since it holds the same list object).  A written aisle therefore pays one
+    O(members) merge per new key, on its next read; the old view paid one per first touch.
     """
 
-    __slots__ = ('_live', '_over')
+    __slots__ = ('_live', '_over', '_merged')
 
     def __init__(self, live):
         self._live = live if live is not None else {}
         self._over: dict = {}
+        self._merged = None
 
     def __getitem__(self, k):
         o = self._over
@@ -316,7 +328,15 @@ class _CowInner:
         if got is None:
             src = self._live.get(k)
             got = o[k] = list(src) if src is not None else []
+            self._merged = None            # a new key: the merged view is stale
         return got
+
+    def _view(self) -> dict:
+        """The merged mapping, in the materialised copy's order."""
+        m = self._merged
+        if m is None:
+            m = self._merged = {**self._live, **self._over}
+        return m
 
     def get(self, k, default=None):
         o = self._over
@@ -326,30 +346,19 @@ class _CowInner:
         return k in self._over or k in self._live
 
     def __iter__(self):
-        live = self._live
-        for k in live:
-            yield k
-        for k in self._over:
-            if k not in live:
-                yield k
+        return iter(self._live if not self._over else self._view())
 
     def __len__(self):
-        live = self._live
-        return len(live) + sum(1 for k in self._over if k not in live)
+        return len(self._live) if not self._over else len(self._view())
 
     def keys(self):
-        return list(self)
+        return (self._live if not self._over else self._view()).keys()
 
     def items(self):
-        o, live = self._over, self._live
-        for k, v in live.items():
-            yield k, (o[k] if k in o else v)
-        for k, v in o.items():
-            if k not in live:
-                yield k, v
+        return (self._live if not self._over else self._view()).items()
 
     def values(self):
-        return [v for _k, v in self.items()]
+        return (self._live if not self._over else self._view()).values()
 
     def __delitem__(self, k):
         raise TypeError('a copy-on-write inner view has no delete: the drop path runs against '
