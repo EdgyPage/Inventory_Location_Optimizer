@@ -45,3 +45,11 @@ memoised, score inlined): cartlabor drain 213 -> 137 s. Cut 3 (row once per run,
 once through the ledger's inverse, `_partner_deltas`): minlabor drain 634 -> 346 s. The wave
 path benefits from cut 3 too. Lesson: **profile the coupled unit** -- the fulfillment leaf places
 18k units a day against the store's 2.8k, so a store-only profile mis-ranks the terms.
+
+**Measured on the campaign's own priced cell (2026-09-19 afternoon, probe vs the stopped run,
+same seeds):** the winner-pair unit's drain per 4-day window 2,386 s -> 1,109 s, wall to batch
+8 3,426 s -> 1,615 s: the priced unit is ~2.1x faster after the four cuts (tier overlay, bucket
+heads + memoised per_pick, min-labor per-run caches with deltas through the inverse, one-list
+copy-on-write), all byte-identical (toy digests IDENTICAL on 40 arms; the probe's fifo cell
+IDENTICAL on 8 arms at 200k SKUs). A priced cell is ~3 h at 12 workers; the 40-unit
+`inbound_unload` campaign ~22 h.

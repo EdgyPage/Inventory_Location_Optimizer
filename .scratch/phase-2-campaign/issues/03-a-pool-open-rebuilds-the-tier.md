@@ -133,5 +133,17 @@ the run -- eager and sliced, exact -- plus the fold's arithmetic term for term.
   40 arms, twice.
 - Probe relaunch from `38bc098d` (root `comparison_whatif_20260919_123309`): cell 1's winner
   units took 19 min against 27 on the stopped run -- the WAVE path's gain from cut 3.
+- **The priced cell at campaign scale, the number that matters** (probe cell `k1_off_gmyopic`,
+  12 workers, 4 units, against the stopped run's cell 3 -- same seeds, same `dur` per batch):
+
+  | unit | window | stopped run (reord / wall) | probe (reord / wall) | speed-up |
+  |---|---|---|---|---|
+  | uni cartlabor+minlabor | batches 1-4 | 843 s / 1,022 s | 315 s / 488 s | 2.7x / 2.1x |
+  | uni cartlabor+minlabor | batches 5-8 | 2,386 s / 2,404 s | 1,109 s / 1,127 s | 2.2x / 2.1x |
+  | opt cartlabor+minlabor | batches 5-8 | 1,275 s | 624 s | 2.0x |
+
+  The stopped run's uni unit took 6 h 05 min end to end (02:14 -> 08:19); at this pace the
+  probe's takes ~2.9 h, so a priced cell is ~3 h and the 40-unit campaign ~22 h at 12 workers,
+  against the ~2.5 days it was heading for. The unpriced cell's winner units went 27 -> 19 min.
 - The cell-level digest of that relaunch against the stopped run's finished cells is
   recorded below when it lands (`comparison_whatif_20260919_002111` is the reference).
