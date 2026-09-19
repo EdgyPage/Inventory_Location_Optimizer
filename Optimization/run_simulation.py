@@ -84,22 +84,23 @@ from Optimization.simdriver.batch_precompute import ensure_batches
 from Optimization.runschema.runlayout import discover_db_pairs, find_latest_db_pairs, iter_sim_dbs  # noqa: F401,E402
 
 # ── Driver package (Phase 2 extraction) ──────────────────────────────────────────
-# The cell matrix, work-unit builder, crash-recovery supervisor, and scenario driver moved to
+# The cell matrix, work-unit builder, the pool's sim-side books, and the scenario driver moved to
 # Optimization.simdriver.  Re-exported here because tests, Diagnostics, and the arch graph reference
 # them as rs.<name>.  CONFIG stays the SAME object (from sim_config above), never rebound —
-# _apply_cell / _run_whatif_matrix mutate it in place.
+# `cells.cell_scope` / _run_whatif_matrix mutate it in place (and the scope restores it).
 from Optimization.simdriver.cells import (                # noqa: F401,E402
-    _SCHED_SHORT, _build_cells, _apply_cell, _tightest_split, _cell_complete,
+    _SCHED_SHORT, _build_cells, _apply_cell, _tightest_split, _cell_complete, cell_scope,
     reference_cell,
 )
 from Optimization.simdriver.workunits import (            # noqa: F401,E402
     _plan_strategy_start, _prepare_channel_run, _channel_runs_for, _build_work_units,
 )
 from Optimization.simdriver.supervisor import (           # noqa: F401,E402
-    _finalize_config_run, _finalize_ready_groups, _run_pool, _supervise, _run_workers_flat,
+    _finalize_config_run, _finalize_ready_groups, SimBooks, sim_jobs, _sim_executor,
 )
+from Optimization.simdriver.workpool import WorkPool      # noqa: F401,E402
 from Optimization.simdriver.scenario import (             # noqa: F401,E402
-    _warn_blank_arms, _run_scenario, _run_whatif_matrix,
+    _warn_blank_arms, _run_cells, _run_whatif_matrix,
 )
 
 
@@ -478,7 +479,7 @@ def _build_parser() -> argparse.ArgumentParser:
                              'and older scripts, but a larger value is refused with a warning. '
                              'One fresh process per job is the cleanest memory flush, and the '
                              'only run that ever honoured a larger value deadlocked the pool at '
-                             'a cell boundary (see supervisor._supervise). Workers reload their '
+                             'a cell boundary (see supervisor._sim_executor). Workers reload their '
                              'assets per job anyway, so the spawn saving is ~10 s against a job '
                              'measured in minutes.')
     parser.add_argument('--max-skus', type=int, default=None, metavar='N',
@@ -946,7 +947,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def _refuse_incomplete(info: dict, base_dir: str, log) -> None:
     """Exit 1, and run NO analysis, when the matrix left units unrecovered.
 
-    THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  `supervisor._supervise` has always
+    THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  The pool driver (today
+    `workpool.WorkPool.finish`, then `supervisor._supervise`) has always
     logged the unrecovered units at ERROR with a resume command, and every level above it
     returned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run
     the analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print "All
@@ -1077,7 +1079,7 @@ def main():
         log.warning(f'  --max-tasks-per-child {args.max_tasks_per_child} ignored: worker '
                     f'recycling is pinned at 1. A larger value deadlocked the pool at a cell '
                     f'boundary (18 workers, zero CPU, no error); the spawn saving it buys is '
-                    f'~10 s per multi-minute job. See supervisor._supervise.')
+                    f'~10 s per multi-minute job. See supervisor._sim_executor.')
 
     # Structural-floor check, HERE rather than mid-build: the store's bucket set is the
     # handling x category x tier cross-product, so its one-aisle-per-bucket floor is fixed by

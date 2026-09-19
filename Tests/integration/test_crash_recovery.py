@@ -78,56 +78,76 @@ def test_finalize_gate_skips_group_with_a_failed_arm(tmp_path):
 def _fake_units(tmp_path):
     gk = ('prof', 'cfg', 'store')
     uids = [(*gk, 'a'), (*gk, 'b')]
-    units = [(u, {'strategy': u[3]}) for u in uids]
+    # `group_keys` / `arm_key` as `workunits._stamp_identity` stamps them: the success path
+    # reads the unit's identity off its payload, never off a uid slice.
+    units = [(u, {'strategy': u[3], 'group_keys': [gk], 'arm_key': u[3]}) for u in uids]
     meta = {gk: {'sim_skeleton': _skeleton(tmp_path, ['a', 'b']),
                  'members': frozenset(uids)}}
     return units, meta, gk, uids
 
 
-def test_supervise_rebuilds_pool_and_resubmits(monkeypatch, tmp_path):
+# Driven through `scenario._run_cells` -- the production path -- over a THREAD executor
+# (`sc._sim_executor` patched) and a fake worker (`supervisor._run_strategy_worker` patched,
+# which `sim_jobs` reads at call time).  `_build_work_units` is faked where `scenario` reads
+# it, and the worker-death probe (a subprocess) is stubbed at `workpool`.
+
+def _drive(monkeypatch, tmp_path, units, meta, worker, *, max_retries=2, assets=None,
+           on_build=None):
+    from concurrent.futures import ThreadPoolExecutor
+    from Optimization.simdriver import scenario as sc, supervisor as sup, workpool as wp
+    from Optimization.simdriver.cells import Cell
+    builds = []
+
+    def fake_build(pairs, base, shared, log_, log_queue, workers, **kw):
+        builds.append(kw.get('mid_flight', False))
+        if on_build is not None:
+            on_build(kw)
+        return list(units), dict(meta)
+    monkeypatch.setattr(sc, '_build_work_units', fake_build)
+    monkeypatch.setattr(sc, '_sim_executor', lambda n: ThreadPoolExecutor(max_workers=n))
+    monkeypatch.setattr(sup, '_run_strategy_worker', worker)
+    monkeypatch.setattr(wp, '_explain_worker_death', lambda log, mod: None)
+    left = sc._run_cells(
+        str(tmp_path), [('prof', 'i', 'a')], [Cell('k1_off', None, {'enabled': False}, 'round_robin')],
+        _LOG, workers=2, assets_for=assets or (lambda cell, cell_dir: {'prof': {}}),
+        max_retries=max_retries, resume_granularity='strategy')
+    return left, builds
+
+
+def test_the_pool_rebuilds_and_resubmits_after_a_break(monkeypatch, tmp_path):
+    from concurrent.futures.process import BrokenProcessPool
     _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
     units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
-    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
-                        lambda *a, **k: (units, dict(meta)))
-    n = {'calls': 0}
+    gen = {'n': 0}
 
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
-        n['calls'] += 1
-        if n['calls'] == 1:
-            done_uids.add(uid_a)                 # one arm lands, then the pool breaks
-            return set(), True
-        for uid, _sa in remaining:               # rebuild: the rest complete
-            done_uids.add(uid)
-        rs._finalize_ready_groups(meta_, done_uids, finalized, log)
-        return set(), False
-    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
+    def worker(sa):
+        if sa['strategy'] == 'b' and gen['n'] == 0:
+            gen['n'] = 1
+            raise BrokenProcessPool('hard worker death')   # one arm lands, then the pool breaks
+        return {'done': 1, 'elapsed': 0.0, 'strategy': sa['strategy']}
 
-    rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
-                  log_queue=None, max_tasks_per_child=1, skip_completed=False,
-                  max_retries=2, resume_granularity='strategy')
-
-    assert n['calls'] == 2, 'supervisor did not rebuild + resubmit after a broken pool'
+    left, builds = _drive(monkeypatch, tmp_path, units, meta, worker)
+    assert left == {}, left
+    assert builds == [False, True], 'the pool did not rebuild + resubmit after a broken pool'
     assert (tmp_path / 'sim_meta.json').exists(), 'group not finalized after full recovery'
 
 
-def test_supervise_quarantines_persistent_failure(monkeypatch, tmp_path):
+def test_a_persistent_failure_is_quarantined(monkeypatch, tmp_path):
     _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
     units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
-    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
-                        lambda *a, **k: (units, dict(meta)))
 
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
-        done_uids.add(uid_a)                     # 'a' succeeds; 'b' deterministically fails
-        return {uid_b}, False                    # not broke → no retry (deterministic)
-    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
+    def worker(sa):
+        if sa['strategy'] == 'b':
+            raise RuntimeError('deterministic bad config')    # not broke -> no retry
+        return {'done': 1, 'elapsed': 0.0, 'strategy': sa['strategy']}
     warnings = []
     monkeypatch.setattr(_LOG, 'error', lambda m, *a, **k: warnings.append(m))
 
-    rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
-                  log_queue=None, max_tasks_per_child=1, skip_completed=False,
-                  max_retries=2, resume_granularity='strategy')
+    left, builds = _drive(monkeypatch, tmp_path, units, meta, worker)
 
     # the run did NOT abort; the failing arm's resume state is intact and it's reported
+    assert builds == [False], 'a deterministic failure must never trigger a rebuild'
+    assert left == {'k1_off': [uid_b]}
     assert os.path.exists(_resume_path(str(tmp_path))), 'quarantined arm lost its resume state'
     assert not (tmp_path / 'sim_meta.json').exists(), 'finalized a group with a quarantined arm'
     assert any('UNRECOVERED' in str(m) for m in warnings), 'no quarantine report emitted'
@@ -333,80 +353,62 @@ def test_fresh_branch_is_unchanged_on_an_empty_or_absent_db(tmp_path):
 # (`pool-run-swallows-dead-arms`, 2026-09-05).  The tests below pin each hop of the propagation
 # and the refusal at the top, on the same faked pool the quarantine test above uses.
 
-def test_supervise_returns_the_unrecovered_units(monkeypatch, tmp_path):
-    """The quarantine scenario above, read through the return value: 'b' failed, so ['b']."""
-    _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
-    units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
-    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
-                        lambda *a, **k: (units, dict(meta)))
-
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
-        done_uids.add(uid_a)
-        return {uid_b}, False
-    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
-    monkeypatch.setattr(_LOG, 'error', lambda m, *a, **k: None)
-
-    got = rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
-                        log_queue=None, max_tasks_per_child=1, skip_completed=False,
-                        max_retries=2, resume_granularity='strategy')
-    assert got == [uid_b], got
-
-
-def test_supervise_returns_an_empty_list_on_a_clean_run(monkeypatch, tmp_path):
+def test_a_clean_run_comes_back_empty(monkeypatch, tmp_path):
     """NON-VACUITY for the refusal: a clean run must come back empty, or every run exits 1."""
     _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
     units, meta, gk, (uid_a, uid_b) = _fake_units(tmp_path)
-    monkeypatch.setattr('Optimization.simdriver.supervisor._build_work_units',
-                        lambda *a, **k: (units, dict(meta)))
-
-    def fake_run_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
-        done_uids.update({uid_a, uid_b})
-        return set(), False
-    monkeypatch.setattr('Optimization.simdriver.supervisor._run_pool', fake_run_pool)
-
-    got = rs._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 2, _LOG,
-                        log_queue=None, max_tasks_per_child=1, skip_completed=False,
-                        max_retries=2, resume_granularity='strategy')
-    assert got == []
+    left, _builds = _drive(monkeypatch, tmp_path, units, meta,
+                           lambda sa: {'done': 1, 'elapsed': 0.0, 'strategy': sa['strategy']})
+    assert left == {}
+    assert (tmp_path / 'sim_meta.json').exists()
 
 
-def test_run_workers_flat_forwards_what_supervise_returns(monkeypatch, tmp_path):
-    """The hop that owns the Manager and the QueueListener: the value must survive its
-    try/finally.  A real Manager is started because that is the code path."""
-    monkeypatch.setattr('Optimization.simdriver.supervisor._supervise',
-                        lambda *a, **k: [('x', 'y', 'z')])
-    got = rs._run_workers_flat([], str(tmp_path), {}, 1, _LOG)
-    assert got == [('x', 'y', 'z')]
+def test_a_cell_whose_setup_raises_is_reported_not_raised(monkeypatch, tmp_path):
+    """A campaign pin that does not match, a derivation that disagrees with the record: the
+    setup raises, and with other cells' units in flight the exception must not unwind into
+    the pool (its exit would wait for them and book nothing).  Reported per cell instead."""
+    units, meta, gk, _ = _fake_units(tmp_path)
+
+    def bad_assets(cell, cell_dir):
+        raise RuntimeError('the derivation disagrees with the record')
+    left, builds = _drive(monkeypatch, tmp_path, units, meta,
+                          lambda sa: {'done': 1, 'elapsed': 0.0, 'strategy': sa['strategy']},
+                          assets=bad_assets)
+    assert left == {'k1_off': [('setup',)]}, left
+    assert builds == [], 'units were built for a cell whose assets never existed'
 
 
-def test_run_scenario_forwards_what_the_pool_left(monkeypatch, tmp_path):
-    from Optimization.simdriver import scenario as sc
-    monkeypatch.setattr(sc, 'write_run_manifest', lambda *a, **k: None)
-    monkeypatch.setattr(sc, 'build_shared_assets', lambda *a, **k: {})
-    monkeypatch.setattr(sc, '_warn_blank_arms', lambda *a, **k: None)
-    monkeypatch.setattr(sc, '_run_workers_flat', lambda *a, **k: ['left'])
-    got = sc._run_scenario(str(tmp_path), [('lbl', 'i.db', 'a.db')], None, 1, _LOG)
-    assert got == ['left']
+def test_a_leaf_whose_prepare_failed_is_reported(monkeypatch, tmp_path):
+    """A leaf whose `_prepare_channel_run` raised becomes NO unit, so nothing downstream could
+    report it and the run finished, exited 0 and simply lacked an arm.  The builder now hands
+    such leaves back through `failed=`, and they ride the unfinished report."""
+    _save_resume(str(tmp_path), {'a': 1, 'b': 2}, {'a': 0, 'b': 0})
+    units, meta, gk, _ = _fake_units(tmp_path)
+    left, _builds = _drive(monkeypatch, tmp_path, units, meta,
+                           lambda sa: {'done': 1, 'elapsed': 0.0, 'strategy': sa['strategy']},
+                           on_build=lambda kw: kw['failed'].append('prof/cfg2/store'))
+    assert left == {'k1_off': [('prepare', 'prof/cfg2/store')]}, left
+    assert (tmp_path / 'sim_meta.json').exists(), 'the leaves that DID prepare must still finish'
 
 
 def test_run_whatif_matrix_reports_unfinished_per_cell(monkeypatch, tmp_path):
-    """The matrix collects each cell's list under the cell's name, and a clean cell is absent
-    -- so `info['unfinished']` is empty exactly when the matrix is clean."""
+    """The matrix hands `_run_cells` every cell not already complete and returns what it
+    left, keyed by cell -- so `info['unfinished']` is empty exactly when the matrix is clean."""
     from Optimization.simdriver import scenario as sc
     from Optimization.config.whatif_config import SPECS
-    calls = []
+    seen = []
 
-    def fake_scenario(scenario_base, pairs, sizing, workers, log, *, cell='', **kw):
-        calls.append(cell)
-        return [('u', cell)] if cell.endswith('_off') else []
-    monkeypatch.setattr(sc, '_run_scenario', fake_scenario)
+    def fake_cells(base_dir, pairs, cells, log, **kw):
+        seen.extend(c.name for c in cells)
+        return {c.name: [('u', c.name)] for c in cells if c.name.endswith('_off')}
+    monkeypatch.setattr(sc, '_run_cells', fake_cells)
     monkeypatch.setattr(sc, 'build_shared_assets', lambda *a, **k: {'planned_inv_db': 'p.db'})
     monkeypatch.setattr(sc, '_record_coverage', lambda *a, **k: None)
 
     info = sc._run_whatif_matrix(str(tmp_path), [('lbl', 'i.db', 'a.db')], _LOG, SPECS['single'])
-    assert calls, 'the fake scenario never ran'
+    assert seen == ['k1_off'], 'the single cell never reached the pool driver'
     assert set(info) >= {'cells', 'reference', 'unfinished'}
-    assert info['unfinished'] == {c: [('u', c)] for c in calls if c.endswith('_off')}, info
+    assert info['unfinished'] == {'k1_off': [('u', 'k1_off')]}, info
 
 
 def test_refuse_incomplete_exits_one_with_the_resume_command(tmp_path):

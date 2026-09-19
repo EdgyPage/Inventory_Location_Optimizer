@@ -438,10 +438,13 @@ def test_the_supervisor_declares_its_retries_mid_flight(monkeypatch, tmp_path):
     reconciler could not tell a `--resume` of a dead run from a live rebuild -- and repairing
     during the latter deletes the output of units already in `done_uids`, which are filtered
     out of the resubmission and never rebuilt."""
-    from Optimization.simdriver import supervisor as sup
+    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures.process import BrokenProcessPool
+    from Optimization.simdriver import scenario as sc, supervisor as sup, workpool as wp
+    from Optimization.simdriver.cells import Cell
     gk = ('prof', 'cfg', 'store')
     uids = [(*gk, 'a'), (*gk, 'b')]
-    units = [(u, {'strategy': u[3]}) for u in uids]
+    units = [(u, {'strategy': u[3], 'group_keys': [gk], 'arm_key': u[3]}) for u in uids]
     meta = {gk: {'sim_skeleton': {'run_dir': str(tmp_path), 'name': 'cfg', 'inventory': 'p',
                                   'strategies': [], 'optimal_sigma_fd': 0.0,
                                   'optimal_work': 0.0},
@@ -450,24 +453,23 @@ def test_the_supervisor_declares_its_retries_mid_flight(monkeypatch, tmp_path):
 
     def _fake_build(*a, **k):
         flags.append(k['mid_flight'])
-        return units, dict(meta)
-    monkeypatch.setattr(sup, '_build_work_units', _fake_build)
-    n = {'calls': 0}
+        return list(units), dict(meta)
+    monkeypatch.setattr(sc, '_build_work_units', _fake_build)
+    monkeypatch.setattr(sc, '_sim_executor', lambda n: ThreadPoolExecutor(max_workers=n))
+    monkeypatch.setattr(wp, '_explain_worker_death', lambda log, mod: None)
 
-    def _fake_pool(remaining, meta_, mw, rec, log, done_uids, finalized, cell='', run_root=None):
-        n['calls'] += 1
-        if n['calls'] == 1:
-            done_uids.add(uids[0])
-            return set(), True                     # hard worker death -> rebuild
-        for uid, _sa in remaining:
-            done_uids.add(uid)
-        return set(), False
-    monkeypatch.setattr(sup, '_run_pool', _fake_pool)
+    def _worker(sa):
+        if sa['strategy'] == 'b' and len(flags) == 1:
+            raise BrokenProcessPool('hard worker death')    # -> rebuild
+        return {'done': 1, 'elapsed': 0.0, 'strategy': sa['strategy']}
+    monkeypatch.setattr(sup, '_run_strategy_worker', _worker)
 
-    sup._supervise([('prof', 'i', 'a')], str(tmp_path), {'prof': {}}, 1, _LOG,
-                   log_queue=None, max_tasks_per_child=1, skip_completed=False,
-                   max_retries=2, resume_granularity='strategy')
+    left = sc._run_cells(str(tmp_path), [('prof', 'i', 'a')],
+                         [Cell('', None, {'enabled': False}, 'round_robin')], _LOG, workers=1,
+                         assets_for=lambda c, d: {'prof': {}}, max_retries=2,
+                         resume_granularity='strategy')
 
+    assert left == {}, left
     assert flags == [False, True], \
         f'the first build must not be mid-flight and every retry must be: {flags}'
 

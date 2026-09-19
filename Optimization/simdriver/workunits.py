@@ -516,8 +516,14 @@ def _prepare_channel_run(
         # worker handed a wrong crew refuses rather than running under one its run spec
         # never declared or derived.
         staffing            = _staffing_payload,
-        velocity_zoning     = CONFIG['channels'].get(ch.name, {}).get('velocity_zoning'),
-        # log_queue is NOT set here — injected by the flat pool (_run_workers_flat)
+        # A COPY, never CONFIG's own dict.  Under the flat pool a unit is pickled only when a
+        # worker slot frees -- hours later, from the pool's own queue -- and the cell that
+        # built it has long since exited its `cell_scope`.  The scope restores by rebinding,
+        # so CONFIG's dict is untouched either way; the copy is the second half of that
+        # guarantee, so no future restore that refills a dict in place can reach a payload.
+        velocity_zoning     = (dict(_vz) if (_vz := CONFIG['channels'].get(ch.name, {})
+                                             .get('velocity_zoning')) is not None else None),
+        # log_queue is NOT set here — injected by the driver at submit (scenario._setup_cell)
     )
     strategy_args = [{**_shared, 'strategy': s.key, 'run_id': run_ids[s.key],
                       'start_i': starts[s.key], 'db_path': ch_db_path[s.key],
@@ -1330,8 +1336,13 @@ def _stamp_site_identity(ua: dict, label: str, cfg_names: dict) -> tuple:
 
 
 def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
-                      skip_completed, resume_granularity, mid_flight=False):
+                      skip_completed, resume_granularity, mid_flight=False, failed=None):
     """(Re-)prepare all work units from on-disk state.
+
+    `failed`, when a list is handed in, collects the tag of every leaf or coupled pair whose
+    PREPARE raised: such a leaf becomes no unit at all, so nothing downstream could report it
+    -- the run finished, exited 0 and simply lacked an arm.  The driver reports them as
+    unfinished (`scenario._run_cells`), which is what turns the silence into exit 1.
 
     Returns (work_units, meta):
       work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and
@@ -1404,6 +1415,8 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
                     resume_granularity=resume_granularity)
             except Exception as exc:
                 log.error(f'  [{label}/coupled] prepare FAILED: {exc}', exc_info=True)
+                if failed is not None:
+                    failed.append(f'{label}/coupled')
                 continue
             for ua in unit_args:
                 ua['log_queue'] = log_queue
@@ -1441,4 +1454,6 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
                     meta[gk] = {'sim_skeleton': sk, 'members': members}
             except Exception as exc:
                 log.error(f'  [{label}/{cfg_name}/{ch.name}] prepare FAILED: {exc}', exc_info=True)
+                if failed is not None:
+                    failed.append(f'{label}/{cfg_name}/{ch.name}')
     return work_units, meta

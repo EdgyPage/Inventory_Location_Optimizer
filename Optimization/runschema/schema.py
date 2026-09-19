@@ -391,7 +391,7 @@ ARTIFACTS = {
     'run_manifest': {
         'path': '{cell}/run_manifest.json', 'format': 'json', 'scope': 'cell',
         'writer': 'write_run_manifest@Optimization/runschema/sim_manifest.py',
-        'note': 'written PER CELL (_run_scenario receives the cell dir), not at the run root.'},
+        'note': 'written PER CELL (scenario._build_assets receives the cell dir), not at the run root.'},
     'channel_rollup_csv': {
         'path': '{cell}/channel_rollup.csv', 'format': 'csv', 'scope': 'cell',
         'writer': 'rollup@Optimization/run_channel_rollup.py'},

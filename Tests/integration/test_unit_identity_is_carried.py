@@ -3,13 +3,14 @@
 A work-unit uid is positional, and its four slots are `(pair, config, channel, arm)` only
 because every unit today is one channel leaf.  The coupled unit (site-dock 02) is
 `(label, 'coupled', arm_store, arm_ful)` — same arity, different meanings — so every parent-side
-slice of a uid is a seam.  `_run_pool`'s `expected_pick` attach sliced it INDEPENDENTLY of the
-finalize gate, so 02's carried `group_keys` would not have reached it: `meta[(label, 'coupled',
-arm_store)]` raises KeyError inside the success `try`, and a unit that SUCCEEDED is logged
-`strategy FAILED`, added to failed_uids, and never finalizes either leaf.
+slice of a uid is a seam.  The success path's `expected_pick` attach once sliced it
+INDEPENDENTLY of the finalize gate, so 02's carried `group_keys` would not have reached it:
+`meta[(label, 'coupled', arm_store)]` raises KeyError inside the success path, and a unit that
+SUCCEEDED is logged `strategy FAILED`, recorded unfinished, and never finalizes either leaf.
 
-These tests drive `_run_pool` with an inline fake pool (no real process pool, no DBs), so what
-is exercised is exactly the parent-side bookkeeping.
+These tests drive the sim books through the work pool with an inline executor (no real
+process pool, no DBs), so what is exercised is exactly the parent-side bookkeeping
+(`supervisor.SimBooks` behind `workpool.WorkPool`).
 
 Run:  python -m pytest Tests/integration/test_unit_identity_is_carried.py -q
 """
@@ -19,22 +20,17 @@ import concurrent.futures
 import logging
 
 from Optimization.simdriver import supervisor as sv
+from Optimization.simdriver import workpool as wp
 from Optimization.simdriver.workunits import _stamp_identity
 
 _LOG = logging.getLogger('test_unit_identity')
 
 
 class _InlinePool:
-    """A ProcessPoolExecutor stand-in that runs each submit immediately in this process."""
+    """An executor stand-in that runs each submit immediately in this process."""
 
     def __init__(self, *a, **kw):
         pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
 
     def submit(self, fn, sa):
         fut = concurrent.futures.Future()
@@ -44,13 +40,20 @@ class _InlinePool:
             fut.set_exception(exc)
         return fut
 
+    def shutdown(self, wait=True, cancel_futures=False):
+        pass
+
 
 def _run(remaining, meta, monkeypatch, worker):
-    monkeypatch.setattr(sv.concurrent.futures, 'ProcessPoolExecutor', _InlinePool)
     monkeypatch.setattr(sv, '_run_strategy_worker', worker)
-    done, finalized = set(), set()
-    failed, broke = sv._run_pool(remaining, meta, 1, 1, _LOG, done, finalized, cell='k1_off')
-    return failed, broke, done, finalized
+    books = sv.SimBooks(_LOG, run_root=None)
+    books.register('k1_off', meta)
+    with wp.WorkPool(1, _LOG, executor_factory=lambda n: _InlinePool(), max_retries=0,
+                     on_success=books.on_success, on_failure=books.on_failure) as pool:
+        pool.submit('k1_off', sv.sim_jobs('k1_off', remaining))
+        left = pool.finish(rebuild=lambda c: [])
+    st = books.cells['k1_off']
+    return set(left.get('k1_off', [])), pool.broke, st['done'], st['finalized']
 
 
 def _res(arm='opt_map', **kw):

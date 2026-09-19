@@ -1,10 +1,17 @@
-"""simdriver.scenario — one scenario + the cell-matrix driver.
+"""simdriver.scenario — the cell-matrix driver over ONE work pool.
 
-_run_scenario is the inner pipeline for a SINGLE warehouse cell (manifest + shared
-assets + flat pool + blank-arm check); _run_whatif_matrix loops _build_cells over one
-frozen inventory so every run is a cell matrix (a plain run is the single cell k1_off)."""
+Every run is a cell matrix (a plain run is the single cell k1_off).  `_run_whatif_matrix`
+builds the cells from a spec, freezes the sampled inventory once when there is more than one
+cell, and then streams EVERY cell's units into one `workpool.WorkPool` (`_run_cells`): each
+cell's setup -- manifest, shared assets reshaped from the frozen inventory, work units -- runs
+in the parent, in spec order, INSIDE that cell's `cells.cell_scope`, and its units go into the
+pool the moment they exist, while the previous cells' units are still running.  No worker
+waits for a cell boundary, and there is no second path: a single cell is a one-cell matrix
+through the same code (2026-09-19; until then one executor was opened per cell and the matrix
+wall was the sum of the cells' slowest units)."""
 from __future__ import annotations
 
+import logging
 import os
 
 from Optimization.config import strategies
@@ -20,19 +27,24 @@ from Optimization.runschema.sim_manifest import write_run_manifest
 from Optimization.config.strategies import STRATEGIES
 from Optimization.runschema.runlayout import iter_sim_dbs
 from Optimization.simdriver.cells import (
-    _apply_cell, _build_cells, _cell_complete, _tightest_split, reference_cell,
+    Cell, _build_cells, _cell_complete, _tightest_split, cell_scope, reference_cell,
 )
-from Optimization.simdriver.supervisor import _run_workers_flat
-from Optimization.simdriver.workunits import _record_coverage
+from Optimization.simdriver.supervisor import SimBooks, _sim_executor, sim_jobs
+from Optimization.simdriver.workpool import WorkPool
+from Optimization.simdriver.workunits import _build_work_units, _record_coverage
 
 
 def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
-    """Scan every sim_*.db under base_dir and log a prominent WARNING for any that
+    """Scan every sim_*.db under ONE CELL dir and log a prominent WARNING for any that
     recorded zero batches (blank result DB).  Returns the list of blank db paths.
 
     A blank arm means the whole strategy produced no metrics — almost always a
     placement/stocking failure (units never binned → no pick tasks → all batches
     skipped).  Downstream analysis silently omits such arms, so we flag them here.
+
+    A CELL dir, never the run root: `iter_sim_dbs` walks `<pair>/<config>[/<channel>]/`
+    from the directory it is handed, so from a run root it would take the cell level for the
+    pair level and, on a mixed catalogue, find nothing at all -- a vacuous "no blanks".
     """
     import sqlite3
     blank = []
@@ -57,39 +69,111 @@ def _warn_blank_arms(base_dir: str, log: logging.Logger) -> list:
     return blank
 
 
-# ── one scenario: manifest + shared-asset build + flat pool run ──────────────────
-# The inner run pipeline for a SINGLE warehouse configuration.  Both the normal
-# single-config run and each what-if matrix cell call this, so the per-pair glue
-# lives in exactly one place.  frozen_by_pair maps label -> an already-planned
-# inventory DB to reshape from (what-if freeze); None per label ⇒ sample fresh.
-def _run_scenario(base_dir, pairs, regime_sizing, workers, log, *,
-                  cell='', cell_index=1, cell_total=1, frozen_by_pair=None, skip_completed=False,
-                  max_tasks_per_child=1, max_retries=2, resume_granularity='strategy'):
-    # `cell` is the cell name (e.g. k1_off / k1_off_lpt), stamped on every per-arm log line so a
-    # multi-cell run's interleaved output is attributable.  cell_index/cell_total drive the GLOBAL
-    # run counter (progress across the whole matrix, not just within this cell).
-    write_run_manifest(base_dir, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
+def _cell_dir(base_dir: str, cell: Cell) -> str:
+    """`<run_root>/<cell>` -- or the run root itself for the unnamed cell a harness drives
+    (`Tests/e2e/test_coupled_resume_e2e.py` runs one pair straight under its base dir)."""
+    return os.path.join(base_dir, cell.name) if cell.name else base_dir
+
+
+def _build_assets(scenario_base: str, pairs, log: logging.Logger, frozen_by_pair) -> dict:
+    """ONE cell's shared assets, under the caller's `cell_scope`: the manifest and, per pair,
+    the warehouse reshaped from the frozen inventory when the run has one (multi-cell) or
+    sampled fresh (a single cell).  Returns `{label: shared}`."""
+    write_run_manifest(scenario_base, pairs, STORE_CONFIGS, FULFILLMENT_CONFIGS, STRATEGIES)
     g = CONFIG['global']
     shared_by_pair = {}
     for label, inv_db, aff_db in pairs:
         log.info(f'\n{"="*64}\n  Loading shared assets: {label}\n{"="*64}')
         shared_by_pair[label] = build_shared_assets(
             inv_db, aff_db, log,
-            max_skus=g['max_skus'], regime_sizing=regime_sizing,
+            max_skus=g['max_skus'], regime_sizing=regime_sizing_from_config(),
             keyframe_interval=g['keyframe_interval'],
-            warehouse_db_path=os.path.join(base_dir, label, 'warehouse.db'),
+            warehouse_db_path=os.path.join(scenario_base, label, 'warehouse.db'),
             frozen_inventory_db=(frozen_by_pair or {}).get(label),
         )
-    unfinished = _run_workers_flat(
-        pairs, base_dir, shared_by_pair, workers, log, cell=cell,
-        cell_index=cell_index, cell_total=cell_total,
-        max_tasks_per_child=max_tasks_per_child,
-        skip_completed=skip_completed,
-        max_retries=max_retries, resume_granularity=resume_granularity)
-    # Loud blank-arm check: surface any sim_*.db that completed with ZERO recorded
-    # batches so a blank DB is discovered NOW, not halfway through downstream analysis.
-    _warn_blank_arms(base_dir, log)
-    # The pool's unrecovered unit ids, carried up rather than only logged (see `_supervise`).
+    return shared_by_pair
+
+
+def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False,
+               max_retries=2, resume_granularity='strategy') -> dict:
+    """Every cell's units through ONE pool.  Returns {cell: [unfinished uids]} for the cells
+    that left units unrecovered (a cell whose SETUP raised reports `('setup',)`; a leaf whose
+    prepare raised reports `('prepare', tag)`), empty on a clean matrix.
+
+    THE SHAPE.  For each cell in spec order: `cell_scope(cell)` -> `assets_for(cell,
+    cell_dir)` (the shared assets; `_run_whatif_matrix` builds them, a harness may hand in
+    ones it built) -> `_build_work_units` -> `pool.submit` -> `pool.absorb()`.  The pool
+    absorbs and finalizes what landed between one cell's setup and the next, so a cell's
+    units are running while the next cell is being set up; only the WAIT between cells is
+    gone.  At campaign scale setup is ~6 min a cell against units of 15 min to 3 h, so the
+    pool is fed continuously after the first cell.
+
+    A CELL'S SHARED ASSETS LIVE UNTIL ITS LAST UNIT LANDS (`kept`), not until its units are
+    submitted: a rebuild after a broken pool re-runs `_build_work_units` over the SAME
+    assets with `mid_flight=True` (the coupled reconciler's contract), exactly as the old
+    per-cell supervisor did, and never `build_shared_assets` again -- on a single-cell run
+    that would RE-SAMPLE and rewrite `planned_inventory.db` under the units in flight.  The
+    affinity CSR is dropped at submit (the unit builder reads only its path).  On a wide,
+    shallow spec every cell's inventory can be alive at once; the parent's memory is the
+    price of the retry path, and it is logged per cell.
+
+    A cell whose setup RAISES (a campaign pin that does not match, a derivation that
+    disagrees with the record) is reported and skipped, and the pool keeps running the
+    others: an exception must never unwind into the pool with units in flight.
+    """
+    g = CONFIG['global']
+    n_cells = len(cells)
+    by_name = {c.name: c for c in cells}
+    books = SimBooks(log, run_root=base_dir)
+    kept: dict = {}                                   # cell name -> shared_by_pair
+    unfinished: dict = {}
+
+    def _units(cell, log_queue, *, mid_flight=False):
+        """This cell's `(units, meta)`, under its scope, over its kept assets."""
+        scenario_base = _cell_dir(base_dir, cell)
+        failed: list = []
+        with cell_scope(cell):
+            if cell.name not in kept:
+                os.makedirs(scenario_base, exist_ok=True)
+                kept[cell.name] = assets_for(cell, scenario_base)
+            units, meta = _build_work_units(
+                pairs, scenario_base, kept[cell.name], log, log_queue, workers,
+                # `skip_completed` on a resume AND on a mid-flight rebuild.
+                skip_completed=(skip_completed or mid_flight),
+                resume_granularity=resume_granularity, mid_flight=mid_flight, failed=failed)
+        for shared in kept[cell.name].values():
+            shared.pop('affinity_store', None)        # 41 MB per pair, unread from here on
+        if failed:
+            unfinished.setdefault(cell.name, []).extend(('prepare', tag) for tag in failed)
+        return units, meta
+
+    def _rebuild(name):
+        cell = by_name[name]
+        units, meta = _units(cell, pool.log_queue, mid_flight=True)
+        books.register(name, meta)
+        return sim_jobs(name, units, cell_index=cells.index(cell) + 1, cell_total=n_cells)
+
+    hint = f'python -m Optimization.run_simulation --resume {base_dir}'
+    with WorkPool(workers, log, run_root=base_dir, executor_factory=_sim_executor,
+                  max_retries=max_retries, on_success=books.on_success,
+                  on_failure=books.on_failure, resume_hint=hint) as pool:
+        for ci, cell in enumerate(cells, start=1):
+            try:
+                units, meta = _units(cell, pool.log_queue)
+            except Exception as exc:                   # noqa: BLE001 -- reported, never unwound
+                log.error(f'  [{cell.name}] cell setup FAILED: {exc}', exc_info=True)
+                unfinished.setdefault(cell.name, []).append(('setup',))
+                kept.pop(cell.name, None)
+                continue
+            books.register(cell.name, meta)
+            pool.submit(cell.name, sim_jobs(cell.name, units, cell_index=ci, cell_total=n_cells))
+            pool.absorb()                          # log + finalize what landed during this setup
+            for settled in pool.settled_cells():
+                kept.pop(settled, None)
+        left = pool.finish(rebuild=_rebuild)
+    books.sweep()                                  # safety sweep, per cell
+    for name, uids in left.items():
+        unfinished.setdefault(name, []).extend(uids)
     return unfinished
 
 
@@ -98,9 +182,12 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     """Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a
     plain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once
     (tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze
-    and samples fresh — bit-identical to the old flat run, just nested under its cell dir.  Returns
+    and samples fresh — the flat run as it always was, nested under its cell dir.  Returns
     {'cells': [names], 'reference': name, 'unfinished': {cell: [unit ids]}} -- `unfinished` holds
-    only cells that left units unrecovered, so an empty dict is a clean matrix."""
+    only cells that left units unrecovered, so an empty dict is a clean matrix.
+
+    `max_tasks_per_child` is accepted for the saved run specs that pass it and IGNORED: the
+    executor is built with recycling pinned at 1 (`supervisor._sim_executor`)."""
     cells = _build_cells(spec)
     reference = reference_cell(cells, spec.get('reference'))
     # THE SHAPE GATE, restated at the driver.  `get_spec` is the single door every run comes
@@ -156,8 +243,7 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     _swept = _wc.swept_rules_of(spec)
     log.info(f'Cell matrix → {base_dir}  ({len(cells)} cell(s), reference={reference}, '
              f'{"pairs" if _pairs is not None else "arms"}={_swept!r}, resume={resume})')
-    log.info('  cells: ' + ', '.join(c[0] for c in cells))
-    unfinished_by_cell: dict = {}
+    log.info('  cells: ' + ', '.join(c.name for c in cells))
 
     # ── 1. FREEZE the sampled inventory once (from the tightest cell) per pair — MULTI-cell only ──
     # (the scheduler is task→picker, not placement, so it doesn't affect the frozen layout).  A
@@ -166,56 +252,61 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     frozen: dict | None = None
     if len(cells) > 1:
         # No inbound argument: the freeze PLANS inventory, it does not simulate, so no yard or
-        # dock decision is reachable from here.  Every cell writes its own inbound record
-        # immediately below, so leaving CONFIG's alone here cannot leak into one.
-        _apply_cell(_tightest_split(cells), {'enabled': False}, 'round_robin')
+        # dock decision is reachable from here.  SCOPED like a cell, so CONFIG is back to the
+        # run level before the first cell's scope opens (and the analysis stage, which runs
+        # after the matrix in this process, is not sized under the freeze's split).
         frozen = {}
-        for label, inv_db, aff_db in pairs:
-            frozen_db = os.path.join(base_dir, '_frozen', label, 'planned_inventory.db')
-            if resume and os.path.exists(frozen_db):
-                frozen[label] = frozen_db
-                log.info(f'  reusing frozen inventory[{label}]')
-                continue
-            log.info(f'\n{"="*64}\n  FREEZE inventory (tightest cell): {label}\n{"="*64}')
-            shared = build_shared_assets(
-                inv_db, aff_db, log, max_skus=g['max_skus'],
-                regime_sizing=regime_sizing_from_config(), keyframe_interval=g['keyframe_interval'],
-                warehouse_db_path=os.path.join(base_dir, '_frozen', label, 'warehouse.db'))
-            frozen[label] = shared['planned_inv_db']
-            # THE FREEZE IS WHERE A MULTI-CELL RUN DECLARES ITS STOCK, so it is where the
-            # declaration has to be recorded (ADR-0002).  Every cell after this one loads the
-            # frozen inventory with `sample=False` and declares nothing, so `_build_work_units`
-            # -- which records the block on a single-cell run -- sees no coverage to record and
-            # the run would end up with levels nobody could reproduce.  Its own analysis stage
-            # would then refuse to rebuild the warehouse from the catalogue and emit no figures
-            # at all, which is exactly how this was found: preflight's 2-cell canary produced
-            # a complete run tree and an empty analysis one.
-            _record_coverage(base_dir, label, shared.get('coverage'), log)
+        with cell_scope(Cell('_freeze', _tightest_split(cells), {'enabled': False}, 'round_robin')):
+            for label, inv_db, aff_db in pairs:
+                frozen_db = os.path.join(base_dir, '_frozen', label, 'planned_inventory.db')
+                if resume and os.path.exists(frozen_db):
+                    frozen[label] = frozen_db
+                    log.info(f'  reusing frozen inventory[{label}]')
+                    continue
+                log.info(f'\n{"="*64}\n  FREEZE inventory (tightest cell): {label}\n{"="*64}')
+                shared = build_shared_assets(
+                    inv_db, aff_db, log, max_skus=g['max_skus'],
+                    regime_sizing=regime_sizing_from_config(), keyframe_interval=g['keyframe_interval'],
+                    warehouse_db_path=os.path.join(base_dir, '_frozen', label, 'warehouse.db'))
+                frozen[label] = shared['planned_inv_db']
+                # THE FREEZE IS WHERE A MULTI-CELL RUN DECLARES ITS STOCK, so it is where the
+                # declaration has to be recorded (ADR-0002).  Every cell after this one loads the
+                # frozen inventory with `sample=False` and declares nothing, so `_build_work_units`
+                # -- which records the block on a single-cell run -- sees no coverage to record and
+                # the run would end up with levels nobody could reproduce.  Its own analysis stage
+                # would then refuse to rebuild the warehouse from the catalogue and emit no figures
+                # at all, which is exactly how this was found: preflight's 2-cell canary produced
+                # a complete run tree and an empty analysis one.
+                _record_coverage(base_dir, label, shared.get('coverage'), log)
 
-    # ── 2. Each cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate ──
+    # ── 2. Every cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate,
+    #       through ONE pool.  A cell already complete on a resume is not set up at all. ──
     n_cells = len(cells)
-    for ci, (name, aisle_split, zoning, sched, inbound) in enumerate(cells, start=1):
-        scenario_base = os.path.join(base_dir, name)
-        if resume and _cell_complete(scenario_base, pairs):
-            log.info(f'  SKIP cell {ci}/{n_cells} {name} (already complete)')
+    todo = []
+    for ci, cell in enumerate(cells, start=1):
+        if resume and _cell_complete(_cell_dir(base_dir, cell), pairs):
+            log.info(f'  SKIP cell {ci}/{n_cells} {cell.name} (already complete)')
             continue
-        zdesc = zoning.get('mode', 'off') if zoning.get('enabled') else 'off'
-        log.info(f'\n{"#"*64}\n  CELL {name}  (cell {ci}/{n_cells})  split={aisle_split}  '
-                 f'zoning={zdesc}  scheduler={sched}  inbound={inbound}\n{"#"*64}')
-        _apply_cell(aisle_split, zoning, sched, inbound)
-        os.makedirs(scenario_base, exist_ok=True)
-        # max_tasks_per_child was NOT forwarded here until 2026-08-15, so every matrix run
-        # — i.e. every run, since a plain run is the single cell k1_off — silently used the
-        # default 1 and the CLI flag was dead.
-        _left = _run_scenario(
-            scenario_base, pairs, regime_sizing_from_config(), g['workers'], log,
-            cell=name, cell_index=ci, cell_total=n_cells,
-            frozen_by_pair=frozen, skip_completed=resume,
-            max_tasks_per_child=max_tasks_per_child,
-            max_retries=max_retries, resume_granularity=resume_granularity)
-        if _left:
-            unfinished_by_cell[name] = list(_left)
+        todo.append(cell)
+
+    def _assets(cell, scenario_base):
+        zdesc = cell.zoning.get('mode', 'off') if cell.zoning.get('enabled') else 'off'
+        ci = cells.index(cell) + 1
+        log.info(f'\n{"#"*64}\n  CELL {cell.name}  (cell {ci}/{n_cells})  split={cell.split}  '
+                 f'zoning={zdesc}  scheduler={cell.scheduler}  inbound={cell.inbound}\n{"#"*64}')
+        return _build_assets(scenario_base, pairs, log, frozen)
+
+    unfinished_by_cell = _run_cells(
+        base_dir, pairs, todo, log, workers=g['workers'], assets_for=_assets,
+        skip_completed=resume, max_retries=max_retries, resume_granularity=resume_granularity)
+
+    # Loud blank-arm check, once per cell after the pool: surface any sim_*.db that completed
+    # with ZERO recorded batches so a blank DB is discovered NOW, not halfway through analysis.
+    for cell in cells:
+        cell_dir = _cell_dir(base_dir, cell)
+        if os.path.isdir(cell_dir):
+            _warn_blank_arms(cell_dir, log)
 
     log.info(f'\nCell matrix complete → {base_dir}')
-    return {'cells': [c[0] for c in cells], 'reference': reference,
+    return {'cells': [c.name for c in cells], 'reference': reference,
             'unfinished': unfinished_by_cell}

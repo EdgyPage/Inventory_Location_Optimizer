@@ -421,13 +421,14 @@ def _drive(monkeypatch, spec, channels=_BOTH):
     for ch in channels:
         monkeypatch.setitem(st.CHANNEL_RESTOCKS, ch, ('sentinel-untouched',))
         monkeypatch.setitem(CONFIG['channels'][ch], 'restocks', ('sentinel-untouched',))
-    # STOPPED AT `_apply_cell`, NOT AT `_run_scenario`.  `_apply_cell` mutates a process-wide
-    # CONFIG that nothing resets between cells, so letting it run leaks the cell's zoning and
-    # scheduler into every later test in the session — measured: it broke three tests in
-    # `test_settings_module` and `test_simconfig_registry` that assert CONFIG holds COPIES of
-    # the registry's dicts. The install is complete before this line, which is the only thing
-    # these tests are about.
-    monkeypatch.setattr(sc, '_apply_cell',
+    # STOPPED AT THE FIRST CELL SCOPE (the freeze on a multi-cell spec) OR AT THE POOL (a
+    # single cell), so nothing after the install runs: no CONFIG write (the scope restores
+    # its own writes, but the freeze is the first thing to touch CONFIG and stopping there is
+    # simplest), no Manager, no executor.  The install is complete before either line, which
+    # is the only thing these tests are about.
+    monkeypatch.setattr(sc, 'cell_scope',
+                        lambda *a, **k: (_ for _ in ()).throw(_Stop()))
+    monkeypatch.setattr(sc, '_run_cells',
                         lambda *a, **k: (_ for _ in ()).throw(_Stop()))
     log = logging.getLogger('spec-drive'); log.setLevel(logging.CRITICAL)
     try:

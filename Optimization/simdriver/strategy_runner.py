@@ -7,7 +7,7 @@ Public API
 ----------
 _run_strategy_worker(args) -> dict
     Simulate one assignment strategy end-to-end (one process in the flat pool
-    owned by run_simulation._run_workers_flat).
+    owned by simdriver.workpool.WorkPool, driven from scenario._run_cells).
 
 save_worker_checkpoint(run_dir, strategy, next_batch_id)
 load_worker_checkpoint(run_dir, strategy) -> int
@@ -1562,13 +1562,15 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     channel_regime      = args.get('channel_regime')
 
     cell_pos = args.get('cell_pos')
-    gjob     = args.get('gjob')
     log.info('=' * 60)
     if job_tag is not None:
-        # per-arm line with LOCAL (this-cell) + GLOBAL (whole-run) progress counters
+        # per-arm line with the cell-local progress counter and the cell's position in the
+        # matrix.  The whole-run counter that used to sit beside it assumed every cell had
+        # the same unit count and was wrong on resume and after a retry; matrix progress is
+        # the parent's `[pool] N unit(s) done` line now (workpool.WorkPool.absorb).
         _prog = f'Job {job_index}/{job_total}'
         if cell_pos:
-            _prog += f'  [cell {cell_pos} · global {gjob}]'
+            _prog += f'  [cell {cell_pos}]'
         log.info(f'{_prog}  {job_tag}')
     log.info(f'Strategy {strategy}  run_id={run_id}  batches {start_i}->{n_batches}')
     log.info(f'  pick  w={pick_cfg.pick_weight_coef}  v={pick_cfg.pick_volume_coef}  '
@@ -3206,7 +3208,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # three lines that had to agree with the seeds and the verdicts above.
             **asm.audit.totals(),
             # ── runtime metrics: whole-arm section totals (s) + warehouse identity; the PARENT
-            #    (supervisor._run_pool) inserts these into runtime_metrics.db at the run root ──
+            #    (supervisor._absorb_success) inserts these into runtime_metrics.db at the run root ──
             'n_bins'    : n_bins,
             'regime_bins': regime_bins,
             'n_aisles'  : n_aisles,

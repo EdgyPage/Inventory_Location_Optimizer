@@ -5,10 +5,10 @@ states by hand and asserts the exact filesystem effect of each.  A planted matri
 proves the reconciler reads a tree that file wrote; this one ties it to reality.
 
 THE FAULT IS INJECTED, THE TEAR IS NOT.  A coupled unit writes two leaves and the parent
-finalizes them one after the other (`supervisor._run_pool`, iterating the unit's `group_keys`).
+finalizes them one after the other (`supervisor._absorb_success`, iterating the unit's `group_keys`).
 `_finalize_config_run` is made to raise on every call after the first, which is what a process
 death inside that window does to the tree.  Everything else is production: the real
-`_run_workers_flat`, a real `ProcessPoolExecutor`, real spawned workers, real databases.  The
+`scenario._run_cells`, a real `ProcessPoolExecutor`, real spawned workers, real databases.  The
 tear is then READ OFF THE TREE rather than asserted from the patch -- exactly one leaf carries
 `sim_meta.json`, the other still carries `resume.pkl`.
 
@@ -130,13 +130,20 @@ def site(tmp_path, monkeypatch):
 
 
 def _run(site, name, *, skip_completed=False):
-    """One cell through the PRODUCTION pool driver, into its own base dir."""
+    """One cell through the PRODUCTION pool driver, into its own base dir.
+
+    The unnamed cell: `scenario._run_cells` puts it straight under `base` (no cell level),
+    which is the tree `_leaf_dirs` reads; the shared assets are the fixture's, handed in
+    through `assets_for` exactly as `_run_whatif_matrix` hands in the ones it builds."""
+    from Optimization.simdriver.cells import Cell
     base = str(site['tmp'] / name)
     os.makedirs(base, exist_ok=True)
     _write_run_spec(base, {'argv': ['coupled-resume-e2e']})
-    rs._run_workers_flat(
-        [(_LABEL, site['inv_db'], site['aff_db'])], base, {_LABEL: site['shared']},
-        1, site['log'], skip_completed=skip_completed, resume_granularity='strategy')
+    rs._run_cells(
+        base, [(_LABEL, site['inv_db'], site['aff_db'])],
+        [Cell('', None, {'enabled': False}, 'round_robin')], site['log'], workers=1,
+        assets_for=lambda _cell, _dir: {_LABEL: site['shared']},
+        skip_completed=skip_completed, resume_granularity='strategy')
     return base
 
 
@@ -177,7 +184,7 @@ def test_a_real_mid_flight_kill_tears_a_coupled_pair_and_resume_repairs_it(site)
     # ── 2. the fault: _finalize_config_run dies after the FIRST leaf ──────────────
     # A coupled unit finalizes its two group keys back to back, so raising on every call after
     # the first is what a process death inside that window leaves behind.  The safety sweep at
-    # the end of `_supervise` calls the same function, so it dies too -- as it would.
+    # the end of the pool (`SimBooks.sweep`) calls the same function, so it dies too -- as it would.
     _real = sup._finalize_config_run
     _calls = {'n': 0}
 

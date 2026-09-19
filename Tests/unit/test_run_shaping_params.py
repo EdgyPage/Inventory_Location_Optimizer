@@ -280,9 +280,9 @@ def test_worker_recycling_is_pinned_at_one():
     value DEADLOCKED at the cell boundary: cell 1 finished, then the pool sat at zero CPU with
     one live worker of eighteen and never shut down.  Pinned, not plumbed."""
     from Optimization.simdriver import supervisor
-    body = inspect.getsource(supervisor._supervise)
+    body = inspect.getsource(supervisor._sim_executor)
     assert 'recycle = 1' in body, 'worker recycling must stay pinned at 1'
-    assert 'max_tasks_per_child if max_tasks_per_child' not in body, (
+    assert 'max_tasks_per_child' not in inspect.signature(supervisor._sim_executor).parameters, (
         'the CLI value must not reach the pool — that is the deadlock path')
 
 
@@ -297,7 +297,7 @@ def test_the_flag_warns_instead_of_lying():
 
 def test_the_pool_is_constructed_with_the_pinned_value():
     from Optimization.simdriver import supervisor
-    body = inspect.getsource(supervisor._run_pool)
+    body = inspect.getsource(supervisor._sim_executor)
     assert 'max_tasks_per_child=recycle' in body    # recycle is the pinned 1
 
 
