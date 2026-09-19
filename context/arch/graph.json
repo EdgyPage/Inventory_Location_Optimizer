@@ -1021,6 +1021,11 @@
       "src": "Inbound/gain.py::_Evaluator._place_pool"
     },
     {
+      "dst": "Inbound/gain.py::_Evaluator._tier_for",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._place_pool"
+    },
+    {
       "dst": "Inbound/gain.py::_Evaluator._unseated_cost",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._place_pool"
@@ -14501,6 +14506,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::freeze_tier",
+      "kind": "ref",
+      "src": "Optimization/simdriver/strategy_runner.py::_gain_bundle_for"
+    },
+    {
       "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_ledger_over"
@@ -20241,6 +20251,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py"
     },
     {
+      "dst": "Warehouse/placement/frozen_tier.py",
+      "kind": "imports",
+      "src": "Warehouse/placement/Assignment_Functions.py"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex._find_nxt",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex.closest"
@@ -20307,6 +20322,11 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_D_map",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_check_tier",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
     },
@@ -20421,6 +20441,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_check_tier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_placed_union",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
@@ -20447,6 +20472,16 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_check_tier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::HeapBucket",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
     },
@@ -20821,6 +20856,16 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_uniform_aisle_trip_min_assignment_fn.assign"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::freeze_tier"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::FrozenTier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::freeze_tier"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/placement/Capacity_Reloader.py"
@@ -20909,6 +20954,76 @@
       "dst": "Warehouse/placement/Capacity_Reloader.py::rebalance",
       "kind": "ref",
       "src": "Warehouse/placement/Capacity_Reloader.py::rebalance_reloader"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py",
+      "kind": "imports",
+      "src": "Warehouse/placement/frozen_tier.py"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::FrozenTier.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::FrozenTier.slice"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._first_live",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._first_live",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.__bool__"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.__getitem__"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.__getitem__"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.pop"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor.popleft",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.pop_top"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.popleft"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.top"
     },
     {
       "dst": "Warehouse/inventory/aisle_ledger.py",
@@ -22654,6 +22769,14 @@
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_place_uniform",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._tier_for",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_tier_for",
       "public": false
     },
     {
@@ -49122,6 +49245,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_check_tier",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_check_tier",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_closest_abs",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -49673,6 +49804,14 @@
       "public": true
     },
     {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::freeze_tier",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "freeze_tier",
+      "public": true
+    },
+    {
       "file": "Warehouse/placement/Capacity_Reloader.py",
       "id": "Warehouse/placement/Capacity_Reloader.py",
       "kind": "module",
@@ -49783,6 +49922,246 @@
       "module": "Warehouse/placement/__init__.py",
       "name": "Warehouse.placement",
       "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py",
+      "kind": "module",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "Warehouse.placement.frozen_tier",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::FrozenTier",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "FrozenTier",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::FrozenTier.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::FrozenTier.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::FrozenTier.aisle_order",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "aisle_order",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::FrozenTier.slice",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "slice",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::HeapBucket",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "HeapBucket",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::HeapBucket.__bool__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::HeapBucket.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::HeapBucket.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::HeapBucket.pop_top",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "pop_top",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::HeapBucket.top",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "top",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "TierSlice",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice.__bool__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice._first_live",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_first_live",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "aisle_buckets",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice.aisles",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "aisles",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_Cursor",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.__bool__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.__getitem__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_settle_hi",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_settle_lo",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.pop",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "pop",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.pop_top",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "pop_top",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.popleft",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "popleft",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.top",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "top",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::__all__",
+      "kind": "const",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__all__",
+      "public": false
     },
     {
       "file": "Warehouse/placement/policy.py",

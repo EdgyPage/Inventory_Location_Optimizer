@@ -568,6 +568,21 @@ SPECS = {
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
     },
+    # THE CAMPAIGN-SCALE BYTE-IDENTITY PROBE: `inbound_unload`'s reference cell and its first
+    # priced cell, and nothing else, so a run of it can be digested CELL BY CELL against a
+    # finished `inbound_unload` root (`run_digest.py --cell k1_off_gmyopic <ref> <probe>`).
+    # Two cells rather than one, deliberately: a single-cell run samples its inventory
+    # fresh instead of freezing it (`_run_whatif_matrix`), and the reference was frozen.
+    # Built 2026-09-19 for ticket 03 of the phase-2 campaign (the per-drain tier freeze),
+    # where the toy digest cannot reach the yard depths the campaign prices at.
+    '_probe_unload_ref': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': phase2_inbound_axis(keep=('fifo', 'gmyopic')),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+    },
     # THE BYTE-IDENTITY TOY MATRIX WITH A PRICED CELL.  `smoketest --profile tiny` runs
     # `scheduler_ab`, which has no inbound axis, so a refactor of the gain evaluator's pool
     # path (the copy-on-write views, the pool constructors' unions, the drain) could not be

@@ -23,6 +23,7 @@ from Warehouse.inventory.Inventory_Management import (
     AssignmentFn, RankedAssignmentFn, Placement, _wp_for,
 )
 from Warehouse.inventory.aisle_ledger import AisleLedger
+from Warehouse.placement.frozen_tier import FrozenTier, HeapBucket, TierSlice
 
 
 # ── sorted-by-pref placement helpers (map / cluster_map fast path) ─────────────
@@ -331,6 +332,34 @@ def _D_map(cands, x_pace, y_pace) -> dict[int, float]:
     ranked-impl site; ONE helper so the formula can't drift.  Paces are s/inch
     (sec_per_inch of the ft/s speeds); expression shape preserved exactly."""
     return {id(b): x_pace * b.x_phys + y_pace * b.y_phys for b in cands}
+
+
+def freeze_tier(cands, wp) -> FrozenTier:
+    """One tier's candidates sorted ONCE, under the paces and brackets the pools resolve
+    from `wp` -- the gain evaluator's per-drain freeze (`Inbound/gain.py:_tier_for`).
+
+    Built HERE, beside the pools that read it, because `Inbound` may not import the
+    placement engine: the driver hands the evaluator this function through the bundle
+    (`GainBundle.freeze_tier`), the same way `wp_of` and `binkey_of` cross that seam.  A
+    pool handed the result checks that its own paces and brackets are the ones the tier was
+    frozen under (`_check_tier`), so a mixed warehouse's per-regime `wp` cannot be served
+    another regime's geometry."""
+    speed = SpeedProfile(wp.x_speed, wp.y_speed)
+    return FrozenTier(cands, speed.x_pace, speed.y_pace, getattr(wp, 'height_brackets', ()))
+
+
+def _check_tier(tier: FrozenTier, x_pace: float, y_pace: float, brackets) -> None:
+    """Refuse a slice whose tier was frozen under other paces or brackets.  EXACT float
+    equality, deliberately: the pool would compute these same values from the same `wp`
+    through the same expression, and a tier that was not frozen from that `wp` carries
+    different geometry -- a tolerance here would accept the mixed-warehouse mistake."""
+    if (tier.x_pace != x_pace or tier.y_pace != y_pace
+            or (brackets is not None and tuple(brackets) != tier.brackets)):
+        raise ValueError(
+            f'this pool resolves paces ({x_pace!r}, {y_pace!r}) and brackets '
+            f'{tuple(brackets) if brackets is not None else "n/a"} from its wp, but the tier '
+            f'was frozen under ({tier.x_pace!r}, {tier.y_pace!r}) / {tier.brackets}: a slice '
+            f'must be taken from a tier frozen with the SAME resolved wp (freeze_tier(cands, wp))')
 
 
 
@@ -1052,13 +1081,22 @@ class _RankedAssignPool(_Pool):
         # boundary through the profile (see cost_model.SpeedProfile).
         speed  = SpeedProfile(wp.x_speed, wp.y_speed)
         x_pace, y_pace = speed.x_pace, speed.y_pace
-        D_of = _D_map(cands, x_pace, y_pace)
-        by_aisle: dict[int, deque] = {}
-        for b in cands:
-            by_aisle.setdefault(b.location[0], []).append(b)
-        for aid, lst in by_aisle.items():
-            lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
-            by_aisle[aid] = deque(lst)
+        if isinstance(cands, TierSlice):
+            # THE OVERLAY (frozen_tier.py): the tier was sorted once for the drain; this
+            # open is one cursor per surviving aisle, in the filtered first-appearance
+            # order the eager build below would have produced.  Same deque protocol, so
+            # `take` is one code path.
+            _check_tier(cands.tier, x_pace, y_pace, None)
+            D_of = cands.tier.D_by_id
+            by_aisle = cands.aisles(reverse=not minimize)
+        else:
+            D_of = _D_map(cands, x_pace, y_pace)
+            by_aisle = {}
+            for b in cands:
+                by_aisle.setdefault(b.location[0], []).append(b)
+            for aid, lst in by_aisle.items():
+                lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
+                by_aisle[aid] = deque(lst)
         self._D_of, self._by_aisle = D_of, by_aisle
         self._head_bin = {aid: dq[0]           for aid, dq in by_aisle.items() if dq}
         self._head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
@@ -1474,22 +1512,30 @@ class _TravelBalancedPool(_Pool):
         # NaN: `sort` and `heapify` disagree on it.  `D` is NaN only if a pace is `inf` and a
         # coordinate is 0; `sec_per_inch` returns `inf` only for a non-positive speed, which
         # `validate_speeds` already rejects.
-        geo = self._geo_memo
-        if geo is None:
-            geo = {}
-        by_aisle: dict[int, dict] = {}
-        _seq = 0
-        for b in cands:
-            e = geo.get(id(b))
-            if e is None or e[0] is not b:
-                e = geo[id(b)] = (b, b.location[0],
-                                  x_pace * b.x_phys + y_pace * b.y_phys,
-                                  height_multiplier(brackets, b.y_phys))
-            by_aisle.setdefault(e[1], {}).setdefault(e[3], []).append((e[2], _seq, b))
-            _seq += 1
-        for groups in by_aisle.values():
-            for lst in groups.values():
-                heapq.heapify(lst)
+        if isinstance(cands, TierSlice):
+            # THE OVERLAY (frozen_tier.py): one cursor per surviving (aisle, bracket), in
+            # the filtered first-appearance order; the heap below is the eager twin.  Both
+            # answer `top()` / `pop_top()`, so `_aisle_best` and `take` are one code path.
+            _check_tier(cands.tier, x_pace, y_pace, brackets)
+            by_aisle = cands.aisle_buckets()
+        else:
+            geo = self._geo_memo
+            if geo is None:
+                geo = {}
+            by_aisle = {}
+            _seq = 0
+            for b in cands:
+                e = geo.get(id(b))
+                if e is None or e[0] is not b:
+                    e = geo[id(b)] = (b, b.location[0],
+                                      x_pace * b.x_phys + y_pace * b.y_phys,
+                                      height_multiplier(brackets, b.y_phys))
+                by_aisle.setdefault(e[1], {}).setdefault(e[3], []).append((e[2], _seq, b))
+                _seq += 1
+            for groups in by_aisle.values():
+                for m, lst in groups.items():
+                    heapq.heapify(lst)
+                    groups[m] = HeapBucket(lst)
         self._by_aisle = by_aisle
         # THE AISLE'S FIRST-APPEARANCE RANK, and it is what makes the selection heap in `take`
         # byte-identical rather than merely equivalent.  The scan it replaces was
@@ -1536,7 +1582,7 @@ class _TravelBalancedPool(_Pool):
             # h[0] is (D, seq, bin): D comes straight off the head, so the `D_of[id(b)]`
             # dict lookup this line used to pay -- once per aisle at every SKU-run boundary,
             # and once more for the winner after every placement -- is gone.
-            d, _seq, b = h[0]
+            d, b = h.top()
             cost = per_pick(m, intercept, var, 1, per_item) + d
             if best is None or cost < best[0]:
                 best = (cost, m, b)
@@ -1627,7 +1673,7 @@ class _TravelBalancedPool(_Pool):
                               pick_load=self._splp.get(sku, 0.0),
                               vol=(m_s if self._cart_on else None))
 
-        heapq.heappop(by_aisle[best_aid][m])
+        by_aisle[best_aid][m].pop_top()
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
         # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
         # like the original `continue`.
@@ -1864,16 +1910,23 @@ class _MinLaborPool(_Pool):
         self._rep  = (lambda dq: dq[-1]) if maximize else (lambda dq: dq[0])
         self._drop = (lambda dq: dq.pop()) if maximize else (lambda dq: dq.popleft())
 
-        D_of = _D_map(cands, x_pace, y_pace)
-        M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
-        by_aisle_brkt: dict[int, dict] = {}          # {aisle: {mult: D-sorted deque}}
-        for b in cands:
-            by_aisle_brkt.setdefault(b.location[0], {}).setdefault(
-                M_of[id(b)], []).append(b)
-        for groups in by_aisle_brkt.values():
-            for m, lst in list(groups.items()):
-                lst.sort(key=lambda bb: D_of[id(bb)])
-                groups[m] = deque(lst)
+        if isinstance(cands, TierSlice):
+            # THE OVERLAY (frozen_tier.py): cursors speak the deque protocol `_rep` /
+            # `_drop` read (`[0]`, `[-1]`, `popleft`, `pop`), so `take` is one code path.
+            _check_tier(cands.tier, x_pace, y_pace, brackets)
+            D_of = cands.tier.D_by_id
+            by_aisle_brkt = cands.aisle_buckets()
+        else:
+            D_of = _D_map(cands, x_pace, y_pace)
+            M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
+            by_aisle_brkt = {}                            # {aisle: {mult: D-sorted deque}}
+            for b in cands:
+                by_aisle_brkt.setdefault(b.location[0], {}).setdefault(
+                    M_of[id(b)], []).append(b)
+            for groups in by_aisle_brkt.values():
+                for m, lst in list(groups.items()):
+                    lst.sort(key=lambda bb: D_of[id(bb)])
+                    groups[m] = deque(lst)
         self._D_of, self._by_aisle_brkt = D_of, by_aisle_brkt
 
         self._last_sku = None

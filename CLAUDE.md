@@ -37,6 +37,7 @@ python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/unit/test_conftest_restores_nested_config.py \
                 Tests/integration/test_supervisor_broken_pool.py \
                 Tests/unit/test_placed_union.py \
+                Tests/unit/test_frozen_tier.py \
                 Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
@@ -80,6 +81,13 @@ change a float in a placement sort key with no error anywhere, and the placement
 compare a family's pool half to its wave half, so they cannot see it (memory
 `placement-oracles-pin-agreement-not-truth`). The test pins the count through churn and the
 fold's exact float; the toy digest is the gate for the rest.
+
+`test_frozen_tier.py` joined on 2026-09-19 with ticket 03. Under the evaluator a pool opens
+over a `TierSlice` -- a tier sorted once per drain plus an exclusion set -- instead of
+rebuilding the tier at every open, and the three pools' aisle and bracket ORDERS are
+tie-breaks recomputed per open from the filtered first appearance. A cursor that skipped one
+bin too few, or an order taken from the unfiltered list, would move a placement on a D tie
+with nothing raising; the test drives every pool eager-vs-sliced to float equality.
 
 It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a

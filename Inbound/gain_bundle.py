@@ -56,13 +56,14 @@ class GainBundle:
     """
 
     __slots__ = ('minimize', 'pool_factory', 'expect_heads', 'heads_of', 'uniform',
-                 'aisle_state',
+                 'aisle_state', 'freeze_tier',
                  'put_speed', 'wp_of', 'binkey_of', 'tier_ranks_for',
                  'fee_threshold_days', 'urgency_horizon_days')
 
     def __init__(self, *, put_speed, wp_of, binkey_of, tier_ranks_for,
                  minimize: bool = True, pool_factory=None, expect_heads: bool = False,
                  heads_of=None, uniform: bool = False, aisle_state=None,
+                 freeze_tier=None,
                  fee_threshold_days: float = DEFAULT_FEE_THRESHOLD_DAYS,
                  urgency_horizon_days: float = DEFAULT_URGENCY_HORIZON_DAYS):
         if expect_heads and (pool_factory is None or heads_of is None):
@@ -90,6 +91,16 @@ class GainBundle:
                 'aisle_state is the POOL adapter\'s copy list -- the merge and uniform '
                 'adapters open no pool, so state declared here would be copied by nobody '
                 'and read by nobody')
+        if freeze_tier is not None and pool_factory is None:
+            raise ValueError(
+                'freeze_tier is the POOL adapter\'s per-drain tier freeze (the pools open '
+                'over TierSlices); the merge and uniform adapters open no pool, so a freezer '
+                'declared here would be called by nobody')
+        #: `(cands, wp) -> FrozenTier`, handed over by the driver like `wp_of`: the
+        #: evaluator sorts each tier ONCE per drain through it and opens the arm's pool
+        #: over a slice (`Warehouse/placement/frozen_tier.py`).  None keeps the eager
+        #: build -- the pool over a fresh filtered list at every open.
+        self.freeze_tier = freeze_tier
         self.put_speed = put_speed
         self.wp_of = wp_of
         self.binkey_of = binkey_of

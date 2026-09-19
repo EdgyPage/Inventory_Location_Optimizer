@@ -223,7 +223,7 @@ class _Evaluator:
 
     __slots__ = ('_site', '_key', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
-                 '_wr', '_mom')
+                 '_wr', '_mom', '_tiers')
 
     def __init__(self, bundle, space, window_rates=None):
         if not hasattr(bundle, 'for_key'):
@@ -251,6 +251,11 @@ class _Evaluator:
         self._chain_cache: dict = {}    # own BinKey -> spill chain (ascending tiers)
         self._worst: dict = {}          # chain head -> worst bin over the whole chain
         self._mom: dict = {}            # (key, predicted, brackets) -> tier means
+        #: (key, predicted) -> the tier's candidates sorted ONCE for this evaluator (one
+        #: drain), through the bundle's `freeze_tier`; the pool adapter opens over slices
+        #: of it.  Scoped like `_sorted_now`: the space view is frozen for the drain, so
+        #: nothing here can go stale (`Warehouse/placement/frozen_tier.py`).
+        self._tiers: dict = {}
 
     # ── the owner cursor ──────────────────────────────────────────────────────────
     @property
@@ -599,7 +604,19 @@ class _Evaluator:
         ex, ey, ehm = mom
         return self._cost_at(unit, ex, ey, ehm, wp, xk, yk)
 
-    def _make_pool(self, cands, wp):
+    def _tier_for(self, key, predicted: bool, wp):
+        """The tier's frozen, sorted candidates for `(key, predicted)` -- built on first
+        touch from exactly the list the eager path filters (`empties`, then `predicted`),
+        so the pools' first-appearance tie-breaks are the same ones."""
+        got = self._tiers.get((key, predicted))
+        if got is None:
+            cands = list(self.space.empties.get(key, ()))
+            if predicted:
+                cands += self.space.predicted.get(key, ())
+            got = self._tiers[(key, predicted)] = self.b.freeze_tier(cands, wp)
+        return got
+
+    def _make_pool(self, cands, wp, *, sliced: bool = False):
         """The arm's own pool over COPY-ON-WRITE VIEWS of the aisle bookkeeping — the purity
         rule holds unchanged: a virtual placement may never advance the live dicts.
 
@@ -616,7 +633,7 @@ class _Evaluator:
         """
         b = self.b
         state = {n: _cow.AISLE_VIEWS[n](d) for n, d in b.aisle_state.items()}
-        return b.pool_factory(list(cands), state, wp)
+        return b.pool_factory(cands if sliced else list(cands), state, wp)
 
     def _place_pool(self, gunits, chain, wp, xk, yk, excluded, predicted, cache):
         """The pool adapter: per tier, the arm's pool (over copies) serves the units
@@ -628,28 +645,45 @@ class _Evaluator:
         for key in chain:
             if not rest:
                 break
-            slot = cache.get(('pool', key))
-            if slot is None:
-                cands = [x for x in self.space.empties.get(key, ())
-                         if id(x) not in excluded]
-                if predicted:
-                    cands += [x for x in self.space.predicted.get(key, ())
-                              if id(x) not in excluded]
-                slot = cache[('pool', key)] = (cands, set())
-            bins, used = slot
-            # MEASURED 8.9% OF THE RECEIVE DRAIN, REMOVING NOTHING.  `used` is only ever added to
-            # by a take below, so it is non-empty exactly when a LATER BinKey group spills into a
-            # tier this same placement already drew from.  Counted on the real driver over 7,426
-            # pool opens: that happened ZERO times -- 8,130,323 elements scanned, none removed.
-            #
-            # Returning `bins` itself is safe rather than merely cheap: `live` is truthiness-
-            # tested and then handed to `_make_pool`, which does `pool_factory(list(cands), ...)`
-            # and copies. Nothing mutates it, so the fast path and the comprehension are the same
-            # list in the same order -- the guard buys the scan back and changes no result.
-            live = bins if not used else [x for x in bins if id(x) not in used]
-            if not live:
-                continue
-            pool = self._make_pool(live, wp)
+            if b.freeze_tier is not None:
+                # THE OVERLAY PATH (`Warehouse/placement/frozen_tier.py`).  The tier was
+                # sorted once for this evaluator -- one drain -- and this open costs
+                # O(aisles) plus the skips over what is already taken, never O(bins).
+                # Measured before it existed: 7,384 opens rebuilt a ~4,000-bin tier to seat
+                # ~12 units each, 54 s of a 72 s drain at campaign scale.  Same candidates
+                # in the same order as the eager path below, the exclusion applied lazily
+                # inside the slice; `used` keeps the spill bookkeeping the eager path has.
+                used = cache.get(('used', key))
+                if used is None:
+                    used = cache[('used', key)] = set()
+                sl = self._tier_for(key, predicted, wp).slice(
+                    excluded if not used else (excluded | used))
+                if not sl:
+                    continue
+                pool = self._make_pool(sl, wp, sliced=True)
+            else:
+                slot = cache.get(('pool', key))
+                if slot is None:
+                    cands = [x for x in self.space.empties.get(key, ())
+                             if id(x) not in excluded]
+                    if predicted:
+                        cands += [x for x in self.space.predicted.get(key, ())
+                                  if id(x) not in excluded]
+                    slot = cache[('pool', key)] = (cands, set())
+                bins, used = slot
+                # MEASURED 8.9% OF THE RECEIVE DRAIN, REMOVING NOTHING.  `used` is only ever added to
+                # by a take below, so it is non-empty exactly when a LATER BinKey group spills into a
+                # tier this same placement already drew from.  Counted on the real driver over 7,426
+                # pool opens: that happened ZERO times -- 8,130,323 elements scanned, none removed.
+                #
+                # Returning `bins` itself is safe rather than merely cheap: `live` is truthiness-
+                # tested and then handed to `_make_pool`, which does `pool_factory(list(cands), ...)`
+                # and copies. Nothing mutates it, so the fast path and the comprehension are the same
+                # list in the same order -- the guard buys the scan back and changes no result.
+                live = bins if not used else [x for x in bins if id(x) not in used]
+                if not live:
+                    continue
+                pool = self._make_pool(live, wp)
             nxt: list = []
             for u in pool.order(list(rest)):
                 if b.expect_heads:

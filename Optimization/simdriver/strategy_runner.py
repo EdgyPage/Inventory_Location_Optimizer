@@ -324,7 +324,11 @@ def _gain_bundle_for(strat, mgr, sctx, wp, put_speed, spec) -> '_GainBundle':
     factory = _POOL_FACTORIES[policy.key](sctx, mgr)
     extra = ({'expect_heads': True, 'heads_of': lambda pool: pool._head_bin}
              if policy.gain_expect_heads else {})
-    return _GainBundle(pool_factory=factory, aisle_state=state, **extra, **kw)
+    # The per-drain tier freeze rides with the factory: the evaluator sorts each tier ONCE
+    # and opens the arm's pool over slices (`Warehouse/placement/frozen_tier.py`).  All
+    # three pool classes behind `_POOL_FACTORIES` accept a TierSlice.
+    return _GainBundle(pool_factory=factory, aisle_state=state, freeze_tier=_af.freeze_tier,
+                       **extra, **kw)
 
 
 # ── the per-family pool factories ────────────────────────────────────────────────────

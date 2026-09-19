@@ -914,7 +914,7 @@
       "doc": "The arm's own pool over COPY-ON-WRITE VIEWS of the aisle bookkeeping \u2014 the purity\nrule holds unchanged: a virtual placement may never advance the live dicts.\n\nOne comprehension, per evaluation: the bundle's `aisle_state` says WHICH live\ndicts this arm's pool commits to and `AISLE_VIEWS` says how each is viewed, so\na family that touches more of them costs a driver branch and nothing here.\n\nTHIS IS THE PACKAGE'S HOTTEST LINE, and the reason is the TIER loop below rather than\nanything about yard depth.  Measured on the real driver: 12.59 pool opens per\n`place_load` against a mean of 2.8 candidate trailers, so the opens are driven by the\nspill chain, not by the greedy.  The eager copy walked all 46 live aisles to serve a\npool that touches 1.22 of them -- 9.3 million set-element copies in twenty batches on\none leaf.  A view pays for what it reads.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, cands, wp)"
+      "signature": "(self, cands, wp, *, sliced: bool=False)"
     },
     "Inbound/gain.py::_Evaluator._mean_cost": {
       "decorators": [],
@@ -964,6 +964,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache, alloc)"
+    },
+    "Inbound/gain.py::_Evaluator._tier_for": {
+      "decorators": [],
+      "doc": "The tier's frozen, sorted candidates for `(key, predicted)` -- built on first\ntouch from exactly the list the eager path filters (`empties`, then `predicted`),\nso the pools' first-appearance tie-breaks are the same ones.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key, predicted: bool, wp)"
     },
     "Inbound/gain.py::_Evaluator._tier_sorted": {
       "decorators": [],
@@ -1090,7 +1097,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, fee_threshold_days: float=DEFAULT_FEE_THRESHOLD_DAYS, urgency_horizon_days: float=DEFAULT_URGENCY_HORIZON_DAYS)"
+      "signature": "(self, *, put_speed, wp_of, binkey_of, tier_ranks_for, minimize: bool=True, pool_factory=None, expect_heads: bool=False, heads_of=None, uniform: bool=False, aisle_state=None, freeze_tier=None, fee_threshold_days: float=DEFAULT_FEE_THRESHOLD_DAYS, urgency_horizon_days: float=DEFAULT_URGENCY_HORIZON_DAYS)"
     },
     "Inbound/gain_bundle.py::OneOwnerBundle": {
       "decorators": [],
@@ -24226,6 +24233,13 @@
       "kind": "function",
       "signature": "(candidates, rep=None)"
     },
+    "Warehouse/placement/Assignment_Functions.py::_check_tier": {
+      "decorators": [],
+      "doc": "Refuse a slice whose tier was frozen under other paces or brackets.  EXACT float\nequality, deliberately: the pool would compute these same values from the same `wp`\nthrough the same expression, and a tier that was not frozen from that `wp` carries\ndifferent geometry -- a tolerance here would accept the mixed-warehouse mistake.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tier: FrozenTier, x_pace: float, y_pace: float, brackets) -> None"
+    },
     "Warehouse/placement/Assignment_Functions.py::_closest_abs": {
       "decorators": [],
       "doc": "min |p - target| over the ascending `prefs` via bisect neighbours (O(log n)).\nReturns the identical value as `min(abs(p - target) for p in prefs)`; +inf if empty.",
@@ -24708,6 +24722,13 @@
       "kind": "function",
       "signature": "(unit: Any, candidates: list[Any]) -> Any | None"
     },
+    "Warehouse/placement/Assignment_Functions.py::freeze_tier": {
+      "decorators": [],
+      "doc": "One tier's candidates sorted ONCE, under the paces and brackets the pools resolve\nfrom `wp` -- the gain evaluator's per-drain freeze (`Inbound/gain.py:_tier_for`).\n\nBuilt HERE, beside the pools that read it, because `Inbound` may not import the\nplacement engine: the driver hands the evaluator this function through the bundle\n(`GainBundle.freeze_tier`), the same way `wp_of` and `binkey_of` cross that seam.  A\npool handed the result checks that its own paces and brackets are the ones the tier was\nfrozen under (`_check_tier`), so a mixed warehouse's per-regime `wp` cannot be served\nanother regime's geometry.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cands, wp) -> FrozenTier"
+    },
     "Warehouse/placement/Capacity_Reloader.py": {
       "decorators": [],
       "doc": "Capacity_Reloader.py \u2014 bounded re-slot via evict-and-requeue.\n\nRather than swapping bin contents (and breaking ties), a Capacity_Reloader EVICTS\ntargeted pallets back into the reorder queue (`manager.requeue_bin`) and reclaims\ntheir bins.  The manager's subsequent ranked drain (in `check_reorders`) then\nre-places everything in priority order, so popular items claim the freed prime bins\nand the evicted ones settle into their proper rank \u2014 no swapper, no tie-breaks.\n\nThe number of evictions per pallet aisle is capped at a percent of a reference\naisle's bin capacity (the operational pallet-move labor ceiling).\n\nThree named variants (target selectors):\n  - ``promote_popular``  : evict high-frequency pallets sitting in high-D (bad) bins,\n                           so the ranked re-drain lifts them into better bins.\n  - ``demote_unpopular`` : evict low-frequency pallets sitting in low-D (prime) bins,\n                           freeing prime bins for higher-ranked items.\n  - ``rebalance``        : both (split the per-aisle budget) \u2014 the swap result\n                           without a swapper.\n\nRe-placement is not the reloader's concern: it only evicts/requeues, and the manager's\nown ``placement`` policy (via check_reorders) re-drains the freed bins afterwards.",
@@ -24802,6 +24823,211 @@
       "doc": "Warehouse.placement \u2014 The assignment functions themselves \u2014 the research subject.  Assignment_Functions builds the placement closures the manager dispatches through (see context/arch/resolver_hints.yml: those edges are DYNAMIC and invisible to static import analysis), and Capacity_Reloader is the bounded re-slot.\n\nSee README.md for what does and does not belong here.",
       "kind": "module",
       "signature": null
+    },
+    "Warehouse/placement/frozen_tier.py": {
+      "decorators": [],
+      "doc": "frozen_tier.py \u2014 one tier's candidates sorted ONCE per drain, and the per-open overlay\nthat lets a placement pool open over them without rebuilding anything.\n\nTHE COST THIS REMOVES (measured 2026-09-19 on the campaign catalogue, `rank_random` under\n`gain_myopic`, 200k SKUs, after the placed-union fix): a priced drain opened 7,384 pools\nover a tier of ~4,000 empty bins and seated ~12 units from each, and every open rebuilt the\ntier's whole ranked structure \u2014 the travel-cost map, the per-aisle (per-bracket) D-sorted\nbuckets, the aisle heads \u2014 from the flat candidate list: 54 s of a 72 s drain, 300 units of\nconstruction per unit placed.  The inputs to that structure do not change inside a drain:\nthe gain evaluator freezes its space view at the drain epoch, so a tier's empties are the\nsame list at every one of the T(T+1) x K opens, and a bin's travel cost is geometry.  The\nonly thing that differs between two opens of one tier is WHICH bins the current virtual\nplacement has already taken.\n\nSo: `FrozenTier` sorts a tier once (per drain, per key \u2014 the evaluator owns it, which is\nthe scope object memory `a-cache-needs-a-scope-object` asks for), and `TierSlice` is what a\npool opens over: the frozen order plus one set of excluded bin ids.  A pool's per-aisle\nbucket becomes a `_Cursor` \u2014 a position into the frozen order that skips excluded bins\nlazily \u2014 so an open costs O(aisles) plus the skips, never O(bins).\n\nBYTE-IDENTICAL BY CONSTRUCTION, and each clause below is a tie-break the pools depend on:\n\n  * Within a bucket the order is by D with ties in first-appearance order.  The eager\n    pools get that from a STABLE sort of the appearance-ordered list; the frozen bucket is\n    the same stable sort of the same list, and filtering a stable-sorted list is the same\n    as stable-sorting the filtered list.  A cursor that skips excluded entries therefore\n    yields exactly the sequence the eager bucket would have popped.\n  * Across aisles (and across brackets inside an aisle) the pools' dicts are in FIRST-\n    APPEARANCE order of the FILTERED candidates, and that order is a tie-break in every\n    one of them (`_rank`, `next(iter(head_bin))`, the strict `<` over brackets).  It is not\n    the first-appearance order of the unfiltered list: excluding an aisle's first bin can\n    move that aisle behind another.  `TierSlice` recomputes it per open from each\n    aisle's/bucket's first non-excluded appearance index \u2014 O(aisles + skips) \u2014 and drops an\n    aisle or bracket whose every bin is excluded, exactly as the eager build never creates\n    a key for it.\n  * D is the expression `_D_map` evaluates, `x_pace * b.x_phys + y_pace * b.y_phys`, on the\n    same operands; the height multiplier is the same step function.  Same bits.\n  * `reverse` sorts (tmax) are stable in Python, so a descending stable sort is NOT the\n    reverse of the ascending one; the tier keeps both, computed on demand.\n\nThe pools accept a `TierSlice` where they accept a candidate list; handed a list they build\nexactly as before, so the wave path (one open per wave per key, and the seam every\nplacement oracle pins) is untouched byte for byte.  Only the gain evaluator opens over\nslices (`Inbound/gain.py`, through the bundle's `freeze_tier`).",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/placement/frozen_tier.py::FrozenTier": {
+      "decorators": [],
+      "doc": "One tier's candidates in appearance order, with every per-bucket order sorted once.\n\n`cands` is the tier's candidate list exactly as the evaluator would have handed the\npool BEFORE excluding anything (the frozen empties, plus the predicted tier when the\ndeferred side is being priced), in that order \u2014 the order is part of the result.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::FrozenTier.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cands, x_pace: float, y_pace: float, brackets=())"
+    },
+    "Warehouse/placement/frozen_tier.py::FrozenTier.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/placement/frozen_tier.py::FrozenTier.aisle_order": {
+      "decorators": [],
+      "doc": "The aisle's bin indices in the pool's bucket order (ascending D, or the stable\ndescending sort when `reverse`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid: int, reverse: bool=False) -> list"
+    },
+    "Warehouse/placement/frozen_tier.py::FrozenTier.slice": {
+      "decorators": [],
+      "doc": "The tier minus `excluded` (a set of bin ids), for one pool open.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, excluded) -> 'TierSlice'"
+    },
+    "Warehouse/placement/frozen_tier.py::HeapBucket": {
+      "decorators": [],
+      "doc": "The eager travel-balanced bucket: a heap of `(D, seq, bin)`, behind the same two\nreads a `_Cursor` answers, so `_aisle_best` and `take` are one code path.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::HeapBucket.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/placement/frozen_tier.py::HeapBucket.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, entries: list)"
+    },
+    "Warehouse/placement/frozen_tier.py::HeapBucket.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/placement/frozen_tier.py::HeapBucket.pop_top": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::HeapBucket.top": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice": {
+      "decorators": [],
+      "doc": "A `FrozenTier` minus one set of excluded bin ids \u2014 what a pool opens over.\n\nCheap to make (two references) and cheap to read: the first-appearance orders are\ncomputed when a pool asks for its buckets, from each list's first non-excluded index.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice.__bool__": {
+      "decorators": [],
+      "doc": "Does ANY candidate survive the exclusion?  The eager path's `if not live`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, tier: FrozenTier, excluded)"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice._first_live": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, appear: list)"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets": {
+      "decorators": [],
+      "doc": "`{aisle: {height_mult: _Cursor}}`, aisles and brackets each in first-appearance\norder of the surviving candidates \u2014 the travel-balanced and min-labor pools'\n`by_aisle`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice.aisles": {
+      "decorators": [],
+      "doc": "`{aisle: _Cursor}` in first-appearance order of the surviving candidates, one\ncursor per aisle over its D-sorted bins \u2014 `_RankedAssignPool`'s `by_aisle`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, reverse: bool=False) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor": {
+      "decorators": [],
+      "doc": "One bucket of a slice: a window into a frozen D-sorted index list that skips\nexcluded bins lazily.  Speaks the deque protocol the pools read (`dq[0]`, `dq[-1]`,\n`popleft()`, `pop()`, truth, `len`) and the bucket protocol (`top()`, `pop_top()`), so\na pool's `take` is the same code over a slice as over its own deque or heap.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i)"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, tier: FrozenTier, order: list, excluded)"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.pop": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.pop_top": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.popleft": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.top": {
+      "decorators": [],
+      "doc": "`(D, bin)` of the head \u2014 the heap bucket's `(D, seq, bin)` without the seq.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::__all__": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "['FrozenTier', 'TierSlice', 'HeapBucket']"
     },
     "Warehouse/placement/policy.py": {
       "decorators": [],

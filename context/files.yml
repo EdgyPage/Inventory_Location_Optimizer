@@ -2249,6 +2249,7 @@ files:
       - {name: "NOT_A_TABLE", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "EXCLUDED_COLS", file: "Tests/bench/run_digest.py", kind: "const"}
       - {name: "digest_run", file: "Tests/bench/run_digest.py", kind: "function"}
+      - {name: "restrict_to_cell", file: "Tests/bench/run_digest.py", kind: "function"}
       - {name: "compare", file: "Tests/bench/run_digest.py", kind: "function"}
       - {name: "self_test", file: "Tests/bench/run_digest.py", kind: "function"}
       - {name: "main", file: "Tests/bench/run_digest.py", kind: "function"}
@@ -4453,6 +4454,20 @@ files:
       - {name: "test_the_runner_snapshots_the_bucket_depth_per_batch_and_flushes_it_with_the_bundle", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
       - {name: "test_a_forced_spill_fails_the_clause_through_the_audits_call_site", file: "Tests/unit/test_free_index_by_bucket.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_frozen_tier.py":
+    purpose: "Pins the tier overlay: each of the three pool classes driven eager-vs-sliced to exact float equality on seeded candidate lists with planted D ties and exclusions that take an aisle's first bin (cart on/off, minimise/maximise), plus the slice's own order arithmetic, the cursor's two ends, truthiness, and the paces/brackets refusal."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_cursor_yields_exactly_the_filtered_stable_order", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_first_appearance_order_is_recomputed_under_exclusion", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_a_cursor_end_reads_skip_excluded_bins_from_both_ends", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_a_slice_is_falsy_only_when_every_candidate_is_excluded", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_a_tier_frozen_under_other_paces_is_refused", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_ranked_assign_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_travel_balanced_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_min_labor_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_the_fixtures_actually_plant_ties_and_reorderings", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_fulfillment_channels.py":
     purpose: "test_fulfillment_channels.py"
     layer: "tests"
@@ -4524,6 +4539,7 @@ files:
       - {name: "test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_unload_spec_carries_the_winner_and_the_rider_and_nothing_else", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_axis_keep_filter_subsets_and_refuses_a_name_it_does_not_build", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_campaign_scale_probe_is_the_reference_and_first_priced_cell_only", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
     notes: ""
   "Tests/unit/test_funnel_window.py":
     purpose: "Pins that the campaign's window, arrival regime, and staffing pin are each declared exactly once, and that the site-day and calendar-day units used for the window and the fee threshold cannot be mistaken for one another."
@@ -7031,6 +7047,7 @@ files:
     purpose: "placement (assignment) functions."
     layer: "wh_placement"
     key_symbols:
+      - {name: "freeze_tier", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_co_demand_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
@@ -7066,6 +7083,14 @@ files:
       - {name: "demote_unpopular_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
       - {name: "rebalance_reloader", file: "Warehouse/placement/Capacity_Reloader.py", kind: "function"}
       - {name: "RELOADERS", file: "Warehouse/placement/Capacity_Reloader.py", kind: "const"}
+    notes: ""
+  "Warehouse/placement/frozen_tier.py":
+    purpose: "Ticket 03 (phase-2 campaign): FrozenTier sorts one tier's candidates once per drain (D map, per-aisle and per-(aisle, bracket) stable D-sorted buckets, appearance orders); TierSlice overlays one exclusion set per pool open with lazy-skipping cursors that speak the pools' deque/bucket protocol, recomputing aisle and bracket first-appearance order under exclusion so every tie-break is byte-identical to the eager build."
+    layer: "wh_placement"
+    key_symbols:
+      - {name: "FrozenTier", file: "Warehouse/placement/frozen_tier.py", kind: "class"}
+      - {name: "TierSlice", file: "Warehouse/placement/frozen_tier.py", kind: "class"}
+      - {name: "HeapBucket", file: "Warehouse/placement/frozen_tier.py", kind: "class"}
     notes: ""
   "Warehouse/placement/policy.py":
     purpose: "one placement family, declared once."

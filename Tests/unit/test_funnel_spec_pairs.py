@@ -536,3 +536,19 @@ def test_the_axis_keep_filter_subsets_and_refuses_a_name_it_does_not_build():
     assert [n for n, _ov in wc.phase2_inbound_axis(keep=None)] == everything
     with pytest.raises(ValueError, match='does not build'):
         wc.phase2_inbound_axis(keep=('fifo', 'gmyopc'))
+
+def test_the_campaign_scale_probe_is_the_reference_and_first_priced_cell_only():
+    # `_probe_unload_ref`: two cells of `inbound_unload` (fifo = the reference, gmyopic = the
+    # first priced cell) over the same pairs, so `run_digest.py --cell` can compare a probe
+    # run against a finished campaign root cell by cell.  Two cells, not one: a one-cell run
+    # samples fresh instead of freezing, and the reference root froze.
+    from Optimization.simdriver import cells as c
+    spec = get_spec('_probe_unload_ref')
+    assert rule_pairs_of(spec) == rule_pairs_of(SPECS['inbound_unload'])
+    assert spec['run_defaults'] is PHASE2_RUN_DEFAULTS and spec['staffing_pin'] is wc.PHASE2_STAFFING_PIN
+    built = c._build_cells(spec)
+    assert [x.name for x in built] == ['k1_off_fifo', 'k1_off_gmyopic']
+    assert c.reference_cell(built) == 'k1_off_fifo'
+    full = {x.name: x.inbound for x in c._build_cells(get_spec('inbound_unload'))}
+    for x in built:
+        assert x.inbound == full[x.name], 'the probe cell must be the campaign cell, record for record'

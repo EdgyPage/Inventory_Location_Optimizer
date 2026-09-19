@@ -72,6 +72,15 @@ launches on the full ten cells.
   pair, so no `--pair` is needed); copy `chosen` into `PHASE3_UNLOAD`, register
   `inbound_confirm`, launch phase 3 the same way.
 
+## Stopped again 2026-09-19 08:57 -- ticket 03, the per-drain tier freeze
+
+- At the user's call, after cells 1-3 and the two fifo units of cell 4 completed (28 leaves).
+  Root `comparison_whatif_20260919_002111` is resumable; its cells are the campaign-scale
+  byte-identity reference for [03](issues/03-a-pool-open-rebuilds-the-tier.md).
+- Cell walls: fifo 47 min, lifo 47 min, gmyopic (priced) ~3 h for each winner unit against
+  25-40 min unpriced -- the pool rebuilt the whole tier at every one of ~7,400 opens per drain
+  to seat ~12 units. 03 freezes each tier once per drain and opens pools as overlays.
+
 ## Decisions so far
 
 - 2026-09-18: launch at 12 workers on the one-pair view (above).

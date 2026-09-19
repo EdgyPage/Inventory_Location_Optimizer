@@ -241,13 +241,19 @@ def _unblock_broken_pool(pool, log, *, timeout_s: float = 60.0) -> int:
             log.warning(f'  [supervisor] call-queue feeder still alive after {timeout_s:.0f} s '
                         f'and {drained} payload(s) drained -- the pool exit may hang')
             return drained
+        if getattr(reader, 'closed', False):
+            break
         try:
             if reader.poll(0.05):
                 reader.recv_bytes()
                 drained += 1
-        except (EOFError, OSError):
+        except (EOFError, OSError, ValueError, TypeError):
             # THE NORMAL END: once the feeder has sent its last item the manager thread
-            # closes the queue, and the reader we are polling goes with it.
+            # closes the queue, and the reader we are polling goes with it -- sometimes
+            # between our `poll` and our `recv_bytes`, which then sees a handle that is
+            # already None (TypeError from ReadFile) or a connection that says it is
+            # closed (ValueError).  Seen once in the gate on 2026-09-19; all four mean
+            # the same thing here.
             break
     log.info(f'  [supervisor] drained {drained} queued unit payload(s) the dead workers never '
              'read; the call queue is closed and the pool can exit')

@@ -256,6 +256,17 @@ def digest_run(base: str) -> dict:
 
 # ── compare ──────────────────────────────────────────────────────────────────
 
+def restrict_to_cell(doc: dict, cell: str) -> dict:
+    """The digest of ONE cell: its arms and its per-pair extras, the run-scope
+    runtime_metrics.db left out (it holds a row per arm of EVERY cell, so a probe that
+    rebuilt one cell can never match a campaign's on it)."""
+    pre = cell + '/'
+    return {**doc,
+            'arms': {k: v for k, v in doc['arms'].items() if k.startswith(pre)},
+            'extras': {k: v for k, v in doc['extras'].items() if k.startswith(pre)},
+            'cell': cell}
+
+
 def compare(a: dict, b: dict) -> tuple[bool, list[str]]:
     lines: list[str] = []
     ok = True
@@ -335,6 +346,11 @@ def main(argv=None) -> int:
     ap.add_argument('runs', nargs='*', help='one run (digest) or two (compare)')
     ap.add_argument('--self-test', action='store_true')
     ap.add_argument('-o', '--out', default=None, help='write digest/compare JSON here')
+    ap.add_argument('--cell', default=None, metavar='NAME',
+                    help='restrict both digests to ONE cell, so a finished cell of a larger run '
+                         '(the stopped campaign) is a byte-identity reference for a probe run '
+                         'that rebuilt only that cell; the run-scope runtime_metrics.db is '
+                         'dropped from the surface, because it spans every cell')
     args = ap.parse_args(argv)
 
     if args.self_test:
@@ -358,6 +374,12 @@ def main(argv=None) -> int:
 
     a = digest_run(args.runs[0])
     b = digest_run(args.runs[1])
+    if args.cell:
+        a, b = restrict_to_cell(a, args.cell), restrict_to_cell(b, args.cell)
+        for d in (a, b):
+            if not d['arms']:
+                print(f"{d['run']}: no arm under cell {args.cell!r}")
+                return 2
     ok, lines = compare(a, b)
     print(f"baseline : {a['run']} ({len(a['arms'])} arms)")
     print(f"candidate: {b['run']} ({len(b['arms'])} arms)")

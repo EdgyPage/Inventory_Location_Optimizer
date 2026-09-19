@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warehouse.placement.frozen_tier · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_frozen_tier_py" data-id="Warehouse/placement/frozen_tier.py">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <span class="here"><code>Warehouse/placement/frozen_tier.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Warehouse.placement.frozen_tier</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a></p>
+
+<pre class="sig"><code>Warehouse.placement.frozen_tier</code></pre>
+<section class="doc">frozen_tier.py — one tier&#x27;s candidates sorted ONCE per drain, and the per-open overlay
+that lets a placement pool open over them without rebuilding anything.
+
+THE COST THIS REMOVES (measured 2026-09-19 on the campaign catalogue, `rank_random` under
+`gain_myopic`, 200k SKUs, after the placed-union fix): a priced drain opened 7,384 pools
+over a tier of ~4,000 empty bins and seated ~12 units from each, and every open rebuilt the
+tier&#x27;s whole ranked structure — the travel-cost map, the per-aisle (per-bracket) D-sorted
+buckets, the aisle heads — from the flat candidate list: 54 s of a 72 s drain, 300 units of
+construction per unit placed.  The inputs to that structure do not change inside a drain:
+the gain evaluator freezes its space view at the drain epoch, so a tier&#x27;s empties are the
+same list at every one of the T(T+1) x K opens, and a bin&#x27;s travel cost is geometry.  The
+only thing that differs between two opens of one tier is WHICH bins the current virtual
+placement has already taken.
+
+So: `FrozenTier` sorts a tier once (per drain, per key — the evaluator owns it, which is
+the scope object memory `a-cache-needs-a-scope-object` asks for), and `TierSlice` is what a
+pool opens over: the frozen order plus one set of excluded bin ids.  A pool&#x27;s per-aisle
+bucket becomes a `_Cursor` — a position into the frozen order that skips excluded bins
+lazily — so an open costs O(aisles) plus the skips, never O(bins).
+
+BYTE-IDENTICAL BY CONSTRUCTION, and each clause below is a tie-break the pools depend on:
+
+  * Within a bucket the order is by D with ties in first-appearance order.  The eager
+    pools get that from a STABLE sort of the appearance-ordered list; the frozen bucket is
+    the same stable sort of the same list, and filtering a stable-sorted list is the same
+    as stable-sorting the filtered list.  A cursor that skips excluded entries therefore
+    yields exactly the sequence the eager bucket would have popped.
+  * Across aisles (and across brackets inside an aisle) the pools&#x27; dicts are in FIRST-
+    APPEARANCE order of the FILTERED candidates, and that order is a tie-break in every
+    one of them (`_rank`, `next(iter(head_bin))`, the strict `&lt;` over brackets).  It is not
+    the first-appearance order of the unfiltered list: excluding an aisle&#x27;s first bin can
+    move that aisle behind another.  `TierSlice` recomputes it per open from each
+    aisle&#x27;s/bucket&#x27;s first non-excluded appearance index — O(aisles + skips) — and drops an
+    aisle or bracket whose every bin is excluded, exactly as the eager build never creates
+    a key for it.
+  * D is the expression `_D_map` evaluates, `x_pace * b.x_phys + y_pace * b.y_phys`, on the
+    same operands; the height multiplier is the same step function.  Same bits.
+  * `reverse` sorts (tmax) are stable in Python, so a descending stable sort is NOT the
+    reverse of the ascending one; the tier keeps both, computed on demand.
+
+The pools accept a `TierSlice` where they accept a candidate list; handed a list they build
+exactly as before, so the wave path (one open per wave per key, and the seam every
+placement oracle pins) is untouched byte for byte.  Only the gain evaluator opens over
+slices (`Inbound/gain.py`, through the bundle&#x27;s `freeze_tier`).</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py.html"><code>Warehouse.kernel.cost_model</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse.placement.Assignment_Functions</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(29)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__FrozenTier.html"><code>FrozenTier</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__HeapBucket.html"><code>HeapBucket</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice.html"><code>TierSlice</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor.html"><code>_Cursor</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py____all__.html"><code>__all__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__HeapBucket___bool__.html"><code>__bool__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice___bool__.html"><code>__bool__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor___bool__.html"><code>__bool__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor___getitem__.html"><code>__getitem__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__FrozenTier___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__HeapBucket___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__FrozenTier___len__.html"><code>__len__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__HeapBucket___len__.html"><code>__len__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor___len__.html"><code>__len__</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__first_live.html"><code>_first_live</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor__settle_hi.html"><code>_settle_hi</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor__settle_lo.html"><code>_settle_lo</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice_aisle_buckets.html"><code>aisle_buckets</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__FrozenTier_aisle_order.html"><code>aisle_order</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice_aisles.html"><code>aisles</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor_pop.html"><code>pop</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__HeapBucket_pop_top.html"><code>pop_top</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor_pop_top.html"><code>pop_top</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor_popleft.html"><code>popleft</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__FrozenTier_slice.html"><code>slice</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__HeapBucket_top.html"><code>top</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor_top.html"><code>top</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
