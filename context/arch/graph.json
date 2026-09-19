@@ -1176,6 +1176,16 @@
       "src": "Inbound/gain_cow.py::AISLE_COPIERS"
     },
     {
+      "dst": "Inbound/gain_cow.py::_CowView.values",
+      "kind": "calls",
+      "src": "Inbound/gain_cow.py::_CowSets.union"
+    },
+    {
+      "dst": "Inbound/gain_cow.py::_PlacedUnion",
+      "kind": "calls",
+      "src": "Inbound/gain_cow.py::_CowSets.union"
+    },
+    {
       "dst": "Warehouse/layout/Storage_Primitive.py",
       "kind": "imports",
       "src": "Inbound/pack.py"
@@ -18821,6 +18831,11 @@
       "src": "Warehouse/inventory/aisle_ledger.py::AisleLedger.__init__"
     },
     {
+      "dst": "Warehouse/inventory/aisle_ledger.py::_PartnerAisles",
+      "kind": "calls",
+      "src": "Warehouse/inventory/aisle_ledger.py::AisleLedger.__init__"
+    },
+    {
       "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.reconcile",
       "kind": "calls",
       "src": "Warehouse/inventory/aisle_ledger.py::AisleLedger.assert_sound"
@@ -20101,6 +20116,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_placed_union",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.__init__"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.sort_key"
@@ -20247,6 +20267,11 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_placed_union",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
     },
@@ -20442,6 +20467,11 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_AislePrefIndex",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_placed_union",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_cluster_map_placement._ClusterMapPool.__init__"
     },
@@ -22806,6 +22836,14 @@
     },
     {
       "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_CowSets.union",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "union",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain_cow.py",
       "id": "Inbound/gain_cow.py::_CowView",
       "kind": "class",
       "module": "Inbound/gain_cow.py",
@@ -22891,6 +22929,54 @@
       "module": "Inbound/gain_cow.py",
       "name": "values",
       "public": true
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_PlacedUnion",
+      "kind": "class",
+      "module": "Inbound/gain_cow.py",
+      "name": "_PlacedUnion",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_PlacedUnion.__bool__",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_PlacedUnion.__contains__",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_PlacedUnion.__init__",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_PlacedUnion.__iter__",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_PlacedUnion.__len__",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "__len__",
+      "public": false
     },
     {
       "file": "Inbound/gain_cow.py",
@@ -44982,6 +45068,22 @@
     },
     {
       "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_PartnerAisles",
+      "kind": "class",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "_PartnerAisles",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
+      "id": "Warehouse/inventory/aisle_ledger.py::_PartnerAisles.__init__",
+      "kind": "function",
+      "module": "Warehouse/inventory/aisle_ledger.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/inventory/aisle_ledger.py",
       "id": "Warehouse/inventory/aisle_ledger.py::_UNBOUND",
       "kind": "const",
       "module": "Warehouse/inventory/aisle_ledger.py",
@@ -48818,6 +48920,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_pick_extremal_aisle",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_placed_union",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_placed_union",
       "public": false
     },
     {

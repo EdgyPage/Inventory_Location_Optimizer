@@ -41,9 +41,11 @@ that `__getitem__` stays three.
 
 `values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the
 LIVE container and the caller could mutate it -- the precise failure the eager copy
-existed to prevent.  `_RankedAssignPool.__init__` builds
-`set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets
-correctness and no win.  Every other ranked family reads by key and gets both.
+existed to prevent.  `_RankedAssignPool.__init__` used to build
+`set().union(*aisle_idx_sets.values())` through that path, so `rank_random` (its only
+phase-2 user) got correctness and no win; it now asks the view for `union()`, which
+`_CowSets` answers from the owner&#x27;s counted inverse without touching a single aisle
+(ticket 02 of the phase-2 campaign).  Every other ranked family reads by key.
 
 Slotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is
 opened per pool, and a stray attribute would be per-pool heap nobody frees.</section>

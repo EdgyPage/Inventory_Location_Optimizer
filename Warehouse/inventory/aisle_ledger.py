@@ -107,6 +107,27 @@ class _UnboundBook(dict):
 _UNBOUND = _UnboundBook()
 
 
+class _PartnerAisles(defaultdict):
+    """`{matrix idx: {aisle}}` -- the inverse of `_IdxSets` -- that COUNTS ITS PLACED KEYS.
+
+    `n_placed` is the number of indices held by at least one aisle: the size of the union
+    `set().union(*idx_sets.values())` that three pool constructors used to build at every
+    open.  Under the gain evaluator a pool is opened T(T+1) x 12.59 times per drain over a
+    copy-on-write view whose `values()` materializes EVERY aisle (2,774 at campaign scale;
+    `.scratch/phase-2-campaign/issues/02`), so the union is answered from here instead
+    (`gain_cow._CowSets.union`): membership is `bool(inverse.get(idx))`, and the size --
+    which decides which side `_delta_lift_from_row` iterates, so it must be EXACT -- is this
+    counter.  Maintained at the same three write points as the inverse itself (`add_bin`,
+    `add_sku`, `drop_sku`), which makes it an index and not a cache.  An emptied set stays
+    in the dict (a view has no delete) and counts as not placed.
+    """
+    __slots__ = ('n_placed',)
+
+    def __init__(self) -> None:
+        super().__init__(set)
+        self.n_placed = 0
+
+
 class _IdxSets(defaultdict):
     """`{aisle: {matrix idx}}` that CARRIES ITS OWN INVERSE.
 
@@ -152,7 +173,7 @@ class AisleLedger:
         # every live aisle -- measured at k 1.98 in the catalogue before this existed (W8
         # stage 2, 2026-09-18).  Maintained on the OWNER always (one set-add per bin placed);
         # a view binds it whenever it is handed the owner's `idx_sets` (see `_IdxSets`).
-        self.partner_aisles: dict[int, set[int]] = defaultdict(set)
+        self.partner_aisles: dict[int, set[int]] = _PartnerAisles()
         self.idx_sets: dict[int, set[int]] = _IdxSets(self.partner_aisles)
         self.sku_counts: dict[int, dict[int, int]] = defaultdict(dict)
         self.member_pos: dict[int, dict[int, list[float]]] = defaultdict(lambda: defaultdict(list))
@@ -255,6 +276,10 @@ class AisleLedger:
         # a copy-on-write view), it binds nothing and the mirror is skipped.  Explicit wins.
         led.partner_aisles = (getattr(led.idx_sets, 'inverse', _UNBOUND)
                               if partner_aisles is None else partner_aisles)
+        if partner_aisles is not None and not isinstance(partner_aisles, _PartnerAisles):
+            raise TypeError('partner_aisles must be a _PartnerAisles (it counts its placed '
+                            'keys, and the mirror in add_bin/add_sku/drop_sku maintains that '
+                            f'count); got {type(partner_aisles).__name__}')
         return led
 
     @property
@@ -310,7 +335,10 @@ class AisleLedger:
         self.idx_sets[aid].add(idx)
         pa = self.partner_aisles
         if pa is not _UNBOUND:
-            pa[idx].add(aid)
+            held = pa[idx]
+            if not held:
+                pa.n_placed += 1            # first aisle to hold this idx: it is now PLACED
+            held.add(aid)
         self.member_pos[aid][idx].append(x_phys)
 
     def add_sku(self, aid: int, sku: int, idx: int | None = None, *,
@@ -341,7 +369,10 @@ class AisleLedger:
             self.idx_sets[aid].add(idx)
             pa = self.partner_aisles
             if pa is not _UNBOUND:
-                pa[idx].add(aid)
+                held = pa[idx]
+                if not held:
+                    pa.n_placed += 1
+                held.add(aid)
         if demand is not None:
             self.demand_sum[aid] += demand
         if pick_load is not None:
@@ -400,7 +431,11 @@ class AisleLedger:
             # `[]` materializes the one key.  The emptied set stays (a view has no delete);
             # readers treat an empty set as "held nowhere", which is what it means.
             if pa is not _UNBOUND and idx in pa:
-                pa[idx].discard(aid)
+                held = pa[idx]
+                if aid in held:             # guard the count: a second discard must not
+                    held.discard(aid)       # decrement twice for one departure
+                    if not held:
+                        pa.n_placed -= 1    # last holder gone: the idx is placed nowhere
 
         d = self.sku_demand_product.get(sku, 0.0)
         if d:
@@ -463,6 +498,13 @@ class AisleLedger:
                 out.append(f'partner_aisles misses aisle {aid} for idx {idx}')
             for aid, idx in sorted(inverse - forward):
                 out.append(f'partner_aisles holds aisle {aid} for idx {idx}, which left')
+            n_placed = getattr(pa, 'n_placed', None)
+            if n_placed is not None:
+                by_hand = sum(1 for s in pa.values() if s)
+                if n_placed != by_hand:
+                    out.append(f'partner_aisles.n_placed = {n_placed} but {by_hand} idx key(s) '
+                               'hold an aisle -- the lazy placed-union would size itself '
+                               'wrong, and the side _delta_lift_from_row iterates with it')
         return out
 
     def assert_sound(self) -> None:

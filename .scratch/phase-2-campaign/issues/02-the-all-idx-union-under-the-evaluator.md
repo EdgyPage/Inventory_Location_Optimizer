@@ -1,7 +1,7 @@
 # 02 - `_all_idx` is rebuilt from every aisle on every pool open, and the evaluator opens T(T+1) pools per drain
 
 Type: task
-Status: needs-triage
+Status: in-progress
 
 **Seen 2026-09-18 in the campaign's first priced cell** (`k1_off_gmyopic`, 40 site days, 12 workers).
 The `rank_random` and `rank_popularity` pairs were at batch 8/40 after 55 minutes -- about 4.5 h per
@@ -40,3 +40,58 @@ the overlay's additions. Two shapes, both to be measured before choosing:
 
 Not touched during the campaign: the run imports an immutable snapshot, and a change here moves
 every priced cell's cost, which is the quantity the campaign publishes.
+
+## Answer -- landed 2026-09-18 (campaign-scale re-measurement pending)
+
+**The mechanism holds for `rank_random` and NOT for `rank_popularity`, by reading the code
+and then measuring it.** `_RankedAssignPool.__init__` builds the union only when
+`order_key is None`; `rank_popularity` orders by `_score_expected_popularity` and never
+builds it, `rank_random` (no order key, a random aisle selector) does. So whatever makes
+`rank_popularity` 25x priced, it is not this union. Profiled under `gain_myopic` at 20k SKUs
+(uncoupled, 4 batches, 98 aisles): the union path (`_CowSets.values()` materialization +
+`set().union`) was ~15% of a `rank_random` pool open, `_D_map` over the tier's candidates
+~30%, the `by_aisle` sort key ~15%; at 2,774 aisles the union term scales with the warehouse
+while the others scale with the tier. The campaign-scale share is being measured (200k SKUs
+of the 400k catalogue, cProfile) and the ladder (`calltree_inbound_ladder.py --coupled`)
+will record the new multiples.
+
+**Campaign scale, BEFORE the fix (measured 2026-09-18/19, `uni_rank_random_norsl`, 200k SKUs
+of the 400k catalogue, 10 batches, uncoupled, `gain_myopic`, cProfile):** wall 856 s; the
+drain (`plan_order`) 376 s over 18 drains at depths 3-7, 402 `place_load`s, **7,384 pool
+opens** (18.4 per place_load, 4,069 candidates each); `_make_pool` 287 s = 76% of the drain;
+inside `_RankedAssignPool.__init__` (293 s): `set.union` **109.5 s** + `_CowSets.values()`
+materialization **96.1 s** (4.67 M `__getitem__`, one per aisle per open) = **205 s, 70% of
+pool construction and 55% of the whole priced drain**; `_D_map` 33 s; the `by_aisle` sort key
+9 s. So at the campaign's aisle count the union IS the dominant term of a priced
+`rank_random` open, as the ticket said -- and it is gone from the open now.  The AFTER
+profile of the same run is recorded below when it lands.
+
+**Built (shape 1 of the two proposed, made exact):**
+
+- `AisleLedger.partner_aisles` is now `_PartnerAisles`, the inverse that COUNTS its placed
+  keys (`n_placed`), mirrored at the same three write points as the inverse and checked by
+  `reconcile()`. A plain dict handed to `over(partner_aisles=...)` is refused.
+- `_CowSets.union()` answers `set().union(*self.values())` as a `_PlacedUnion` over the
+  owner's inverse: `len` from the counter (EXACT, because `_delta_lift_from_row` folds the
+  shorter side and a wrong size changes the float), `in` from the inverse, iteration from
+  it, plus the overlay reconciled exactly (extra / gone) rather than assumed empty. No aisle
+  is materialized. A live dict without an inverse gets the old materializing answer.
+- `Assignment_Functions._placed_union` dispatches: the owner's dict keeps the historical
+  set (the wave path is untouched, byte for byte); the evaluator's view takes `union()`. All
+  three constructors (`_CoDemandPool`, `_RankedAssignPool`, `_ClusterMapPool`) go through it,
+  and a test asserts no fourth `set().union(*aisle_idx_sets.values())` reappears.
+
+**Byte identity, measured.** New spec `_toy_priced` (two cells off the phase-2 axis, `fifo`
+and `gmyopic`, over `fifo` / `rank_random` / `rank_popularity`, coupled, the era): baseline
+`comparison_whatif_20260918_234513` from the HEAD snapshot (`45bafa7a`) vs candidate
+`comparison_whatif_20260918_234957` from the working tree -- `run_digest.py`: **IDENTICAL on
+the comparable surface, 24 arms**. And the path RAN: instrumented at the same scale, 152
+evaluator pool opens took the `_PlacedUnion`, 38 wave opens took the set.
+
+The iteration-order residual (the lazy view iterates dict order, a set iterates hash order)
+can only reach the arithmetic when the placed set is smaller than a SKU's partner row --
+never for a stocked warehouse; recorded in `_PlacedUnion`'s docstring.
+
+**Shape 2 ("is `_all_idx` needed at open at all") stays open**: with shape 1 the open no
+longer walks the warehouse, so the question has lost its cost; what remains of the priced
+multiple is in the tier (`_D_map`, bucketing) and in `rank_popularity`'s unmeasured term.

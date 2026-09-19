@@ -271,6 +271,23 @@ def _delta_lift_from_row(row, member_idx_set, freq_by_idx) -> float:
 
 # ── load-aware assignment functions ───────────────────────────────────────────
 
+def _placed_union(aisle_idx_sets):
+    """Every matrix index placed anywhere, for a pool's frozen `_all_idx`.
+
+    Handed the owner's dict, this is the union it always was -- built once per open, a
+    real set, byte-identical to the wave path's history.  Handed the gain evaluator's
+    copy-on-write view (`Inbound.gain_cow._CowSets`), it takes the view's `union()`: a lazy
+    object over the owner's counted inverse that answers `len`/`in`/truth/iteration without
+    materializing every aisle.  The old form did exactly that -- `values()` on the view
+    copies all 2,774 aisles at campaign scale, T(T+1) x 12.59 times per drain -- and it was
+    the single largest term of `rank_random`'s 39-59x priced multiple
+    (`.scratch/phase-2-campaign/issues/02`)."""
+    if not aisle_idx_sets:
+        return set()
+    u = getattr(aisle_idx_sets, 'union', None)
+    return u() if u is not None else set().union(*aisle_idx_sets.values())
+
+
 def _co_by_aisle(row, idx_sets, partner_aisles, freq_by_idx) -> dict:
     """{aisle: Σ (lift - 1)·f_i over the SKU's partners i placed in that aisle}, for every
     aisle that holds at least one partner -- and NOTHING for the aisles that hold none.
@@ -803,7 +820,7 @@ class _CoDemandPool(_Pool):
         self._x_pace = x_pace
         # Every SKU index placed anywhere. Aisle-derived, so the unit set cannot change it;
         # frozen for the group, so later units rank against the pre-group union.
-        self._all_idx = (set().union(*aisle_idx_sets.values()) if aisle_idx_sets else set())
+        self._all_idx = _placed_union(aisle_idx_sets)
 
         self._D_of = _D_map(cands, x_pace, y_pace)
         by_aisle: dict[int, list] = {}
@@ -1029,8 +1046,7 @@ class _RankedAssignPool(_Pool):
         # That union is identical for every unit in the group, so build it ONCE -- not once
         # per unit inside the sort key (which was O(U*sigma) per wave).  Only the default
         # pick-effort ordering's co-occurrence term needs it.
-        self._all_idx = (set().union(*aisle_idx_sets.values())
-                         if (order_key is None and aisle_idx_sets) else set())
+        self._all_idx = _placed_union(aisle_idx_sets) if order_key is None else set()
 
         # The named pair, not two hand conversions — new code crosses the ft/s -> s/inch
         # boundary through the profile (see cost_model.SpeedProfile).
@@ -2447,8 +2463,7 @@ def build_cluster_map_placement(mgr, affinity, wp, ledger,
 
         def __init__(self, candidates):
             self._by_aisle, self._prefs = _group(candidates)   # one tier, once per group
-            self._all_idx = (set().union(*aisle_idx_sets.values())
-                             if aisle_idx_sets else set())
+            self._all_idx = _placed_union(aisle_idx_sets)
             self._run_cache: dict = {}          # same-SKU run reuse; _place owns the rules
             # THE COLD-START PAIR (ticket 05).  `_live_idx` is the union `_all_idx` is a frozen
             # copy of -- frozen there by decision, because `sort_key` ranks the whole group

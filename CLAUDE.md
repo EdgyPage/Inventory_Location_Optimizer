@@ -36,6 +36,7 @@ python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/unit/test_deferred_indices.py \
                 Tests/unit/test_conftest_restores_nested_config.py \
                 Tests/integration/test_supervisor_broken_pool.py \
+                Tests/unit/test_placed_union.py \
                 Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
@@ -71,6 +72,14 @@ existing supervisor test fakes the pool, and a real pool with SMALL arguments re
 the hang needs one unit argument larger than a Windows pipe buffer (8 KiB), which the real
 payload always is. It runs the reproduction in a subprocess under a watchdog, so it fails
 rather than hangs.
+
+`test_placed_union.py` joined on 2026-09-18 with ticket 02 of the phase-2 campaign. Under the
+gain evaluator a pool's `_all_idx` is now a lazy view over `partner_aisles.n_placed`, and that
+count decides which side `_delta_lift_from_row` folds: a counter that drifted by one would
+change a float in a placement sort key with no error anywhere, and the placement oracles
+compare a family's pool half to its wave half, so they cannot see it (memory
+`placement-oracles-pin-agreement-not-truth`). The test pins the count through churn and the
+fold's exact float; the toy digest is the gate for the rest.
 
 It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a

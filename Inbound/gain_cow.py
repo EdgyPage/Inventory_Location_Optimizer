@@ -100,9 +100,11 @@ class _CowView:
 
     `values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the
     LIVE container and the caller could mutate it -- the precise failure the eager copy
-    existed to prevent.  `_RankedAssignPool.__init__` builds
-    `set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets
-    correctness and no win.  Every other ranked family reads by key and gets both.
+    existed to prevent.  `_RankedAssignPool.__init__` used to build
+    `set().union(*aisle_idx_sets.values())` through that path, so `rank_random` (its only
+    phase-2 user) got correctness and no win; it now asks the view for `union()`, which
+    `_CowSets` answers from the owner's counted inverse without touching a single aisle
+    (ticket 02 of the phase-2 campaign).  Every other ranked family reads by key.
 
     Slotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is
     opened per pool, and a stray attribute would be per-pool heap nobody frees.
@@ -196,6 +198,89 @@ class _CowSets(_CowView):
             src = self._live.get(k)
             got = o[k] = set(src) if src is not None else set()
         return got
+
+    def union(self):
+        """Every idx in any aisle of this view -- what `set().union(*self.values())` returns,
+        answered from the owner's counted inverse when the live dict is the owner's
+        `_IdxSets`, so no aisle is materialized.  A live dict with no inverse (a loose dict
+        in a test) gets the materializing answer, so the two are interchangeable by value.
+
+        The overlay is reconciled exactly rather than assumed empty: an idx an overlay aisle
+        holds that no live aisle does is EXTRA; an idx a live aisle held that every one of
+        its holders has been overridden without it is GONE.  Both are empty at every pool
+        open the evaluator makes today (`_make_pool` builds fresh views per open), and both
+        cost O(overlay), never O(warehouse)."""
+        live = self._live
+        inv = getattr(live, 'inverse', None)
+        if inv is None or not hasattr(inv, 'n_placed'):
+            return set().union(*self.values())
+        over = self._over
+        if not over:
+            return _PlacedUnion(inv)
+        over_union = set().union(*over.values())
+        extra = frozenset(i for i in over_union if not inv.get(i))
+        gone = set()
+        for aid, s in over.items():
+            src = live.get(aid)
+            if not src:
+                continue
+            for i in src:
+                if i in s or i in over_union or i in gone:
+                    continue
+                if all(a in over for a in inv.get(i, ())):
+                    gone.add(i)
+        return _PlacedUnion(inv, extra, frozenset(gone))
+
+
+class _PlacedUnion:
+    """The set of matrix indices placed ANYWHERE, as a pool under the gain evaluator sees it.
+
+    What `set().union(*aisle_idx_sets.values())` was, without the walk: the owner's inverse
+    (`_PartnerAisles`, every idx held by at least one live aisle) plus what this view's
+    overlay ADDS beyond the live warehouse, minus what it REMOVES from the last aisle
+    holding it.  Answers everything `_delta_lift_from_row` asks of `_all_idx` -- truth,
+    `len`, `in`, and iteration -- and nothing else.
+
+    FROZEN BY THE PURITY RULE, not by copying.  A pool's `_all_idx` is frozen for the group
+    by decision (later units rank against the pre-group union), and the old set was a copy.
+    This object reads the LIVE inverse, so it is frozen only where the live books are never
+    written during the pool's life -- which is exactly the copy-on-write view's contract: a
+    virtual placement writes its overlay and never the owner.  The size is taken once, at
+    construction, and it must be EXACT: `_delta_lift_from_row` folds the shorter side, and
+    a wrong `len` would change which side is iterated and therefore the float.
+
+    Iteration order is dict order plus the overlay's extras, not a set's hash order.  That
+    can only reach the arithmetic when the placed set is SMALLER than a SKU's partner row
+    (the side iterated is the shorter one) -- a warehouse holding fewer than a row's worth
+    of indices, which neither a stocked toy run nor the campaign ever presents to a pool.
+    The digest gate (`Tests/bench/run_digest.py`) is what says so, not this sentence.
+    """
+
+    __slots__ = ('_inv', '_extra', '_gone', '_n')
+
+    def __init__(self, inv, extra=frozenset(), gone=frozenset()):
+        self._inv, self._extra, self._gone = inv, extra, gone
+        self._n = inv.n_placed + len(extra) - len(gone)
+
+    def __len__(self):
+        return self._n
+
+    def __bool__(self):
+        return self._n > 0
+
+    def __contains__(self, idx):
+        if idx in self._extra:
+            return True
+        if idx in self._gone:
+            return False
+        return bool(self._inv.get(idx))
+
+    def __iter__(self):
+        gone = self._gone
+        for idx, held in self._inv.items():
+            if held and idx not in gone:
+                yield idx
+        yield from self._extra
 
 
 class _CowListsByKey(_CowView):

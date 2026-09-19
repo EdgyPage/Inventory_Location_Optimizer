@@ -1264,9 +1264,16 @@
       "kind": "function",
       "signature": "(self, k)"
     },
+    "Inbound/gain_cow.py::_CowSets.union": {
+      "decorators": [],
+      "doc": "Every idx in any aisle of this view -- what `set().union(*self.values())` returns,\nanswered from the owner's counted inverse when the live dict is the owner's\n`_IdxSets`, so no aisle is materialized.  A live dict with no inverse (a loose dict\nin a test) gets the materializing answer, so the two are interchangeable by value.\n\nThe overlay is reconciled exactly rather than assumed empty: an idx an overlay aisle\nholds that no live aisle does is EXTRA; an idx a live aisle held that every one of\nits holders has been overridden without it is GONE.  Both are empty at every pool\nopen the evaluator makes today (`_make_pool` builds fresh views per open), and both\ncost O(overlay), never O(warehouse).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
     "Inbound/gain_cow.py::_CowView": {
       "decorators": [],
-      "doc": "Copy-on-write over one of the manager's `{aisle: ...}` dicts.\n\nA virtual placement must never advance the live bookkeeping, and the original way to\nguarantee that was to hand the pool an EAGER copy of the whole dict.  The measurement in\nfront of this block is why that stopped: a pool's candidates are the free bins of ONE\nBinKey, living in one or two aisles, while the copy walked all forty-six -- 9.3M set\nentries copied per run, at 12.59 pool opens per placement.\n\nA view pays for the aisles the pool actually touches instead.  Reads fall through to the\nlive dict; the first access to an aisle whose value is MUTABLE materializes that one\naisle into an overlay, and every write lands in the overlay.  The purity rule is\nunchanged -- it is the price that moved.\n\n# -- what a subclass owns, and what it does not --------------------------------------\n\n`__getitem__` ONLY.  How a miss materializes IS the difference between the shapes: a\nfloat needs no copy at all (it is immutable, so a read can fall straight through), a set\nneeds its own set, and the minlabor shape needs a whole inner mapping.  The remaining\neight methods never differed, and were three byte-identical copies until this base\nexisted; `Tests/unit/test_gain_cow_protocol.py` asserts they stay one implementation and\nthat `__getitem__` stays three.\n\n# -- where the laziness stops, deliberately -------------------------------------------\n\n`values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the\nLIVE container and the caller could mutate it -- the precise failure the eager copy\nexisted to prevent.  `_RankedAssignPool.__init__` builds\n`set().union(*aisle_idx_sets.values())`, so `rank_random` (its only phase-2 user) gets\ncorrectness and no win.  Every other ranked family reads by key and gets both.\n\nSlotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is\nopened per pool, and a stray attribute would be per-pool heap nobody frees.",
+      "doc": "Copy-on-write over one of the manager's `{aisle: ...}` dicts.\n\nA virtual placement must never advance the live bookkeeping, and the original way to\nguarantee that was to hand the pool an EAGER copy of the whole dict.  The measurement in\nfront of this block is why that stopped: a pool's candidates are the free bins of ONE\nBinKey, living in one or two aisles, while the copy walked all forty-six -- 9.3M set\nentries copied per run, at 12.59 pool opens per placement.\n\nA view pays for the aisles the pool actually touches instead.  Reads fall through to the\nlive dict; the first access to an aisle whose value is MUTABLE materializes that one\naisle into an overlay, and every write lands in the overlay.  The purity rule is\nunchanged -- it is the price that moved.\n\n# -- what a subclass owns, and what it does not --------------------------------------\n\n`__getitem__` ONLY.  How a miss materializes IS the difference between the shapes: a\nfloat needs no copy at all (it is immutable, so a read can fall straight through), a set\nneeds its own set, and the minlabor shape needs a whole inner mapping.  The remaining\neight methods never differed, and were three byte-identical copies until this base\nexisted; `Tests/unit/test_gain_cow_protocol.py` asserts they stay one implementation and\nthat `__getitem__` stays three.\n\n# -- where the laziness stops, deliberately -------------------------------------------\n\n`values()` and `items()` materialize EVERY aisle, because a lazy one would hand out the\nLIVE container and the caller could mutate it -- the precise failure the eager copy\nexisted to prevent.  `_RankedAssignPool.__init__` used to build\n`set().union(*aisle_idx_sets.values())` through that path, so `rank_random` (its only\nphase-2 user) got correctness and no win; it now asks the view for `union()`, which\n`_CowSets` answers from the owner's counted inverse without touching a single aisle\n(ticket 02 of the phase-2 campaign).  Every other ranked family reads by key.\n\nSlotted, and the subclasses re-declare `__slots__ = ()` to stay that way: a view is\nopened per pool, and a stray attribute would be per-pool heap nobody frees.",
       "kind": "class",
       "signature": ""
     },
@@ -1334,6 +1341,47 @@
       "signature": "(self)"
     },
     "Inbound/gain_cow.py::_CowView.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_PlacedUnion": {
+      "decorators": [],
+      "doc": "The set of matrix indices placed ANYWHERE, as a pool under the gain evaluator sees it.\n\nWhat `set().union(*aisle_idx_sets.values())` was, without the walk: the owner's inverse\n(`_PartnerAisles`, every idx held by at least one live aisle) plus what this view's\noverlay ADDS beyond the live warehouse, minus what it REMOVES from the last aisle\nholding it.  Answers everything `_delta_lift_from_row` asks of `_all_idx` -- truth,\n`len`, `in`, and iteration -- and nothing else.\n\nFROZEN BY THE PURITY RULE, not by copying.  A pool's `_all_idx` is frozen for the group\nby decision (later units rank against the pre-group union), and the old set was a copy.\nThis object reads the LIVE inverse, so it is frozen only where the live books are never\nwritten during the pool's life -- which is exactly the copy-on-write view's contract: a\nvirtual placement writes its overlay and never the owner.  The size is taken once, at\nconstruction, and it must be EXACT: `_delta_lift_from_row` folds the shorter side, and\na wrong `len` would change which side is iterated and therefore the float.\n\nIteration order is dict order plus the overlay's extras, not a set's hash order.  That\ncan only reach the arithmetic when the placed set is SMALLER than a SKU's partner row\n(the side iterated is the shorter one) -- a warehouse holding fewer than a row's worth\nof indices, which neither a stocked toy run nor the campaign ever presents to a pool.\nThe digest gate (`Tests/bench/run_digest.py`) is what says so, not this sentence.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain_cow.py::_PlacedUnion.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_PlacedUnion.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, idx)"
+    },
+    "Inbound/gain_cow.py::_PlacedUnion.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, inv, extra=frozenset(), gone=frozenset())"
+    },
+    "Inbound/gain_cow.py::_PlacedUnion.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_PlacedUnion.__len__": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -20727,6 +20775,19 @@
       "kind": "function",
       "signature": "(self, inverse) -> None"
     },
+    "Warehouse/inventory/aisle_ledger.py::_PartnerAisles": {
+      "decorators": [],
+      "doc": "`{matrix idx: {aisle}}` -- the inverse of `_IdxSets` -- that COUNTS ITS PLACED KEYS.\n\n`n_placed` is the number of indices held by at least one aisle: the size of the union\n`set().union(*idx_sets.values())` that three pool constructors used to build at every\nopen.  Under the gain evaluator a pool is opened T(T+1) x 12.59 times per drain over a\ncopy-on-write view whose `values()` materializes EVERY aisle (2,774 at campaign scale;\n`.scratch/phase-2-campaign/issues/02`), so the union is answered from here instead\n(`gain_cow._CowSets.union`): membership is `bool(inverse.get(idx))`, and the size --\nwhich decides which side `_delta_lift_from_row` iterates, so it must be EXACT -- is this\ncounter.  Maintained at the same three write points as the inverse itself (`add_bin`,\n`add_sku`, `drop_sku`), which makes it an index and not a cache.  An emptied set stays\nin the dict (a view has no delete) and counts as not placed.",
+      "kind": "class",
+      "signature": "(defaultdict)"
+    },
+    "Warehouse/inventory/aisle_ledger.py::_PartnerAisles.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
     "Warehouse/inventory/aisle_ledger.py::_UNBOUND": {
       "decorators": [],
       "doc": null,
@@ -24123,6 +24184,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(best_D, score_of, maximize)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_placed_union": {
+      "decorators": [],
+      "doc": "Every matrix index placed anywhere, for a pool's frozen `_all_idx`.\n\nHanded the owner's dict, this is the union it always was -- built once per open, a\nreal set, byte-identical to the wave path's history.  Handed the gain evaluator's\ncopy-on-write view (`Inbound.gain_cow._CowSets`), it takes the view's `union()`: a lazy\nobject over the owner's counted inverse that answers `len`/`in`/truth/iteration without\nmaterializing every aisle.  The old form did exactly that -- `values()` on the view\ncopies all 2,774 aisles at campaign scale, T(T+1) x 12.59 times per drain -- and it was\nthe single largest term of `rank_random`'s 39-59x priced multiple\n(`.scratch/phase-2-campaign/issues/02`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(aisle_idx_sets)"
     },
     "Warehouse/placement/Assignment_Functions.py::_ranked_assign_impl": {
       "decorators": [],

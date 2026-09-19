@@ -2379,6 +2379,7 @@ files:
       - {name: "test_the_sampler_can_still_be_pinned_for_an_archived_comparison", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_switching_the_scenario_sampler_moves_no_measurement_at_fixture_scale", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
       - {name: "test_a_traced_arm_actually_spends_time_in_t_save", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
+      - {name: "test_run_fullfid_refuses_an_unknown_arm_instead_of_running_the_first", file: "Tests/calltree/test_calltree_anchors.py", kind: "function"}
     notes: ""
   "Tests/calltree/test_calltree_smoke.py":
     purpose: "the measurement framework measures what it claims to."
@@ -5008,6 +5009,23 @@ files:
       - {name: "test_an_empty_start_list_is_treated_as_absent", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
       - {name: "test_both_simulations_use_the_same_start_accessor", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
       - {name: "test_neither_loop_hardcodes_a_zero_start", file: "Tests/unit/test_picker_clock_carry.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_placed_union.py":
+    purpose: "Ticket 02 (phase-2 campaign): a pool's frozen `_all_idx` under the gain evaluator is a lazy `_PlacedUnion` over the owner's counted inverse; pins `_PartnerAisles.n_placed` through churn, the exact overlay reconciliation (extra/gone), the helper's dispatch, and that `_delta_lift_from_row` folds the same float from it."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_owner_inverse_is_the_counting_kind", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_n_placed_tracks_the_inverse_through_churn", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_a_second_drop_of_the_same_departure_does_not_decrement_twice", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_reconcile_reports_a_wrong_count", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_an_explicit_plain_inverse_is_refused_by_over", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_a_loose_view_over_the_owner_dict_keeps_the_count_on_the_owner", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_cow_union_over_a_fresh_view_equals_the_materialized_union", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_cow_union_reconciles_the_overlay_exactly", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_cow_union_over_a_plain_dict_falls_back_to_a_set", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_placed_union_helper_dispatches_on_the_dict_kind", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_the_three_pools_take_their_union_through_the_helper", file: "Tests/unit/test_placed_union.py", kind: "function"}
+      - {name: "test_delta_lift_reads_the_lazy_union_as_it_read_the_set", file: "Tests/unit/test_placed_union.py", kind: "function"}
     notes: ""
   "Tests/unit/test_placement_fastpath_equivalence.py":
     purpose: "Equivalence + property tests for the map/cluster_map placement fast paths."

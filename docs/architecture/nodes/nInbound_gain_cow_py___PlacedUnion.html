@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_PlacedUnion · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_cow_py___PlacedUnion" data-id="Inbound/gain_cow.py::_PlacedUnion">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_cow_py.html"><code>Inbound/gain_cow.py</code></a> <span class="sep">›</span> <span class="here"><code>_PlacedUnion</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_PlacedUnion</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_cow_py.html"><code>Inbound/gain_cow.py</code></a></p>
+
+<pre class="sig"><code>class _PlacedUnion</code></pre>
+<section class="doc">The set of matrix indices placed ANYWHERE, as a pool under the gain evaluator sees it.
+
+What `set().union(*aisle_idx_sets.values())` was, without the walk: the owner&#x27;s inverse
+(`_PartnerAisles`, every idx held by at least one live aisle) plus what this view&#x27;s
+overlay ADDS beyond the live warehouse, minus what it REMOVES from the last aisle
+holding it.  Answers everything `_delta_lift_from_row` asks of `_all_idx` -- truth,
+`len`, `in`, and iteration -- and nothing else.
+
+FROZEN BY THE PURITY RULE, not by copying.  A pool&#x27;s `_all_idx` is frozen for the group
+by decision (later units rank against the pre-group union), and the old set was a copy.
+This object reads the LIVE inverse, so it is frozen only where the live books are never
+written during the pool&#x27;s life -- which is exactly the copy-on-write view&#x27;s contract: a
+virtual placement writes its overlay and never the owner.  The size is taken once, at
+construction, and it must be EXACT: `_delta_lift_from_row` folds the shorter side, and
+a wrong `len` would change which side is iterated and therefore the float.
+
+Iteration order is dict order plus the overlay&#x27;s extras, not a set&#x27;s hash order.  That
+can only reach the arithmetic when the placed set is SMALLER than a SKU&#x27;s partner row
+(the side iterated is the shorter one) -- a warehouse holding fewer than a row&#x27;s worth
+of indices, which neither a stocked toy run nor the campaign ever presents to a pool.
+The digest gate (`Tests/bench/run_digest.py`) is what says so, not this sentence.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_cow_py___CowSets_union.html"><code>union</code></a> <span class="dim">Inbound/gain_cow.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_cow_py___PlacedUnion">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain_cow.py#:~:text=class%20_PlacedUnion">Source ↗</a></p>
+</article>
+</main>
+</body></html>

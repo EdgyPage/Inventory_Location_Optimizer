@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_placed_union · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___placed_union" data-id="Warehouse/placement/Assignment_Functions.py::_placed_union">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_placed_union</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_placed_union</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>def _placed_union(aisle_idx_sets)</code></pre>
+<section class="doc">Every matrix index placed anywhere, for a pool&#x27;s frozen `_all_idx`.
+
+Handed the owner&#x27;s dict, this is the union it always was -- built once per open, a
+real set, byte-identical to the wave path&#x27;s history.  Handed the gain evaluator&#x27;s
+copy-on-write view (`Inbound.gain_cow._CowSets`), it takes the view&#x27;s `union()`: a lazy
+object over the owner&#x27;s counted inverse that answers `len`/`in`/truth/iteration without
+materializing every aisle.  The old form did exactly that -- `values()` on the view
+copies all 2,774 aisles at campaign scale, T(T+1) x 12.59 times per drain -- and it was
+the single largest term of `rank_random`&#x27;s 39-59x priced multiple
+(`.scratch/phase-2-campaign/issues/02`).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___CoDemandPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___RankedAssignPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py__build_cluster_map_placement__ClusterMapPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___placed_union">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_placed_union">Source ↗</a></p>
+</article>
+</main>
+</body></html>
