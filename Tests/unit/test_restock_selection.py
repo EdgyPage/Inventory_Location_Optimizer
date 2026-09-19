@@ -505,3 +505,30 @@ def test_the_put_regime_is_stamped_because_there_is_no_join_to_gate(tmp_path):
     note = doc['put_regime_note']
     assert 'twice' in note and 'RANKS' in note, (
         'a reader who takes the stamp as "hours only" would still compare ranks across it')
+
+# -- the margins are FIELDS, so "best 3" is a stated set with stated separations ----------
+
+def test_the_ranking_carries_its_margins_as_fields(run_root):
+    """`margin_pct` is the gap UP to the next rank as a percent of this rule's hours (None
+    for the last rankable rule); `gap_to_baseline_pct` is the signed distance from the fifo
+    control.  Both computed from `score_hours`, so a reader never has to."""
+    doc = sel.select(run_root, k=3, log=lambda *_a: None)
+    rows = {r['rule']: r for r in doc['channels']['store']['ranking']}
+    assert rows['tmin']['margin_pct'] == pytest.approx(100.0)          # 1 h -> 2 h
+    assert rows['tmax']['margin_pct'] == pytest.approx(50.0)           # 2 h -> 3 h
+    assert rows['expn']['margin_pct'] is None                          # last rankable
+    assert rows['fifo']['gap_to_baseline_pct'] == pytest.approx(0.0)
+    assert rows['tmin']['gap_to_baseline_pct'] == pytest.approx(-80.0)  # 1 h vs 5 h
+    assert rows['comp']['gap_to_baseline_pct'] == pytest.approx(20.0)
+
+
+def test_a_disqualified_rule_carries_no_margin(tmp_path):
+    root = str(tmp_path / 'run')
+    _leaf(root, 'k1_off', 'prof_a', 'store', {**_arms(tmin=3600.0, fifo=7200.0),
+                                               'opt_tmax_norsl': float('nan'),
+                                               'uni_tmax_norsl': 9000.0})
+    _layout(root, ['k1_off'])
+    doc = sel.select(root, k=2, log=lambda *_a: None)
+    rows = {r['rule']: r for r in doc['channels']['store']['ranking']}
+    assert rows['tmax']['rank'] is None and rows['tmax']['margin_pct'] is None
+    assert rows['tmax']['gap_to_baseline_pct'] is None

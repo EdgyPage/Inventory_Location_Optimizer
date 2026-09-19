@@ -509,3 +509,30 @@ def test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too(monkeypatc
     stripped = {k: v for k, v in SPECS['inbound_policies'].items() if k != 'rule_pairs'}
     with pytest.raises(ValueError, match='states no arm set'):
         _drive(monkeypatch, stripped, _BOTH)
+
+# -- phase 2 as reframed: unloading policies under ONE rule pair ---------------------------
+
+def test_the_unload_spec_carries_the_winner_and_the_rider_and_nothing_else():
+    """10 cells x 2 pairs x 2 stock modes = 40 units, not the 120 of the factorial.  The
+    winner is PHASE2_PAIRS[0] read off the constant, never typed twice."""
+    spec = SPECS['inbound_unload']
+    assert rule_pairs_of(spec) == (tuple(wc.PHASE2_WINNER), wc.PHASE2_RIDER)
+    assert tuple(wc.PHASE2_WINNER) == tuple(wc.PHASE2_PAIRS[0])
+    assert spec['run_defaults'] is PHASE2_RUN_DEFAULTS
+    assert spec['staffing_pin'] is wc.PHASE2_STAFFING_PIN
+    assert 'arms' not in spec
+    from Optimization.simdriver import cells as c
+    built = c._build_cells(get_spec('inbound_unload'))
+    names = [x.name for x in built]
+    assert len(names) == 10 and 'k1_off_fifo' in names and 'k1_off_inb_off' in names
+    assert c.reference_cell(built) == 'k1_off_fifo'
+    assert 'inbound_unload' in _PAIR_SPECS
+
+
+def test_the_axis_keep_filter_subsets_and_refuses_a_name_it_does_not_build():
+    kept = [n for n, _ov in wc.phase2_inbound_axis(keep=('fifo', 'gmyopic', 'inb_off'))]
+    assert kept == ['fifo', 'gmyopic', 'inb_off']          # the axis order, not keep's
+    everything = [n for n, _ov in wc.phase2_inbound_axis()]
+    assert [n for n, _ov in wc.phase2_inbound_axis(keep=None)] == everything
+    with pytest.raises(ValueError, match='does not build'):
+        wc.phase2_inbound_axis(keep=('fifo', 'gmyopc'))

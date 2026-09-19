@@ -1,7 +1,7 @@
 # 02 - `_all_idx` is rebuilt from every aisle on every pool open, and the evaluator opens T(T+1) pools per drain
 
 Type: task
-Status: in-progress
+Status: resolved
 
 **Seen 2026-09-18 in the campaign's first priced cell** (`k1_off_gmyopic`, 40 site days, 12 workers).
 The `rank_random` and `rank_popularity` pairs were at batch 8/40 after 55 minutes -- about 4.5 h per
@@ -64,7 +64,11 @@ materialization **96.1 s** (4.67 M `__getitem__`, one per aisle per open) = **20
 pool construction and 55% of the whole priced drain**; `_D_map` 33 s; the `by_aisle` sort key
 9 s. So at the campaign's aisle count the union IS the dominant term of a priced
 `rank_random` open, as the ticket said -- and it is gone from the open now.  The AFTER
-profile of the same run is recorded below when it lands.
+profile of the same run: **wall 856 s -> 437 s; the drain 376 s -> 72.4 s (5.2x); `_make_pool`
+287 s -> 49.4 s (5.8x)**, same 18 drains, same depths, same 7,384 opens. The union term is
+~3 s. What is left of a priced `rank_random` open is the tier -- `_D_map` over ~4,000
+candidates and the `by_aisle` bucketing -- which scales with the tier, not the warehouse.
+Memory: `priced-rank-random-cost-was-the-cow-union`.
 
 **Built (shape 1 of the two proposed, made exact):**
 

@@ -111,6 +111,15 @@ PHASE2_PAIRS = [('rank_cartlabor', 'rank_minlabor'),
                 ('rank_random', 'rank_popularity'),
                 ('fifo', 'fifo')]
 
+#: PHASE 1'S WINNER: the rank-1 pair, the one rule pair phase 2 ranks the UNLOADING policies
+#: under (`inbound_unload` spec; memory `inbound-campaign-is-a-three-phase-funnel`).  Read off
+#: PHASE2_PAIRS[0] rather than typed a second time, so the two cannot disagree; phase 3 takes
+#: PHASE2_PAIRS[:3] the same way.  Picking labour alone cannot rank unloading policies (flat
+#: to 0.01% across the first three cells), so the ranking is on total site labour with the
+#: yard overage as the tie-break -- `run_unload_ranking` -- and its chosen cells are copied
+#: into a PHASE3_UNLOAD constant beside this one when phase 2 has run.
+PHASE2_WINNER = PHASE2_PAIRS[0]
+
 #: THE STAFFING PIN: `{pair label: digest}` -- `restock_selection.json`'s `staffing.pin`, copied
 #: here once phase 1 has run.  None until then and REFUSED rather than defaulted, exactly like
 #: the pairs above -- and for a reason the pairs do not carry on their own.
@@ -375,8 +384,14 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
                         lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD,
                         doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM,
                         finite_w=PHASE2_FINITE_W,
-                        h_multiples=PHASE2_H_MULTIPLES):
+                        h_multiples=PHASE2_H_MULTIPLES,
+                        keep=None):
     """The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), …].
+
+    `keep` names the entries to KEEP by suffix (`('fifo', 'gmyopic', 'inb_off')`), for a
+    spec that runs a pre-screened subset of the axis rather than all ten; None keeps every
+    entry.  A name the axis does not build is refused -- a typo here would silently run a
+    smaller campaign than the one asked for, which is the `_inbound_axis` failure class.
 
     Every entry states EVERY key the axis touches, including the ones it is not exercising.
     That is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset
@@ -452,6 +467,13 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
                              'door_team': None,
                              'lead_minutes': 0.0, 'lead_spread': 0.0,
                              'yard_policy': 'fifo', 'dock_policy': 'fifo'}))
+    if keep is not None:
+        names = [n for n, _ov in axis]
+        unknown = [k for k in keep if k not in names]
+        if unknown:
+            raise ValueError(f'phase2_inbound_axis(keep=...) names {unknown}, which the axis '
+                             f'does not build; it builds {names}')
+        axis = [(n, ov) for n, ov in axis if n in keep]
     return axis
 
 
@@ -523,6 +545,28 @@ SPECS = {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'arms': ('fifo', 'tmin'), 'reference': 'k1_off',
         'run_defaults': PILOT_RUN_DEFAULTS,
+    },
+    # ── the funnel, phase 2 as REFRAMED 2026-09-18: unloading policies under ONE rule pair ──
+    # `inbound_policies` above multiplied the axes (10 cells x 6 pairs x 2 stock modes = 120
+    # coupled units) for a signal that lives only in the yard family's tail; it was stopped
+    # after three cells (`.scratch/phase-2-campaign/map.md`).  This spec asks the unloading
+    # question alone: the same ten cells, phase 1's WINNER (`PHASE2_WINNER`) plus the mandatory
+    # `fifo` rider, both stock modes -- 10 x 2 x 2 = 40 units, 24 with a bench pre-screen
+    # (`keep=`).  Scored by `run_unload_ranking` on total site labour, tie-broken by yard
+    # overage; phase 3 (`inbound_confirm`, registered once the chosen cells are copied in)
+    # crosses the best three of each.
+    #
+    # NO STOCK-MODE DEDUP, by decision: `uni_fifo` and `opt_fifo` are byte-identical under
+    # the fifo restock rule (memory `fifo-restock-ignores-initial-placement`), but the twin is
+    # the cheapest unit in a cell and a `duplicate_of` honoured by `strategies_for`,
+    # `_prepare_channel_run`, the run tree and every analysis reader fails the deletion test.
+    'inbound_unload': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': phase2_inbound_axis(),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
     },
     # THE BYTE-IDENTITY TOY MATRIX WITH A PRICED CELL.  `smoketest --profile tiny` runs
     # `scheduler_ab`, which has no inbound axis, so a refactor of the gain evaluator's pool

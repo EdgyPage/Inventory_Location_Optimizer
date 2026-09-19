@@ -1,6 +1,6 @@
 {
-  "head": "sha256:341e1422457c00de2b170ec90b0ffc2cfd2e7718db950e4827d4bb7cb3a1449b",
-  "source_fingerprint": "sha256:129dbdb16c888f56402ce7136ffc40a0178a98a45c244bbd11dd66e87cc5f9e5",
+  "head": "sha256:041f5407cbb4d2bf04a73dc7ddc9bbeb204c358a05a79415de26e3c45e142bca",
+  "source_fingerprint": "sha256:03900aa39369162cfd242cbea406713e655558c6b3e11cb91a84d3fd7629fe9f",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -194,6 +194,16 @@
       "label": "",
       "changes": [
         "artifact site_inbound_db.tables +['site_receiving']"
+      ]
+    },
+    "sha256:041f5407cbb4d2bf04a73dc7ddc9bbeb204c358a05a79415de26e3c45e142bca": {
+      "short": "041f5407cbb4",
+      "parent": "sha256:341e1422457c00de2b170ec90b0ffc2cfd2e7718db950e4827d4bb7cb3a1449b",
+      "created": "2026-09-19T00:10:04",
+      "commit": "3f2dd94e",
+      "label": "unload_ranking_json: phase-2 -> phase-3 hand-off artifact at the run root",
+      "changes": [
+        "artifact ADDED: unload_ranking_json -> unload_ranking.json"
       ]
     }
   }

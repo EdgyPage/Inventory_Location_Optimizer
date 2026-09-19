@@ -8651,6 +8651,13 @@
       "signature": null,
       "value_preview": "0.4"
     },
+    "Optimization/config/whatif_config.py::PHASE2_WINNER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "PHASE2_PAIRS[0]"
+    },
     "Optimization/config/whatif_config.py::PILOT_RUN_DEFAULTS": {
       "decorators": [],
       "doc": null,
@@ -8716,10 +8723,10 @@
     },
     "Optimization/config/whatif_config.py::phase2_inbound_axis": {
       "decorators": [],
-      "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nThat is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset\nbetween cells, so a key one cell writes and the next omits leaves the second running the\nfirst's policy under its own name.  `_inbound_axis` refuses a partial entry for exactly\nthis reason, and stating the full record here is how that refusal is satisfied.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nTHE ANCHOR IS NOT A CROSS-PHASE VALIDITY CHECK, and saying so here was false (site-dock 06\nsection 3, which rewrote this paragraph rather than amending it \u2014 a stale comment claiming a\nguarantee the campaign does not have is worse than no comment).  EVERY cell of phase 2 runs\nthe COUPLED site model, `inb_off` included, because coupling is a property of the RUN and is\nDECLARED (`--couple-channels`, carried by `PHASE2_RUN_DEFAULTS`), never inferred from the\ninbound flag.  So `inb_off` is the inbound-OFF POLE INSIDE the coupled model \u2014 the control\nfor \"does running an inbound pipeline at all change the answer, versus which policy runs it\",\nand the only cell with no yard, which makes it the structural zero for every yard quantity.\n\nWhat that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1\nis UNCOUPLED and, since department-calibration decision 11, inbound-ON, so it ranks\nplacement arms under 2x the site put labour: an\nuncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the\nbreak).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded\nagainst its own nine siblings; coupling every cell inverts that, and the matrix's own deltas\nare what the campaign publishes, so that is the side kept whole.  The asymmetry is not a\nclean scaling either \u2014 what doubles is put and receiving CAPACITY, not labour seconds, and\nunder drain-or-cap a larger crew cuts less and completes more per day by an amount that\ndiffers per arm \u2014 so a RANK comparison across the boundary is no more invariant than an\nhours one.  The caveat is carried as a STAMP (`restock_selection.json`'s `put_regime:\n'per-leaf'`) and published with the campaign; there is no runtime gate because nothing in\nthe codebase reads two run roots, so there is no join to gate.  The one reachable mistake \u2014\npointing the selector at a coupled root \u2014 is refused by `run_restock_selection.select`.\n\nThe reference is `fifo`, so every delta reads \"versus FIFO\", which is the campaign's own\nquestion.  The anchor is present as a cell, never the reference.",
+      "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\n`keep` names the entries to KEEP by suffix (`('fifo', 'gmyopic', 'inb_off')`), for a\nspec that runs a pre-screened subset of the axis rather than all ten; None keeps every\nentry.  A name the axis does not build is refused -- a typo here would silently run a\nsmaller campaign than the one asked for, which is the `_inbound_axis` failure class.\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nThat is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset\nbetween cells, so a key one cell writes and the next omits leaves the second running the\nfirst's policy under its own name.  `_inbound_axis` refuses a partial entry for exactly\nthis reason, and stating the full record here is how that refusal is satisfied.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nTHE ANCHOR IS NOT A CROSS-PHASE VALIDITY CHECK, and saying so here was false (site-dock 06\nsection 3, which rewrote this paragraph rather than amending it \u2014 a stale comment claiming a\nguarantee the campaign does not have is worse than no comment).  EVERY cell of phase 2 runs\nthe COUPLED site model, `inb_off` included, because coupling is a property of the RUN and is\nDECLARED (`--couple-channels`, carried by `PHASE2_RUN_DEFAULTS`), never inferred from the\ninbound flag.  So `inb_off` is the inbound-OFF POLE INSIDE the coupled model \u2014 the control\nfor \"does running an inbound pipeline at all change the answer, versus which policy runs it\",\nand the only cell with no yard, which makes it the structural zero for every yard quantity.\n\nWhat that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1\nis UNCOUPLED and, since department-calibration decision 11, inbound-ON, so it ranks\nplacement arms under 2x the site put labour: an\nuncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the\nbreak).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded\nagainst its own nine siblings; coupling every cell inverts that, and the matrix's own deltas\nare what the campaign publishes, so that is the side kept whole.  The asymmetry is not a\nclean scaling either \u2014 what doubles is put and receiving CAPACITY, not labour seconds, and\nunder drain-or-cap a larger crew cuts less and completes more per day by an amount that\ndiffers per arm \u2014 so a RANK comparison across the boundary is no more invariant than an\nhours one.  The caveat is carried as a STAMP (`restock_selection.json`'s `put_regime:\n'per-leaf'`) and published with the campaign; there is no runtime gate because nothing in\nthe codebase reads two run roots, so there is no join to gate.  The one reachable mistake \u2014\npointing the selector at a coupled root \u2014 is refused by `run_restock_selection.select`.\n\nThe reference is `fifo`, so every delta reads \"versus FIFO\", which is the campaign's own\nquestion.  The anchor is present as a cell, never the reference.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES)"
+      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES, keep=None)"
     },
     "Optimization/config/whatif_config.py::phase2_inbound_axis._policy": {
       "decorators": [],
@@ -11367,6 +11374,110 @@
       "is_async": false,
       "kind": "function",
       "signature": "()"
+    },
+    "Optimization/run_unload_ranking.py": {
+      "decorators": [],
+      "doc": "run_unload_ranking.py \u2014 phase 2's hand-off: rank the UNLOADING policies of a finished\nphase-2 run and write the contract's `unload_ranking_json` artifact at the run root.\n\nThe twin of `run_restock_selection` (phase 1's hand-off), one level up the funnel:\n\n  * phase 1 ranked restocking RULES on picking labour, in one cell;\n  * phase 2 runs phase 1's winning rule pair (plus the `fifo` rider) under every unloading\n    policy, one CELL per policy (`whatif_config.phase2_inbound_axis`), and this ranks the\n    CELLS;\n  * phase 3 crosses the best few of each in one confirmation run.\n\nTHE SCORE, decided with the user on 2026-09-18 (memory `inbound-campaign-is-a-three-phase-\nfunnel`): **total site labour** \u2014 picking plus put-away plus receiving, which is exactly the\n`ss_prod_total` each leaf's series document already carries (`common/series.py`: unload +\nput + pick, meaned over the steady-state window) \u2014 summed over a unit's two leaves and\nover the inventory pairs, in hours, lower is better.  Picking labour alone cannot rank\nunloading policies: across the campaign's first three cells it was identical to 0.01%.\nTwo cells whose labour differs by less than the NOISE FLOOR are a tie, and the tie is\nbroken by **yard overage** (`yard_overage_days`, the whole run's trailer-days past the free\nthreshold, from the SITE yard through `frames._ydf`), lower first.  The floor is declared,\nnot measured \u2014 0.1%, the size of the cross-cell pick deltas the three-cell analysis found \u2014\nand the artifact records it beside every rank so a reader can re-draw the line.\n\nWHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard's DB is\nnamed after the ARM PAIR it served (the contract's `site_inbound_db` template).  So the\nunits are enumerated from the site DBs through the run-tree contract (`rt.site_inbound_dbs`,\n`rt.arm_pair_of`, `rt.arm_pair_halves`), never from a directory name, and each unit maps to\na RULE PAIR and a stock mode through the strategy grid (`STRATEGY_BY_KEY`), never by parsing\nthe key.  A cell's score for a rule pair sums that pair's units (both stock modes), so the\nrider's ranking is reported beside the winner's and neither is read as the other.\n\nRefusals, each closing a way to hand phase 3 a plausible answer instead of an error:\n\n  * an UNCOUPLED root (no site DB anywhere) \u2014 phase 2 is coupled by definition and the\n    tie-break lives in the site yard;\n  * an unanalyzed root (no series documents) \u2014 says what to run, like phase 1's selector;\n  * a single cell \u2014 nothing to rank, and a ranking of one would still print a rank 1.\n\nThe output is a DECISION RECORD.  Copy the chosen cell set into `whatif_config` by hand for\nphase 3 (`PHASE3_UNLOAD`, beside `PHASE2_PAIRS`), for the same reason phase 1's pairs are\ncopied: a spec that read a JSON file at import would make the decision invisible.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n    python -m Optimization.analyze_run <phase-2 run root>\n    python -m Optimization.run_unload_ranking <phase-2 run root> [--pair store_rule,ful_rule]",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/run_unload_ranking.py::DEFAULT_K": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "3"
+    },
+    "Optimization/run_unload_ranking.py::DEFAULT_NOISE_FLOOR_PCT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.1"
+    },
+    "Optimization/run_unload_ranking.py::METRIC_FIELD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'ss_prod_total'"
+    },
+    "Optimization/run_unload_ranking.py::METRIC_QUANTITY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'total_production_time'"
+    },
+    "Optimization/run_unload_ranking.py::TIE_QUANTITY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'yard_overage_days'"
+    },
+    "Optimization/run_unload_ranking.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
+    },
+    "Optimization/run_unload_ranking.py::_label": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rule_pair) -> str"
+    },
+    "Optimization/run_unload_ranking.py::_site_units": {
+      "decorators": [],
+      "doc": "`[(arm_pair, {channel: arm_key}, site_db_path)]` for one (cell, inventory pair).\n\nFrom the site DBs through the contract: the DB's stem names the arm pair, and the\nhalves resolve POSITIONALLY against the layout's channel order (`arm_pair_halves`).\n`[]` on an uncoupled run \u2014 no site DB exists to enumerate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, pair: str, have: dict) -> list"
+    },
+    "Optimization/run_unload_ranking.py::_threshold_for": {
+      "decorators": [],
+      "doc": "The CELL's free-yard threshold: its layout record first (phase 2 carries the fee on\nthe inbound axis), the run spec next, this build's default last and out loud.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(layout: dict, spec: dict, cell: str, log) -> float"
+    },
+    "Optimization/run_unload_ranking.py::_unit_overage": {
+      "decorators": [],
+      "doc": "This unit's `yard_overage_days` from the SITE yard: the trailer rows the site DB\nrecorded for the arm pair, closed at the run end (the later of the two leaves' last\nbatch, exactly as `requests._arm_end_s` reads it at site scope), folded by `_ydf`\nagainst the CELL's recorded threshold.  NaN when the site DB holds no run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, runs_by_channel: dict, halves: dict, site_db: str, threshold_days: float, log) -> float"
+    },
+    "Optimization/run_unload_ranking.py::_units_of_cell": {
+      "decorators": [],
+      "doc": "One row per unit of the cell: its rule pair, stock mode, labour hours and overage.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, cell_dir: str, threshold_days: float, log) -> list"
+    },
+    "Optimization/run_unload_ranking.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> None"
+    },
+    "Optimization/run_unload_ranking.py::rank": {
+      "decorators": [],
+      "doc": "Rank the cells of a finished, analyzed, coupled phase-2 run and write the artifact.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, *, k: int=DEFAULT_K, noise_floor_pct: float=DEFAULT_NOISE_FLOOR_PCT, primary_pair: tuple | None=None, log=print) -> dict"
+    },
+    "Optimization/run_unload_ranking.py::rank_cells": {
+      "decorators": [],
+      "doc": "Order `entries` (`{'cell', 'labor_hours', 'overage_days'}`) cheapest labour first,\nbreaking ties inside the floor by overage.  Returns NEW dicts with `rank`, `tie_group`,\n`decided_by` and `margin_pct` added; entries with a non-finite labour go last with\n`rank: None`.\n\nA tie is not transitive \u2014 A within the floor of B and B of C says nothing about A and C \u2014\nso \"tie\" is defined operationally: walking the labour order, an entry joins the OPEN\ngroup while it is within the floor of that group's cheapest member, else it opens a new\none.  Inside a group the order is overage, then labour, then name; across groups it is\nlabour.  `margin_pct` is the labour gap to the NEXT rank as a percent of this one, so a\nreader sees the separations the plan asked for rather than a bare list.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(entries: list, noise_floor_pct: float) -> list"
     },
     "Optimization/run_whatif_delta.py": {
       "decorators": [],

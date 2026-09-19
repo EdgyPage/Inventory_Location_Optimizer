@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.run_unload_ranking · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_unload_ranking_py" data-id="Optimization/run_unload_ranking.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/run_unload_ranking.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.run_unload_ranking</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
+
+<pre class="sig"><code>Optimization.run_unload_ranking</code></pre>
+<section class="doc">run_unload_ranking.py — phase 2&#x27;s hand-off: rank the UNLOADING policies of a finished
+phase-2 run and write the contract&#x27;s `unload_ranking_json` artifact at the run root.
+
+The twin of `run_restock_selection` (phase 1&#x27;s hand-off), one level up the funnel:
+
+  * phase 1 ranked restocking RULES on picking labour, in one cell;
+  * phase 2 runs phase 1&#x27;s winning rule pair (plus the `fifo` rider) under every unloading
+    policy, one CELL per policy (`whatif_config.phase2_inbound_axis`), and this ranks the
+    CELLS;
+  * phase 3 crosses the best few of each in one confirmation run.
+
+THE SCORE, decided with the user on 2026-09-18 (memory `inbound-campaign-is-a-three-phase-
+funnel`): **total site labour** — picking plus put-away plus receiving, which is exactly the
+`ss_prod_total` each leaf&#x27;s series document already carries (`common/series.py`: unload +
+put + pick, meaned over the steady-state window) — summed over a unit&#x27;s two leaves and
+over the inventory pairs, in hours, lower is better.  Picking labour alone cannot rank
+unloading policies: across the campaign&#x27;s first three cells it was identical to 0.01%.
+Two cells whose labour differs by less than the NOISE FLOOR are a tie, and the tie is
+broken by **yard overage** (`yard_overage_days`, the whole run&#x27;s trailer-days past the free
+threshold, from the SITE yard through `frames._ydf`), lower first.  The floor is declared,
+not measured — 0.1%, the size of the cross-cell pick deltas the three-cell analysis found —
+and the artifact records it beside every rank so a reader can re-draw the line.
+
+WHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard&#x27;s DB is
+named after the ARM PAIR it served (the contract&#x27;s `site_inbound_db` template).  So the
+units are enumerated from the site DBs through the run-tree contract (`rt.site_inbound_dbs`,
+`rt.arm_pair_of`, `rt.arm_pair_halves`), never from a directory name, and each unit maps to
+a RULE PAIR and a stock mode through the strategy grid (`STRATEGY_BY_KEY`), never by parsing
+the key.  A cell&#x27;s score for a rule pair sums that pair&#x27;s units (both stock modes), so the
+rider&#x27;s ranking is reported beside the winner&#x27;s and neither is read as the other.
+
+Refusals, each closing a way to hand phase 3 a plausible answer instead of an error:
+
+  * an UNCOUPLED root (no site DB anywhere) — phase 2 is coupled by definition and the
+    tie-break lives in the site yard;
+  * an unanalyzed root (no series documents) — says what to run, like phase 1&#x27;s selector;
+  * a single cell — nothing to rank, and a ranking of one would still print a rank 1.
+
+The output is a DECISION RECORD.  Copy the chosen cell set into `whatif_config` by hand for
+phase 3 (`PHASE3_UNLOAD`, beside `PHASE2_PAIRS`), for the same reason phase 1&#x27;s pairs are
+copied: a spec that read a JSON file at import would make the decision invisible.
+
+Run AFTER `analyze_run` (which writes the series JSONs):
+    python -m Optimization.analyze_run &lt;phase-2 run root&gt;
+    python -m Optimization.run_unload_ranking &lt;phase-2 run root&gt; [--pair store_rule,ful_rule]</section>
+<section class="rel"><h2>Imports <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_config_settings_py.html"><code>Optimization.config.settings</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_strategies_py.html"><code>Optimization.config.strategies</code></a> <span class="dim">Optimization/config/strategies.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_run_restock_selection_py.html"><code>Optimization.run_restock_selection</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py.html"><code>Optimization.runschema.sim_manifest</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(14)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_K.html"><code>DEFAULT_K</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_NOISE_FLOOR_PCT.html"><code>DEFAULT_NOISE_FLOOR_PCT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__METRIC_FIELD.html"><code>METRIC_FIELD</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__METRIC_QUANTITY.html"><code>METRIC_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__TIE_QUANTITY.html"><code>TIE_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___label.html"><code>_label</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___site_units.html"><code>_site_units</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___threshold_for.html"><code>_threshold_for</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_overage.html"><code>_unit_overage</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___units_of_cell.html"><code>_units_of_cell</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank_cells.html"><code>rank_cells</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -863,6 +863,7 @@ files:
     key_symbols:
       - {name: "WHATIF", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_PAIRS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_WINNER", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_STAFFING_PIN", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RIDER", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_THRESHOLD_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -1138,6 +1139,19 @@ files:
     layer: "optimization"
     key_symbols:
       - {name: "main", file: "Optimization/run_simulation.py", kind: "function"}
+    notes: ""
+  "Optimization/run_unload_ranking.py":
+    purpose: "Phase 2 -> phase 3 hand-off CLI: ranks a coupled phase-2 run's cells (unloading policies) per rule pair on total site labour (ss_prod_total summed over a unit's two leaves), ties inside the declared noise floor broken by site yard overage (frames._ydf), and writes unload_ranking.json at the run root; the twin of run_restock_selection."
+    layer: "optimization"
+    key_symbols:
+      - {name: "METRIC_FIELD", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "METRIC_QUANTITY", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "TIE_QUANTITY", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "DEFAULT_NOISE_FLOOR_PCT", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "DEFAULT_K", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "rank_cells", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "rank", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "main", file: "Optimization/run_unload_ranking.py", kind: "function"}
     notes: ""
   "Optimization/run_whatif_delta.py":
     purpose: "compare what-if scenarios against a reference cell."
@@ -4499,6 +4513,8 @@ files:
       - {name: "test_a_pair_spec_satisfies_the_flat_rider_check_by_construction", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_driver_validates_a_spec_that_never_came_through_get_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_unload_spec_carries_the_winner_and_the_rider_and_nothing_else", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_axis_keep_filter_subsets_and_refuses_a_name_it_does_not_build", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
     notes: ""
   "Tests/unit/test_funnel_window.py":
     purpose: "Pins that the campaign's window, arrival regime, and staffing pin are each declared exactly once, and that the site-day and calendar-day units used for the window and the fee threshold cannot be mistaken for one another."
@@ -5576,6 +5592,8 @@ files:
       - {name: "test_a_coupled_run_root_is_refused", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_guard_is_inert_on_every_run_that_exists_today", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_put_regime_is_stamped_because_there_is_no_join_to_gate", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_the_ranking_carries_its_margins_as_fields", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_a_disqualified_rule_carries_no_margin", file: "Tests/unit/test_restock_selection.py", kind: "function"}
     notes: ""
   "Tests/unit/test_resume_idempotency.py":
     purpose: "a resumed run must be byte-identical to an uninterrupted one."
@@ -6352,6 +6370,24 @@ files:
       - {name: "test_one_way_total_x_per_visit_equals_aisle_width", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
       - {name: "test_two_way_has_no_exit_segment", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
       - {name: "test_per_task_reset_measures_entry_from_entrance", file: "Tests/unit/test_travel_decomposition.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_unload_ranking.py":
+    purpose: "Pins run_unload_ranking: the tie-grouping rule (labour outside the floor, overage inside, non-transitive chains anchored on the group's cheapest), per-pair cell ranking on summed unit hours over a JSON scratch tree with the site readers patched, poisoning by a missing reading, and the three refusals (uncoupled, unanalyzed, one cell)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_labour_decides_outside_the_floor_even_against_a_worse_overage", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_overage_decides_inside_the_floor", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_chain_of_near_ties_groups_against_the_open_groups_cheapest", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_missing_labour_reading_ranks_last_with_no_rank", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_rank_cells_returns_new_dicts_and_leaves_the_input_alone", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_cells_are_ranked_per_rule_pair_on_summed_unit_hours", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_inside_the_floor_the_site_overage_decides_the_cell", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_unit_with_a_missing_reading_poisons_its_cell_for_that_pair", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_an_uncoupled_root_is_refused", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_single_cell_is_refused", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_an_unanalyzed_root_says_what_to_run", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_an_explicit_pair_the_run_never_carried_is_refused", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_artifact_is_declared_by_the_run_tree_contract", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
     notes: ""
   "Tests/unit/test_velocity_zoning.py":
     purpose: "Velocity zoning (C): a per-regime candidate-layer toggle that restricts a unit's viable bins"

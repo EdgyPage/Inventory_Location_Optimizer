@@ -38,6 +38,26 @@ fulfillment-only; the rule pairing is one of several defensible draws).
 - Preflight took the slow path (two canaries) because shape-defining sources moved that morning;
   both gates (`contract --check`, `preflight --check`) read green at launch.
 
+## The reframe (2026-09-18, evening) -- the campaign is a three-phase FUNNEL, not a factorial
+
+Decided with the user after the three-cell analysis (memory
+`inbound-campaign-is-a-three-phase-funnel`; plan `indexed-chasing-octopus`): the 120-unit
+factorial stays STOPPED and its three cells are calibration evidence. Phase 2 is re-asked as
+the UNLOADING question alone -- `--spec inbound_unload`: the same ten cells, phase 1's winner
+(`PHASE2_WINNER` = `rank_cartlabor`/`rank_minlabor`) plus the `fifo` rider, both stock modes,
+40 units -- scored by `run_unload_ranking` on TOTAL SITE LABOUR with the yard overage as the
+tie-break inside a declared 0.1% floor (picking labour alone was flat to 0.01% across the
+three cells). Phase 3 (`inbound_confirm`, registered once the chosen cells are copied into
+`PHASE3_UNLOAD`) crosses phase 1's best three pairs with phase 2's best three cells.
+
+Landed for it on develop before the relaunch: ticket 01 (the broken-pool hang: drain +
+import probe + a gated test), ticket 02 (the evaluator's all-aisle union is a lazy view over a
+counted inverse -- the priced `rank_random` drain 5.2x faster at campaign scale, byte-identical
+by the `_toy_priced` digest), the `unload_ranking_json` artifact in the run-tree contract, the
+margins as fields on `restock_selection.json`, and `phase2_inbound_axis(keep=)` for a bench
+pre-screen. The yard bench itself (plan section 1) is optional and not built yet; phase 2
+launches on the full ten cells.
+
 ## Decisions so far
 
 - 2026-09-18: launch at 12 workers on the one-pair view (above).

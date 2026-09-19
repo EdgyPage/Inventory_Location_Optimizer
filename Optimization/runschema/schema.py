@@ -238,6 +238,15 @@ ARTIFACTS = {
                 "production hours, the chosen k, and the mandatory `fifo` rider. Not "
                 "run_layout.json's `arms`, which records the REQUESTED keys, is written before "
                 'simulation, and is resume-guarded.'},
+    'unload_ranking_json': {
+        'path': 'unload_ranking.json', 'format': 'json', 'scope': 'run', 'optional': True,
+        'condition': 'written only by run_unload_ranking, which a person invokes on a '
+                     'COUPLED phase-2 funnel run after its analysis; absent from every other run.',
+        'writer': 'rank@Optimization/run_unload_ranking.py',
+        'note': 'the phase-2 -> phase-3 hand-off: every cell (unloading policy) ranked per rule '
+                'pair on total site labour, ties inside the declared noise floor broken by yard '
+                'overage, the chosen k per pair, and every unit\'s two numbers. The twin of '
+                'restock_selection_json one level up the funnel.'},
     'runtime_metrics_db': {
         'family': 'runtime_metrics_db',   # -> Schema.identity family (unhashed link; see contract._shape_only)
         'path': RUNTIME_DB, 'format': 'sqlite', 'scope': 'run', 'tables': ['runtime'],

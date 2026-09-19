@@ -240,10 +240,24 @@ def _rank_channel(leaves, log) -> dict:
     ok = sorted((r for r in rows if r['score_hours'] is not None),
                 key=lambda r: r['score_hours'])
     bad = sorted((r for r in rows if r['score_hours'] is None), key=lambda r: r['rule'])
+    # THE MARGINS AS FIELDS, not a hand comment.  "Best 3" is a stated set with stated
+    # separations: `margin_pct` is the gap UP to the next rank as a percent of this rule's
+    # hours (None for the last rankable rule), and `gap_to_baseline_pct` is how far below
+    # the `fifo` control this rule sits (negative = cheaper than fifo; None when fifo did not
+    # rank).  Phase 3 takes the top three by rank; a swap inside these margins is a tie,
+    # not a reversal, and the reader should not have to recompute that from `score_hours`.
+    base = next((r['score_hours'] for r in ok if r['rule'] == BASELINE_RULE), None)
     for i, r in enumerate(ok, start=1):
         r['rank'] = i
+        nxt = ok[i]['score_hours'] if i < len(ok) else None
+        r['margin_pct'] = (None if nxt is None or not r['score_hours']
+                           else (nxt - r['score_hours']) / r['score_hours'] * 100.0)
+        r['gap_to_baseline_pct'] = (None if not base
+                                    else (r['score_hours'] - base) / base * 100.0)
     for r in bad:
         r['rank'] = None
+        r['margin_pct'] = None
+        r['gap_to_baseline_pct'] = None
         log(f"    !! {r['rule']}: excluded — {METRIC_QUANTITY} is missing or non-finite on "
             f"{len(r['missing'])} arm(s); a partial sum would rank it cheapest by accident")
     if unknown:
