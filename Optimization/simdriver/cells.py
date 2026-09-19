@@ -2,7 +2,10 @@
 
 A cell = a fixed choice of aisle-split × zoning × scheduler × inbound policy over one frozen
 inventory.  _apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the
-change is seen everywhere; _build_cells names cells
+change is seen everywhere; `cell_scope` is the form the driver uses -- the same write, undone
+on exit, so no cell's state outlives its own setup (2026-09-19, the flat work pool: every
+cell's setup runs while other cells' units are in flight, and the order cells are set up in
+must not be able to change a result).  _build_cells names cells
 k{k}[_l{loss}]_{zone}[_{inbound}][_{sched}].
 
 The inbound suffix sits BEFORE the scheduler suffix on purpose: `run_whatif_labor._scheduler_of`
@@ -14,6 +17,7 @@ the former only.  Cell.overrides() reports the same values without applying them
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from typing import NamedTuple
 
 from Optimization.config.sim_config import CONFIG   # SAME object — _apply_cell mutates it in place
@@ -97,7 +101,7 @@ def _inbound_axis(spec):
     behaviour.  A real axis is a list of `(suffix, {inbound_key: value})` pairs — keys are
     `CONFIG['global']` `inbound_*` names with the prefix dropped.
 
-    Four refusals, each closing a failure with no error message:
+    Three refusals, each closing a failure with no error message:
 
     * **An unknown key.**  A misspelt name creates a new `CONFIG['global']` entry that
       `inbound_spec()` never reads, so the cell runs the DEFAULT policy under the swept
@@ -106,10 +110,13 @@ def _inbound_axis(spec):
       inbound-off collapse into ONE cell — the matrix comes out smaller than it was asked for
       and nothing says so.
     * **Duplicate suffixes.**  The same collapse by another route.
-    * **A key one entry sets and another does not.**  `_apply_cell` mutates a process-wide
-      CONFIG that is never reset between cells, so a key written by cell 3 and omitted by cell 4
-      leaves cell 4 running cell 3's policy under its own name.  Requiring every entry to cover
-      the union makes the carryover unreachable rather than merely unlikely.
+
+    There used to be a fourth: every entry had to state every key ANY entry set, because
+    `_apply_cell` wrote into a process-wide CONFIG that was never reset between cells, so a
+    key cell 3 wrote and cell 4 omitted left cell 4 running cell 3's policy under its own
+    name.  The driver now applies each cell inside `cell_scope`, which restores CONFIG on
+    exit, so an omitted key means the RUN-level value (the command line or the settings
+    default) and nothing else -- well-defined, and the refusal's reason is gone with it.
     """
     axis = spec.get('inbound') or [('', None)]
     axis = [(str(n), (None if ov is None else dict(ov))) for n, ov in axis]
@@ -132,15 +139,6 @@ def _inbound_axis(spec):
     if len(set(names)) != len(names):
         raise ValueError(f'the inbound axis has duplicate name suffixes ({names}); cells dedupe '
                          f'by name, so two entries sharing one would collapse into a single cell')
-    union = {k for _n, ov in axis for k in (ov or {})}
-    for n, ov in axis:
-        missing = sorted(union - set(ov or {}))
-        if missing:
-            raise ValueError(
-                f'inbound axis entry {n!r} does not set {missing}, which another entry does. '
-                f'CONFIG is mutated in place and never reset between cells, so this cell would '
-                f'silently inherit the previous one\'s value for those keys — state every key '
-                f'the axis touches in every entry, including the inbound-off anchor')
     return axis
 
 
@@ -214,6 +212,62 @@ def _apply_cell(aisle_split, zoning, scheduler='round_robin', inbound=None) -> N
             cfg['scheduler'] = scheduler
     for key, val in (inbound or {}).items():
         CONFIG['global'][f'inbound_{key}'] = val
+
+
+_ABSENT = object()          # "this key was not in CONFIG before the cell" -- restore deletes it
+
+
+@contextmanager
+def cell_scope(cell: Cell):
+    """`_apply_cell` for the duration of a `with` block, undone on exit.
+
+    THE ONE WAY THE DRIVER APPLIES A CELL since the flat work pool (2026-09-19).  Every cell's
+    setup -- manifest, shared assets, work units -- runs inside its scope, and the units it
+    built carry their values in their payloads; when the block exits CONFIG is back to the
+    RUN-level state, so the next cell starts from the command line's values and not from
+    whatever the previous cell wrote.  An `inbound=None` cell therefore runs the run-level
+    inbound keys, and the order cells are set up in cannot change any result.
+
+    RESTORE IS BY REBINDING, NEVER BY MUTATING THE LIVE CONTAINERS.  A payload built inside
+    the scope may hold a reference to a dict CONFIG held at the time (`velocity_zoning` did,
+    until `workunits` copied it), and under the pool it is pickled only when a worker slot
+    frees -- hours later, from the pool's own queue.  A restore that refilled that dict in
+    place would rewrite the payload before it shipped, so the saved OBJECTS are put back at
+    their keys and the cell's objects are simply dropped.  The dicts `run_simulation` holds
+    by reference (`CONFIG['channels'][ch]['sizing']`, each pick-config dict) are the same
+    objects throughout: only their VALUES are rebound.
+
+    `scheduler` is absent from every pick-config dict as written, and a key that was absent
+    before the cell is deleted on exit (`_ABSENT`), not set to None -- `_apply_cell` never
+    wrote a None there, and a reader that tests `'scheduler' in cfg` must see what it saw
+    before.  Exceptions inside the block still restore.  Scopes nest: an inner scope saves
+    the outer's state and hands it back."""
+    saved_ch = {}
+    for ch, block in CONFIG['channels'].items():
+        saved_ch[ch] = (block['sizing'].get('aisle_split', _ABSENT),
+                        block.get('velocity_zoning', _ABSENT),
+                        [cfg.get('scheduler', _ABSENT) for cfg in block['configs']])
+    saved_g = {f'inbound_{k}': CONFIG['global'].get(f'inbound_{k}', _ABSENT)
+               for k in (cell.inbound or {})}
+    _apply_cell(cell.split, cell.zoning, cell.scheduler, cell.inbound)
+    try:
+        yield cell
+    finally:
+        for ch, (split, zoning, scheds) in saved_ch.items():
+            block = CONFIG['channels'][ch]
+            _rebind(block['sizing'], 'aisle_split', split)
+            _rebind(block, 'velocity_zoning', zoning)
+            for cfg, s in zip(block['configs'], scheds):
+                _rebind(cfg, 'scheduler', s)
+        for key, val in saved_g.items():
+            _rebind(CONFIG['global'], key, val)
+
+
+def _rebind(container: dict, key, saved) -> None:
+    if saved is _ABSENT:
+        container.pop(key, None)
+    else:
+        container[key] = saved
 
 
 def _tightest_split(cells):

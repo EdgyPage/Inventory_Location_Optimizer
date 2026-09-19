@@ -14,7 +14,8 @@ compatibility is the safety argument, so it is what these tests check first.
 The point of the change was the FIFTH axis, and it has now landed: the inbound policy is one
 field and one line in `_build_cells`, not five positional unpacks to find and renumber. The
 axis brings three collapses of its own, all silent, all refused by `_inbound_axis` and pinned
-at the bottom of this file.
+at the bottom of this file (a fourth, the cross-cell carryover, stopped being reachable when
+the driver began applying cells inside `cells.cell_scope`; its former test now pins that).
 
 Run:  python -m pytest Tests/unit/test_cell_record.py -q
 """
@@ -218,14 +219,18 @@ def test_a_duplicate_inbound_suffix_is_refused():
         _build_cells(spec)
 
 
-def test_an_entry_that_omits_a_key_another_sets_is_refused():
-    """The carryover. CONFIG is mutated in place and never reset between cells, so a key
-    cell A writes and cell B omits leaves B running A's policy under B's own name."""
+def test_an_entry_that_omits_a_key_another_sets_is_a_cell_with_the_run_level_value():
+    """This WAS a refusal: CONFIG was mutated in place and never reset between cells, so a
+    key cell A wrote and cell B omitted left B running A's policy under B's own name.  Since
+    the flat work pool (2026-09-19) the driver applies every cell inside `cells.cell_scope`,
+    which restores CONFIG on exit, so an omitted key means the run-level value -- the
+    carryover is unreachable and the refusal is gone (`test_cell_scope.py` pins the scope)."""
     spec = dict(_INBOUND_SPEC,
                 inbound=[('a', {'standing_yard': True, 'yard_policy': 'lifo'}),
                          ('b', {'standing_yard': False})])
-    with pytest.raises(ValueError, match="'yard_policy'"):
-        _build_cells(spec)
+    cells = _build_cells(spec)
+    assert [c.name for c in cells] == ['k1_off_a', 'k1_off_b']
+    assert cells[1].inbound == {'standing_yard': False}
 
 
 def test_an_unknown_inbound_key_is_refused():

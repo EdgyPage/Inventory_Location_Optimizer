@@ -394,10 +394,13 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
     smaller campaign than the one asked for, which is the `_inbound_axis` failure class.
 
     Every entry states EVERY key the axis touches, including the ones it is not exercising.
-    That is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset
-    between cells, so a key one cell writes and the next omits leaves the second running the
-    first's policy under its own name.  `_inbound_axis` refuses a partial entry for exactly
-    this reason, and stating the full record here is how that refusal is satisfied.
+    Until 2026-09-19 that was load-bearing: `_apply_cell` wrote into a process-wide CONFIG
+    that was never reset between cells, so a key one cell wrote and the next omitted left the
+    second running the first's policy under its own name, and `_inbound_axis` refused a
+    partial entry.  The driver now applies each cell inside `cells.cell_scope`, which restores
+    CONFIG on exit, so an omitted key would mean the run-level value.  The full record stays
+    here anyway: the spec is the whole experimental condition, readable without knowing what
+    the command line defaulted to.
 
     The arrival regime rides the axis rather than the command line for the same reason: the
     inbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a
