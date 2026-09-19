@@ -54,5 +54,21 @@ a freshly filtered list and had no structure to reuse.
 - Toy digest: `_toy_priced` candidate `comparison_whatif_20260919_090929` vs the pre-ticket-02
   baseline `comparison_whatif_20260918_234513`: **IDENTICAL on 24 arms**; 152 of 152 evaluator
   opens took the slice (both families), 76 tiers frozen over 10 drains.
-- Campaign scale: the AFTER profiles and the cell-level digest against the stopped run's
-  finished cells are recorded below when they land.
+- Campaign scale, `uni_rank_cartlabor_norsl` (200k SKUs of the 400k catalogue, 10 batches,
+  `gain_myopic`, uncoupled, cProfile; the AFTER run shared the machine with the 12-worker
+  probe, so its wall is contended and the drain-internal split is the number):
+
+  | | before | after |
+  |---|---|---|
+  | drain (`plan_order`, 18 drains, depths 3-7) | 64.7 s | 37.9 s |
+  | `_make_pool` (7,444 opens) | 44.3 s | 3.2 s |
+  | `_TravelBalancedPool.__init__` | 45.2 s (29.3 s self) | 5.2 s |
+  | tier freezes (`_tier_for`, once per key per drain) | -- | 7.3 s |
+  | `take` (82,290 units) | 9.4 s | 24.1 s (contended; `_aisle_best` 13.0 s) |
+
+  The open itself went from 6 ms to 0.4 ms. What is left of the drain is placing the
+  units (`take`, and `_aisle_best`'s O(aisles) rebuild at every SKU-run boundary) and
+  the pricing -- both proportional to units, not to the tier.
+- The cell-level digest of `_probe_unload_ref` (root `comparison_whatif_20260919_093001`,
+  launched 09:30 from snapshot `a58f67c2`) against the stopped run's finished cells
+  (`comparison_whatif_20260919_002111`) is recorded below when it lands.

@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:341e1422457c00de2b170ec90b0ffc2cfd2e7718db950e4827d4bb7cb3a1449b",
-  "schema_short": "341e1422457c",
+  "schema_id": "sha256:041f5407cbb4d2bf04a73dc7ddc9bbeb204c358a05a79415de26e3c45e142bca",
+  "schema_short": "041f5407cbb4",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -367,6 +367,12 @@
       "format": "csv",
       "scope": "channel_run",
       "optional": false
+    },
+    "unload_ranking_json": {
+      "path": "unload_ranking.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
     },
     "viz_cache_db": {
       "path": "_viz/{cell}/{pair}/{config}/{channel?}/{strategy}.viz.db",
