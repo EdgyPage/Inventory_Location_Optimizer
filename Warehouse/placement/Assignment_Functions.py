@@ -1443,7 +1443,8 @@ class _TravelBalancedPool(_Pool):
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
-                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_rank', '_sel', '_led')
+                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_rank', '_sel', '_led',
+                 '_pp')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
@@ -1555,6 +1556,7 @@ class _TravelBalancedPool(_Pool):
         self._run_sku = _NO_RUN_SKU
         self._var = self._fq = self._m_s = 0.0
         self._ab_cache: dict = {}
+        self._pp: dict = {}           # per_pick per height multiplier, for the current run
         self._sel: list = []          # (score, rank, aid) min-heap; see `take`
 
     def __len__(self):
@@ -1571,21 +1573,27 @@ class _TravelBalancedPool(_Pool):
         """Expected cart-swap cost for an aisle holding raw volume mass v_raw."""
         return self._cart_coef * max(0.0, v_raw / self._cap_raw - 1.0)
 
-    def _aisle_best(self, aid, var):
+    def _aisle_best(self, aid, var, pp=None):
         """(cost, mult, bin) of the cheapest available bin in the aisle for this var.
-        Height scales the whole at-location pick: cost = m*(intercept + per_item + var) + D."""
+        Height scales the whole at-location pick: cost = m*(intercept + per_item + var) + D.
+
+        `pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value
+        depends on (m, var) and not on the aisle, so a SKU run evaluates it at most once per
+        bracket instead of once per aisle per bracket.  Same call, same float."""
         best = None
+        if pp is None:
+            pp = {}
         intercept, per_item = self._intercept, self._per_item
         for m, h in self._by_aisle[aid].items():
-            if not h:
+            t = h.head
+            if t is None:
                 continue
-            # h[0] is (D, seq, bin): D comes straight off the head, so the `D_of[id(b)]`
-            # dict lookup this line used to pay -- once per aisle at every SKU-run boundary,
-            # and once more for the winner after every placement -- is gone.
-            d, b = h.top()
-            cost = per_pick(m, intercept, var, 1, per_item) + d
+            p = pp.get(m)
+            if p is None:
+                p = pp[m] = per_pick(m, intercept, var, 1, per_item)
+            cost = p + t[0]
             if best is None or cost < best[0]:
-                best = (cost, m, b)
+                best = (cost, m, t[1])
         return best
 
     def _score_of(self, aid, ab, sku, fq, m_s):
@@ -1621,11 +1629,31 @@ class _TravelBalancedPool(_Pool):
             self._ab_cache.clear()
             rank = self._rank
             sel = []
+            # THE HOT LOOP.  At campaign scale under the gain evaluator this ran 29 million
+            # aisle evaluations on a six-day coupled unit (nearly every unit opens a SKU run,
+            # because a load carries mostly distinct SKUs), and the method calls cost more
+            # than the arithmetic.  So: `pp` memoises `per_pick` per height multiplier for
+            # this var, the bucket `head` is a plain attribute, and `_score_of` is inlined
+            # here expression for expression (the method itself still serves the winner
+            # refresh below, which is what pins the two to the same floats).
+            pp = self._pp = {}
+            load, cart_on = self._load, self._cart_on
+            ab_cache = self._ab_cache
+            if cart_on:
+                ass, vol_load = self._ass, self._vol_load
+                cart_coef, cap_raw = self._cart_coef, self._cap_raw
             for aid in by_aisle:
-                ab = self._aisle_best(aid, var)
-                self._ab_cache[aid] = ab
-                if ab is not None:
-                    sc = self._score_of(aid, ab, sku, fq, m_s)
+                # ONE `_aisle_best` CALL PER LIVE AISLE, deliberately not inlined: the call
+                # is what `test_placement_selection_is_not_a_scan.py` counts to tell this
+                # rebuild from a per-take scan, and the per-call cost is now the loop over
+                # ~3 bucket heads (plain attributes) with `per_pick` memoised in `pp`.
+                best = self._aisle_best(aid, var, pp)
+                ab_cache[aid] = best
+                if best is not None:
+                    sc = load[aid] + fq * best[0]
+                    if cart_on:
+                        add = 0.0 if sku in ass[aid] else m_s
+                        sc += cart_coef * max(0.0, (vol_load[aid] + add) / cap_raw - 1.0)
                     sel.append((sc, rank[aid], aid))
             heapq.heapify(sel)                   # O(A) at C level, same as the old rebuild
             self._sel = sel
@@ -1677,7 +1705,7 @@ class _TravelBalancedPool(_Pool):
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
         # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
         # like the original `continue`.
-        ab = self._aisle_best(best_aid, var)
+        ab = self._aisle_best(best_aid, var, self._pp)
         self._ab_cache[best_aid] = ab
         # An exhausted aisle is simply NOT pushed back -- that is how it leaves the heap, and it
         # is exactly the `continue` the old scan did on a None `_aisle_best`.  It cannot come

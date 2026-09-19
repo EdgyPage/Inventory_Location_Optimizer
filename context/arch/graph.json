@@ -20991,11 +20991,6 @@
       "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
     },
     {
-      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
-      "kind": "calls",
-      "src": "Warehouse/placement/frozen_tier.py::_Cursor.__bool__"
-    },
-    {
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi",
       "kind": "calls",
       "src": "Warehouse/placement/frozen_tier.py::_Cursor.__getitem__"
@@ -21003,7 +20998,7 @@
     {
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
       "kind": "calls",
-      "src": "Warehouse/placement/frozen_tier.py::_Cursor.__getitem__"
+      "src": "Warehouse/placement/frozen_tier.py::_Cursor.__init__"
     },
     {
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi",
@@ -21019,11 +21014,6 @@
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
       "kind": "calls",
       "src": "Warehouse/placement/frozen_tier.py::_Cursor.popleft"
-    },
-    {
-      "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_lo",
-      "kind": "calls",
-      "src": "Warehouse/placement/frozen_tier.py::_Cursor.top"
     },
     {
       "dst": "Warehouse/inventory/aisle_ledger.py",
@@ -50013,14 +50003,6 @@
     },
     {
       "file": "Warehouse/placement/frozen_tier.py",
-      "id": "Warehouse/placement/frozen_tier.py::HeapBucket.top",
-      "kind": "function",
-      "module": "Warehouse/placement/frozen_tier.py",
-      "name": "top",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/frozen_tier.py",
       "id": "Warehouse/placement/frozen_tier.py::TierSlice",
       "kind": "class",
       "module": "Warehouse/placement/frozen_tier.py",
@@ -50145,14 +50127,6 @@
       "kind": "function",
       "module": "Warehouse/placement/frozen_tier.py",
       "name": "popleft",
-      "public": true
-    },
-    {
-      "file": "Warehouse/placement/frozen_tier.py",
-      "id": "Warehouse/placement/frozen_tier.py::_Cursor.top",
-      "kind": "function",
-      "module": "Warehouse/placement/frozen_tier.py",
-      "name": "top",
       "public": true
     },
     {

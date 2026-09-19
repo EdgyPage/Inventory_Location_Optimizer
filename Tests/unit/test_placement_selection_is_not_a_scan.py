@@ -81,13 +81,15 @@ class _Counter:
                 outer._pending = 0
             return real_take(self, unit)
 
-        def _aisle_best(self, aid, var):
+        def _aisle_best(self, aid, var, *rest):
+            # `*rest`: the memo `pp` the pool passes since ticket 03 (phase-2 campaign) --
+            # counted the same, forwarded untouched.
             if outer._pending > 0:
                 outer.rebuild += 1
                 outer._pending -= 1
             else:
                 outer.refresh += 1
-            return real_ab(self, aid, var)
+            return real_ab(self, aid, var, *rest)
 
         monkeypatch.setattr(Pool, 'take', take)
         monkeypatch.setattr(Pool, '_aisle_best', _aisle_best)

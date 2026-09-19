@@ -175,11 +175,20 @@ class _Cursor:
     a pool's `take` is the same code over a slice as over its own deque or heap.
     """
 
-    __slots__ = ('_tier', '_order', '_excl', '_lo', '_hi')
+    __slots__ = ('_tier', '_order', '_excl', '_lo', '_hi', 'head')
 
     def __init__(self, tier: FrozenTier, order: list, excluded):
         self._tier, self._order, self._excl = tier, order, excluded
         self._lo, self._hi = 0, len(order)
+        #: `(D, bin)` of the head, or None when empty -- a PLAIN ATTRIBUTE, settled at
+        #: construction and after every pop, because the travel-balanced pool's run-boundary
+        #: rebuild reads every bucket's head of every aisle for every new SKU (29 M reads on
+        #: a six-day coupled unit at campaign scale), and a method call there cost as much
+        #: as the tier rebuild this overlay removed.  The exclusion set is fixed for the
+        #: pool's life (the evaluator's taken set moves only between placements), so a
+        #: settled head stays settled until this cursor's own pop.
+        self.head = None
+        self._settle_lo()
 
     def _settle_lo(self) -> None:
         ids, order, excl = self._tier.ids, self._order, self._excl
@@ -187,6 +196,11 @@ class _Cursor:
         while lo < hi and ids[order[lo]] in excl:
             lo += 1
         self._lo = lo
+        if lo < hi:
+            i = order[lo]
+            self.head = (self._tier.D[i], self._tier.bins[i])
+        else:
+            self.head = None
 
     def _settle_hi(self) -> None:
         ids, order, excl = self._tier.ids, self._order, self._excl
@@ -194,10 +208,11 @@ class _Cursor:
         while hi > lo and ids[order[hi - 1]] in excl:
             hi -= 1
         self._hi = hi
+        if hi <= lo:
+            self.head = None
 
     def __bool__(self) -> bool:
-        self._settle_lo()
-        return self._lo < self._hi
+        return self.head is not None
 
     def __len__(self) -> int:
         ids, order, excl = self._tier.ids, self._order, self._excl
@@ -205,10 +220,9 @@ class _Cursor:
 
     def __getitem__(self, i):
         if i == 0:
-            self._settle_lo()
-            if self._lo >= self._hi:
+            if self.head is None:
                 raise IndexError('cursor is empty')
-            return self._tier.bins[self._order[self._lo]]
+            return self.head[1]
         if i == -1:
             self._settle_hi()
             if self._lo >= self._hi:
@@ -217,47 +231,43 @@ class _Cursor:
         raise IndexError('a cursor exposes only its two ends')
 
     def popleft(self) -> None:
-        self._settle_lo()
-        if self._lo >= self._hi:
+        if self.head is None:
             raise IndexError('pop from an empty cursor')
         self._lo += 1
+        self._settle_lo()
 
     def pop(self) -> None:
         self._settle_hi()
         if self._lo >= self._hi:
             raise IndexError('pop from an empty cursor')
         self._hi -= 1
+        if self._hi <= self._lo:
+            self.head = None
 
-    # -- the bucket protocol (travel-balanced pool) ---------------------------------------
-
-    def top(self):
-        """`(D, bin)` of the head — the heap bucket's `(D, seq, bin)` without the seq."""
-        self._settle_lo()
-        i = self._order[self._lo]
-        return self._tier.D[i], self._tier.bins[i]
+    # -- the bucket protocol (travel-balanced pool): `head` is the attribute above ---------
 
     def pop_top(self) -> None:
         self.popleft()
 
 
 class HeapBucket:
-    """The eager travel-balanced bucket: a heap of `(D, seq, bin)`, behind the same two
-    reads a `_Cursor` answers, so `_aisle_best` and `take` are one code path."""
+    """The eager travel-balanced bucket: a heap of `(D, seq, bin)`, with the same `head`
+    attribute and `pop_top` a `_Cursor` has, so `_aisle_best` and `take` are one code path.
+    `head` is `(D, bin)` -- the heap entry without its seq -- or None when empty."""
 
-    __slots__ = ('_h',)
+    __slots__ = ('_h', 'head')
 
     def __init__(self, entries: list):
         self._h = entries                  # already heapified by the pool
+        self.head = (entries[0][0], entries[0][2]) if entries else None
 
     def __bool__(self) -> bool:
-        return bool(self._h)
+        return self.head is not None
 
     def __len__(self) -> int:
         return len(self._h)
 
-    def top(self):
-        d, _seq, b = self._h[0]
-        return d, b
-
     def pop_top(self) -> None:
-        heapq.heappop(self._h)
+        h = self._h
+        heapq.heappop(h)
+        self.head = (h[0][0], h[0][2]) if h else None

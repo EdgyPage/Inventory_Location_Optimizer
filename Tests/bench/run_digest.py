@@ -210,15 +210,21 @@ def _file_sha(path: str) -> dict:
 
 # ── run-level digest via the contract ────────────────────────────────────────
 
-def digest_run(base: str) -> dict:
+def digest_run(base: str, cell: str | None = None) -> dict:
+    """The run's digest -- or, with `cell`, that ONE cell's: the filter is applied at
+    enumeration, before any file is hashed, because a campaign root at 200k SKUs holds
+    tens of multi-GB arm DBs and hashing the cells the comparison never reads is what made
+    the first `--cell` run take longer than the probe it was checking."""
     from Optimization.runschema import resolve_base_dir, resolver_for
     root = resolve_base_dir(base)
     rt = resolver_for(root)
 
     arms: dict[str, dict] = {}
-    for cell, cr, sim_db in sorted(rt.sim_dbs(), key=lambda t: (t[0], t[2])):
+    for c, cr, sim_db in sorted(rt.sim_dbs(), key=lambda t: (t[0], t[2])):
+        if cell is not None and c != cell:
+            continue
         strategy = rt.strategy_of(sim_db) or os.path.basename(sim_db)
-        key = '/'.join(filter(None, (cell, cr.pair, cr.config, cr.channel or '', strategy)))
+        key = '/'.join(filter(None, (c, cr.pair, cr.config, cr.channel or '', strategy)))
         entry = {'sim': _digest_db(sim_db, SIM_TABLES)}
         kf = rt.keyframe_db(sim_db)
         entry['keyframes'] = _digest_db(kf, KEYFRAME_TABLES) if kf and os.path.isfile(kf) \
@@ -226,16 +232,18 @@ def digest_run(base: str) -> dict:
         arms[key] = entry
 
     extras: dict[str, dict] = {}
-    for cell, _dir in rt.cells():
+    for c, _dir in rt.cells():
+        if cell is not None and c != cell:
+            continue
         seen_pairs: set[str] = set()
-        for c2, cr, _db in rt.sim_dbs(cell=cell):
+        for c2, cr, _db in rt.sim_dbs(cell=c):
             if cr.pair in seen_pairs:
                 continue
             seen_pairs.add(cr.pair)
-            wh = rt.path('warehouse_db', cell=cell, pair=cr.pair)
-            extras[f'{cell}/{cr.pair}/warehouse.db'] = _digest_db(wh, WAREHOUSE_TABLES)
-            cfg = rt.config_json(cell, cr.pair, cr.config)
-            extras[f'{cell}/{cr.pair}/{cr.config}/config.json'] = _file_sha(cfg)
+            wh = rt.path('warehouse_db', cell=c, pair=cr.pair)
+            extras[f'{c}/{cr.pair}/warehouse.db'] = _digest_db(wh, WAREHOUSE_TABLES)
+            cfg = rt.config_json(c, cr.pair, cr.config)
+            extras[f'{c}/{cr.pair}/{cr.config}/config.json'] = _file_sha(cfg)
 
     # The run-scope runtime DB: one row per arm, hashed for its SHAPE not its seconds
     # (see EXCLUDED_COLS['runtime']).  Missing is symmetric, as everywhere else here:
@@ -372,8 +380,8 @@ def main(argv=None) -> int:
             print()
         return 0
 
-    a = digest_run(args.runs[0])
-    b = digest_run(args.runs[1])
+    a = digest_run(args.runs[0], cell=args.cell)
+    b = digest_run(args.runs[1], cell=args.cell)
     if args.cell:
         a, b = restrict_to_cell(a, args.cell), restrict_to_cell(b, args.cell)
         for d in (a, b):

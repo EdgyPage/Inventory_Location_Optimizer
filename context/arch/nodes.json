@@ -24081,10 +24081,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best": {
       "decorators": [],
-      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept + per_item + var) + D.",
+      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept + per_item + var) + D.\n\n`pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value\ndepends on (m, var) and not on the aisle, so a SKU run evaluates it at most once per\nbracket instead of once per aisle per bracket.  Same call, same float.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, aid, var)"
+      "signature": "(self, aid, var, pp=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._cart_cost": {
       "decorators": [],
@@ -24866,7 +24866,7 @@
     },
     "Warehouse/placement/frozen_tier.py::HeapBucket": {
       "decorators": [],
-      "doc": "The eager travel-balanced bucket: a heap of `(D, seq, bin)`, behind the same two\nreads a `_Cursor` answers, so `_aisle_best` and `take` are one code path.",
+      "doc": "The eager travel-balanced bucket: a heap of `(D, seq, bin)`, with the same `head`\nattribute and `pop_top` a `_Cursor` has, so `_aisle_best` and `take` are one code path.\n`head` is `(D, bin)` -- the heap entry without its seq -- or None when empty.",
       "kind": "class",
       "signature": ""
     },
@@ -24897,13 +24897,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
-    },
-    "Warehouse/placement/frozen_tier.py::HeapBucket.top": {
-      "decorators": [],
-      "doc": null,
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
     },
     "Warehouse/placement/frozen_tier.py::TierSlice": {
       "decorators": [],
@@ -25014,13 +25007,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
-    },
-    "Warehouse/placement/frozen_tier.py::_Cursor.top": {
-      "decorators": [],
-      "doc": "`(D, bin)` of the head \u2014 the heap bucket's `(D, seq, bin)` without the seq.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self)"
     },
     "Warehouse/placement/frozen_tier.py::__all__": {
       "decorators": [],
