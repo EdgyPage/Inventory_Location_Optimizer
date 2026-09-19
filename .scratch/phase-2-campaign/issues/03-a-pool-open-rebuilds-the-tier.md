@@ -123,5 +123,15 @@ the run -- eager and sliced, exact -- plus the fold's arithmetic term for term.
 - The first probe (`comparison_whatif_20260919_093001`, snapshot `a58f67c2`) was stopped
   after its fifo cell digested IDENTICAL (8 arms) against the stopped campaign's cell 1 --
   the priced cell was pacing no faster on that cut. Relaunched from `38bc098d`.
+- **Fourth cut** (`8fda0d12`, `dfcaca55`): `_CowListsByKey` hands out a `_CowInner` per aisle
+  that copies one list on a write instead of the aisle's whole member map (768k copies, 71 s).
+  The first draft read through a Python generator and made the centroid three times dearer;
+  the second reads the live dict's own items for an unwritten aisle and merges once per new
+  key for a written one (14 s of merges on the same unit). Its campaign-scale profile ran
+  contended (the probe's four units alongside), so its drain is not comparable; the copy is
+  gone from the table and everything else scaled by the contention. Toy digest IDENTICAL on
+  40 arms, twice.
+- Probe relaunch from `38bc098d` (root `comparison_whatif_20260919_123309`): cell 1's winner
+  units took 19 min against 27 on the stopped run -- the WAVE path's gain from cut 3.
 - The cell-level digest of that relaunch against the stopped run's finished cells is
   recorded below when it lands (`comparison_whatif_20260919_002111` is the reference).
