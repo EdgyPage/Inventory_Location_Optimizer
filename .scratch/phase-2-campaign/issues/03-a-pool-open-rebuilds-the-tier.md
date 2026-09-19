@@ -69,6 +69,37 @@ a freshly filtered list and had no structure to reuse.
   The open itself went from 6 ms to 0.4 ms. What is left of the drain is placing the
   units (`take`, and `_aisle_best`'s O(aisles) rebuild at every SKU-run boundary) and
   the pricing -- both proportional to units, not to the tier.
+## Second and third cuts (2026-09-19, same day)
+
+**The probe said the open was not the campaign's cost.** Its priced cell paced no faster than
+the stopped run's (window 1: 799 s of drain vs 843 s; window 2 not faster at all), and a
+COUPLED profile of the winner pair at campaign scale (six days, `gain_myopic`) showed why: with
+the open gone, `_TravelBalancedPool.take` was 202 s of a 213 s drain -- 29 M `_aisle_best` +
+`_score_of` evaluations at SKU-run boundaries (a load carries mostly distinct SKUs, so nearly
+every unit opens a run and touches every live aisle) -- and the first overlay had made each of
+those reads DEARER (two cursor settles per bucket per read, 57 M `_settle_lo` calls) than the
+plain list index it replaced. The uncoupled store-only profile had hidden this because the
+store leaf places 2.8k units a day against the fulfillment leaf's 18k.
+
+**Second cut** (`d1c02277`): a bucket's head is a plain `head` attribute on both bucket kinds,
+settled at construction and after its own pop (the exclusion set is fixed for a pool's life);
+`_aisle_best` reads it and memoises `per_pick` per height multiplier for the run's var;
+`_score_of` is inlined in the run-boundary loop, one `_aisle_best` call per live aisle kept
+because the scan detector counts it. Coupled cartlabor drain 213 s -> 137 s.
+
+**Third cut** (this commit): the fulfillment side. `_MinLaborPool.take` was 649 s of a 634 s
+coupled drain on the min-labor pairing: the SKU's partner row rebuilt from the CSR on every
+unit (119 s), `per_pick` per aisle per bracket at every run boundary (26 M calls, 104 s), and
+the per-aisle affinity delta folded aisle by aisle inside the prune loop (most of the 250 s of
+`take`'s own time). Now, per SKU run: `per_pick` memoised per multiplier; the row built once
+(`_partner_row`) and handed to the centroid; and the deltas folded ONCE through the ledger's
+inverse (`_partner_deltas`, the `_co_by_aisle` argument: row order per aisle, so the same
+left fold from 0.0), with a copy-on-write view's overridden aisles folded the old way over the
+view's own set. Within a run only the SKU's own index moves, which is no partner of itself,
+so the fold holds for the run. Pinned three ways in `test_frozen_tier.py`: plain dicts (the
+per-aisle fold), the owner ledger (the inverse), and a view with an aisle overridden before
+the run -- eager and sliced, exact -- plus the fold's arithmetic term for term.
+
 - The cell-level digest of `_probe_unload_ref` (root `comparison_whatif_20260919_093001`,
   launched 09:30 from snapshot `a58f67c2`) against the stopped run's finished cells
   (`comparison_whatif_20260919_002111`) is recorded below when it lands.

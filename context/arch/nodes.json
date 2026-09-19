@@ -23837,10 +23837,10 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._aisle_best_cost": {
       "decorators": [],
-      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M*(intercept + per_item + var) + D  (height scales the whole pick).",
+      "doc": "Extremal (min, or max if maximize) over the aisle's bracket ends of the\nper-pick labor + travel:  M*(intercept + per_item + var) + D  (height scales the whole pick).\n\n`pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value\ndepends on (m, var), never on the aisle, so a SKU run evaluates it at most once per\nbracket instead of once per aisle per bracket (26 M calls on a six-day coupled unit\nat campaign scale).  Same call, same float.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, aid, var)"
+      "signature": "(self, aid, var, pp=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better": {
       "decorators": [],
@@ -23848,6 +23848,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, a, b)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._partner_deltas": {
+      "decorators": [],
+      "doc": "`{aisle: sum of w over the SKU's partners placed there}`, folded ONCE per SKU run\nthrough the ledger's inverse -- or None when the aisle book carries no inverse, in\nwhich case `take` folds per aisle as it always did.\n\nBIT-IDENTICAL TO THE PER-AISLE LOOP.  That loop is `delta = 0.0; for ci, w in\nrow_items: if ci in ais: delta += w` -- a left fold from 0.0 in ROW order over the\npartners the aisle holds.  This walks `row_items` once in that same order and adds\neach partner's term to every aisle the inverse says holds it, so each aisle receives\nexactly the terms the loop would have summed, in the same sequence, from the same\n0.0 (the `_co_by_aisle` argument, W8 stage 2).  Aisles holding no partner are absent\nand read as 0.0, which is what the loop computed for them.\n\nUnder the gain evaluator the book is a copy-on-write view: its live half IS the\nowner's dict, whose inverse is exact for every aisle the view has NOT overridden;\nan overridden aisle (one this pool's earlier SKU runs virtually placed into) is\nfolded the old way over the view's own set.  Within one SKU run the only membership\nthat moves is this SKU's own index, which is no partner of itself, so the fold is\nvalid for the whole run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, row_items)"
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.prefers_low": {
       "decorators": [
@@ -24301,7 +24308,14 @@
       "doc": "Lift-weighted COLUMN centroid of an aisle's already-placed affinity partners of\n`sku`.  ``member_pos`` is the aisle's ``{sku_idx -> [x_phys, ...]}`` (one x per LIVE\nbin; pruned on reclaim so no stale members).  Returns (mass, centroid_x);\n(0.0, None) when `sku` has no placed partners there.\n\nMirrors _demand_weighted_delta_lift's CSR row-slice but accumulates a position\ncentroid weighted by lift(s, partner) * f_partner.  Iterating per distinct partner\nSKU (not per placement) keeps this O(distinct SKUs in aisle).",
       "is_async": false,
       "kind": "function",
-      "signature": "(affinity, sku, member_pos, freq_by_idx)"
+      "signature": "(affinity, sku, member_pos, freq_by_idx, row=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_partner_row": {
+      "decorators": [],
+      "doc": "`{partner idx: lift}` for `sku` -- the centroid's CSR slice, as one dict.  `{}` for a\nSKU with no stored partners (or absent from the matrix).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, sku) -> dict"
     },
     "Warehouse/placement/Assignment_Functions.py::_pick_extremal_aisle": {
       "decorators": [],

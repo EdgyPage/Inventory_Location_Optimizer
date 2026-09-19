@@ -365,3 +365,137 @@ def test_the_fixtures_actually_plant_ties_and_reorderings():
     for b in bins:
         ds.setdefault(x_pace * b.x_phys + y_pace * b.y_phys, set()).add(b.location[0])
     assert any(len(a) > 1 for a in ds.values()), 'no D tie across aisles -- the tie-break is idle'
+
+# -- the min-labor deltas through the inverse equal the per-aisle fold ------------------
+
+def _ml_owner(idx):
+    """The same memberships `_state_ml` seeds, written through the ledger so the inverse and
+    `n_placed` are maintained; aisle 3 additionally holds partner 99 from the start."""
+    from Warehouse.inventory.aisle_ledger import AisleLedger
+    led = AisleLedger()
+    for a in range(1, 6):
+        led.sku_sets[a]
+        led.idx_sets[a]
+    led.add_sku(2, 1, idx[1], demand=0.0)
+    led.add_bin(2, idx[1], 12.0)
+    led.add_sku(3, 99, idx[99], demand=0.0)
+    led.add_bin(3, idx[99], 30.0)
+    return led
+
+
+def _ml_plain_like(led):
+    """Plain dicts with the owner's exact contents: the fallback (no inverse) path."""
+    st = _state_ml(range(1, 6))
+    for a, ss in led.sku_sets.items():
+        st['ss'][a] = set(ss)
+    for a, ii in led.idx_sets.items():
+        st['ii'][a] = set(ii)
+    for a, mp in led.member_pos.items():
+        for k, xs in mp.items():
+            st['mp'][a][k] = list(xs)
+    return st
+
+
+@pytest.mark.parametrize('seed', [41, 42, 43, 44])
+@pytest.mark.parametrize('maximize', [False, True])
+def test_min_labor_deltas_through_the_inverse_equal_the_per_aisle_fold(seed, maximize):
+    """Three books, one answer: plain dicts (the per-aisle fold), the owner ledger (the fold
+    through `partner_aisles`), and a copy-on-write view over the owner with one aisle
+    overridden before the run (the recompute path) -- eager AND sliced, exact."""
+    from Inbound.gain_cow import AISLE_VIEWS
+    rng = random.Random(seed)
+    bins = _bins(rng)
+    units, orders, skus = _units(rng)
+    aff, idx = _aff(skus + [99], [(1, 2, 4.0), (1, 99, 6.0), (2, 3, 2.5), (3, 4, 3.0),
+                                  (2, 99, 1.5)])
+    fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
+    qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
+    fbi = {idx[s]: fbs[s] for s in skus}
+    fbi[idx[99]] = 0.8
+    wp = _wp()
+    excl = _exclusion(rng, bins)
+    tier = _tier(bins, wp)
+    results = {}
+    for kind in ('plain', 'owner', 'cow'):
+        for shape, make_cands in (('eager', lambda: _filtered(bins, excl)),
+                                  ('sliced', lambda: tier.slice(excl))):
+            led = _ml_owner(idx)
+            if kind == 'plain':
+                st = _ml_plain_like(led)
+                books = (st['ss'], st['ii'], st['dd'], st['mp'])
+            elif kind == 'owner':
+                books = (led.sku_sets, led.idx_sets, led.demand_sum, led.member_pos)
+            else:
+                views = {n: AISLE_VIEWS[n](d) for n, d in (
+                    ('aisle_sku_sets', led.sku_sets), ('aisle_idx_sets', led.idx_sets),
+                    ('aisle_demand_sum', led.demand_sum),
+                    ('aisle_member_pos', led.member_pos))}
+                # override aisle 4 virtually with partner 99 BEFORE the run: the fold must
+                # read the view's set for that aisle and the inverse for every other
+                views['aisle_idx_sets'][4].add(idx[99])
+                views['aisle_sku_sets'][4].add(99)
+                views['aisle_member_pos'][4][idx[99]].append(5.0)
+                books = (views['aisle_sku_sets'], views['aisle_idx_sets'],
+                         views['aisle_demand_sum'], views['aisle_member_pos'])
+            pool = af._MinLaborPool(make_cands(), aff, wp, *books, fbi, fbs, qbs, 0.5,
+                                    maximize=maximize)
+            if kind == 'cow':
+                assert pool._partner_deltas([(idx[99], 1.0)]) is not None
+            if kind == 'plain':
+                assert pool._partner_deltas([(idx[99], 1.0)]) is None
+            results[(kind, shape)] = _drive(pool, units)
+    assert (results[('plain', 'eager')] == results[('plain', 'sliced')]
+            == results[('owner', 'eager')] == results[('owner', 'sliced')])
+    assert results[('cow', 'eager')] == results[('cow', 'sliced')]
+
+
+def test_the_override_actually_moves_a_choice_on_some_seed():
+    """Non-vacuity for the copy-on-write branch: across the seeds above, the virtual partner
+    in aisle 4 changes at least one placement versus the plain books."""
+    from Inbound.gain_cow import AISLE_VIEWS
+    moved = False
+    for seed in (41, 42, 43, 44, 45, 46):
+        rng = random.Random(seed)
+        bins = _bins(rng)
+        units, orders, skus = _units(rng)
+        aff, idx = _aff(skus + [99], [(1, 2, 4.0), (1, 99, 6.0), (2, 3, 2.5), (3, 4, 3.0),
+                                      (2, 99, 1.5)])
+        fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
+        qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
+        fbi = {idx[s]: fbs[s] for s in skus}
+        fbi[idx[99]] = 0.8
+        wp = _wp()
+        led = _ml_owner(idx)
+        st = _ml_plain_like(led)
+        plain = af._MinLaborPool(list(bins), aff, wp, st['ss'], st['ii'], st['dd'], st['mp'],
+                                 fbi, fbs, qbs, 0.5)
+        views = {n: AISLE_VIEWS[n](d) for n, d in (
+            ('aisle_sku_sets', led.sku_sets), ('aisle_idx_sets', led.idx_sets),
+            ('aisle_demand_sum', led.demand_sum), ('aisle_member_pos', led.member_pos))}
+        views['aisle_idx_sets'][4].add(idx[99])
+        views['aisle_sku_sets'][4].add(99)
+        views['aisle_member_pos'][4][idx[99]].append(5.0)
+        cow = af._MinLaborPool(list(bins), aff, wp, views['aisle_sku_sets'],
+                               views['aisle_idx_sets'], views['aisle_demand_sum'],
+                               views['aisle_member_pos'], fbi, fbs, qbs, 0.5)
+        if _drive(plain, units) != _drive(cow, units):
+            moved = True
+            break
+    assert moved, 'the virtual partner never changed a placement -- the recompute path is idle'
+
+
+def test_the_inverse_fold_is_the_per_aisle_loop_term_for_term():
+    """Non-vacuity for `_partner_deltas`: hand-built memberships, hand-summed in row order."""
+    from Warehouse.inventory.aisle_ledger import AisleLedger
+    led = AisleLedger()
+    led.add_bin(1, 10, 0.0)
+    led.add_bin(1, 11, 0.0)
+    led.add_bin(2, 11, 0.0)
+    led.add_bin(3, 12, 0.0)
+    aff, _ = _aff([1], [])
+    pool = af._MinLaborPool([_Bin(1, 0, 40)], aff, _wp(), led.sku_sets, led.idx_sets,
+                            led.demand_sum, led.member_pos, {}, {}, {}, 0.5)
+    row_items = [(10, 0.1), (11, 0.2), (12, 0.4), (13, 0.8)]
+    got = pool._partner_deltas(row_items)
+    assert got == {1: 0.0 + 0.1 + 0.2, 2: 0.0 + 0.2, 3: 0.0 + 0.4}
+    assert pool._partner_deltas([(13, 1.0)]) == {}

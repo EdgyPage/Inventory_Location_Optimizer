@@ -20356,7 +20356,17 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._partner_deltas",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_partner_row",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
     },
@@ -20614,6 +20624,11 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::_delta_lift_from_row",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_delta_lift"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_partner_row",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool",
@@ -48795,6 +48810,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._partner_deltas",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_partner_deltas",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.prefers_low",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -49311,6 +49334,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_demand_weighted_partner_centroid",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_partner_row",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_partner_row",
       "public": false
     },
     {

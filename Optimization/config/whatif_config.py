@@ -589,12 +589,16 @@ SPECS = {
     # digested against it -- the code under change never ran.  Two cells off phase 2's own
     # axis, the reference `fifo` and the priced `gmyopic`, over the two ranked families the
     # campaign found 39-59x priced (`.scratch/phase-2-campaign/issues/02`) plus the `fifo`
-    # rider, under the campaign's run defaults (coupled, the era, the arrival regime).  Twelve
-    # units at `--max-skus 8000 --coverage-days 1 --n-batches 6`.  Not for analysis; its only
-    # reader is `Tests/bench/run_digest.py` (memory `toy-run-is-the-byte-identity-instrument`).
+    # rider, under the campaign's run defaults (coupled, the era, the arrival regime) -- and,
+    # since ticket 03, the winner pair's families `rank_cartlabor` / `rank_minlabor`, because a
+    # refactor of THEIR pools (the travel-balanced and min-labor classes) had no toy gate at
+    # all.  Twenty units at `--max-skus 8000 --coverage-days 1 --n-batches 6`.  Not for
+    # analysis; its only reader is `Tests/bench/run_digest.py` (memory
+    # `toy-run-is-the-byte-identity-instrument`).
     '_toy_priced': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
-        'schedulers': ['lpt'], 'arms': ('fifo', 'rank_random', 'rank_popularity'),
+        'schedulers': ['lpt'],
+        'arms': ('fifo', 'rank_random', 'rank_popularity', 'rank_cartlabor', 'rank_minlabor'),
         'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'gmyopic')],
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,

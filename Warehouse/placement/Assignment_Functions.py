@@ -741,7 +741,21 @@ def _ranked_assign_impl(
 # scattering them lengthens it (expansion).  These ride the ranked drain and commit
 # member positions INCREMENTALLY so clusters accumulate within a wave.
 
-def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
+def _partner_row(affinity, sku) -> dict:
+    """`{partner idx: lift}` for `sku` -- the centroid's CSR slice, as one dict.  `{}` for a
+    SKU with no stored partners (or absent from the matrix)."""
+    if affinity._matrix is None or sku not in affinity._sku_to_idx:
+        return {}
+    i     = affinity._sku_to_idx[sku]
+    start = int(affinity._matrix.indptr[i])
+    end   = int(affinity._matrix.indptr[i + 1])
+    if start == end:
+        return {}
+    return {int(ci): float(d) for ci, d in
+            zip(affinity._matrix.indices[start:end], affinity._matrix.data[start:end])}
+
+
+def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx, row=None):
     """Lift-weighted COLUMN centroid of an aisle's already-placed affinity partners of
     `sku`.  ``member_pos`` is the aisle's ``{sku_idx -> [x_phys, ...]}`` (one x per LIVE
     bin; pruned on reclaim so no stale members).  Returns (mass, centroid_x);
@@ -753,13 +767,16 @@ def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx):
     """
     if not member_pos or affinity._matrix is None or sku not in affinity._sku_to_idx:
         return 0.0, None
-    i     = affinity._sku_to_idx[sku]
-    start = int(affinity._matrix.indptr[i])
-    end   = int(affinity._matrix.indptr[i + 1])
-    if start == end:
-        return 0.0, None
-    row = {int(ci): float(d) for ci, d in
-           zip(affinity._matrix.indices[start:end], affinity._matrix.data[start:end])}
+    if row is None:
+        # `row` is the SKU's partner row, built here per call -- or handed in by a caller
+        # that keeps one per SKU run (`_MinLaborPool.take`: 425k calls on a six-day coupled
+        # unit at campaign scale rebuilt it 425k times).  Built by `_partner_row`, the
+        # same expression, so the dict is the same either way; an EMPTY row returns the
+        # same (0.0, None) the `start == end` early-out does, through the loop finding
+        # nothing.
+        row = _partner_row(affinity, sku)
+        if not row:
+            return 0.0, None
     mass = wx = 0.0
     for idx, xs in member_pos.items():
         lift = row.get(idx)
@@ -1913,7 +1930,8 @@ class _MinLaborPool(_Pool):
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku', '_last_winner',
-                 '_bc_by_aid', '_row_items', '_max_reward', '_led')
+                 '_bc_by_aid', '_row_items', '_max_reward', '_led',
+                 '_pp', '_row', '_deltas')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -1962,6 +1980,13 @@ class _MinLaborPool(_Pool):
         self._bc_by_aid: dict = {}
         self._row_items: list = []
         self._max_reward = 0.0
+        # THE PER-SKU-RUN CACHES (ticket 03, phase-2 campaign), all three rebuilt at the run
+        # boundary in `take` and read for every unit of the run: `per_pick` per height
+        # multiplier for this SKU's var; the centroid's partner row; and the per-aisle
+        # affinity deltas, folded once through the ledger's inverse (`_partner_deltas`).
+        self._pp: dict = {}
+        self._row: dict = {}
+        self._deltas: dict | None = None
 
     def __len__(self):
         return sum(len(dq) for g in self._by_aisle_brkt.values() for dq in g.values())
@@ -1977,18 +2002,72 @@ class _MinLaborPool(_Pool):
     def _better(self, a, b):                 # is a a better (more extreme) score than b?
         return a > b if self._maximize else a < b
 
-    def _aisle_best_cost(self, aid, var):
+    def _aisle_best_cost(self, aid, var, pp=None):
         """Extremal (min, or max if maximize) over the aisle's bracket ends of the
-        per-pick labor + travel:  M*(intercept + per_item + var) + D  (height scales the whole pick)."""
+        per-pick labor + travel:  M*(intercept + per_item + var) + D  (height scales the whole pick).
+
+        `pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value
+        depends on (m, var), never on the aisle, so a SKU run evaluates it at most once per
+        bracket instead of once per aisle per bracket (26 M calls on a six-day coupled unit
+        at campaign scale).  Same call, same float."""
         best = None
+        if pp is None:
+            pp = {}
         intercept, per_item, D_of, rep = self._intercept, self._per_item, self._D_of, self._rep
         for m, dq in self._by_aisle_brkt[aid].items():
             if not dq:
                 continue
-            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(rep(dq))]
+            p = pp.get(m)
+            if p is None:
+                p = pp[m] = per_pick(m, intercept, var, 1, per_item)
+            cost = p + D_of[id(rep(dq))]
             if best is None or self._better(cost, best):
                 best = cost
         return best
+
+    def _partner_deltas(self, row_items):
+        """`{aisle: sum of w over the SKU's partners placed there}`, folded ONCE per SKU run
+        through the ledger's inverse -- or None when the aisle book carries no inverse, in
+        which case `take` folds per aisle as it always did.
+
+        BIT-IDENTICAL TO THE PER-AISLE LOOP.  That loop is `delta = 0.0; for ci, w in
+        row_items: if ci in ais: delta += w` -- a left fold from 0.0 in ROW order over the
+        partners the aisle holds.  This walks `row_items` once in that same order and adds
+        each partner's term to every aisle the inverse says holds it, so each aisle receives
+        exactly the terms the loop would have summed, in the same sequence, from the same
+        0.0 (the `_co_by_aisle` argument, W8 stage 2).  Aisles holding no partner are absent
+        and read as 0.0, which is what the loop computed for them.
+
+        Under the gain evaluator the book is a copy-on-write view: its live half IS the
+        owner's dict, whose inverse is exact for every aisle the view has NOT overridden;
+        an overridden aisle (one this pool's earlier SKU runs virtually placed into) is
+        folded the old way over the view's own set.  Within one SKU run the only membership
+        that moves is this SKU's own index, which is no partner of itself, so the fold is
+        valid for the whole run."""
+        ais = self._ais
+        inv = getattr(ais, 'inverse', None)
+        over = None
+        if inv is None:
+            live = getattr(ais, '_live', None)
+            inv = getattr(live, 'inverse', None)
+            over = getattr(ais, '_over', None)
+        if inv is None:
+            return None
+        deltas: dict = {}
+        for ci, w in row_items:
+            held = inv.get(ci)
+            if held:
+                for aid in held:
+                    deltas[aid] = deltas.get(aid, 0.0) + w
+        if over:
+            for aid in over:
+                members = ais[aid]
+                delta = 0.0
+                for ci, w in row_items:
+                    if ci in members:
+                        delta += w
+                deltas[aid] = delta
+        return deltas
 
     def take(self, unit):
         """(bin, score) for one unit; (None, None) when nothing is placeable.
@@ -2025,16 +2104,19 @@ class _MinLaborPool(_Pool):
             self._max_reward = lam * sum(w for _, w in row_items)
 
             # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
+            pp = self._pp = {}
             bc_by_aid = {}
             for aid in by_aisle_brkt:
-                bc = self._aisle_best_cost(aid, var)
+                bc = self._aisle_best_cost(aid, var, pp)
                 if bc is not None:
                     bc_by_aid[aid] = bc
             self._bc_by_aid = bc_by_aid
+            self._row = _partner_row(self._aff, sku)
+            self._deltas = self._partner_deltas(row_items) if row_items else {}
             self._last_sku = sku
         elif self._last_winner is not None:
             # Same SKU as the previous unit: only the winner aisle's deque changed.
-            bc = self._aisle_best_cost(self._last_winner, var)
+            bc = self._aisle_best_cost(self._last_winner, var, self._pp)
             if bc is None:
                 self._bc_by_aid.pop(self._last_winner, None)
             else:
@@ -2043,6 +2125,7 @@ class _MinLaborPool(_Pool):
 
         bc_by_aid, row_items = self._bc_by_aid, self._row_items
         max_reward = self._max_reward
+        deltas = self._deltas
         if not bc_by_aid:
             return None, None
         # minimise: ascending fq*bc, prune once base - max_reward >= best (reward can't save
@@ -2060,11 +2143,14 @@ class _MinLaborPool(_Pool):
                 elif base - max_reward >= best_score:
                     break
             if row_items:
-                ais = self._ais[aid]
-                delta = 0.0
-                for ci, w in row_items:
-                    if ci in ais:
-                        delta += w
+                if deltas is not None:
+                    delta = deltas.get(aid, 0.0)
+                else:
+                    ais = self._ais[aid]
+                    delta = 0.0
+                    for ci, w in row_items:
+                        if ci in ais:
+                            delta += w
             else:
                 delta = 0.0
             score = base - lam * delta
@@ -2077,7 +2163,7 @@ class _MinLaborPool(_Pool):
         # max-D per height band), with the centroid term pulling toward (min) or away from
         # (max) partners.
         _mass, cx = _demand_weighted_partner_centroid(
-            self._aff, sku, self._amp[best_aid], self._fbi)
+            self._aff, sku, self._amp[best_aid], self._fbi, row=self._row)
         chosen = chosen_m = None
         cbest = None
         intercept, per_item = self._intercept, self._per_item
