@@ -34,6 +34,8 @@ python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/calltree/test_scan_width.py \
                 Tests/calltree/test_unload_key_tau.py \
                 Tests/unit/test_deferred_indices.py \
+                Tests/unit/test_conftest_restores_nested_config.py \
+                Tests/integration/test_supervisor_broken_pool.py \
                 Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
@@ -59,6 +61,16 @@ the tier a routine `Tests/unit Tests/integration` subset never reaches. Editing 
 `Schema/store_index.py`'s `DDL_SOURCES` -- which includes `Warehouse_Data.py` and
 `runtime_metrics.py`, not only `Picking_Data.py` -- is what trips it; the remedy is always
 `python scripts/schema_report.py --sync`.
+
+Two more joined on 2026-09-18 for the same shape of silence. `test_conftest_restores_nested_config.py`:
+the autouse CONFIG restore copied two levels while `cells._apply_cell` writes three, so a split
+applied by one test rode into every test after it with the fixture reporting nothing.
+`test_supervisor_broken_pool.py`: a pool whose every worker died at import hung the phase-2
+driver for 37 minutes at zero CPU with `worker pool BROKEN` as the log's last line; every
+existing supervisor test fakes the pool, and a real pool with SMALL arguments returns fine --
+the hang needs one unit argument larger than a Windows pipe buffer (8 KiB), which the real
+payload always is. It runs the reproduction in a subprocess under a watchdog, so it fails
+rather than hangs.
 
 It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a

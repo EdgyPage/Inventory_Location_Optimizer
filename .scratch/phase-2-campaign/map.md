@@ -53,6 +53,11 @@ fulfillment-only; the rule pairing is one of several defensible draws).
   no evaluator view; `strategy_runner`'s import guard refuses that) -- written 09:30:06, fixed
   09:37:44, one minute too late. `run.log` shows only `worker pool BROKEN`; the driver then hung
   at zero CPU and never retried or exited ([01](issues/01-a-pool-broken-at-import-hangs-the-driver.md)).
+  **01 RESOLVED 2026-09-18 (evening):** reproduced with a thread dump -- the call queue's feeder
+  thread blocked in `send_bytes` on a pipe no worker reads (CPython gh-107219, fixed in 3.11.5;
+  this machine is 3.11.4), and the stdlib's own fix measured NOT to work here; the supervisor now
+  drains its own read end on the broken path, runs an import probe that logs WHY the workers
+  died, and `test_supervisor_broken_pool.py` is in the gate.
   Lesson recorded as memory `detached-runs-import-the-working-tree`: a spawn-per-job run
   imports the tree for EVERY unit, so a campaign must run from an immutable copy of HEAD.
   **Restart plan:** stop the hung task (`ILO_phase2_inbound_policies`, pids 15620/20448),

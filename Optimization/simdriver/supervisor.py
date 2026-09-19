@@ -13,6 +13,9 @@ import logging
 import logging.handlers
 import multiprocessing
 import os
+import subprocess
+import sys
+import time
 from concurrent.futures.process import BrokenProcessPool
 
 from Optimization.runschema.sim_manifest import _resume_path
@@ -171,6 +174,7 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                 broke = True
                 log.error('  [supervisor] worker pool BROKEN (hard worker death) — abandoning '
                           'this pool; unfinished units will be rebuilt + resubmitted')
+                _unblock_broken_pool(pool, log)
                 break
             except Exception as exc:
                 log.error(f'  [{_tag}] strategy FAILED: {exc}', exc_info=True)
@@ -189,6 +193,108 @@ def _run_pool(remaining, meta, max_workers, recycle, log, done_uids, finalized, 
                     except Exception as exc:
                         log.error(f'  [{_tag_of(cell, gk)}] finalize FAILED: {exc}', exc_info=True)
     return failed_uids, broke
+
+
+def _unblock_broken_pool(pool, log, *, timeout_s: float = 60.0) -> int:
+    """Make the `with ProcessPoolExecutor` exit RETURN after a hard worker death, by reading
+    the unit payloads the dead workers never took off the call queue.  Returns the count.
+
+    THE HANG (2026-09-18, the phase-2 launch; `.scratch/phase-2-campaign/issues/01`): every
+    child died at import, `_run_pool` logged BROKEN and `break`-ed, and the driver sat at
+    0.00 s CPU for 37 minutes.  Thread dump, taken on the reproduction: the `with` exit is
+    `shutdown(wait=True)`, joining the executor's manager thread; that thread, in
+    `terminate_broken -> join_executor_internals -> call_queue.join_thread()`, is joining the
+    call queue's FEEDER thread; and the feeder is inside `PipeConnection._send_bytes`,
+    waiting on an overlapped WriteFile that no live worker will ever read.  A Windows pipe
+    buffer is 8 KiB; one 16 KiB unit argument with TWO workers is enough
+    (`Tests/integration/_broken_pool_driver.py`), and the real payload -- the CONFIG snapshot
+    and the shared paths, times twelve queued units -- is well past it.  With small arguments
+    the writes fit the buffer and nothing hangs, which is why `test_crash_recovery.py` (which
+    fakes `_run_pool` anyway) and every earlier fixture were blind to it.
+
+    This is CPython gh-107219, fixed in 3.11.5 / 3.12 by closing the queue's connections from
+    `Queue._terminate_broken`; the machine that hung runs 3.11.4.  That fix is NOT what this
+    does, because it was measured not to work here: closing the WRITER from another thread
+    leaves the overlapped write pending (probe, 2026-09-18: feeder still alive after 5 s), and
+    closing the READER ends the pipe in isolation (`BrokenPipeError` at once) but not under
+    the pool -- a child that dies at bootstrap never steals the handle duplicates
+    `reduction.DupHandle` made for it in THIS process, so the parent still holds a live
+    reader and the pipe is not ended.  What always works is the third thing the probe tried:
+    READ the parent's end.  Each `recv_bytes` completes one blocked write, the feeder moves
+    to the next item, the manager thread's `close()` appends the sentinel, the feeder exits,
+    `join_thread` returns, `shutdown(wait=True)` returns, and `_supervise`'s retry runs.
+    Bounded by `timeout_s` so this can never be the thing that hangs.  Private attributes,
+    deliberately: there is no public surface for this, and the alternative was a driver that
+    holds the machine."""
+    cq = getattr(pool, '_call_queue', None)
+    reader = getattr(cq, '_reader', None)
+    feeder = getattr(cq, '_thread', None)          # None when nothing was ever submitted
+    if cq is None or reader is None:
+        log.warning('  [supervisor] this executor has no call-queue reader; cannot drain its '
+                    f'feeder thread (Python {sys.version.split()[0]}) -- if the pool exit '
+                    'hangs, that is why')
+        return 0
+    drained = 0
+    deadline = time.monotonic() + timeout_s
+    while feeder is not None and feeder.is_alive():
+        if time.monotonic() > deadline:
+            log.warning(f'  [supervisor] call-queue feeder still alive after {timeout_s:.0f} s '
+                        f'and {drained} payload(s) drained -- the pool exit may hang')
+            return drained
+        try:
+            if reader.poll(0.05):
+                reader.recv_bytes()
+                drained += 1
+        except (EOFError, OSError):
+            # THE NORMAL END: once the feeder has sent its last item the manager thread
+            # closes the queue, and the reader we are polling goes with it.
+            break
+    log.info(f'  [supervisor] drained {drained} queued unit payload(s) the dead workers never '
+             'read; the call queue is closed and the pool can exit')
+    return drained
+
+
+def _explain_worker_death(log, *, timeout_s: float = 300.0) -> str | None:
+    """Say WHY the workers died, in the parent's log, the first time a pool breaks.
+
+    A child that dies at import writes its traceback to a stderr nobody has under a
+    scheduled task (memory `launch-long-drivers-detached`); the parent knows only "hard
+    death".  So: one fresh interpreter, no multiprocessing, that does what a spawned child
+    does first -- re-run the main module as `__mp_main__` (by name under `-m`, by path
+    otherwise, mirroring `multiprocessing.spawn.get_preparation_data`), then import the
+    worker target's module -- with its stderr CAPTURED.  A failure prints the traceback's
+    tail here, naming the exception a broken working tree raises; a success says the death
+    is not an import failure (out of memory, a hard crash inside a worker, a kill).
+
+    Returns 'import-failure', 'clean' or None (probe timed out), for a caller that wants the
+    verdict; the log lines are the point."""
+    main = sys.modules.get('__main__')
+    spec = getattr(main, '__spec__', None)
+    lines = ['import importlib, runpy, sys']
+    if spec is not None and getattr(spec, 'name', None):
+        lines.append(f'runpy.run_module({spec.name!r}, run_name="__mp_main__", alter_sys=True)')
+    elif getattr(main, '__file__', None):
+        lines.append(f'runpy.run_path({os.path.abspath(main.__file__)!r}, run_name="__mp_main__")')
+    lines.append(f'importlib.import_module({_run_strategy_worker.__module__!r})')
+    lines.append('print("WORKER IMPORT OK")')
+    try:
+        r = subprocess.run([sys.executable, '-c', '\n'.join(lines)], capture_output=True,
+                           text=True, encoding='utf-8', errors='replace', timeout=timeout_s,
+                           cwd=os.getcwd(), env=os.environ.copy())
+    except subprocess.TimeoutExpired:
+        log.error(f'  [supervisor] import probe: no verdict within {timeout_s:.0f} s')
+        return None
+    if r.returncode == 0 and 'WORKER IMPORT OK' in r.stdout:
+        log.error('  [supervisor] import probe: a fresh interpreter imports the main module and '
+                  f'{_run_strategy_worker.__module__} cleanly -- the death is NOT an import '
+                  'failure (out of memory, a hard crash inside a worker, or a kill)')
+        return 'clean'
+    tail = (r.stderr or r.stdout).strip().splitlines()[-12:]
+    log.error(f'  [supervisor] import probe: the worker FAILS to import in a fresh interpreter '
+              f'(exit {r.returncode}) -- this is why every worker died:')
+    for ln in tail:
+        log.error('      ' + ln)
+    return 'import-failure'
 
 
 def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
@@ -261,6 +367,8 @@ def _supervise(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue,
                                    log, done_uids, finalized, cell=cell, run_root=run_root)
         if not broke:
             break            # pool completed; residual failures are deterministic → quarantine
+        if attempt == 0:
+            _explain_worker_death(log)      # once: the WHY the 2026-09-18 log never had
     _finalize_ready_groups(meta, done_uids, finalized, log, cell=cell)   # safety sweep
     all_uids = {uid for uid, _ in work_units} | done_uids
     unfinished = sorted(all_uids - done_uids)
