@@ -26,14 +26,14 @@ class AffinityStore:
     """SQLite-backed affinity matrix with in-memory CSR acceleration.
 
     At construction the full affinity table is loaded once into a scipy CSR
-    sparse matrix so that delta_lift and sum_lift execute as pure numpy/scipy
+    sparse matrix so that delta_lift_idxs and sum_lift execute as pure numpy/scipy
     operations with no SQL round-trips.  The SQLite connection stays open only
     for writes (load_for_skus, index_inventory).
 
     Typical workflow
     ----------------
     store = AffinityStore('affinity.db')          # loads matrix once (~1-2 s)
-    delta = store.delta_lift(sku, aisle_members)  # CSR row slice, O(partners)
+    delta = store.delta_lift_idxs(sku, member_idxs) # CSR row slice, O(partners)
     total = store.sum_lift(task_skus)             # scipy submatrix sum, O(k²)
     """
 
@@ -72,7 +72,7 @@ class AffinityStore:
         """Refuse a generator-written affinity.db whose tables are not the ones we query.
 
         HARD FAIL: every caller is a simulation about to place ~400k bins from these lifts, and
-        `delta_lift`/`sum_lift` read the CSR matrix built here — a `lift` column that is not the
+        `delta_lift_idxs`/`sum_lift` read the CSR matrix built here — a `lift` column that is not the
         `lift` column produces placements that look entirely reasonable and are not.
 
         Checked with `identity.check_tables`, not `identity.check`, and that is a deliberate
@@ -346,33 +346,14 @@ class AffinityStore:
         ).fetchall()
         return dict(rows)
 
-    def delta_lift(self, sku: int, aisle_members: list[int]) -> float:
-        """Association ABOVE independence between sku and aisle_members: Σ (lift − 1).
-
-        Lift is a multiplier with 1 = independence, so the co-location *value* of a
-        partner is (lift − 1); unstored pairs (lift = 1) contribute 0.  Walks the CSR
-        row for sku directly — bounded by sku's partner count, regardless of
-        aisle_members length.
-        """
-        if not aisle_members or self._matrix is None or sku not in self._sku_to_idx:
-            return 0.0
-        i     = self._sku_to_idx[sku]
-        start = int(self._matrix.indptr[i])
-        end   = int(self._matrix.indptr[i + 1])
-        if start == end:
-            return 0.0
-        col_indices = self._matrix.indices[start:end]
-        data        = self._matrix.data[start:end]
-        member_set  = {self._sku_to_idx[s] for s in aisle_members if s in self._sku_to_idx}
-        if not member_set:
-            return 0.0
-        return float(sum(d - 1.0 for ci, d in zip(col_indices, data) if ci in member_set))
-
     def delta_lift_idxs(self, sku: int, member_idx_set: set[int]) -> float:
         """Association ABOVE independence: Σ (lift − 1) between sku and a pre-translated
         set of matrix indices.
 
-        Index-set form of delta_lift() (no per-call {_sku_to_idx[s] ...} comprehension).
+        The set is of MATRIX INDICES, not SKUs: the caller translates through `_sku_to_idx`
+        once, when the member joins, not per call.  (The SKU-list form `delta_lift` and the
+        sorted-array form `delta_lift_sorted` were deleted 2026-09-18 with no callers; the
+        placement layer reads `_matrix`/`_sku_to_idx` directly via `_affinity_row`.)
         Lift = 1 is independence ⇒ each stored partner contributes (lift − 1); unstored
         pairs contribute 0.  The caller keeps member_idx_set current with the aisle's SKU
         composition (add on placement, discard on removal).
@@ -387,30 +368,6 @@ class AffinityStore:
         col_indices = self._matrix.indices[start:end]
         data        = self._matrix.data[start:end]
         return float(sum(d - 1.0 for ci, d in zip(col_indices, data) if ci in member_idx_set))
-
-    def delta_lift_sorted(self, sku: int, sorted_member_arr: 'np.ndarray') -> float:
-        """Sum of lift between sku and members described by a sorted numpy array.
-
-        Faster than delta_lift_idxs for large member sets: uses np.searchsorted
-        on two pre-sorted arrays (CSR indices are sorted within each row by the
-        scipy CSR format; sorted_member_arr is maintained by the caller).
-        Zero per-call allocation when sorted_member_arr is cached.
-        """
-        if len(sorted_member_arr) == 0 or self._matrix is None or sku not in self._sku_to_idx:
-            return 0.0
-        i     = self._sku_to_idx[sku]
-        start = int(self._matrix.indptr[i])
-        end   = int(self._matrix.indptr[i + 1])
-        if start == end:
-            return 0.0
-        col_indices = self._matrix.indices[start:end]  # sorted (CSR property)
-        data        = self._matrix.data[start:end]
-        n        = len(sorted_member_arr)
-        pos      = np.searchsorted(sorted_member_arr, col_indices)
-        pos_clip = np.minimum(pos, n - 1)
-        in_aisle = (pos < n) & (sorted_member_arr[pos_clip] == col_indices)
-        # Σ(lift − 1): subtract the count of matched partners (independence = 0).
-        return float(data[in_aisle].sum()) - float(in_aisle.sum())
 
     def sum_lift(self, skus: list[int]) -> float:
         """Total association ABOVE independence within skus: Σ (lift − 1) over all stored

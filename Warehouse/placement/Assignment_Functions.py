@@ -2213,14 +2213,6 @@ def build_optmap_wave_fn(mgr, capped=False):
 _CLUSTER_MAP_W_CENT = 1.0   # weight on the centroid-compaction term (pref & centroid are both s)
 
 
-def _aisle_anchor_gap(lst, pref, target):
-    """Best achievable map-anchor gap in one aisle's candidate bins (lower = more favored):
-    min |pref − target|, or min pref when the SKU has no target (prefer prime)."""
-    if target is None:
-        return min(pref.get(id(b), 0.0) for b in lst)
-    return min(abs(pref.get(id(b), 0.0) - target) for b in lst)
-
-
 def _cluster_map_pick_bin(lst, pref, target, cx, x_pace, capped):
     """Choose the cluster's bin within one aisle: anchor at the favored map location and
     compact toward the partner centroid; honour the prime-spot cap when capped.

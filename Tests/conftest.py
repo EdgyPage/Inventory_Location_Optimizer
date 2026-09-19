@@ -61,8 +61,21 @@ def _pristine_config():
     changes; only the NEXT test is protected.  A test that depends on a predecessor's
     mutation will start failing -- that is a finding, not a regression.
 
-    Cheap by construction: two shallow dict copies per test, taken only if `sim_config` has
-    already been imported.  A test that never touches the run harness pays one failed
+    EVERY LEVEL, NOT TWO.  The first version of this fixture copied `CONFIG['global']` and
+    each channel block one level deep, and `cells._apply_cell` writes THREE levels down:
+    `channels.<ch>.sizing.aisle_split` and `scheduler` on every pick-config dict in
+    `channels.<ch>.configs`.  A test that applied a split cell left the split on every test
+    after it, and the two-level restore put the same nested dict objects back untouched.
+    So the snapshot is recursive over dicts and lists (`_snapshot_containers`) and the
+    restore walks the SAME containers in place (`_restore_containers`): a nested dict or
+    list that existed before the test keeps its identity, its contents are put back, keys
+    the test added are removed.  Leaves that are neither dict nor list -- regimes, tuples,
+    strings, numbers -- are shared by reference, not copied: `regime` objects are compared
+    by identity in places, and a `copy.deepcopy` would have handed the next test a stranger.
+    `Tests/unit/test_conftest_restores_nested_config.py` is the ordered pair that proves it.
+
+    Cheap by construction: a walk over a few dozen dicts per test, taken only if `sim_config`
+    has already been imported.  A test that never touches the run harness pays one failed
     lookup in `sys.modules`.
     """
     sc = sys.modules.get('Optimization.config.sim_config')
@@ -70,20 +83,53 @@ def _pristine_config():
         yield                      # nothing imported it; nothing to protect
         return
     cfg = sc.CONFIG
-    g_before = dict(cfg['global'])
-    ch_before = {k: dict(v) for k, v in cfg.get('channels', {}).items()
-                 if isinstance(v, dict)}
+    before = _snapshot_containers(cfg)
     try:
         yield
     finally:
-        # clear+update rather than rebinding: the whole design rests on CONFIG being the
-        # SAME object everywhere, so a fixture that replaced it would break exactly what
-        # it is protecting.
-        g = cfg['global']
-        g.clear()
-        g.update(g_before)
-        for _k, _saved in ch_before.items():
-            _blk = cfg['channels'].get(_k)
-            if isinstance(_blk, dict):
-                _blk.clear()
-                _blk.update(_saved)
+        # in place rather than rebinding: the whole design rests on CONFIG being the SAME
+        # object everywhere, so a fixture that replaced it -- or replaced the nested dicts
+        # `run_simulation` and the cell applier hold by reference -- would break exactly
+        # what it is protecting.
+        _restore_containers(cfg, before)
+
+
+def _snapshot_containers(obj):
+    """A copy of `obj` down every dict and list; anything else is the same object."""
+    if isinstance(obj, dict):
+        return {k: _snapshot_containers(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_snapshot_containers(v) for v in obj]
+    return obj
+
+
+def _same_kind(a, b):
+    return (isinstance(a, dict) and isinstance(b, dict)) or \
+           (isinstance(a, list) and isinstance(b, list))
+
+
+def _restore_containers(live, saved):
+    """Put `saved` (a `_snapshot_containers` result) back INTO `live`, keeping every dict and
+    list that both sides hold at the same position as the same object."""
+    if isinstance(live, dict) and isinstance(saved, dict):
+        for k in [k for k in live if k not in saved]:
+            del live[k]
+        for k, sv in saved.items():
+            lv = live.get(k)
+            if _same_kind(lv, sv):
+                _restore_containers(lv, sv)
+            else:
+                live[k] = sv
+        return
+    if isinstance(live, list) and isinstance(saved, list):
+        if len(live) != len(saved):
+            live[:] = saved
+            return
+        for i, sv in enumerate(saved):
+            lv = live[i]
+            if _same_kind(lv, sv):
+                _restore_containers(lv, sv)
+            else:
+                live[i] = sv
+        return
+    raise TypeError(f'container mismatch: {type(live).__name__} vs {type(saved).__name__}')

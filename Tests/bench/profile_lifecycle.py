@@ -72,7 +72,7 @@ _HANDLINGS = ['conveyable', 'non-conveyable']
 # ── monkey-patch infrastructure ───────────────────────────────────────────────
 
 # Every AffinityStore method we want to time individually
-_AFF_METHODS = ('delta_lift_idxs', 'delta_lift', 'sum_lift', 'load_for_skus')
+_AFF_METHODS = ('delta_lift_idxs', 'sum_lift', 'load_for_skus')
 
 
 def _install_timers() -> tuple[dict[str, list], dict]:

@@ -36,7 +36,7 @@ import pytest
 
 from Warehouse.placement.Assignment_Functions import (
     _closest_abs, _PrefPool, _affinity_row, _delta_lift_from_row,
-    _aisle_anchor_gap, _cluster_map_choose_aisle, _demand_weighted_delta_lift,
+    _cluster_map_choose_aisle, _demand_weighted_delta_lift,
     build_optmap_fn, build_optmap_wave_fn, build_optmap_pool_fn,
 )
 
@@ -181,7 +181,14 @@ def _ref_choose_aisle(by_aisle, pref, row, aisle_idx_sets, freq_by_idx, target):
 
     def key(a):
         lift = _delta_lift_from_row(row, aisle_idx_sets[a], freq_by_idx)
-        gap  = _aisle_anchor_gap(by_aisle[a], pref, target)
+        # the eager version's anchor gap, inlined here when `_aisle_anchor_gap` was deleted
+        # (2026-09-18, no production caller): min |pref - target|, or min pref (prefer prime)
+        # when the SKU has no target.
+        lst = by_aisle[a]
+        if target is None:
+            gap = min(pref.get(id(b), 0.0) for b in lst)
+        else:
+            gap = min(abs(pref.get(id(b), 0.0) - target) for b in lst)
         return (lift, -gap)
     return max(live, key=key)
 
