@@ -927,6 +927,31 @@ def load_inventory_from_db(db_path: str, limit: int | None = None) -> Inventory:
     return Inventory(orders)
 
 
+def load_run_inventory(path: str, limit: int | None = None) -> Inventory:
+    """The ONE loader both the parent (`sim_assets.build_shared_assets`) and the workers
+    (`strategy_runner._build_arm`) use for a run's inventory.
+
+    It is a thin pass-through today, and the reason it survives as a named seam is the reason
+    it stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the
+    manager's `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed
+    in.  That guard existed because the era was the only regime that declared its own levels;
+    flag-off inherited the catalogue's authored ones and had to stay byte-identical with the
+    archive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at
+    setup, in days, and stamps the lead pipeline that goes with them ("Field the floor",
+    decision 6).  Honouring the stamp in one mode and discarding it in the other would field a
+    level whose reorder point encodes a LINE while pricing its pipeline by a heuristic that
+    assumes the reorder point encodes lead-time demand -- the exact defect the stamp was
+    introduced to fix.  The era flag now decides only whether the clock cuts and caps.
+
+    It lives HERE, beside the loader it wraps, and not in `sim_assets` where it was written:
+    that module imports CONFIG at module level, and the worker importing this function from
+    it inside `_build_arm` dragged CONFIG into every spawned process -- past an import-time
+    guard that could not see a function-body import (`Tests/unit/test_config_reaches_the_worker.py`
+    now walks those too).  `sim_assets` re-exports the name for its parent-side callers.
+    """
+    return load_inventory_from_db(path, limit=limit)
+
+
 # ── statistics ─────────────────────────────────────────────────────────────────
 
 def compute_stats(df: pd.DataFrame) -> dict:

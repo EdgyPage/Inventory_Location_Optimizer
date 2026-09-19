@@ -15,7 +15,14 @@ import time
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.catalog.Affinity_Store import AffinityStore
-from Warehouse.generation.generate_inventory import load_inventory_from_db, save_inventory_to_db
+# `load_run_inventory` is RE-EXPORTED: it lived here until 2026-09-19, and the worker
+# (`strategy_runner._build_arm`) imported it from here inside a function body -- which
+# dragged this module, and with it CONFIG, into every spawned worker, past an import-time
+# guard that could not see a function-body import.  It now lives beside the loader it
+# wraps, in a module that imports no CONFIG; the parent-side callers keep this name.
+from Warehouse.generation.generate_inventory import (   # noqa: F401 (re-export)
+    load_inventory_from_db, load_run_inventory, save_inventory_to_db,
+)
 from Warehouse.inventory.Inventory_Management import Inventory_Manager
 from Warehouse.layout.Aisle_Dimensions import uniform_aisle_bins
 from Warehouse.layout.Storage_Primitive import viable_storage_units as _vsu
@@ -41,25 +48,6 @@ def _target_fill(coverage: dict | None, typed: float) -> float:
     return float(typed)
 
 
-def load_run_inventory(path: str, limit: int | None = None):
-    """The ONE loader both the parent (`build_shared_assets`) and the workers
-    (`strategy_runner`) use for a run's inventory.
-
-    It is a thin pass-through today, and the reason it survives as a named seam is the reason
-    it stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the
-    manager's `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed
-    in.  That guard existed because the era was the only regime that declared its own levels;
-    flag-off inherited the catalogue's authored ones and had to stay byte-identical with the
-    archive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at
-    setup, in days, and stamps the lead pipeline that goes with them ("Field the floor",
-    decision 6).  Honouring the stamp in one mode and discarding it in the other would field a
-    level whose reorder point encodes a LINE while pricing its pipeline by a heuristic that
-    assumes the reorder point encodes lead-time demand -- the exact defect the stamp was
-    introduced to fix.  The era flag now decides only whether the clock cuts and caps.
-    """
-    return load_inventory_from_db(path, limit=limit)
-
-
 # ── shared asset loader ────────────────────────────────────────────────────────
 
 def build_shared_assets(
@@ -72,12 +60,17 @@ def build_shared_assets(
     min_bins          : int | None = None,
     composition       : dict | None = None,
     regime_sizing     : dict | None = None,
-    keyframe_interval : int = CONFIG['global']['keyframe_interval'],
+    keyframe_interval : int | None = None,
     warehouse_db_path : str | None = None,
     frozen_inventory_db : str | None = None,
     coverage_record   : dict | None = None,
 ) -> dict:
     """Load inventory + affinity from DB and build warehouse A.
+
+    `keyframe_interval` None means the declared default, read at CALL time: the default
+    used to be `CONFIG['global']['keyframe_interval']` in the signature, a snapshot taken at
+    import that no CLI override could reach -- the `_INITIAL_FILL` shape `sim_config`'s own
+    docstring forbids.  Every caller passes the value explicitly, which is why it never bit.
 
     Warehouse is sized so total bins ≥ N_SKUS × 1.1 (minimum replicas of the
     60-type layout satisfying that constraint).
@@ -96,6 +89,8 @@ def build_shared_assets(
     None on a path that samples is normal (the run derives its own), and on a path that does not
     means "the orders already carry a declaration", which is true of a frozen inventory.
     """
+    if keyframe_interval is None:
+        keyframe_interval = CONFIG['global']['keyframe_interval']
     _src_db = frozen_inventory_db or inventory_db
     log.info(f'  Loading inventory  : {_src_db}'
              + ('  (frozen)' if frozen_inventory_db else '')

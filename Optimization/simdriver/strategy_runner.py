@@ -1584,8 +1584,9 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     t0        = time.perf_counter()
     # The run's PLANNED inventory, carrying the levels this run declared and the lead pipeline
     # stamped with them -- honoured in every mode since ADR-0002, so this load takes no flag
-    # (`sim_assets.load_run_inventory` says why).
-    from Optimization.simdriver.sim_assets import load_run_inventory              # noqa: E402
+    # (`generate_inventory.load_run_inventory` says why).  From the CONFIG-free module it
+    # lives in, NEVER from `sim_assets`: that import dragged CONFIG into every spawned worker.
+    from Warehouse.generation.generate_inventory import load_run_inventory        # noqa: E402
     inventory = load_run_inventory(inv_db, limit=max_skus)
     if sku_allowlist is not None:
         inventory.orders = [c for c in inventory.orders if c.sku in sku_allowlist]

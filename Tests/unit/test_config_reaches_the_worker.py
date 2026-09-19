@@ -354,6 +354,79 @@ def test_the_domain_guard_catches_all_three_import_spellings(tmp_path):
         assert not detects(src), f'the guard false-positives on: {src!r}'
 
 
+# ── 1b. ...and cannot reach it from INSIDE a function either ──────────────────────
+# The subprocess probe above imports the worker MODULE, so it sees only module-level
+# imports.  `_build_arm` imported `load_run_inventory` from `sim_assets` inside its body,
+# and `sim_assets` imports CONFIG at module level -- so every spawned worker DID import
+# sim_config at run time, for months, with the probe above green (found 2026-09-19 while
+# the flat work pool was built on the invariant this file advertises).  The walk below
+# resolves every function-body import of the worker ONE level and refuses one whose module
+# imports the forbidden module at ITS module level.
+
+_REPO_PREFIXES = ('Optimization.', 'Warehouse.', 'Inbound.', 'Schema.')
+
+
+def _function_body_imports(src: str) -> set:
+    """Module names imported INSIDE function bodies of `src` (absolute names only)."""
+    found = set()
+    for fn in ast.walk(ast.parse(src)):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for node in ast.walk(fn):
+            if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+                found.add(node.module)
+            elif isinstance(node, ast.Import):
+                found.update(a.name for a in node.names)
+    return found
+
+
+def _module_level_imports(module_name: str) -> set:
+    """Module names a repo module imports at ITS module level, from its source."""
+    if not module_name.startswith(_REPO_PREFIXES):
+        return set()
+    spec = importlib.util.find_spec(module_name)
+    if spec is None or not spec.origin or not spec.origin.endswith('.py'):
+        return set()
+    with open(spec.origin, encoding='utf-8') as f:
+        tree = ast.parse(f.read())
+    found = set()
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            found.add(node.module)
+        elif isinstance(node, ast.Import):
+            found.update(a.name for a in node.names)
+    return found
+
+
+def _function_body_leaks(src: str) -> set:
+    """The function-body imports of `src` that reach the forbidden module in one hop."""
+    return {m for m in _function_body_imports(src)
+            if m == _FORBIDDEN or _FORBIDDEN in _module_level_imports(m)}
+
+
+def test_no_function_body_import_in_the_worker_reaches_sim_config():
+    src = inspect.getsource(importlib.import_module(_WORKER_MODULE))
+    leaks = _function_body_leaks(src)
+    assert not leaks, (
+        f'{_WORKER_MODULE} imports {sorted(leaks)} inside a function body, and that module '
+        f'imports {_FORBIDDEN} at module level -- so a spawned worker reaches CONFIG at run '
+        f'time and the module-level probe cannot see it.  Import the symbol from a module '
+        f'that does not import CONFIG (`load_run_inventory` moved to '
+        f'`Warehouse.generation.generate_inventory` for exactly this).')
+
+
+def test_the_function_body_walk_would_notice_a_leak():
+    """SABOTAGE: `sim_assets` imports CONFIG at module level, so a function importing from
+    it must be flagged -- and one importing from a CONFIG-free module must not."""
+    leaking = ('def f():\n'
+               '    from Optimization.simdriver.sim_assets import load_run_inventory\n')
+    assert _function_body_leaks(leaking) == {'Optimization.simdriver.sim_assets'}
+    clean = ('def f():\n'
+             '    from Warehouse.generation.generate_inventory import load_run_inventory\n'
+             '    import os\n')
+    assert _function_body_leaks(clean) == set()
+
+
 # ── 2. every knob bundle is threaded into the payload ─────────────────────────────
 def _accessors_reaching_the_payload(src: str) -> set:
     """Which `*_spec()` accessors reach `workunits._shared`, read off the payload EXPRESSION.
