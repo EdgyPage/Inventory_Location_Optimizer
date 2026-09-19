@@ -1,7 +1,7 @@
 # 03 - every pool open under the evaluator rebuilt the whole tier to seat a dozen units
 
 Type: task
-Status: in-progress
+Status: resolved
 
 **Seen 2026-09-19** on the relaunched campaign (`inbound_unload`, root
 `comparison_whatif_20260919_002111`): the priced cell's winner-pair units ran at ~3 h against
@@ -145,5 +145,24 @@ the run -- eager and sliced, exact -- plus the fold's arithmetic term for term.
   The stopped run's uni unit took 6 h 05 min end to end (02:14 -> 08:19); at this pace the
   probe's takes ~2.9 h, so a priced cell is ~3 h and the 40-unit campaign ~22 h at 12 workers,
   against the ~2.5 days it was heading for. The unpriced cell's winner units went 27 -> 19 min.
-- The cell-level digest of that relaunch against the stopped run's finished cells is
-  recorded below when it lands (`comparison_whatif_20260919_002111` is the reference).
+- **The cell-level digest landed (2026-09-19 16:34).** `run_digest.py --cell k1_off_gmyopic`
+  of the relaunched probe (`comparison_whatif_20260919_123309`, snapshot `38bc098d`) against the
+  stopped campaign root (`comparison_whatif_20260919_002111`): **IDENTICAL on the comparable
+  surface, 8 arms** -- the priced cell at 200k SKUs, 40 site days, every family the winner pair
+  and the rider exercise. With the fifo cell IDENTICAL on its 8 arms earlier in the day, the four
+  cuts are byte-identical at campaign scale, not only on the toy. The probe exited 0 and its
+  task is unregistered.
+
+  The full-unit walls of that cell, stopped run vs probe (same seeds, 12 workers both):
+
+  | unit | stopped run | probe | speed-up |
+  |---|---|---|---|
+  | opt fifo rider (store / fulfillment) | 806 s / 700 s | 788 s / 683 s | 1.0x |
+  | uni fifo rider (store / fulfillment) | 809 s / 700 s | 798 s / 690 s | 1.0x |
+  | opt cartlabor / minlabor | 16,898 s / 15,000 s | 7,803 s / 7,254 s | 2.17x / 2.07x |
+  | uni cartlabor / minlabor | 21,773 s / 21,653 s | 10,449 s / 10,333 s | 2.08x / 2.10x |
+
+  The priced cell is bounded by its slowest unit: 6 h 03 min -> 2 h 54 min. The rider is
+  untouched, as a strict no-op should be. This closes the ticket; what remains of the priced
+  unit's cost is `take`'s per-SKU-run scan over live aisles, which is a scan WIDTH question
+  (`AisleHeadIndex`, plan item 3.6) and not a rebuild.

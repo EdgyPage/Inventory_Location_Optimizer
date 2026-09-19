@@ -53,3 +53,9 @@ heads + memoised per_pick, min-labor per-run caches with deltas through the inve
 copy-on-write), all byte-identical (toy digests IDENTICAL on 40 arms; the probe's fifo cell
 IDENTICAL on 8 arms at 200k SKUs). A priced cell is ~3 h at 12 workers; the 40-unit
 `inbound_unload` campaign ~22 h.
+
+**Closed 2026-09-19 16:34.** The probe's PRICED cell (`k1_off_gmyopic`, 40 site days, 200k
+SKUs) digested IDENTICAL on 8 arms against the stopped campaign's; full-unit walls 21,773 s ->
+10,449 s (uni pair) and 16,898 s -> 7,803 s (opt pair), the fifo rider unchanged. What is left
+of a priced unit is `take`'s per-SKU-run scan over every live aisle -- a scan-WIDTH question,
+not a rebuild -- see [[c-keyed-scans-are-invisible-to-the-offender-table]].

@@ -170,6 +170,15 @@ launches on the full ten cells.
   is in this run already. The per-family multiples: fifo 1.9x, ranked-labour 7-16x, the random
   pair 39-59x (ticket 02). The optimization target is the drain's per-open cost, not I/O.
 
+- 2026-09-19 16:34: **ticket 03 closed at campaign scale.** The `_probe_unload_ref` relaunch
+  (`comparison_whatif_20260919_123309`, snapshot `38bc098d`) finished both cells, exit 0; its
+  priced cell `k1_off_gmyopic` digested **IDENTICAL on 8 arms** against the stopped campaign's,
+  as its fifo cell had. The priced cell's slowest unit went 21,773 s -> 10,449 s (2.08x), the
+  opt pair 16,898 s -> 7,803 s, the fifo rider unchanged. Projection for the 40-unit
+  `inbound_unload` spec at 12 workers: eight priced cells at ~3 h each plus two unpriced at
+  ~50 min, ~22 h if the cells run serially through the pool; the relaunch goes from a fresh
+  snapshot of HEAD, which now carries the four cuts and the docs.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.

@@ -21,3 +21,9 @@ re-issue of a multi-KB script.
 **How to apply:** for any multi-line Python patch, `Write` it to the scratchpad as a `.py`
 file and run `python <file>`. Keep heredoc bodies to `"""`-only strings when a one-liner is
 unavoidable. Related: [[no-unicode-escapes-in-heredoc-python]].
+
+**Backslashes too (2026-09-19).** A heredoc body holding ANY backslash -- a Python line
+continuation, a regex `\d`, a Windows path separator, an `\n` inside a string -- dies the
+same way or lands with the backslash eaten, so a script that mentions a regex cannot go
+through a heredoc at all. Same remedy: `Write` the script, run the file. Hit twice more in the
+ticket-03 session before the rule was extended.
