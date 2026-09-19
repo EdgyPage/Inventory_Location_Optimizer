@@ -89,6 +89,16 @@ fulfillment-only; the rule pairing is one of several defensible draws).
   the negative control) and relaunch fresh, running pair 5 alone after ticket 02; or fix ticket
   02 first. Recommended the second. Awaiting the decision; the run continues meanwhile.
 
+- 2026-09-18 20:50: **stopped after cell 3 on the user's decision**, to analyze what exists
+  and take the runtime work (ticket 02, the no-index-insertion pattern already in the snapshot,
+  and further cache work) before the remaining seven cells. Cells 1-3 complete: 36 units, 6
+  groups finalized, 47 GiB. Cell 4 (`k1_off_gforecast`) had begun its setup only -- a directory
+  with no arm DBs; a resume re-walks it. Cell 3's per-unit walls: fifo 18.6 min, ranked-labour
+  families 40-75 min, the random pair 7.8 h. The three-cell analysis was run from the snapshot
+  (`analyze_run` with `cells=` the three names, reference `k1_off_fifo`, 12 workers, graph
+  granularity); its `analysis.log` is in the run root. The task is unregistered; the root is
+  resumable with `--resume` from a snapshot of whatever HEAD carries the fixes.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
