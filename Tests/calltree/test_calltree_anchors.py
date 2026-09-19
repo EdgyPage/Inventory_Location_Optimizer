@@ -543,3 +543,31 @@ def test_a_traced_arm_actually_spends_time_in_t_save():
     assert got.get('t_save', 0.0) > 0.0, (
         't_save is still 0.0 after a real checkpoint write -- the anchor does not name '
         'anything the write path calls, which is exactly how it read zero for a month')
+
+# -- an arm the run does not carry must REFUSE, never measure another ------------------
+
+def test_run_fullfid_refuses_an_unknown_arm_instead_of_running_the_first():
+    """`run_fullfid(strategy=...)` used to fall back to the first prepared unit when the key
+    matched nothing -- "keeps the tier runnable".  On 2026-09-18 a profile asked for
+    `uni_rank_random` (the key is `uni_rank_random_norsl`), ran `fifo` instead, and reported
+    the priced drain at 0.2 s.  The helper must raise with the keys the run actually
+    prepared, on both the coupled shape (leaves) and the flat one."""
+    coupled = [{'leaves': [{'strategy': 'uni_fifo_norsl'}, {'strategy': 'uni_fifo_norsl'}]},
+               {'leaves': [{'strategy': 'uni_rank_random_norsl'},
+                           {'strategy': 'uni_rank_popularity_norsl'}]}]
+    flat = [{'strategy': 'uni_fifo_norsl'}, {'strategy': 'uni_rank_random_norsl'}]
+    assert scenarios._all_arm_keys(coupled) == ['uni_fifo_norsl', 'uni_rank_random_norsl',
+                                                'uni_rank_popularity_norsl']
+    assert scenarios._all_arm_keys(flat) == ['uni_fifo_norsl', 'uni_rank_random_norsl']
+    # a match passes silently
+    scenarios._refuse_unknown_arm('uni_rank_random_norsl', [flat[1]], scenarios._all_arm_keys(flat))
+    # no match raises, naming the bare-rule mistake and the keys that exist
+    import pytest
+    with pytest.raises(scenarios.ScenarioUnavailable) as ei:
+        scenarios._refuse_unknown_arm('uni_rank_random', [], scenarios._all_arm_keys(coupled))
+    msg = str(ei.value)
+    assert "'uni_rank_random'" in msg and 'uni_rank_random_norsl' in msg and '_norsl' in msg
+    # and the source no longer carries the fallback
+    src = inspect.getsource(scenarios.run_fullfid)
+    assert 'or unit_args[:1]' not in src and 'or strategy_args[:1]' not in src,         'the first-arm fallback is back in run_fullfid'
+

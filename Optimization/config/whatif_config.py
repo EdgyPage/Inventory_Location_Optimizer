@@ -524,6 +524,22 @@ SPECS = {
         'schedulers': ['lpt'], 'arms': ('fifo', 'tmin'), 'reference': 'k1_off',
         'run_defaults': PILOT_RUN_DEFAULTS,
     },
+    # THE BYTE-IDENTITY TOY MATRIX WITH A PRICED CELL.  `smoketest --profile tiny` runs
+    # `scheduler_ab`, which has no inbound axis, so a refactor of the gain evaluator's pool
+    # path (the copy-on-write views, the pool constructors' unions, the drain) could not be
+    # digested against it -- the code under change never ran.  Two cells off phase 2's own
+    # axis, the reference `fifo` and the priced `gmyopic`, over the two ranked families the
+    # campaign found 39-59x priced (`.scratch/phase-2-campaign/issues/02`) plus the `fifo`
+    # rider, under the campaign's run defaults (coupled, the era, the arrival regime).  Twelve
+    # units at `--max-skus 8000 --coverage-days 1 --n-batches 6`.  Not for analysis; its only
+    # reader is `Tests/bench/run_digest.py` (memory `toy-run-is-the-byte-identity-instrument`).
+    '_toy_priced': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'arms': ('fifo', 'rank_random', 'rank_popularity'),
+        'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'gmyopic')],
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+    },
     # Schema-preflight canary: the SMALLEST spec that still produces a MULTI-cell tree (so the
     # cell level, `_frozen/`, and the cross-cell what-if outputs all appear).  Two cells x one
     # restock rule = 2 arms per cell instead of 34.  Not for analysis — runschema.preflight runs it

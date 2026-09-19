@@ -626,6 +626,28 @@ def _pick_pair(rs, min_catalogue: int | None, log):
         f're-runs the rung at it.')
 
 
+def _all_arm_keys(units) -> list:
+    """Every strategy key the prepared units carry (either leaf of a coupled unit)."""
+    keys = []
+    for u in units:
+        for lf in (u.get('leaves') or [u]):
+            k = lf.get('strategy')
+            if k is not None and k not in keys:
+                keys.append(k)
+    return keys
+
+
+def _refuse_unknown_arm(strategy, matched, available) -> None:
+    """A scenario asked for an arm the run does not carry must FAIL, not measure another."""
+    if matched:
+        return
+    raise ScenarioUnavailable(
+        f'no unit carries strategy {strategy!r}; this run prepared {available}.  Arm keys '
+        f'are `<initial>_<rule>_<suffix>` (e.g. `uni_rank_random_norsl`), never the bare '
+        f'rule name -- and a fallback to the first arm here once profiled `fifo` under '
+        f'the name of a ranked family.')
+
+
 def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
                 strategy: str | None = None, coupled: bool = False,
                 min_catalogue: int | None = None, log=None) -> dict:
@@ -706,13 +728,19 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
         from Optimization.simdriver import workunits as _wu
         unit_args, skeletons = _wu._prepare_site_run(
             _channel_runs, _mixed, shared, pair_dir, log)
+        unit_args_all = unit_args
         if strategy is not None:
             # Under coupling an arm is a PAIR and the leaves carry their own strategies, so
-            # match on either leaf; falling back to the first unit keeps the tier runnable
-            # rather than empty when a name does not appear.
+            # match on either leaf.  NO FALLBACK to the first unit: this tier used to "keep
+            # itself runnable" that way, and on 2026-09-18 a profile of `uni_rank_random`
+            # (the key is `uni_rank_random_norsl`) ran the first arm instead -- `fifo`, whose
+            # evaluator path opens no pool -- and reported the priced drain at 0.2 s.  An
+            # instrument that measures a different arm than it was asked for and says
+            # nothing is the failure `the-instrument-is-what-is-wrong` names.
             unit_args = [u for u in unit_args
                          if any(lf.get('strategy') == strategy
-                                for lf in (u.get('leaves') or [u]))] or unit_args[:1]
+                                for lf in (u.get('leaves') or [u]))]
+            _refuse_unknown_arm(strategy, unit_args, _all_arm_keys(unit_args_all))
         else:
             unit_args = unit_args[:1]
         a = unit_args[0]
@@ -721,8 +749,9 @@ def run_fullfid(*, tracer=None, n_batches: int = 4, max_skus: int = 300,
         strategy_args, skeletons = rs._prepare_channel_run(ch, cfg, _mixed, shared,
                                                           pair_dir, log)
         if strategy is not None:
-            strategy_args = [x for x in strategy_args
-                             if x.get('strategy') == strategy] or strategy_args[:1]
+            strategy_args_all = strategy_args
+            strategy_args = [x for x in strategy_args if x.get('strategy') == strategy]
+            _refuse_unknown_arm(strategy, strategy_args, _all_arm_keys(strategy_args_all))
         else:
             strategy_args = strategy_args[:1]
         a = strategy_args[0]
