@@ -166,6 +166,52 @@ def load_batches(path: str, expected_fingerprint: str) -> list | None:
     return blob.get('batches')
 
 
+def _sibling_batches(out_dir: str, name: str) -> str | None:
+    """The same family's batch file under a SIBLING CELL's pair dir, copied into `out_dir`;
+    the copied path, or None when no sibling holds one.
+
+    `out_dir` is `<run_root>/<cell>/<pair>`.  On a frozen matrix every cell samples the
+    identical script -- same inventory, same seed, same batch content whenever the cells
+    share a geometry (the whole `inbound_unload` matrix does) -- and until 2026-09-19 every
+    cell recomputed it (~2 min a cell at campaign scale) because the cache path is per cell.
+    Now the parent sets a cell up while the pool is running the previous cells' units, so
+    that recompute also stole the pool's cores.  A sibling's file is the same bytes: the
+    name IS the fingerprint, and the worker re-verifies the full fingerprint on load.
+
+    Reserved (`_`-prefixed) siblings are skipped -- `_frozen/<pair>/` holds no batches --
+    and a copy that fails for any reason is a miss, never an error.  Copied rather than
+    referenced so the run tree's contract is unchanged: the artifact still exists per cell."""
+    pair = os.path.basename(os.path.normpath(out_dir))
+    cell_dir = os.path.dirname(os.path.normpath(out_dir))
+    run_root = os.path.dirname(cell_dir)
+    if not pair or not os.path.basename(cell_dir) or not os.path.isdir(run_root):
+        return None
+    try:
+        siblings = sorted(os.listdir(run_root))
+    except OSError:
+        return None
+    for d in siblings:
+        if d.startswith('_') or d == os.path.basename(cell_dir):
+            continue
+        src = os.path.join(run_root, d, pair, name)
+        if os.path.isfile(src):
+            dst = os.path.join(out_dir, name)
+            tmp = f'{dst}.tmp.{os.getpid()}'
+            try:
+                import shutil
+                os.makedirs(out_dir, exist_ok=True)
+                shutil.copyfile(src, tmp)
+                os.replace(tmp, dst)
+                return dst
+            except OSError:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+                continue
+    return None
+
+
 def ensure_batches(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, batch_cfg,
                    seed_batches: int, n_batches: int, workers: int = 1, log=None,
                    channel_regime=None):
@@ -173,7 +219,8 @@ def ensure_batches(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, b
 
     The file is named by the fingerprint so different families never collide and identical families
     (e.g. configs that don't change inventory) share one file.  Existence ⇒ reuse (write is atomic);
-    the worker re-verifies the full fingerprint on load.
+    the worker re-verifies the full fingerprint on load.  A sibling cell's copy of the same file
+    is reused before anything is computed (`_sibling_batches`).
 
     ``channel_regime`` (store/fulfillment) makes the precompute regime-pure so a mixed-catalog
     channel shares ONE list across all its configs (store and fulfillment necessarily get distinct
@@ -187,6 +234,12 @@ def ensure_batches(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, b
         if log is not None:
             log.info(f'  Batches: reuse {os.path.basename(path)} ({n_batches} batches, fp {fp[:8]})')
         return path, fp
+    copied = _sibling_batches(out_dir, os.path.basename(path))
+    if copied is not None:
+        if log is not None:
+            log.info(f'  Batches: copied {os.path.basename(path)} from a sibling cell '
+                     f'({n_batches} batches, fp {fp[:8]})')
+        return copied, fp
     if log is not None:
         log.info(f'  Batches: precompute {n_batches} (workers={workers}) -> '
                  f'{os.path.basename(path)} (fp {fp[:8]})')

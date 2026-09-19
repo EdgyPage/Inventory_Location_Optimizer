@@ -121,12 +121,18 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
     disagrees with the record) is reported and skipped, and the pool keeps running the
     others: an exception must never unwind into the pool with units in flight.
     """
-    g = CONFIG['global']
     n_cells = len(cells)
     by_name = {c.name: c for c in cells}
     books = SimBooks(log, run_root=base_dir)
     kept: dict = {}                                   # cell name -> shared_by_pair
     unfinished: dict = {}
+    # THE BATCH PRECOMPUTE'S POOL, sized to the cores the sim pool leaves free.  `ensure_batches`
+    # opens a transient spawn pool of its own whenever a cell's script is not already on disk
+    # (`batch_precompute.precompute_batches`), and since every cell after the first is set up
+    # while the sim pool is running, sizing it to the SIM pool's width -- what the old per-cell
+    # driver did, when nothing else was running -- would run twice the machine's cores.  Chunk
+    # count changes no byte (`Tests/e2e/test_batch_precompute.py`, serial == parallel).
+    precompute_workers = max(1, (os.cpu_count() or 1) - int(workers or 1))
 
     def _units(cell, log_queue, *, mid_flight=False):
         """This cell's `(units, meta)`, under its scope, over its kept assets."""
@@ -137,7 +143,7 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
                 os.makedirs(scenario_base, exist_ok=True)
                 kept[cell.name] = assets_for(cell, scenario_base)
             units, meta = _build_work_units(
-                pairs, scenario_base, kept[cell.name], log, log_queue, workers,
+                pairs, scenario_base, kept[cell.name], log, log_queue, precompute_workers,
                 # `skip_completed` on a resume AND on a mid-flight rebuild.
                 skip_completed=(skip_completed or mid_flight),
                 resume_granularity=resume_granularity, mid_flight=mid_flight, failed=failed)
