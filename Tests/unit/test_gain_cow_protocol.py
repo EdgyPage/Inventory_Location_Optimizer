@@ -77,7 +77,7 @@ def _frozen(v):
     """A comparable rendering of a value of any of the three shapes."""
     if isinstance(v, set):
         return ('set', sorted(v))
-    if isinstance(v, dict):
+    if isinstance(v, dict) or hasattr(v, 'items'):     # a dict, or the lists-by-key inner view
         return ('dict', sorted((k, list(xs)) for k, xs in v.items()))
     return ('num', float(v))
 
@@ -190,7 +190,7 @@ def test_a_write_through_getitem_never_reaches_the_live_dict(name, make_live):
     got = view[3]
     if isinstance(got, set):
         got.add(999)
-    elif isinstance(got, dict):
+    elif isinstance(got, dict) or hasattr(got, 'items'):     # the lists-by-key inner view
         got[7].append(999.0)
     else:
         view[3] = got + 999.0

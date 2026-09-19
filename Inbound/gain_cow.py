@@ -283,12 +283,85 @@ class _PlacedUnion:
         yield from self._extra
 
 
+class _CowInner:
+    """One aisle's `{sku_idx: [x_phys, ...]}` over the LIVE inner mapping: a read falls
+    through to the live list (read-only by contract, like `_CowView.get`), and a write --
+    `inner[idx].append(...)` -- copies THAT one list, never the aisle.
+
+    WHY.  `_CowListsByKey` used to materialise an aisle's whole inner mapping (every SKU's
+    list) the first time a pool touched it.  The min-labor pool touches every aisle it
+    wins, every pool open: 768k materialisations for 71 s on a six-day coupled unit at
+    campaign scale (ticket 03), copying hundreds of lists to append to one.
+
+    ORDER IS THE CONTRACT.  `_demand_weighted_partner_centroid` folds `member_pos.items()`
+    in iteration order, so this must iterate exactly as the materialised copy did: the
+    live keys in live order (with the overlay's list substituted where one exists), then
+    the keys the overlay created, in creation order -- which is what a copy that was
+    filled from the live dict and then appended to would have held.  The live dict does
+    not change during a pool's life (the purity rule), so the live half is stable.
+
+    A missing key creates an empty list, as the `defaultdict(list)` it replaces did; there
+    is no delete, because the drop path runs against the live book only.
+    """
+
+    __slots__ = ('_live', '_over')
+
+    def __init__(self, live):
+        self._live = live if live is not None else {}
+        self._over: dict = {}
+
+    def __getitem__(self, k):
+        o = self._over
+        got = o.get(k)
+        if got is None:
+            src = self._live.get(k)
+            got = o[k] = list(src) if src is not None else []
+        return got
+
+    def get(self, k, default=None):
+        o = self._over
+        return o[k] if k in o else self._live.get(k, default)
+
+    def __contains__(self, k):
+        return k in self._over or k in self._live
+
+    def __iter__(self):
+        live = self._live
+        for k in live:
+            yield k
+        for k in self._over:
+            if k not in live:
+                yield k
+
+    def __len__(self):
+        live = self._live
+        return len(live) + sum(1 for k in self._over if k not in live)
+
+    def keys(self):
+        return list(self)
+
+    def items(self):
+        o, live = self._over, self._live
+        for k, v in live.items():
+            yield k, (o[k] if k in o else v)
+        for k, v in o.items():
+            if k not in live:
+                yield k, v
+
+    def values(self):
+        return [v for _k, v in self.items()]
+
+    def __delitem__(self, k):
+        raise TypeError('a copy-on-write inner view has no delete: the drop path runs against '
+                        'the live book, never a virtual placement')
+
+
 class _CowListsByKey(_CowView):
     """`{aisle: {sku_idx: [x_phys, ...]}}` -- the minlabor shape.
 
     Two levels down, and the inner lists are appended to (`_amp[aid][idx].append(...)`), so
-    a shallow copy would hand the pool the live inner list.  An access materializes that one
-    aisle's whole inner mapping, which is still one of forty-six.
+    a shallow copy would hand the pool the live inner list.  An access hands out a
+    `_CowInner` over that one aisle, which copies only the list that is written to.
     """
 
     __slots__ = ()
@@ -297,12 +370,7 @@ class _CowListsByKey(_CowView):
         o = self._over
         got = o.get(k)
         if got is None:
-            src = self._live.get(k)
-            inner = defaultdict(list)
-            if src is not None:
-                for ik, iv in src.items():
-                    inner[ik] = list(iv)
-            got = o[k] = inner
+            got = o[k] = _CowInner(self._live.get(k))
         return got
 
 

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_CowInner · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_cow_py___CowInner" data-id="Inbound/gain_cow.py::_CowInner">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_cow_py.html"><code>Inbound/gain_cow.py</code></a> <span class="sep">›</span> <span class="here"><code>_CowInner</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_CowInner</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_cow_py.html"><code>Inbound/gain_cow.py</code></a></p>
+
+<pre class="sig"><code>class _CowInner</code></pre>
+<section class="doc">One aisle&#x27;s `{sku_idx: [x_phys, ...]}` over the LIVE inner mapping: a read falls
+through to the live list (read-only by contract, like `_CowView.get`), and a write --
+`inner[idx].append(...)` -- copies THAT one list, never the aisle.
+
+WHY.  `_CowListsByKey` used to materialise an aisle&#x27;s whole inner mapping (every SKU&#x27;s
+list) the first time a pool touched it.  The min-labor pool touches every aisle it
+wins, every pool open: 768k materialisations for 71 s on a six-day coupled unit at
+campaign scale (ticket 03), copying hundreds of lists to append to one.
+
+ORDER IS THE CONTRACT.  `_demand_weighted_partner_centroid` folds `member_pos.items()`
+in iteration order, so this must iterate exactly as the materialised copy did: the
+live keys in live order (with the overlay&#x27;s list substituted where one exists), then
+the keys the overlay created, in creation order -- which is what a copy that was
+filled from the live dict and then appended to would have held.  The live dict does
+not change during a pool&#x27;s life (the purity rule), so the live half is stable.
+
+A missing key creates an empty list, as the `defaultdict(list)` it replaces did; there
+is no delete, because the drop path runs against the live book only.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_cow_py___CowListsByKey___getitem__.html"><code>__getitem__</code></a> <span class="dim">Inbound/gain_cow.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_cow_py___CowInner">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain_cow.py#:~:text=class%20_CowInner">Source ↗</a></p>
+</article>
+</main>
+</body></html>

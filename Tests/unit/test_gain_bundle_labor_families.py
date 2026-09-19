@@ -176,7 +176,7 @@ def _plain(d):
     for k, v in d.items():
         if isinstance(v, set):
             out[k] = set(v)
-        elif isinstance(v, dict):
+        elif isinstance(v, dict) or hasattr(v, 'items'):     # a dict, or the lists-by-key inner view
             out[k] = {i: list(xs) for i, xs in v.items()}
         else:
             out[k] = v
