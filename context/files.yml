@@ -2654,6 +2654,18 @@ files:
       - {name: "test_gpu_argmin_matches_cpu", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
       - {name: "test_broker_roundtrip_and_overbudget_fallback", file: "Tests/gpu/test_gpu_governor.py", kind: "function"}
     notes: ""
+  "Tests/integration/_broken_pool_driver.py":
+    purpose: "Subprocess driver for the broken-pool test: runs supervisor._supervise over a REAL spawn pool whose every worker dies (at bootstrap or at the call item), with a ballast knob for the pipe-buffer hang and a watchdog that turns a hang into exit 3 plus a thread dump."
+    layer: "tests"
+    key_symbols:
+      - {name: "main", file: "Tests/integration/_broken_pool_driver.py", kind: "function"}
+    notes: ""
+  "Tests/integration/_worker_dies_at_import.py":
+    purpose: "Test fixture module: a pool worker target whose module raises at import in a spawned child (and under the driver's env flag), standing in for a broken working tree."
+    layer: "tests"
+    key_symbols:
+      - {name: "worker", file: "Tests/integration/_worker_dies_at_import.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_archive_cells.py":
     purpose: "the count invariant that decides whether a cell can be archived."
     layer: "tests"
@@ -3165,6 +3177,13 @@ files:
       - {name: "test_the_conservation_ledger_cannot_see_this_which_is_why_it_needs_a_test", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
       - {name: "test_with_rollover_off_a_skipped_batch_carries_nothing", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
       - {name: "test_the_skip_branch_is_what_is_being_exercised", file: "Tests/integration/test_skipped_batch_demand_carry.py", kind: "function"}
+    notes: ""
+  "Tests/integration/test_supervisor_broken_pool.py":
+    purpose: "Gate test for ticket 01 (phase-2 campaign): a pool whose every worker dies must retry, log WHY via the import probe, and return; drives _broken_pool_driver.py as a subprocess under two watchdogs so a hang is a failed assertion."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_pool_whose_workers_die_retries_explains_and_returns", file: "Tests/integration/test_supervisor_broken_pool.py", kind: "function"}
+      - {name: "test_small_arguments_never_hung_and_still_do_not", file: "Tests/integration/test_supervisor_broken_pool.py", kind: "function"}
     notes: ""
   "Tests/integration/test_unit_identity_is_carried.py":
     purpose: "Locks the parent-side reading of a work unit's identity from its PAYLOAD (group_keys / arm_key), never by slicing a uid whose slots differ per unit kind."
@@ -3892,6 +3911,13 @@ files:
       - {name: "test_the_real_leak_is_contained", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
       - {name: "test_and_the_leak_did_not_escape_the_test_above", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
       - {name: "test_the_parser_still_builds_which_is_what_actually_broke", file: "Tests/unit/test_conftest_restores_config.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_conftest_restores_nested_config.py":
+    purpose: "Ordered pair of tests proving conftest's autouse CONFIG restore reaches the third level (sizing.aisle_split, per-pick-config scheduler) and refills the same nested objects rather than rebinding them."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_1_a_cell_applied_here_writes_the_third_level", file: "Tests/unit/test_conftest_restores_nested_config.py", kind: "function"}
+      - {name: "test_2_the_next_test_sees_the_pristine_third_level_in_the_same_objects", file: "Tests/unit/test_conftest_restores_nested_config.py", kind: "function"}
     notes: ""
   "Tests/unit/test_contractstore.py":
     purpose: "Fences ContractStore over a throwaway store AND over both real adapters: id is the shape and not the prose, write refuses a lying id and a short-id collision, adopt chains parents and is idempotent, and all FOUR verify_store invariants fire (tampered, renamed, deleted-with-surviving-index-entry, broken parent, two roots) -- the third of which found two profiles-tree documents deleted by 6adf378e; plus that each module really delegates, so the suite is not exercising a surviving copy."
@@ -6579,7 +6605,7 @@ files:
       - {name: "api_sku_series", file: "Visualization/server.py", kind: "function"}
     notes: ""
   "Warehouse/catalog/Affinity_Store.py":
-    purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift / sum_lift."
+    purpose: "SQLite-backed SKU affinity/lift matrix with in-memory CSR acceleration for delta_lift_idxs / sum_lift."
     layer: "wh_catalog"
     key_symbols:
       - {name: "AffinityStore", file: "Warehouse/catalog/Affinity_Store.py", kind: "class"}

@@ -14531,9 +14531,19 @@
       "src": "Optimization/simdriver/supervisor.py::_run_pool"
     },
     {
+      "dst": "Optimization/simdriver/supervisor.py::_unblock_broken_pool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+    },
+    {
       "dst": "Optimization/simdriver/supervisor.py::_supervise",
       "kind": "calls",
       "src": "Optimization/simdriver/supervisor.py::_run_workers_flat"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_explain_worker_death",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_supervise"
     },
     {
       "dst": "Optimization/simdriver/supervisor.py::_finalize_ready_groups",
@@ -39100,6 +39110,14 @@
     },
     {
       "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::_explain_worker_death",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "_explain_worker_death",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
       "id": "Optimization/simdriver/supervisor.py::_finalize_config_run",
       "kind": "function",
       "module": "Optimization/simdriver/supervisor.py",
@@ -39144,6 +39162,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/supervisor.py",
       "name": "_tag_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::_unblock_broken_pool",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "_unblock_broken_pool",
       "public": false
     },
     {
@@ -42588,26 +42614,10 @@
     },
     {
       "file": "Warehouse/catalog/Affinity_Store.py",
-      "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore.delta_lift",
-      "kind": "function",
-      "module": "Warehouse/catalog/Affinity_Store.py",
-      "name": "delta_lift",
-      "public": true
-    },
-    {
-      "file": "Warehouse/catalog/Affinity_Store.py",
       "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore.delta_lift_idxs",
       "kind": "function",
       "module": "Warehouse/catalog/Affinity_Store.py",
       "name": "delta_lift_idxs",
-      "public": true
-    },
-    {
-      "file": "Warehouse/catalog/Affinity_Store.py",
-      "id": "Warehouse/catalog/Affinity_Store.py::AffinityStore.delta_lift_sorted",
-      "kind": "function",
-      "module": "Warehouse/catalog/Affinity_Store.py",
-      "name": "delta_lift_sorted",
       "public": true
     },
     {
@@ -48600,14 +48610,6 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_affinity_row",
-      "public": false
-    },
-    {
-      "file": "Warehouse/placement/Assignment_Functions.py",
-      "id": "Warehouse/placement/Assignment_Functions.py::_aisle_anchor_gap",
-      "kind": "function",
-      "module": "Warehouse/placement/Assignment_Functions.py",
-      "name": "_aisle_anchor_gap",
       "public": false
     },
     {

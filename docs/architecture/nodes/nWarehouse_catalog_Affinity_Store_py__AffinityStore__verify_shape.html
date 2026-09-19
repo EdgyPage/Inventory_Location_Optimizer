@@ -19,7 +19,7 @@ def _verify_shape(cls, db_path: str) -&gt; None</code></pre>
 <section class="doc">Refuse a generator-written affinity.db whose tables are not the ones we query.
 
 HARD FAIL: every caller is a simulation about to place ~400k bins from these lifts, and
-`delta_lift`/`sum_lift` read the CSR matrix built here — a `lift` column that is not the
+`delta_lift_idxs`/`sum_lift` read the CSR matrix built here — a `lift` column that is not the
 `lift` column produces placements that look entirely reasonable and are not.
 
 Checked with `identity.check_tables`, not `identity.check`, and that is a deliberate

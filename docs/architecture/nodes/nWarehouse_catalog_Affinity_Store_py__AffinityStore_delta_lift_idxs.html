@@ -18,7 +18,10 @@
 <section class="doc">Association ABOVE independence: Σ (lift − 1) between sku and a pre-translated
 set of matrix indices.
 
-Index-set form of delta_lift() (no per-call {_sku_to_idx[s] ...} comprehension).
+The set is of MATRIX INDICES, not SKUs: the caller translates through `_sku_to_idx`
+once, when the member joins, not per call.  (The SKU-list form `delta_lift` and the
+sorted-array form `delta_lift_sorted` were deleted 2026-09-18 with no callers; the
+placement layer reads `_matrix`/`_sku_to_idx` directly via `_affinity_row`.)
 Lift = 1 is independence ⇒ each stored partner contributes (lift − 1); unstored
 pairs contribute 0.  The caller keeps member_idx_set current with the aisle&#x27;s SKU
 composition (add on placement, discard on removal).</section>

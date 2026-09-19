@@ -15593,6 +15593,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/simdriver/supervisor.py::_explain_worker_death": {
+      "decorators": [],
+      "doc": "Say WHY the workers died, in the parent's log, the first time a pool breaks.\n\nA child that dies at import writes its traceback to a stderr nobody has under a\nscheduled task (memory `launch-long-drivers-detached`); the parent knows only \"hard\ndeath\".  So: one fresh interpreter, no multiprocessing, that does what a spawned child\ndoes first -- re-run the main module as `__mp_main__` (by name under `-m`, by path\notherwise, mirroring `multiprocessing.spawn.get_preparation_data`), then import the\nworker target's module -- with its stderr CAPTURED.  A failure prints the traceback's\ntail here, naming the exception a broken working tree raises; a success says the death\nis not an import failure (out of memory, a hard crash inside a worker, a kill).\n\nReturns 'import-failure', 'clean' or None (probe timed out), for a caller that wants the\nverdict; the log lines are the point.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(log, *, timeout_s: float=300.0) -> str | None"
+    },
     "Optimization/simdriver/supervisor.py::_finalize_config_run": {
       "decorators": [],
       "doc": "Post-completion: write sim_meta.json, THEN remove resume file + checkpoints.\n\nTHE ORDER IS THE SAFETY.  A kill inside this function must leave a directory that is\nstill either resumable or complete \u2014 never neither.  The skip guard\n(`workunits._build_work_units`) reads \"complete\" as *sim_meta.json present AND\nresume.pkl absent*, so writing the marker FIRST makes the crash window hold a dir with\nBOTH files: not complete (so it is re-planned) and still resumable (so `_load_resume`\nanswers).  `_plan_strategy_start` then takes its documented \"resumed done arm\" branch\n\u2014 ckpt == n_batches, so reuse prev_id, start n_batches, empty loop, re-finalize.\n\nThe reverse order removed resume.pkl FIRST and left a dir that was NEITHER: the guard\nsaw no sim_meta.json and declined to skip, `_load_resume` returned None because the\nfile was already gone, and the fresh-run branch therefore ran `create_run` over a\nPOPULATED db with no `reset_strategy_db`.  That corruption has no symptom \u2014 `find_run`\nresolves `ORDER BY run_id LIMIT 1`, so every run_id-filtered query would answer from\nthe ABANDONED run and every unfiltered aggregate over the file would double.\nNo new state and no new code path \u2014 only the sequence.\n\nReturns the sim_result dict (subset of sim_skeleton without inv_db/aff_db).",
@@ -15634,6 +15641,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cell, key)"
+    },
+    "Optimization/simdriver/supervisor.py::_unblock_broken_pool": {
+      "decorators": [],
+      "doc": "Make the `with ProcessPoolExecutor` exit RETURN after a hard worker death, by reading\nthe unit payloads the dead workers never took off the call queue.  Returns the count.\n\nTHE HANG (2026-09-18, the phase-2 launch; `.scratch/phase-2-campaign/issues/01`): every\nchild died at import, `_run_pool` logged BROKEN and `break`-ed, and the driver sat at\n0.00 s CPU for 37 minutes.  Thread dump, taken on the reproduction: the `with` exit is\n`shutdown(wait=True)`, joining the executor's manager thread; that thread, in\n`terminate_broken -> join_executor_internals -> call_queue.join_thread()`, is joining the\ncall queue's FEEDER thread; and the feeder is inside `PipeConnection._send_bytes`,\nwaiting on an overlapped WriteFile that no live worker will ever read.  A Windows pipe\nbuffer is 8 KiB; one 16 KiB unit argument with TWO workers is enough\n(`Tests/integration/_broken_pool_driver.py`), and the real payload -- the CONFIG snapshot\nand the shared paths, times twelve queued units -- is well past it.  With small arguments\nthe writes fit the buffer and nothing hangs, which is why `test_crash_recovery.py` (which\nfakes `_run_pool` anyway) and every earlier fixture were blind to it.\n\nThis is CPython gh-107219, fixed in 3.11.5 / 3.12 by closing the queue's connections from\n`Queue._terminate_broken`; the machine that hung runs 3.11.4.  That fix is NOT what this\ndoes, because it was measured not to work here: closing the WRITER from another thread\nleaves the overlapped write pending (probe, 2026-09-18: feeder still alive after 5 s), and\nclosing the READER ends the pipe in isolation (`BrokenPipeError` at once) but not under\nthe pool -- a child that dies at bootstrap never steals the handle duplicates\n`reduction.DupHandle` made for it in THIS process, so the parent still holds a live\nreader and the pipe is not ended.  What always works is the third thing the probe tried:\nREAD the parent's end.  Each `recv_bytes` completes one blocked write, the feeder moves\nto the next item, the manager thread's `close()` appends the sentinel, the feeder exits,\n`join_thread` returns, `shutdown(wait=True)` returns, and `_supervise`'s retry runs.\nBounded by `timeout_s` so this can never be the thing that hangs.  Private attributes,\ndeliberately: there is no public surface for this, and the alternative was a driver that\nholds the machine.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pool, log, *, timeout_s: float=60.0) -> int"
     },
     "Optimization/simdriver/workunits.py": {
       "decorators": [],
@@ -18566,7 +18580,7 @@
     },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore": {
       "decorators": [],
-      "doc": "SQLite-backed affinity matrix with in-memory CSR acceleration.\n\nAt construction the full affinity table is loaded once into a scipy CSR\nsparse matrix so that delta_lift and sum_lift execute as pure numpy/scipy\noperations with no SQL round-trips.  The SQLite connection stays open only\nfor writes (load_for_skus, index_inventory).\n\nTypical workflow\n----------------\nstore = AffinityStore('affinity.db')          # loads matrix once (~1-2 s)\ndelta = store.delta_lift(sku, aisle_members)  # CSR row slice, O(partners)\ntotal = store.sum_lift(task_skus)             # scipy submatrix sum, O(k\u00b2)",
+      "doc": "SQLite-backed affinity matrix with in-memory CSR acceleration.\n\nAt construction the full affinity table is loaded once into a scipy CSR\nsparse matrix so that delta_lift_idxs and sum_lift execute as pure numpy/scipy\noperations with no SQL round-trips.  The SQLite connection stays open only\nfor writes (load_for_skus, index_inventory).\n\nTypical workflow\n----------------\nstore = AffinityStore('affinity.db')          # loads matrix once (~1-2 s)\ndelta = store.delta_lift_idxs(sku, member_idxs) # CSR row slice, O(partners)\ntotal = store.sum_lift(task_skus)             # scipy submatrix sum, O(k\u00b2)",
       "kind": "class",
       "signature": ""
     },
@@ -18630,7 +18644,7 @@
       "decorators": [
         "classmethod"
       ],
-      "doc": "Refuse a generator-written affinity.db whose tables are not the ones we query.\n\nHARD FAIL: every caller is a simulation about to place ~400k bins from these lifts, and\n`delta_lift`/`sum_lift` read the CSR matrix built here \u2014 a `lift` column that is not the\n`lift` column produces placements that look entirely reasonable and are not.\n\nChecked with `identity.check_tables`, not `identity.check`, and that is a deliberate\nscope limit: the `affinity_db` FAMILY is registered by\n`Warehouse/generation/generate_affinity.py`, which is a data-gen CLI importing matplotlib\nand pandas.  Importing it here to reach one dataclass would drag both into every\nProcessPool worker.  Comparing the two tables this class actually reads against the DDL\nit already mirrors gives the same protection for the columns that matter, and makes the\n\"both DDLs must stay in step\" claim above self-enforcing.  That the mirror really does\nmatch the generator's declaration is asserted in\n`Tests/architecture/test_schema_identity.py`, where importing both is free.\n\nSkipped for `:memory:` and for a path this store is about to CREATE: there is no shape to\ndisagree with yet, and `_init_schema` authors it below.  Skipped equally when a table is\ngenuinely absent, which is the one case `_init_schema` still writes \u2014 verifying a shape\nwe are in the middle of completing would reject the legacy/in-memory path it exists for.",
+      "doc": "Refuse a generator-written affinity.db whose tables are not the ones we query.\n\nHARD FAIL: every caller is a simulation about to place ~400k bins from these lifts, and\n`delta_lift_idxs`/`sum_lift` read the CSR matrix built here \u2014 a `lift` column that is not the\n`lift` column produces placements that look entirely reasonable and are not.\n\nChecked with `identity.check_tables`, not `identity.check`, and that is a deliberate\nscope limit: the `affinity_db` FAMILY is registered by\n`Warehouse/generation/generate_affinity.py`, which is a data-gen CLI importing matplotlib\nand pandas.  Importing it here to reach one dataclass would drag both into every\nProcessPool worker.  Comparing the two tables this class actually reads against the DDL\nit already mirrors gives the same protection for the columns that matter, and makes the\n\"both DDLs must stay in step\" claim above self-enforcing.  That the mirror really does\nmatch the generator's declaration is asserted in\n`Tests/architecture/test_schema_identity.py`, where importing both is free.\n\nSkipped for `:memory:` and for a path this store is about to CREATE: there is no shape to\ndisagree with yet, and `_init_schema` authors it below.  Skipped equally when a table is\ngenuinely absent, which is the one case `_init_schema` still writes \u2014 verifying a shape\nwe are in the middle of completing would reject the legacy/in-memory path it exists for.",
       "is_async": false,
       "kind": "function",
       "signature": "(cls, db_path: str) -> None"
@@ -18649,26 +18663,12 @@
       "kind": "function",
       "signature": "(self) -> None"
     },
-    "Warehouse/catalog/Affinity_Store.py::AffinityStore.delta_lift": {
-      "decorators": [],
-      "doc": "Association ABOVE independence between sku and aisle_members: \u03a3 (lift \u2212 1).\n\nLift is a multiplier with 1 = independence, so the co-location *value* of a\npartner is (lift \u2212 1); unstored pairs (lift = 1) contribute 0.  Walks the CSR\nrow for sku directly \u2014 bounded by sku's partner count, regardless of\naisle_members length.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, sku: int, aisle_members: list[int]) -> float"
-    },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore.delta_lift_idxs": {
       "decorators": [],
-      "doc": "Association ABOVE independence: \u03a3 (lift \u2212 1) between sku and a pre-translated\nset of matrix indices.\n\nIndex-set form of delta_lift() (no per-call {_sku_to_idx[s] ...} comprehension).\nLift = 1 is independence \u21d2 each stored partner contributes (lift \u2212 1); unstored\npairs contribute 0.  The caller keeps member_idx_set current with the aisle's SKU\ncomposition (add on placement, discard on removal).",
+      "doc": "Association ABOVE independence: \u03a3 (lift \u2212 1) between sku and a pre-translated\nset of matrix indices.\n\nThe set is of MATRIX INDICES, not SKUs: the caller translates through `_sku_to_idx`\nonce, when the member joins, not per call.  (The SKU-list form `delta_lift` and the\nsorted-array form `delta_lift_sorted` were deleted 2026-09-18 with no callers; the\nplacement layer reads `_matrix`/`_sku_to_idx` directly via `_affinity_row`.)\nLift = 1 is independence \u21d2 each stored partner contributes (lift \u2212 1); unstored\npairs contribute 0.  The caller keeps member_idx_set current with the aisle's SKU\ncomposition (add on placement, discard on removal).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, sku: int, member_idx_set: set[int]) -> float"
-    },
-    "Warehouse/catalog/Affinity_Store.py::AffinityStore.delta_lift_sorted": {
-      "decorators": [],
-      "doc": "Sum of lift between sku and members described by a sorted numpy array.\n\nFaster than delta_lift_idxs for large member sets: uses np.searchsorted\non two pre-sorted arrays (CSR indices are sorted within each row by the\nscipy CSR format; sorted_member_arr is maintained by the caller).\nZero per-call allocation when sorted_member_arr is cached.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(self, sku: int, sorted_member_arr: 'np.ndarray') -> float"
     },
     "Warehouse/catalog/Affinity_Store.py::AffinityStore.index_inventory": {
       "decorators": [],
@@ -23941,13 +23941,6 @@
       "is_async": false,
       "kind": "function",
       "signature": "(affinity, sku)"
-    },
-    "Warehouse/placement/Assignment_Functions.py::_aisle_anchor_gap": {
-      "decorators": [],
-      "doc": "Best achievable map-anchor gap in one aisle's candidate bins (lower = more favored):\nmin |pref \u2212 target|, or min pref when the SKU has no target (prefer prime).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(lst, pref, target)"
     },
     "Warehouse/placement/Assignment_Functions.py::_aisle_extremal_bins": {
       "decorators": [],
