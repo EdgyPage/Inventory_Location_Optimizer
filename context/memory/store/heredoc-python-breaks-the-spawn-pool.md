@@ -28,3 +28,9 @@ Related gotcha in the same session: `$COMPARISON_OUTPUT_DIR` is loaded from `.en
 `Optimization/config/sim_config.py` at import, so it is NOT set in the shell — resolve the
 run root with a short Python call and pass it as an argument rather than expanding it in
 bash. See [[no-machine-local-paths]] and [[results-drive-location]].
+
+**THE SAME TRAP FROM THE OTHER SIDE (2026-09-18):** a driver SCRIPT that starts a spawn pool
+and has no `if __name__ == '__main__':` guard re-runs its whole body in every worker -- each
+of the 12 analysis workers re-imported the script as `__main__` and started its own
+`analyze_run`, thirteen processes within seconds, killed by hand. Any file you write that
+calls into a pool must put its work under the guard, scratchpad scripts included.
