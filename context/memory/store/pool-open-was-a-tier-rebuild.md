@@ -34,3 +34,14 @@ against the stopped campaign's finished cells via the `_probe_unload_ref` spec (
 not one: a one-cell run samples fresh instead of freezing). Prove the path RAN (count opens
 that received a slice) before believing IDENTICAL -- [[priced-rank-random-cost-was-the-cow-union]]
 and [[toy-run-is-the-byte-identity-instrument]].
+
+**CORRECTION, same day.** The open was the dominant term of the UNCOUPLED store-only profile
+and NOT of the campaign's coupled priced unit: the probe's priced cell paced no faster after
+the overlay, and a COUPLED profile (`run_fullfid(coupled=True)`) put the drain in `take` --
+per-SKU-run work across every live aisle, 29 M `_aisle_best` evaluations for the travel-balanced
+pool, and for the min-labor pool the partner row rebuilt per unit, `per_pick` per aisle per
+bracket, and the affinity delta folded per aisle. Cut 2 (heads as attributes, `per_pick`
+memoised, score inlined): cartlabor drain 213 -> 137 s. Cut 3 (row once per run, deltas folded
+once through the ledger's inverse, `_partner_deltas`): minlabor drain 634 -> 346 s. The wave
+path benefits from cut 3 too. Lesson: **profile the coupled unit** -- the fulfillment leaf places
+18k units a day against the store's 2.8k, so a store-only profile mis-ranks the terms.

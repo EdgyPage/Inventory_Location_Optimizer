@@ -71,6 +71,22 @@ a freshly filtered list and had no structure to reuse.
   the pricing -- both proportional to units, not to the tier.
 ## Second and third cuts (2026-09-19, same day)
 
+Coupled campaign-scale profiles (six days, `gain_myopic`, 200k SKUs, uncontended except where
+noted), drain = `plan_order` over 10 drains at depths 4-10:
+
+| pairing | before | after cut 2 | after cut 3 |
+|---|---|---|---|
+| cartlabor / cartlabor | 213 s (`take` 202, `_aisle_best` 101) | 137 s (`take` 121, `_aisle_best` 36) | -- |
+| minlabor / minlabor | 634 s (`take` self 250, centroid 119, `_aisle_best_cost` 104) | -- | 346 s (`take` self 51, centroid 85, `_aisle_best_cost` 50, `_partner_deltas` 39) |
+
+What is left in the min-labor drain is mostly the policy's own per-unit work -- the centroid's
+fold over the winning aisle's members (85 s, order-bearing so not invertible) and the
+run-boundary scan -- plus one admin cost still worth a cut: `_CowListsByKey.__getitem__`
+materialises an aisle's WHOLE `member_pos` mapping (every SKU's list) the first time a pool
+touches it, 768k times for 71 s. A finer-grained view that copies only the appended list,
+yielding live keys in live order then new keys, would be byte-identical for the centroid's fold.
+
+
 **The probe said the open was not the campaign's cost.** Its priced cell paced no faster than
 the stopped run's (window 1: 799 s of drain vs 843 s; window 2 not faster at all), and a
 COUPLED profile of the winner pair at campaign scale (six days, `gain_myopic`) showed why: with
