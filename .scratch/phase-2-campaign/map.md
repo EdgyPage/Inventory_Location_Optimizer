@@ -179,6 +179,23 @@ launches on the full ten cells.
   ~50 min, ~22 h if the cells run serially through the pool; the relaunch goes from a fresh
   snapshot of HEAD, which now carries the four cuts and the docs.
 
+## Phase 2 relaunched a second time -- 2026-09-19 16:38
+
+- Task `ILO_phase2_inbound_unload` re-registered (`python.exe` directly, no console, 3-day
+  limit, session keep-awake held), working directory the `git archive` copy of `62d9649e`
+  (HEAD after ticket 03's four cuts and their docs) under `code_snapshots/`, `.env` copied in.
+  Run root `comparison_whatif_20260919_163818` under `COMPARISON_OUTPUT_DIR`. Same command as
+  before: `--spec inbound_unload`, the one-pair reference view, 12 workers, 12 analysis
+  workers, `--max-tasks-per-child 1`. Preflight read current on `041f5407cbb4`; the cell matrix
+  is the ten cells with reference `k1_off_fifo` and pairs `rank_cartlabor`/`rank_minlabor` +
+  the `fifo` rider; the freeze started at once.
+- Expected: ~22 h (eight priced cells at ~3 h, two unpriced at ~50 min). The stopped roots
+  `comparison_whatif_20260919_002111` and the probe `comparison_whatif_20260919_123309` stay on
+  disk as the byte-identity references for cells 1 and 3 (`run_digest.py --cell`).
+- After it finishes: `python -m Optimization.analyze_run <root>` then
+  `python -m Optimization.run_unload_ranking <root>`; copy `chosen` into `PHASE3_UNLOAD`,
+  register `inbound_confirm`, launch phase 3 the same way.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
