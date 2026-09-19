@@ -3443,6 +3443,15 @@ files:
       - {name: "test_assign_tasks_delegates_rather_than_reimplementing", file: "Tests/unit/test_allocation.py", kind: "function"}
       - {name: "test_allocation_imports_nothing_but_the_standard_library", file: "Tests/unit/test_allocation.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_analysis_granularity.py":
+    purpose: "W7: pins analyze_run's two job granularities on a scratch cell with the asset build patched out -- `config` emits one job per channel run carrying every key, `graph` one per (run, key), and only the graph count grows with the preset."
+    layer: "tests"
+    key_symbols:
+      - {name: "cell", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
+      - {name: "test_config_granularity_emits_one_job_per_channel_run_carrying_every_key", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
+      - {name: "test_graph_granularity_emits_one_job_per_channel_run_and_key", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
+      - {name: "test_the_graph_count_grows_with_the_cell_and_the_config_count_grows_only_with_runs", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_arm_clock.py":
     purpose: "an arm's batches sit on one absolute axis."
     layer: "tests"

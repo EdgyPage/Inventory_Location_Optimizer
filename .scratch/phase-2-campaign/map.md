@@ -58,6 +58,20 @@ margins as fields on `restock_selection.json`, and `phase2_inbound_axis(keep=)` 
 pre-screen. The yard bench itself (plan section 1) is optional and not built yet; phase 2
 launches on the full ten cells.
 
+## Phase 2 relaunched as `inbound_unload` -- 2026-09-19 00:21
+
+- Task `ILO_phase2_inbound_unload` (`python.exe` directly, no console, 3-day limit, session
+  keep-awake requested), working directory the `git archive` copy of `a65478f8` under
+  `code_snapshots/`, `.env` copied in. Run root `comparison_whatif_20260919_002111` under
+  `COMPARISON_OUTPUT_DIR`. Same command as the factorial with `--spec inbound_unload`: the
+  one-pair reference view, 12 workers, 12 analysis workers, `--max-tasks-per-child 1`.
+- 10 cells, pairs `rank_cartlabor`/`rank_minlabor` + the `fifo` rider, 40 units. Preflight read
+  current on run-tree schema `041f5407cbb4`; the freeze started at once.
+- After it finishes: `python -m Optimization.analyze_run <root>` then
+  `python -m Optimization.run_unload_ranking <root>` (the winner pair is the only non-rider
+  pair, so no `--pair` is needed); copy `chosen` into `PHASE3_UNLOAD`, register
+  `inbound_confirm`, launch phase 3 the same way.
+
 ## Decisions so far
 
 - 2026-09-18: launch at 12 workers on the one-pair view (above).
