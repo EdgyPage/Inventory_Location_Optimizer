@@ -99,6 +99,29 @@ fulfillment-only; the rule pairing is one of several defensible draws).
   granularity); its `analysis.log` is in the run root. The task is unregistered; the root is
   resumable with `--resume` from a snapshot of whatever HEAD carries the fixes.
 
+- 2026-09-18 21:00: **the three-cell analysis is done** (`analysis.log` in the run root; every
+  evaluation rendered, no evaluation raised; the leaf-scope yard views are skipped by design on a
+  coupled run and the site-scope ones answered from each unit's `_site` DB; cross-cell what-ifs and
+  the dossier written, reference `k1_off_fifo`). What it says, over all 12 units per cell:
+
+  | cell | mean detention | p90 | max | standing at end | contended drains | binding-cut drains |
+  |---|---|---|---|---|---|---|
+  | fifo | 0.35 d | 0.46 d | 0.60 d | 97 | 134/480 | 193/480 |
+  | lifo | 0.35 d | 0.59 d | 2.29 d | 101 | 126/480 | 201/480 |
+  | gain_myopic | 0.34 d | 0.52 d | 1.36 d | 89 | 113/480 | 188/480 |
+
+  Pick-side labour hours are identical across cells to 0.01% (the yard policy does not touch
+  picking, as it should not); the cross-cell pick deltas are within 0.1%. The priced policy
+  reduces contention and the standing tail modestly and lengthens the detention tail: it defers
+  some trailers on purpose. Small effects at this arrival rate against four doors -- most drains
+  see a yard of one -- which is the campaign's real signal size on this catalogue.
+
+  **Runtime, the reason for stopping:** unpriced cells 5.3 h of leaf-time each, the priced cell
+  85.4 h, and 95.8% of the priced time is `reord_s` -- the site drain under the evaluator. The
+  I/O half (`save_s`) is 11-12 min per cell whether priced or not; the no-index-insertion pattern
+  is in this run already. The per-family multiples: fifo 1.9x, ranked-labour 7-16x, the random
+  pair 39-59x (ticket 02). The optimization target is the drain's per-open cost, not I/O.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
