@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:041f5407cbb4d2bf04a73dc7ddc9bbeb204c358a05a79415de26e3c45e142bca",
-  "schema_short": "041f5407cbb4",
+  "schema_id": "sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13",
+  "schema_short": "99bd6249b3d5",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -289,6 +289,12 @@
       "format": "json",
       "scope": "run",
       "optional": true
+    },
+    "run_history": {
+      "path": "run_history.json",
+      "format": "json",
+      "scope": "run",
+      "optional": false
     },
     "run_layout": {
       "path": "run_layout.json",

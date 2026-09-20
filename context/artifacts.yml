@@ -102,6 +102,22 @@ artifacts:
              pace_from, n_batches, coupled, cells, no_analyze, repo_commit, repo_dirty,
              status, ended, unfinished, analysis_ran]
 
+  run_index:
+    # The cross-run LEDGER, one line per launch and one per completion, appended beside the
+    # run roots -- the PARENT of `comparison_<ts>/`, derived from the run root rather than read
+    # from `COMPARISON_OUTPUT_DIR`, so a run written elsewhere indexes itself where it landed.
+    # `run_history.json` inside each run root is the authority; this is the index over many
+    # roots without opening each one -- `scripts/run_index.py`'s `--deep` prefers that authority.
+    # Append is BEST-EFFORT (never raises); a malformed line is skipped on read, not fatal.
+    path_pattern: "<COMPARISON_OUTPUT_DIR>/run_index.jsonl"
+    format: jsonl
+    writer: {function: append_run_index, file: Optimization/runschema/sim_manifest.py}
+    readers:
+      - {function: read_run_index, file: Optimization/runschema/sim_manifest.py}
+      - {function: rows, file: scripts/run_index.py}
+    match: "run_index.jsonl"
+    fields: [event, at, run, root]
+
   run_layout:
     # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any
     # tool can INFER the tree — and analyze a partial/crashed or OLD run — without directory-guessing
