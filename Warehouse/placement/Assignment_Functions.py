@@ -1483,7 +1483,7 @@ class _TravelBalancedPool(_Pool):
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
                  '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_sel', '_led',
-                 '_pp')
+                 '_pp', '_hv')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
@@ -1602,6 +1602,11 @@ class _TravelBalancedPool(_Pool):
         self._var = self._fq = self._m_s = 0.0
         self._ab_cache: dict = {}
         self._pp: dict = {}           # per_pick per height multiplier, for the current run
+        # THE HEAD VECTOR, per aisle: `((m, D, bin), ...)` for the buckets that still have a
+        # head, in `by_aisle[aid]` order.  Var-independent, so it survives a run boundary --
+        # see `_aisle_best`, which builds an entry lazily and is the only reader.  Dropped
+        # for ONE aisle at the one site that moves a head.
+        self._hv: dict = {}
         self._sel: list = []          # (score, rank, aid) min-heap; see `take`
 
     def __len__(self):
@@ -1624,21 +1629,41 @@ class _TravelBalancedPool(_Pool):
 
         `pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value
         depends on (m, var) and not on the aisle, so a SKU run evaluates it at most once per
-        bracket instead of once per aisle per bracket.  Same call, same float."""
+        bracket instead of once per aisle per bracket.  Same call, same float.
+
+        THE HEAD VECTOR is what this reads instead of the bucket dict.  The body used to walk
+        `self._by_aisle[aid].items()` and pull `h.head` through an attribute per bracket, and
+        it is called once per live aisle at every SKU-run boundary -- ~1,400 x ~12 per open,
+        ~650,000 opens per arm, the largest single term in the gain evaluator.  The `(m, D,
+        bin)` triples it was re-extracting are invariant between head moves, so they are
+        cached per aisle and the loop is a tuple walk plus `pp[m] + D`.
+
+        The cache is var-INDEPENDENT on purpose: `var` changes at every run boundary, so a
+        cached COST would be wrong there, while the heads have not moved.  Invalidation is
+        one aisle at the one site that moves a head (`pop_top` in `take`), and that is
+        complete because bins only ever leave a pool and `_Cursor`'s exclusion set is fixed
+        for the pool's life.
+
+        Same operands in the same order, so the strict `<` keeps the same winner on an exact
+        tie, and an empty vector is the `best is None` the `continue` used to produce."""
+        hv = self._hv.get(aid)
+        if hv is None:
+            hv = self._hv[aid] = tuple(
+                (m, t[0], t[1]) for m, h in self._by_aisle[aid].items()
+                for t in (h.head,) if t is not None)
+        if not hv:
+            return None
         best = None
         if pp is None:
             pp = {}
         intercept, per_item = self._intercept, self._per_item
-        for m, h in self._by_aisle[aid].items():
-            t = h.head
-            if t is None:
-                continue
+        for m, D, b in hv:
             p = pp.get(m)
             if p is None:
                 p = pp[m] = per_pick(m, intercept, var, 1, per_item)
-            cost = p + t[0]
+            cost = p + D
             if best is None or cost < best[0]:
-                best = (cost, m, t[1])
+                best = (cost, m, b)
         return best
 
     def _score_of(self, aid, ab, sku, fq, m_s):
@@ -1749,6 +1774,10 @@ class _TravelBalancedPool(_Pool):
                               vol=(m_s if self._cart_on else None))
 
         by_aisle[best_aid][m].pop_top()
+        # THE ONE SITE THAT MOVES A HEAD, so the one site that drops a head vector.  Bins
+        # only ever leave a pool and the exclusion set is fixed for its life, so no other
+        # path can invalidate this cache -- see `_aisle_best`.
+        del self._hv[best_aid]
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
         # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
         # like the original `continue`.
