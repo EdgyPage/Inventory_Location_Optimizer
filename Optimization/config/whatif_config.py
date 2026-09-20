@@ -671,6 +671,43 @@ SPECS = {
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
     },
+    # THE TRAILER-BOUND DECISION, ASKED BEFORE THE MATRIX RATHER THAN INSIDE IT.
+    #
+    # `inbound_unload` projects at 14.9 h (measured 2026-09-20 on its own drain rate: 21.4
+    # min per unit across 12 workers, ~188 worker-hours).  The only lever with that order of
+    # magnitude is `INBOUND_TRAILER_BOUND`: `plan_order` costs T(T+1) `place_load` calls and
+    # a bound makes it k(k+1), so at the campaign's measured yard depth of ~17 a bound of 8
+    # is 306 -> 72, 4.25x on the gain evaluation -- which is 85-94% of a priced cell's wall.
+    # Every other lever measured this session is percent-level; the round that ended
+    # 2026-09-20 netted PARITY at campaign scale.
+    #
+    # It is not results-preserving, so it cannot simply be switched on.  Carried as one cell
+    # of the matrix (`k1_off_gmyopic_k8`, `679b18f6`) the answer arrives at the END of the
+    # 14.9 h run it would have shortened -- so this spec asks it FIRST, on the three cells
+    # that can answer it and nothing else:
+    #
+    #   k1_off_fifo         the reference every delta is read against
+    #   k1_off_gmyopic      the unbounded arm
+    #   k1_off_gmyopic_k8   the same policy, bounded at PHASE2_BOUND_PROBE_K
+    #
+    # READ IT AS A PAIR OF QUESTIONS, not one.  (1) What does the bound SAVE -- the priced
+    # cells' wall, side by side.  (2) What does it COST -- `gmyopic`'s gap to `fifo` on the
+    # ranking metric, bounded against unbounded.  A cheaper cell that ranks like `fifo` is
+    # not a win: it would have bought the wall with exactly the discrimination phase 2
+    # exists to measure, and THAT is a publishable finding rather than a failed probe.
+    #
+    # 3 cells x 2 rule pairs x 2 stock modes = 12 units, wall bounded by the slowest
+    # unbounded unit (~2.5-3 h), against 14.9 h for the matrix.
+    '_probe_trailer_bound': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': phase2_inbound_axis(
+            keep=('fifo', 'gmyopic', f'gmyopic_k{PHASE2_BOUND_PROBE_K}')),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'phase': 2,
+    },
     # THE BYTE-IDENTITY TOY MATRIX WITH A PRICED CELL.  `smoketest --profile tiny` runs
     # `scheduler_ab`, which has no inbound axis, so a refactor of the gain evaluator's pool
     # path (the copy-on-write views, the pool constructors' unions, the drain) could not be
