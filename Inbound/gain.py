@@ -225,7 +225,17 @@ class _Evaluator:
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
                  '_wr', '_mom', '_tiers')
 
-    def __init__(self, bundle, space, window_rates=None):
+    #: The caches that are pure functions of (space, bundle) and may therefore be SHARED
+    #: across the two rankings of one drain -- `shared` below, `DockContext.gain_cache`.
+    #: None of them stores a `_pair_cost` output, which is the clause that lets a
+    #: `futuresight` ranking share with a `gain_forecast` one: `window_rates` reaches
+    #: pricing through `_wr` alone, and every structure here is geometry or wiring (sorted
+    #: bins, frozen tiers, tier means, the worst bin of a chain, speed params, spill
+    #: chains).  `taken` and `unseated` are deliberately NOT in this list.
+    _SHARED_CACHES = ('_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
+                      '_mom', '_tiers')
+
+    def __init__(self, bundle, space, window_rates=None, shared=None):
         if not hasattr(bundle, 'for_key'):
             raise TypeError(
                 f'the evaluator resolves its arm machinery per BinKey owner and always '
@@ -245,17 +255,32 @@ class _Evaluator:
         self.taken: set = set()
         #: units priced past total exhaustion — observability, nothing reads it back.
         self.unseated = 0
-        self._sorted_now: dict = {}     # key -> bins in arm-D order (merge adapter)
-        self._sorted_pred: dict = {}
-        self._wp: dict = {}             # own BinKey -> (wp, x_pace, y_pace)
-        self._chain_cache: dict = {}    # own BinKey -> spill chain (ascending tiers)
-        self._worst: dict = {}          # chain head -> worst bin over the whole chain
-        self._mom: dict = {}            # (key, predicted, brackets) -> tier means
-        #: (key, predicted) -> the tier's candidates sorted ONCE for this evaluator (one
-        #: drain), through the bundle's `freeze_tier`; the pool adapter opens over slices
-        #: of it.  Scoped like `_sorted_now`: the space view is frozen for the drain, so
-        #: nothing here can go stale (`Warehouse/placement/frozen_tier.py`).
-        self._tiers: dict = {}
+        # THE SEVEN PURE STRUCTURES.  `shared` is the DRAIN's dict when the caller has one
+        # (`DockContext.gain_cache`), so the second ranking of a drain opens over the first
+        # ranking's tiers instead of rebuilding every one of them; a fresh dict each
+        # otherwise, which is what every test rig, the sabotage hook and the
+        # rebuild-per-candidate reference get.
+        #
+        #   _sorted_now/_sorted_pred  key -> bins in arm-D order (merge adapter)
+        #   _wp                       own BinKey -> (wp, x_pace, y_pace)
+        #   _chain_cache              own BinKey -> spill chain (ascending tiers)
+        #   _worst                    chain head -> worst bin over the whole chain
+        #   _mom                      (key, predicted, brackets) -> tier means
+        #   _tiers                    (key, predicted) -> the tier's candidates sorted ONCE
+        #                             through the bundle's `freeze_tier`; the pool adapter
+        #                             opens over slices of it
+        #
+        # Scoped by the SPACE VIEW, which is frozen for the drain, so nothing here can go
+        # stale within one (`Warehouse/placement/frozen_tier.py`).
+        if shared is None:
+            for _n in self._SHARED_CACHES:
+                setattr(self, _n, {})
+        else:
+            for _n in self._SHARED_CACHES:
+                got = shared.get(_n)
+                if got is None:
+                    got = shared[_n] = {}
+                setattr(self, _n, got)
 
     # ── the owner cursor ──────────────────────────────────────────────────────────
     @property
@@ -737,13 +762,16 @@ def _window_rates(window) -> dict:
 
 
 def plan_order(candidates, bundle, space, *, predicted: bool,
-               forced_prefix=(), window_rates=None,
+               forced_prefix=(), window_rates=None, shared=None,
                _ev: _Evaluator | None = None) -> list:
     """10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
     resolves through (`OneOwnerBundle` on a single-channel run), never a bare
     `GainBundle`.  `forced_prefix` is the urgency gate's FIFO head — consumed first,
     unscored.  `window_rates` is the futuresight entry's
-    aggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists
+    aggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the
+    DRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER
+    ranking of the same drain share the seven pure structures that
+    `_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists
     ONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure
     the test perturbs); production callers never pass it."""
     if _ev is not None and window_rates is not None:
@@ -752,8 +780,16 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
             'evaluator carries its own pricing, so the window would be silently '
             'dropped (the fake-arm hazard) — build the evaluator with window_rates '
             'instead')
+    if _ev is not None and shared is not None:
+        raise ValueError(
+            'plan_order got both a pre-built evaluator and a shared cache: the hook '
+            'evaluator carries its own structures, the ones the Tier-1 sabotage test '
+            'perturbs, and seeding it from a drain cache would hand the test back the '
+            'intact ones, so the sabotage would silently stop biting. Pass one or the '
+            'other')
     ev = _ev if _ev is not None else _Evaluator(bundle, space,
-                                                window_rates=window_rates)
+                                                window_rates=window_rates,
+                                                shared=shared)
     loads: dict = {}          # id(trailer) -> remaining planned units, derived once
 
     def _load(t):
@@ -848,7 +884,8 @@ def gain_myopic(candidates, ctx) -> list:
     """The unload plan over `ctx.space.empties` only — the predicted tier is
     invisible, so the arm's whole signal is contention for today's space."""
     bundle, space = _require(ctx, 'gain_myopic')
-    return plan_order(candidates, bundle, space, predicted=False)
+    return plan_order(candidates, bundle, space, predicted=False,
+                      shared=getattr(ctx, 'gain_cache', None))
 
 
 @ordering
@@ -856,7 +893,8 @@ def gain_forecast(candidates, ctx) -> list:
     """The unload plan with the deferral pool including `predicted` — the standing
     demand's projected clears, the next drain's pool gain."""
     bundle, space = _require(ctx, 'gain_forecast')
-    return plan_order(candidates, bundle, space, predicted=True)
+    return plan_order(candidates, bundle, space, predicted=True,
+                      shared=getattr(ctx, 'gain_cache', None))
 
 
 @ordering
@@ -872,7 +910,8 @@ def gain_gated(candidates, ctx) -> list:
               and (now - t.arrived_s) / SECONDS_PER_DAY >= due_days]
     urgent.sort(key=lambda t: (t.arrived_s, t.seq))
     return plan_order(candidates, bundle, space, predicted=True,
-                      forced_prefix=urgent)
+                      forced_prefix=urgent,
+                      shared=getattr(ctx, 'gain_cache', None))
 
 
 @ordering
@@ -893,7 +932,8 @@ def futuresight(candidates, ctx) -> list:
             '(INBOUND_FUTURESIGHT_BATCHES set, script present).  None means no feed '
             'ran; an empty window at the end of the script is (), which is legal')
     return plan_order(candidates, bundle, space, predicted=True,
-                      window_rates=_window_rates(window))
+                      window_rates=_window_rates(window),
+                      shared=getattr(ctx, 'gain_cache', None))
 
 
 # ── registration ──────────────────────────────────────────────────────────────────

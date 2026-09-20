@@ -464,6 +464,10 @@ class YardTransit(TrailerTransit):
                           free_doors=self.doors - len(self._staged),
                           yard_depth=len(self._yard))
         ctx.gain = self.gain_bundle
+        # The drain's shared gain cache, for the two rankings this ctx serves; see
+        # `DockContext.gain_cache`.  Only a gain arm has anything to put in it.
+        if self.gain_bundle is not None:
+            ctx.gain_cache = {}
         return ctx
 
     def yard_order(self, ctx: DockContext) -> list:

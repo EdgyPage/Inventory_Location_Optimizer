@@ -56,7 +56,7 @@ class DockContext:
     reason, as `put_policy`.
     """
 
-    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space', 'gain')
+    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space', 'gain', 'gain_cache')
 
     def __init__(self, doors: int, free_doors: int, yard_depth: int):
         self.doors = doors
@@ -73,6 +73,19 @@ class DockContext:
         # everywhere else — the seeded keys never read it, and a gain entry finding
         # None raises rather than quietly ranking as fifo.
         self.gain = None
+        # THE DRAIN'S SHARED GAIN CACHE — the scope object the evaluator's pure structures
+        # needed.  `yard_order` and `dock_order` both run under THIS ctx with no unloading
+        # between them, so every cache that is a pure function of (space, bundle) was being
+        # built twice per drain: the frozen tiers above all (`FrozenTier.__init__` sorts
+        # tens of thousands of bins per key).  A dict here is built once per drain, read by
+        # both rankings, and dies with the drain, so nothing can go stale across drains.
+        #
+        # NEVER the greedy's own state.  `taken` and `unseated` stay per-evaluator: carried
+        # from the yard ranking into the dock ranking they would start it with the yard's
+        # virtual placements consumed, which is not a tie-break but a different price on
+        # every candidate.  Two drain-frozen rankings; neither may see the other's virtual
+        # state.  `Inbound.gain._Evaluator._SHARED_CACHES` names exactly what rides here.
+        self.gain_cache = None
 
 
 def _fifo_trailer(trailer, ctx) -> float:

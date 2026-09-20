@@ -1017,6 +1017,102 @@ def test_entry_through_yard_order_is_pure_and_permutes():
     assert _seqs(tr.yard_order(ctx)) == [1, 0]
 
 
+def _drain_pair(policy='gain_forecast'):
+    """A drain the way the manager runs one: a `YardTransit` carrying a gain policy on
+    BOTH knobs, one `freeze_ctx`, and the two rankings that ctx serves with no unloading
+    between them.  Returns (transit, ctx, trailers)."""
+    cold, hot, view = _contention_pair()
+    tr = YardTransit(doors=2, yard_policy=policy, dock_policy=policy)
+    tr.gain_bundle = _bundle()
+    tr._yard.extend([cold, hot])
+    tr._staged.extend([cold, hot])
+    ctx = tr.freeze_ctx()
+    ctx.space = view
+    return tr, ctx, (cold, hot)
+
+
+def test_the_drain_shares_its_pure_structures_across_both_rankings():
+    """`yard_order` and `dock_order` run under ONE frozen ctx with no unloading between
+    them, so every structure that is a pure function of (space, bundle) was being built
+    twice per drain.  They now ride `ctx.gain_cache`; the second ranking must build
+    nothing.
+
+    Counted on `_Evaluator._tier_sorted`'s actual SORT, which is what the merge adapter
+    spends the drain on, and the twin with the cache switched off is what makes the
+    count mean something."""
+    builds = []
+    real = _Evaluator._tier_sorted
+
+    def counting(self, key, xk, yk, predicted):
+        cache = self._sorted_pred if predicted else self._sorted_now
+        if key not in cache:
+            builds.append((key, predicted))
+        return real(self, key, xk, yk, predicted)
+
+    tr, ctx, _ = _drain_pair()
+    try:
+        _Evaluator._tier_sorted = counting
+        tr.yard_order(ctx)
+        after_yard = len(builds)
+        tr.dock_order(ctx)
+        shared_total = len(builds)
+
+        # The twin: the same drain with no cache to share through.
+        tr2, ctx2, _ = _drain_pair()
+        ctx2.gain_cache = None
+        builds.clear()
+        tr2.yard_order(ctx2)
+        tr2.dock_order(ctx2)
+        unshared_total = len(builds)
+    finally:
+        _Evaluator._tier_sorted = real
+
+    assert after_yard > 0, (
+        'the yard ranking sorted no tier at all — the scene is degenerate and every '
+        'assertion below would hold vacuously')
+    assert shared_total == after_yard, (
+        f'the dock ranking rebuilt {shared_total - after_yard} tier(s) the yard '
+        f'ranking had already sorted — ctx.gain_cache is not reaching the evaluator')
+    assert unshared_total == 2 * after_yard, (
+        f'without the shared cache the drain builds {unshared_total} where the yard '
+        f'ranking alone builds {after_yard}: the halving is the whole point, and a '
+        f'ratio that is not 2 means this scene cannot demonstrate it')
+
+
+def test_the_drain_cache_never_carries_the_greedys_own_state():
+    """`taken` and `unseated` stay per-evaluator.  Carried from the yard ranking into
+    the dock ranking they would start it with the yard's virtual placements consumed —
+    not a tie-break, a different price on every candidate."""
+    tr, ctx, _ = _drain_pair()
+    tr.yard_order(ctx)
+    assert set(ctx.gain_cache) == set(_Evaluator._SHARED_CACHES), (
+        f'the drain cache holds {sorted(set(ctx.gain_cache) - set(_Evaluator._SHARED_CACHES))} '
+        f'beyond the declared pure structures')
+    assert 'taken' not in ctx.gain_cache and 'unseated' not in ctx.gain_cache
+
+    # The dock ranking must be the one it would be with a virgin cache: same result,
+    # and a fresh `taken` rather than the yard ranking's.
+    shared_dock = _seqs(tr.dock_order(ctx))
+    tr2, ctx2, _ = _drain_pair()
+    ctx2.gain_cache = None
+    tr2.yard_order(ctx2)
+    assert shared_dock == _seqs(tr2.dock_order(ctx2)), (
+        'sharing the drain cache moved the dock ranking — something that is not a pure '
+        'function of (space, bundle) leaked across the two rankings')
+
+
+def test_the_sabotage_hook_refuses_a_shared_cache():
+    """The Tier-1 hook hands `plan_order` its OWN pre-warmed evaluator, whose sorted
+    structure the sabotage test perturbs.  Seeding that evaluator from a drain cache
+    would hand the test back the intact structures and the sabotage would silently stop
+    biting — the same fake-arm hazard the `window_rates` guard beside it exists for."""
+    cold, hot, view = _contention_pair()
+    bundle = _bundle()
+    ev = _Evaluator(bundle, view)
+    with pytest.raises(ValueError, match='shared cache'):
+        plan_order([cold, hot], bundle, view, predicted=False, _ev=ev, shared={})
+
+
 def _pool_bundle(orders, live_ass, live_ais, live_ads, expect=False):
     """(bundle, factory_calls, heads_calls) — the two counters guard against silent
     fallback to the merge adapter / a dead expectation branch (asserts inside an
