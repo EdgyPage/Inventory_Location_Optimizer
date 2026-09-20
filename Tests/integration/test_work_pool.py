@@ -79,6 +79,77 @@ def _pool(n, books=None, **kw):
                        on_failure=books.on_failure, **kw), books
 
 
+# ── a finished worker must not hold its slot while units wait ─────────────────────────
+
+def test_a_finished_job_frees_its_slot_only_when_the_pool_is_pumped():
+    """`_futures` shrinks ONLY in `absorb`, and `_pump`'s gate is
+    `len(_futures) < max_workers` -- so a worker that has finished still occupies its slot
+    until someone absorbs.  The driver absorbs once a cell, AFTER building that cell's
+    units, so every unit that landed during a multi-minute cell setup left its worker idle
+    with units queued.  Measured on the phase-2 campaign 2026-09-20: 18.1 minutes at
+    `10 running, 12 queued`.
+
+    `WorkPool.pump` is what a long parent-side step calls.  This pins both halves: the slot
+    stays held while nobody pumps (or the fix would be untestable), and one pump refills it.
+    """
+    pool, books = _pool(2)
+    gate = threading.Event()
+
+    def _blocks(payload):
+        gate.wait(timeout=20)
+        return payload['key']
+
+    with pool:
+        # Two blockers fill the pool; a third job waits behind them.
+        pool.submit('c1', _jobs('c1', ('a', 'b'), fn=_blocks))
+        pool.submit('c1', _jobs('c1', ('c',)))
+        assert len(pool._futures) == 2 and len(pool._pending) == 1, (
+            f'expected the pool full with one waiting, got in_flight={len(pool._futures)} '
+            f'queued={len(pool._pending)}')
+
+        gate.set()                                   # both blockers finish
+        for _ in range(200):                         # let the worker threads actually exit
+            if all(f.done() for f in list(pool._futures)):
+                break
+            time.sleep(0.01)
+        assert len(pool._futures) == 2 and len(pool._pending) == 1, (
+            'the two jobs have FINISHED but their slots must still read as occupied until '
+            'something absorbs -- if this fails the pool books completions by itself and '
+            'the pump below is testing nothing')
+
+        assert pool.pump() is True
+        assert len(pool._pending) == 0, (
+            f'after a pump the waiting job must be dispatched; queued={len(pool._pending)}. This '
+            f'is the whole defect: a parent busy building the next cell left finished '
+            f'workers idle with work queued')
+        pool.drain()          # the driver's own tail; `__exit__` deliberately does not wait
+    assert sorted(k for _c, k in books.ok) == ['a', 'b', 'c'], (
+        'the pumped job must still finish and be booked like any other -- a pump that '
+        'dispatched work the pool then lost would be worse than the idleness it fixes')
+
+
+def test_the_setup_loop_hands_the_pool_its_own_pump():
+    """The fix is only real if the DRIVER passes it: `_run_cells` builds each cell's units
+    with `pump=pool.pump`, so the long parent-side steps can refill. A signature that
+    drifted apart from the call site would leave the pump dead and nothing else would
+    notice."""
+    import inspect
+
+    from Optimization.simdriver import scenario as _scn
+    from Optimization.simdriver import workunits as _wu
+
+    src = inspect.getsource(_scn._run_cells)
+    assert 'pump=pool.pump' in src, (
+        'the setup loop no longer hands the pool its own pump, so every unit that lands '
+        'during a cell setup will sit on a held slot until the next cell is built')
+    assert 'pump' in inspect.signature(_wu._build_work_units).parameters, (
+        '_build_work_units stopped accepting a pump; the driver above is passing one into '
+        'nothing')
+    assert 'pump' in inspect.signature(_wu._prepare_site_run).parameters, (
+        'the per-leaf prepare -- the longest uninterrupted stretch of a cell setup -- '
+        'stopped accepting a pump')
+
+
 # ── cross-cell concurrency: the property a cell-serial pool cannot have ────────────────
 
 def test_jobs_of_different_cells_run_side_by_side():

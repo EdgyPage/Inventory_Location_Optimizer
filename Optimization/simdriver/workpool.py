@@ -472,6 +472,29 @@ class WorkPool:
             self._after_absorb()
         return not self.broke
 
+    def pump(self) -> bool:
+        """Book what has finished and REFILL -- for a caller about to go away for minutes.
+
+        `_futures` only shrinks in `absorb`, and `_pump`'s gate is
+        `len(self._futures) < max_workers`, so a worker that FINISHED still holds its slot
+        until someone absorbs.  The driver absorbs once a cell, after building that cell's
+        units, so every unit that landed during a multi-minute cell setup left its worker
+        idle WITH UNITS QUEUED.  Measured on the phase-2 campaign 2026-09-20: 18.1 minutes
+        at `10 running, 12 queued`, ~1.4 idle worker-hours across the setup phase, on top of
+        the 4.2 the pre-unit freeze costs structurally.
+
+        So the long parent-side steps call this.  It is `absorb` under a name that says why
+        the caller is calling it, and it is deliberately NOT a timer thread: the pool is
+        parent-thread-only by design and a thread would need a lock around every mutation,
+        which is a poor trade for a few worker-hours on a twelve-hour run.
+
+        Safe from inside a cell's setup: the cell being built has submitted nothing, so
+        nothing it owns can settle underneath it, and the settle handler is idempotent.
+        Returns False once the pool is broken -- the supervisor already handles that, and a
+        caller deep in setup ignores it.
+        """
+        return self.absorb()
+
     def drain(self) -> bool:
         """Absorb until nothing is pending or in flight, or the pool breaks."""
         while not self.broke and (self._futures or self._pending):

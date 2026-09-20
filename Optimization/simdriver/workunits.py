@@ -563,7 +563,7 @@ _SITE_CREW_KEYS = ('put_crew', 'recv_crew')
 
 def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
                       log: logging.Logger, workers: int = 1,
-                      resume_granularity: str = 'strategy') -> tuple[list, list]:
+                      resume_granularity: str = 'strategy', pump=None) -> tuple[list, list]:
     """Pre-initialise ONE pair's COUPLED runs: two channel leaves per work unit.
 
     `_prepare_channel_run` survives unforked and is called once per channel (site-dock 02
@@ -611,6 +611,11 @@ def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
                                         coupled=True)
         leaves.append((_config_name(cfg), ch, _sa))
         skeletons.extend(_sk)
+        # Each leaf's prepare builds its run dir, batch stream and DB -- minutes of parent
+        # work with the pool unable to refill (`WorkPool.pump`).  Between the two, not after
+        # both, because this loop is the longest uninterrupted stretch of a cell's setup.
+        if pump is not None:
+            pump()
 
     (_cfg_s, _ch_s, _sa_s), (_cfg_f, _ch_f, _sa_f) = leaves
     # THE DIAGONAL BY RANK. Both channels sweep an ORDERED arm list (`strategies_for`), and a
@@ -1336,7 +1341,8 @@ def _stamp_site_identity(ua: dict, label: str, cfg_names: dict) -> tuple:
 
 
 def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers,
-                      skip_completed, resume_granularity, mid_flight=False, failed=None):
+                      skip_completed, resume_granularity, mid_flight=False, failed=None,
+                      pump=None):
     """(Re-)prepare all work units from on-disk state.
 
     `failed`, when a list is handed in, collects the tag of every leaf or coupled pair whose
@@ -1377,6 +1383,11 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
         # can never have its warehouse reproduced from its catalogue again.  Under the era the
         # line above already wrote it, and this is a no-op.
         _record_coverage(base_dir, label, shared.get('coverage'), log)
+        # The staffing derivation above is minutes of PARENT work, and finished workers hold
+        # their slots until someone absorbs (`WorkPool.pump`).  One call here, one between the
+        # two channel prepares below.
+        if pump is not None:
+            pump()
         # THE COUPLED PAIR.  One work unit finalizes two channel leaves, so the site's dock,
         # receiving crew and putters are fielded ONCE rather than once per leaf.  Declared per
         # run (`couple_channels`), never inferred: site-dock 06 couples every cell of the
@@ -1412,7 +1423,7 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
             try:
                 unit_args, sim_skeletons = _prepare_site_run(
                     channel_runs, mixed, shared, pair_dir, log, workers=max_workers,
-                    resume_granularity=resume_granularity)
+                    resume_granularity=resume_granularity, pump=pump)
             except Exception as exc:
                 log.error(f'  [{label}/coupled] prepare FAILED: {exc}', exc_info=True)
                 if failed is not None:

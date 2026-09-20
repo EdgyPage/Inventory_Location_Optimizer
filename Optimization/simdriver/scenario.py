@@ -136,7 +136,7 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
     # count changes no byte (`Tests/e2e/test_batch_precompute.py`, serial == parallel).
     precompute_workers = max(1, (os.cpu_count() or 1) - int(workers or 1))
 
-    def _units(cell, log_queue, *, mid_flight=False):
+    def _units(cell, log_queue, *, mid_flight=False, pump=None):
         """This cell's `(units, meta)`, under its scope, over its kept assets."""
         scenario_base = _cell_dir(base_dir, cell)
         failed: list = []
@@ -148,7 +148,8 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
                 pairs, scenario_base, kept[cell.name], log, log_queue, precompute_workers,
                 # `skip_completed` on a resume AND on a mid-flight rebuild.
                 skip_completed=(skip_completed or mid_flight),
-                resume_granularity=resume_granularity, mid_flight=mid_flight, failed=failed)
+                resume_granularity=resume_granularity, mid_flight=mid_flight, failed=failed,
+                pump=pump)
         for shared in kept[cell.name].values():
             shared.pop('affinity_store', None)        # 41 MB per pair, unread from here on
         if failed:
@@ -201,7 +202,7 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
         pool.set_phase('simulate', cells_expected=n_cells)
         for ci, cell in enumerate(cells, start=1):
             try:
-                units, meta = _units(cell, pool.log_queue)
+                units, meta = _units(cell, pool.log_queue, pump=pool.pump)
             except Exception as exc:                   # noqa: BLE001 -- reported, never unwound
                 log.error(f'  [{cell.name}] cell setup FAILED: {exc}', exc_info=True)
                 unfinished.setdefault(cell.name, []).append(('setup',))
