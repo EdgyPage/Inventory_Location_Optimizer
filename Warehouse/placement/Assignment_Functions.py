@@ -2010,12 +2010,12 @@ class _MinLaborPool(_Pool):
     iterates CSR column order unconditionally and must keep doing so.
 
     The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) is rebuilt at the run
-    boundary and carries a `_sel` HEAP alongside it, one entry per live aisle, ordered
-    `(fq*bc, rank)`.  The winner's `bc` is refreshed EAGERLY at the end of the take that
-    moved it -- the retired lazy refresh repaired it on the next unit instead, which a heap
-    cannot do, because between the two a stale entry would be popped in the wrong place.  A
-    unit that finds no bin still leaves nothing stale: it pushes its held-out entry back
-    unchanged.
+    boundary and carries `_sel` alongside it: one entry per live aisle, SORTED by
+    `(fq*bc, rank)` and read front-to-back without being consumed.  `take` walks a prefix of
+    it until the affinity prune fires, so the structure has to survive the walk -- see the
+    selection block for why that rules out a heap.  The winner's `bc` is refreshed EAGERLY
+    at the end of the take that moved it, and its one entry is bisected out and reinserted;
+    a unit that finds no bin leaves the list untouched, because the walk never wrote to it.
     """
 
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
@@ -2208,7 +2208,10 @@ class _MinLaborPool(_Pool):
                     # selection block.  Ranks come from one `enumerate(by_aisle_brkt)` and
                     # never move, so an aisle's rank is the same integer wherever it is read.
                     sel.append(((-(fq * bc) if maximize else fq * bc), i, aid))
-            heapq.heapify(sel)                  # O(A) at C level, no key function
+            # SORTED, not heapified.  See the selection block in `take` for why a heap is
+            # the wrong structure for this pool: one `sort` of plain tuples here, with no
+            # key function, and the list is then read front-to-back without being consumed.
+            sel.sort()
             self._sel = sel
             self._bc_by_aid = bc_by_aid
             self._row = _partner_row(self._aff, sku)
@@ -2223,30 +2226,37 @@ class _MinLaborPool(_Pool):
         # minimise: ascending fq*bc, prune once base - max_reward >= best (reward can't save
         # it).  maximise: descending fq*bc, prune once base <= best (reward only lowers it).
         #
-        # THIS WAS A FULL SORT, PER UNIT.  `sorted(bc_by_aid, key=lambda a: fq*bc_by_aid[a])`
-        # ran ~1,400 lambda calls and ~14,700 comparisons on every placement, while the loop
-        # below usually breaks after a handful because the prune fires -- and within a SKU
-        # run only the WINNER's `bc` moves, which is exactly the one-entry update a heap does
-        # cheaply.  It is the same conversion `_TravelBalancedPool.take` already made.
+        # THIS WAS A FULL SORT, PER UNIT -- `sorted(bc_by_aid, key=lambda a: fq*bc_by_aid[a])`,
+        # ~1,400 lambda calls and ~14,700 comparisons on every placement, when within a SKU
+        # run only the WINNER's `bc` ever moves.  `self._sel` is that order, sorted ONCE at
+        # the run boundary and repaired one entry at a time.
         #
-        # BYTE-IDENTICAL, on two clauses rather than on hope.  (1) `sorted(key=...)` is
+        # A SORTED LIST, AND NOT A HEAP, BECAUSE OF WHAT THIS LOOP DOES.  It walks a PREFIX
+        # of unknown length until the affinity prune fires; it does not extract a minimum.
+        # A heap can only be read in order by destroying it, so a deep walk costs a full
+        # drain and a full rebuild -- and that is not hypothetical: converted to a heap on
+        # 2026-09-20 this pool ran 28% SLOWER at 400k SKUs on a `uni_` warehouse, where the
+        # aisles are uniformly filled, an affinity row finds most of its partners placed,
+        # and `max_reward` swamps the spread of `fq*bc` so the prune never fires.  The
+        # sibling `_TravelBalancedPool` DOES extract exactly one minimum per take, which is
+        # why a heap is right there and wrong here; the two are not the same conversion.
+        #
+        # A list is at least as good in every regime: the walk reads tuples with no calls at
+        # all (against one `heappop` each), and the repair is one `bisect` delete plus one
+        # `insort` -- two memmoves of a few KB -- against a drain and a rebuild.
+        #
+        # BYTE-IDENTICAL, on two clauses rather than on hope.  (1) `sorted(key=...)` was
         # stable, so equal `fq*bc` kept `bc_by_aid` insertion order, which is
-        # `by_aisle_brkt` order; the heap carries that order as an explicit rank, and ranks
+        # `by_aisle_brkt` order; the list carries that order as an explicit rank, and ranks
         # are unique, so `(key, rank)` is a strict total order reproducing the stable sort.
-        # (2) The prune breaks on the same test at the same point because the heap yields
-        # the aisles in the same sequence -- so the aisles VISITED, and the `self._better`
+        # (2) The prune breaks on the same test at the same point because the list yields
+        # the aisles in that same sequence -- so the aisles VISITED, and the `self._better`
         # first-wins-on-ties among them, are unchanged.
-        #
-        # The heap holds exactly one entry per key of `bc_by_aid` and nothing stale: what is
-        # popped here is pushed back below, except the winner, which is re-pushed at the tail
-        # with the bc its own placement just changed.
         sel = self._sel
-        popped = []
         best_aid = None
         best_score = None
-        while sel:
-            ent = heapq.heappop(sel)
-            popped.append(ent)
+        win_ent = None
+        for ent in sel:
             aid = ent[2]
             base = fq * bc_by_aid[aid]
             if best_score is not None:
@@ -2268,17 +2278,9 @@ class _MinLaborPool(_Pool):
                 delta = 0.0
             score = base - lam * delta
             if best_score is None or self._better(score, best_score):
-                best_score, best_aid = score, aid
-        # Everything visited goes back, so the heap keeps exactly one current entry per key
-        # of `bc_by_aid`.  The winner is held out: its `bc` is about to move, and it is
-        # re-pushed at the tail once `_drop` has moved it.
-        for ent in popped:
-            if ent[2] != best_aid:
-                heapq.heappush(sel, ent)
+                best_score, best_aid, win_ent = score, aid, ent
         if best_aid is None:
             return None, None
-        win_ent = popped[-1] if popped[-1][2] == best_aid else next(
-            e for e in popped if e[2] == best_aid)
 
         # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst
         # max-D per height band), with the centroid term pulling toward (min) or away from
@@ -2307,10 +2309,9 @@ class _MinLaborPool(_Pool):
             if cbest is None or self._better(cost, cbest):
                 cbest, chosen, chosen_m = cost, b, m
         if chosen is None:
-            # Nothing moved, so the winner's entry is still current -- put it back unchanged.
-            # This mirrors the retired `_last_winner` refresh, which stayed None on this path
-            # and so left the cached bc alone until the next run boundary.
-            heapq.heappush(sel, win_ent)
+            # Nothing moved, so the winner's entry is still current and `sel` was never
+            # disturbed -- the walk above only READ it.  This is where the heap had to push
+            # back what it had popped; a list has nothing to undo.
             return None, None
         # THE ONE SITE THAT MOVES A BIN, so the one that asks for a WRITABLE bucket:
         # over a shared template `_writer` clones this bucket's cursor so the template
@@ -2323,12 +2324,23 @@ class _MinLaborPool(_Pool):
         # value is the same wherever it is computed -- and doing it here is what lets the
         # heap hold no stale entry at any point.
         bc = self._aisle_best_cost(best_aid, var, self._pp)
+        # THE ONE-ENTRY REPAIR.  `win_ent` is in `sel` and the list is sorted, so its
+        # position is a binary search; entries are unique because the rank is, so the search
+        # lands on it exactly.  A mismatch means the list stopped being sorted, which would
+        # mis-price silently -- it raises instead, the way `_check_tier` does.
+        i = bisect.bisect_left(sel, win_ent)
+        if i >= len(sel) or sel[i] is not win_ent:
+            raise RuntimeError(
+                f'the min-labor pool\'s aisle order is no longer sorted: {win_ent!r} is not '
+                f'at its own bisect position {i}. Every write to it goes through this one '
+                f'site, so this means the order key moved without the list being repaired')
+        del sel[i]
         if bc is None:
             bc_by_aid.pop(best_aid, None)       # exhausted: it leaves both books together
         else:
             bc_by_aid[best_aid] = bc
-            heapq.heappush(sel, ((-(fq * bc) if maximize else fq * bc),
-                                 win_ent[1], best_aid))
+            bisect.insort(sel, ((-(fq * bc) if maximize else fq * bc),
+                                win_ent[1], best_aid))
 
         if sku not in self._ass[best_aid]:
             self._led.add_sku(best_aid, sku, demand=fq)

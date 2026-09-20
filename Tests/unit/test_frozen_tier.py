@@ -464,6 +464,83 @@ def test_a_cursor_clone_is_independent_and_leaves_its_source_alone():
     assert len(cur) == len(bins) - 1 and len(clone) == len(bins) - 2
 
 
+# -- the min-labor pool's aisle order: one sorted list, repaired one entry at a time ---
+
+def _check_sel(pool, fq, where):
+    """`_sel` is sorted by `(key, rank)` and holds exactly the live aisles, with the key
+    each one's CURRENT `fq*bc`.  Every claim `take` makes about its prefix walk rests on
+    this, and nothing else in the pool re-derives it."""
+    sel = pool._sel
+    assert sel == sorted(sel), f'{where}: the aisle order is not sorted'
+    assert len(sel) == len(set(e[2] for e in sel)), f'{where}: an aisle appears twice'
+    assert set(e[2] for e in sel) == set(pool._bc_by_aid), (
+        f'{where}: the order and the cost book name different aisles')
+    for key, _rank, aid in sel:
+        want = fq * pool._bc_by_aid[aid]
+        want = -want if pool._maximize else want
+        assert key == want, (
+            f'{where}: aisle {aid} is filed under {key!r} but its current cost is {want!r}')
+
+
+@pytest.mark.parametrize('seed', [51, 52, 53, 54, 55, 56])
+@pytest.mark.parametrize('maximize', [False, True])
+def test_the_min_labor_aisle_order_stays_sorted_through_a_whole_drive(seed, maximize):
+    """The pool walks a PREFIX of `_sel` until the affinity prune fires and then repairs the
+    one entry its take moved (bisect out, insort back).  That is only correct while the list
+    is sorted, and the walk itself never checks -- so this does, after every take.
+
+    A heap was tried here on 2026-09-20 and reverted: reading a heap in order means
+    destroying it, so a walk that does not prune early cost a full drain plus a full rebuild
+    (28% slower at 400k SKUs on a `uni_` warehouse).  A list survives being read, which is
+    the whole reason it is the right structure -- and this test is what makes that safe.
+    """
+    rng = random.Random(seed)
+    bins = _bins(rng)
+    units, orders, skus = _units(rng)
+    aff, idx = _aff(skus + [99], [(1, 2, 4.0), (1, 99, 6.0), (2, 3, 2.5), (3, 4, 3.0)])
+    fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
+    qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
+    fbi = {idx[s]: fbs[s] for s in skus}
+    fbi[idx[99]] = 0.8
+    st = _state_ml(range(1, 6))
+    st['ss'][2].add(1)
+    st['ii'][2].add(idx[1])
+    st['mp'][2][idx[1]].append(12.0)
+    tier = _tier(bins, _wp())
+    excl = _exclusion(rng, bins, all_of_first_aisle=(seed % 2 == 0))
+    pool = af._MinLaborPool(tier.slice(excl), aff, _wp(), st['ss'], st['ii'], st['dd'],
+                            st['mp'], fbi, fbs, qbs, 0.5, maximize=maximize)
+    seated = 0
+    for u in pool.order(list(units)):
+        b, _score = pool.take(u)
+        seated += b is not None
+        fq = fbs.get(u.order.sku, 0.0) * qbs.get(u.order.sku, 0.0)
+        _check_sel(pool, fq, f'after {u.order.sku}')
+    assert seated, 'the pool seated nothing, so no repair was ever exercised'
+
+
+def test_a_broken_aisle_order_raises_rather_than_mispricing():
+    """The repair bisects for the winner's own entry.  If the order stopped being sorted,
+    a binary search would land somewhere else and the pool would quietly delete the wrong
+    aisle -- so it checks and raises, the way `_check_tier` does at a pool open."""
+    rng = random.Random(7)
+    bins = _bins(rng)
+    units, orders, skus = _units(rng)
+    aff, idx = _aff(skus, [])
+    fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
+    qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
+    st = _state_ml(range(1, 6))
+    pool = af._MinLaborPool(bins, aff, _wp(), st['ss'], st['ii'], st['dd'], st['mp'],
+                            {}, fbs, qbs, 0.5)
+    ordered = pool.order(list(units))
+    pool.take(ordered[0])                       # builds the run and its order
+    assert len(pool._sel) > 2, 'need a few live aisles to scramble'
+    pool._sel.reverse()                         # the sabotage: no longer sorted
+    with pytest.raises(RuntimeError, match='no longer sorted'):
+        for u in ordered[1:]:
+            pool.take(u)
+
+
 def test_the_fixtures_actually_plant_ties_and_reorderings():
     """Non-vacuity: at least one seed excludes the first bin of the first-appearing aisle
     so the filtered aisle order differs, and the bin grid carries D ties across aisles."""
