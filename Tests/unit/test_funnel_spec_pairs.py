@@ -514,8 +514,12 @@ def test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too(monkeypatc
 # -- phase 2 as reframed: unloading policies under ONE rule pair ---------------------------
 
 def test_the_unload_spec_carries_the_winner_and_the_rider_and_nothing_else():
-    """10 cells x 2 pairs x 2 stock modes = 40 units, not the 120 of the factorial.  The
-    winner is PHASE2_PAIRS[0] read off the constant, never typed twice."""
+    """11 cells x 2 pairs x 2 stock modes = 44 units, not the 120 of the factorial.  The
+    winner is PHASE2_PAIRS[0] read off the constant, never typed twice.
+
+    The eleventh is the trailer-bound probe, added 2026-09-20.  The count is pinned rather
+    than derived on purpose: a cell silently entering or leaving this matrix changes what
+    `run_unload_ranking` ranks, and the campaign is ~13 h."""
     spec = SPECS['inbound_unload']
     assert rule_pairs_of(spec) == (tuple(wc.PHASE2_WINNER), wc.PHASE2_RIDER)
     assert tuple(wc.PHASE2_WINNER) == tuple(wc.PHASE2_PAIRS[0])
@@ -525,9 +529,29 @@ def test_the_unload_spec_carries_the_winner_and_the_rider_and_nothing_else():
     from Optimization.simdriver import cells as c
     built = c._build_cells(get_spec('inbound_unload'))
     names = [x.name for x in built]
-    assert len(names) == 10 and 'k1_off_fifo' in names and 'k1_off_inb_off' in names
+    assert len(names) == 11 and 'k1_off_fifo' in names and 'k1_off_inb_off' in names
     assert c.reference_cell(built) == 'k1_off_fifo'
     assert 'inbound_unload' in _PAIR_SPECS
+
+
+def test_the_trailer_bound_probe_is_a_pair_and_only_the_bound_differs():
+    """The probe is `gmyopic_k8` against `gmyopic`: one policy, one knob.  If any OTHER key
+    differed the cost saving and the gap change could not be attributed to the bound, which
+    is the only thing the probe is for."""
+    axis = dict(wc.phase2_inbound_axis())
+    bounded = f'gmyopic_k{wc.PHASE2_BOUND_PROBE_K}'
+    assert bounded in axis, (
+        f'the bounded arm of the trailer-bound probe is missing; the axis builds '
+        f'{sorted(axis)}')
+    free, cut = axis['gmyopic'], axis[bounded]
+    assert free['trailer_bound'] is None, (
+        'the unbounded arm must state its bound rather than inherit it -- the pair would '
+        'otherwise depend on a remembered command line')
+    assert cut['trailer_bound'] == wc.PHASE2_BOUND_PROBE_K
+    differ = {k for k in set(free) | set(cut) if free.get(k) != cut.get(k)}
+    assert differ == {'trailer_bound'}, (
+        f'the probe pair differs in {sorted(differ)}, so a cost or rank change could not '
+        f'be attributed to the bound')
 
 
 def test_the_axis_keep_filter_subsets_and_refuses_a_name_it_does_not_build():

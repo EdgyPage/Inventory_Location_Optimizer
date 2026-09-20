@@ -379,12 +379,26 @@ PHASE2_RUN_DEFAULTS = {
 #: test, not a cell) and H >= the threshold collapses it toward FIFO.
 PHASE2_H_MULTIPLES = (0.25, 0.5, 1.0)
 
+#: THE TRAILER-BOUND PROBE, in trailers.  `INBOUND_TRAILER_BOUND` is the dock's `k_cap`
+#: analog -- `bounded_order` composes it BOUND-FIRST for an `@ordering` entry, so a gain
+#: plan is computed over the k longest-waiting trailers only and the remainder follows in
+#: arrival order.  The evaluator's cost is T(T+1) leave-one-out placements, so k=8 against
+#: the campaign's mean yard depth of ~17 (max 25) is ~4.5x cheaper, and at the max ~9x.
+#:
+#: IT IS NOT RESULTS-PRESERVING, which is why it is a probe cell and not a setting.  If
+#: only 8 of 25 trailers are reordered, every gain family moves toward `fifo` and phase 2
+#: may stop separating them -- the saving would have been bought with the discrimination
+#: the campaign exists to measure.  The matrix-wide value is decided on this cell's
+#: evidence against its unbounded twin, never assumed.
+PHASE2_BOUND_PROBE_K = 8
+
 
 def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
                         lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD,
                         doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM,
                         finite_w=PHASE2_FINITE_W,
                         h_multiples=PHASE2_H_MULTIPLES,
+                        bound_probe_k=PHASE2_BOUND_PROBE_K,
                         keep=None):
     """The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), …].
 
@@ -440,7 +454,12 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
               lead_minutes=lead_minutes,
               lead_spread=lead_spread, standing_yard=True,
               fee_threshold_days=threshold_days,
-              urgency_horizon_days=0.0, futuresight_batches=None)
+              urgency_horizon_days=0.0, futuresight_batches=None,
+              # UNBOUNDED is stated rather than inherited, because it is one half of the
+              # probe below: `gmyopic` IS the unbounded arm of that pair, and a cell that
+              # inherited the run-level value would make the comparison depend on a
+              # remembered command line.  See `PHASE2_BOUND_PROBE_K`.
+              trailer_bound=None)
 
     def _policy(name, **over):
         return {**on, 'yard_policy': name, 'dock_policy': name, **over}
@@ -466,6 +485,15 @@ def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
     # `door_team` clears here for the same reason `lead_spread` does: it is the standing
     # yard's knob and `inbound_spec()` refuses it without the flag, so an anchor inheriting
     # the cap would raise at spec build rather than run.
+    # THE TRAILER-BOUND PROBE'S BOUNDED ARM.  Its unbounded twin is the `gmyopic` cell
+    # above -- the same policy, the same frozen warehouse, the same rule pairs, the same
+    # run defaults -- so the pair is comparable by construction and no duplicate cell is
+    # run to prove it: `bounded_order` slices `candidates[:cut]` with
+    # `cut = len(candidates) if bound is None`, so an explicitly-unbounded twin would be
+    # the same code path over the same list, byte for byte.  Read the pair as cost saved
+    # AND gap-to-`fifo` retained; a cheaper cell that ranks like `fifo` is not a win.
+    axis.append((f'gmyopic_k{bound_probe_k}',
+                 _policy('gain_myopic', trailer_bound=bound_probe_k)))
     axis.append(('inb_off', {**on, 'trailer_type': None, 'standing_yard': False,
                              'door_team': None,
                              'lead_minutes': 0.0, 'lead_spread': 0.0,
@@ -607,9 +635,11 @@ SPECS = {
     # `inbound_policies` above multiplied the axes (10 cells x 6 pairs x 2 stock modes = 120
     # coupled units) for a signal that lives only in the yard family's tail; it was stopped
     # after three cells (`.scratch/phase-2-campaign/map.md`).  This spec asks the unloading
-    # question alone: the same ten cells, phase 1's WINNER (`PHASE2_WINNER`) plus the mandatory
-    # `fifo` rider, both stock modes -- 10 x 2 x 2 = 40 units, 24 with a bench pre-screen
-    # (`keep=`).  Scored by `run_unload_ranking` on total site labour, tie-broken by yard
+    # question alone: the ten policy cells, phase 1's WINNER (`PHASE2_WINNER`) plus the
+    # mandatory `fifo` rider, both stock modes -- plus, since 2026-09-20, the trailer-bound
+    # probe cell (`PHASE2_BOUND_PROBE_K`), so 11 x 2 x 2 = 44 units.  The probe rides the
+    # campaign rather than a run of its own because its whole question is comparative and
+    # its unbounded twin is the `gmyopic` cell HERE, over this run's frozen warehouse.  Scored by `run_unload_ranking` on total site labour, tie-broken by yard
     # overage; phase 3 (`inbound_confirm`, registered once the chosen cells are copied in)
     # crosses the best three of each.
     #
