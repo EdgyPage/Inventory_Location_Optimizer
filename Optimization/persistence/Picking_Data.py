@@ -386,9 +386,14 @@ _CREATE_BATCH_STATS = """
         free_bins              INTEGER NOT NULL DEFAULT 0,
         -- ── what the planned demand owes the current placement ───────────────────
         -- SCORE: the pick seconds the run's PLANNED batches would cost served from where
-        -- the stock stands at this batch -- `Inventory_Manager.pick_owed`, the same
-        -- `per_pick` arithmetic as the `optimal_work` floor on `simulation_runs`, so the
-        -- two divide.  A placement score, NOT a flow: do not sum it across batches.
+        -- the stock stands at this batch -- `Inventory_Manager.pick_owed`.  A placement
+        -- score, NOT a flow: do not sum it across batches.
+        --
+        -- IT DOES NOT DIVIDE `optimal_work`, though it shares that column's at-location
+        -- arithmetic.  The weight bases differ -- every catalogue SKU by relative
+        -- frequency there, this run's own planned lines here -- and they measured 206x
+        -- apart on the priced toy.  Comparable across the ARMS AND CELLS OF ONE RUN, which
+        -- share a script by construction; not across runs.
         --
         -- It exists because an INBOUND ORDERING policy changes only WHEN stock reaches a
         -- shelf, never how much work a run contains, so every flow total is invariant to

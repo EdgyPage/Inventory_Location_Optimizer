@@ -130,6 +130,19 @@ def _bdf(stats):
         # always existed and only the 2026-09-10 vintage counts it, so an older run reads
         # UNKNOWN and the clause says "unrecorded" rather than passing a zero it never saw.
         'put_spills'            : getattr(s, 'put_spills', None),
+        # THE PLACEMENT SCORE AND ITS CENSUS -- and the closed form's check beside them.
+        # `None`, never 0, on a vintage that predates them: 0 is the BEST value the score
+        # can take, so an unscored run would outrank every measured one, and 0 unservable
+        # lines is a clean bill of health nobody issued. THE ANALYSIS SUITE'S ONLY PATH TO
+        # THEM -- the series builder means these columns over the steady-state window, and
+        # a column missing here makes every one of those scalars NaN, which reads exactly
+        # like "no arm published a score". That is how this was found: end to end, on the
+        # first real run that carried the columns, after every unit test passed.
+        'pick_owed_s'           : getattr(s, 'pick_owed_s', None),
+        'unservable_weight'     : getattr(s, 'unservable_weight', None),
+        # NULL on most rows of a run that DOES record it -- it is taken at keyframe cadence
+        # only -- so the None here is the same statement the column itself makes.
+        'pick_owed_exact_s'     : getattr(s, 'pick_owed_exact_s', None),
         # The working day a batch was RELEASED into (0 on every continuous-release run)
         # and the seconds it missed its slot by.  Carried so the day frame below can join
         # the ledger to the batches through `work_day`; `tables.tidy` lists `work_day` as

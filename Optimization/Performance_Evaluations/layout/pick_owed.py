@@ -1,5 +1,4 @@
-"""layout.pick_owed — what the PLANNED demand owes the placement, per arm, against the
-optimal-assignment floor.
+"""layout.pick_owed — what the PLANNED demand owes the placement, per arm.
 
 ## The question this exists to answer, and why nothing else could
 
@@ -18,9 +17,17 @@ where the stock currently stands?
     pick_owed(t) = Σ over the planned lines, of the MEAN at-location cost over the bins
                    that SKU actually occupies at batch t
 
-Same arithmetic as `optimal_work` (`inventory_optimal._optimal_work_assign`, through the
-shared `cost_model.per_pick`), so the score and its floor are one measurement and the
-ratio between them means something: 1.0 is the best placement the geometry admits.
+Same at-location arithmetic as `optimal_work` (`inventory_optimal._optimal_work_assign`,
+through the shared `cost_model.per_pick`) — but NOT the same weight basis, and that turns
+out to matter. `optimal_work` weights every SKU in the catalogue by its relative frequency;
+this weights the lines THIS RUN'S BATCHES ask for. Measured on the priced toy: 11,301,662 s
+against 54,971 s, a factor of 206. So there is no floor line on this figure and no ratio to
+report — see `_figure` for what was tried and why it was removed.
+
+That costs nothing phase 2 needs. The question is which of two cells placed the same stock
+better, and a comparison between arms of ONE run is exactly what a shared weight basis
+gives you: every cell of a matrix draws the same script from the same frozen inventory and
+the same seed, so two cells' scores differ only by where their stock ended up.
 
 ## The honesty term, and why it is not folded in
 
@@ -39,9 +46,9 @@ moved it would no longer be recoverable from the figure.
 
 Derived (`ranked` mark × `pick_owed_s`), exactly as `layout.travel`'s are:
 
-  absolute  each arm's steady-state score beside the optimal-assignment floor, which turns
-            a bare seconds number into "how much of the achievable improvement did this
-            rule capture"
+  absolute  each arm's steady-state score, read across arms of the same run (the seconds
+            are not comparable to any other run's: the weight basis is that run's own
+            planned script)
   percent   per-arm improvement against the baseline, with the bootstrap interval of the
             PAIRED per-batch improvements, so a gap that crosses zero is reported as not
             shown rather than as small
@@ -71,8 +78,8 @@ CENSUS_MATERIAL = 0.01
 
 _TITLES = {
     'absolute': ('Pick work owed by the placement',
-                 'steady-state seconds the planned demand owes the current layout; '
-                 'optimal-assignment floor shaded'),
+                 "this run's planned demand, served from where the stock stands; "
+                 'compare arms, not runs'),
     'percent':  ('Pick work owed vs baseline',
                  'median of the per-batch improvements in owed seconds, with the '
                  'bootstrap interval of that same median'),
@@ -143,9 +150,10 @@ def _subtitle(base_sub, worst, who):
     """The declared subtitle, plus the census when the census has something to say."""
     if worst <= 0:
         return f'{base_sub}; every planned line had shelf stock'
-    return (f'{base_sub}. CENSUS: up to {worst:,.0f} planned line(s) with no shelf stock '
-            f'({who}) — that demand costs this score nothing, so read the gap as partly '
-            f'availability')
+    # SHORT, because it shares one line with the declared subtitle and a subtitle that runs
+    # off the canvas is a subtitle nobody reads. The arm's NAME is the useful half -- a
+    # reader who wants the size opens the census trajectory, which is drawn for that.
+    return f'{base_sub}. CENSUS: up to {worst:,.0f} unservable line(s) ({who})'
 
 
 def _figure(ctx, entries, paired, baseline, view, out, census):
@@ -156,16 +164,20 @@ def _figure(ctx, entries, paired, baseline, view, out, census):
     if not marks.ranked(ch, entries, quantity=q, view=view, baseline=baseline,
                         strategies=ctx.strategies, paired=paired):
         return ch.abandon()
-    if view == 'absolute':
-        # `optimal_work`, NOT `optimal` — the latter is the Σ f·D floor `layout.travel`
-        # draws, a different objective in different units.  The context coerces both to
-        # 0.0 when the run publishes none, which is why `> 0` is the absence test rather
-        # than `is not None`.
-        floor = getattr(ctx, 'optimal_work', None)
-        if floor is not None and np.isfinite(float(floor)) and float(floor) > 0:
-            chartkit.reference_line(ch.ax, float(floor), orient='x',
-                                    label='optimal assignment', style=chartkit.BOUND_STYLE,
-                                    legend_label='optimal assignment (best achievable)')
+    # NO FLOOR LINE, and the removal is the finding rather than an omission.
+    #
+    # This drew `ctx.optimal_work` as a reference line, on the assumption that the score and
+    # the optimal assignment are the same measurement and therefore divide. They are not:
+    # they share the at-location arithmetic and NOT the weight basis. `optimal_work` weights
+    # every SKU in the catalogue by its relative frequency; the score weights the lines this
+    # run's batches actually ask for. Measured on the priced toy, store leaf: 11,301,662 s
+    # against a 54,971 s score — a factor of 206, and a 36-megapixel figure, which is how it
+    # was noticed at all.
+    #
+    # Normalising both by their own total weight would make them comparable, but the total
+    # planned weight is not recorded anywhere and adding it is a schema ride for a ratio
+    # nothing has asked for: phase 2 compares ARMS OF ONE RUN, which share a weight basis by
+    # construction.
     title, sub = _TITLES[view]
     ch.title(title, _subtitle(sub, *census))
     return ch.save(os.path.join(out, f'{view}_pick_owed_per_arm.png'), view=view)

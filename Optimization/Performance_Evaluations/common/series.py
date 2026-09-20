@@ -61,6 +61,18 @@ def _build_series(strategies, df_b, df_t, df_w=None, df_y=None):
         # Layout/travel cost over time (Sigma f*D) — the dimension where an optimal initial
         # start shows its advantage (and where uniform converges as reorders re-place items).
         sigma = bd['sigma_fd'].rolling(_SMOOTH, min_periods=1).mean().values
+        # The placement pair, as TRAJECTORIES. Smoothed like the rest, and NaN-tolerant
+        # where the rest are not: both columns read NULL on a vintage that predates them,
+        # and `rolling(min_periods=1)` carries the NaN through rather than filling it,
+        # which is the reading `_bdf` intends. A run without them still gets an array of
+        # the right length, so the painter draws nothing rather than raising.
+        def _series(col):
+            if col not in bd:
+                return np.full(len(batch), np.nan)
+            return bd[col].astype(float).rolling(_SMOOTH, min_periods=1).mean().values
+
+        owed = _series('pick_owed_s')
+        unserv = _series('unservable_weight')
 
         if not t.empty:
             g   = t.groupby('batch_id')['duration']
@@ -92,6 +104,7 @@ def _build_series(strategies, df_b, df_t, df_w=None, df_y=None):
             ss_thr_task = float('nan')
         S[s['key']] = dict(
             batch=batch, thr=thr, sigma_fd=sigma,
+            pick_owed_s=owed, unservable_weight=unserv,
             task_batch=tb, task_mean=tmean, task_median=tmed,
             task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(ssb['completion_rate'].mean()),
@@ -250,6 +263,8 @@ def _aggregate_series(profile_series_list):
         tp75  = _avg_norm(items, 'task_p75',    'ss_task_mean')
         tprod = _avg_norm(items, 'prod_hours',  'ss_prod_hours')
         sigma = _avg_norm(items, 'sigma_fd',    'ss_sigma')
+        owed = _avg_norm(items, 'pick_owed_s',       'ss_pick_owed')
+        unserv = _avg_norm(items, 'unservable_weight', 'ss_unservable')
         thr_ratio = [d['ss_thr'] / b['ss_thr'] for d, b in items if b.get('ss_thr')]
         dur_ratio = [d['ss_dur'] / b['ss_dur'] for d, b in items if b.get('ss_dur')]
         _fin = lambda x: x is not None and not (isinstance(x, float) and math.isnan(x))
@@ -258,6 +273,11 @@ def _aggregate_series(profile_series_list):
                           and _fin(d.get('ss_thr_task'))]
         agg_S[key] = dict(
             batch=np.arange(len(thr)), thr=thr, sigma_fd=sigma,
+            # EMPTY, not absent, on a run that did not score itself: `_avg_norm` returns
+            # `array([])` when no profile had a finite baseline to normalise against, and
+            # the painter draws nothing from an empty series. Absent would raise, which is
+            # how this was found.
+            pick_owed_s=owed, unservable_weight=unserv,
             task_batch=np.arange(len(tmed)), task_mean=tmean, task_median=tmed,
             task_p25=tp25, task_p75=tp75, prod_hours=tprod,
             ss_thr=float(np.mean(thr_ratio)) if thr_ratio else float('nan'),

@@ -409,6 +409,14 @@ class OptimalLayoutMixin:
         to price.  No penalty is fabricated for it here: what an unserved line will
         eventually cost depends on where that stock lands, which this function cannot see.
 
+        NOT COMPARABLE TO `optimal_work`, and not to another run.  The at-location
+        arithmetic is the same (`cost_model.per_pick`), the WEIGHT BASIS is not:
+        `optimal_work` weights every SKU by its relative frequency over the catalogue, this
+        weights the lines the run's own batches ask for.  Measured 206x apart on the priced
+        toy.  What it IS comparable across is the arms and cells of ONE run, which draw the
+        same script from the same frozen inventory and the same seed -- which is the
+        comparison it exists for.
+
         One pass over the occupied bins, plus one over the SKUs that have any.  That is the
         same order as the conservation ledger's own per-batch walk; it is a separate pass
         rather than a fold into it so this cost model stays inside the inventory layer."""
