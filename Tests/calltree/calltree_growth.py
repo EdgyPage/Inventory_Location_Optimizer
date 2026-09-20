@@ -91,8 +91,33 @@ _MESO_LADDERS: dict[str, list[dict]] = {
     # Seconds are absolute and therefore CATALOGUE-SPECIFIC: these are calibrated for n_skus=600
     # on `_INBOUND_RECIPE`. A different catalogue size needs re-calibration, because what matters
     # is the whistle as a fraction of that rung's own uncapped receiving makespan.
-    'yard':    [dict(n_skus=600, n_batches=10, recv_deadline=d)
-                for d in (400.0, 200.0, 120.0, 80.0, 50.0)],
+    # THE YARD LADDER MEASURES YARD DEPTH.  Until 2026-09-20 it varied `recv_deadline`
+    # 400s -> 50s at 600 SKUs and recovered a measured T of 2.29, 2.29, 2.29, 2.37, 2.37 --
+    # a 3.4% span, over which it nonetheless fitted exponents and reported r2 = 1.00.  Every
+    # `--knob yard` number ever taken from it is a two-point fit.  Probed that day, with the
+    # end-of-run standing yard as the readout:
+    #
+    #     recv_deadline 80 -> 50, 600 skus, 4 doors ......... depth 0 -> 0   (no effect)
+    #     dock_doors 4 -> 1, 600 skus ...................... depth 0 -> 0   (no effect)
+    #     n_skus 600 -> 2,400, 1 door ...................... depth 0 -> 21
+    #     n_skus 2,400, doors 4 -> 1 ....................... depth 18 -> 21 (arrival-bound)
+    #
+    # So depth is set by ARRIVAL VOLUME, and the deadline whistle does not touch it.  Scaling
+    # `n_skus` would move it, but that also rebuilds the warehouse, which confounds yard depth
+    # with catalogue size -- and the `skus` knob already measures the latter.  The ARRIVAL LEAD
+    # separates them: it spreads the same reorders over more time at an IDENTICAL catalogue,
+    # so the only thing moving across these rungs is how many trailers stand at once.
+    #
+    #     lead 960 -> T ~ 2     lead 240 -> T ~ 15     lead 0 -> T ~ 32
+    #     lead 480 -> T ~ 4     lead 120 -> T ~ 22
+    #
+    # T ~ 2 to 32, which brackets the campaign's measured 16.7-17.0 mean (25 max).  What that
+    # buys is the whole point: `plan_order` costs T(T+1) `place_load` calls, so these rungs
+    # span 6 -> 1,056 of the work that actually grows -- 176x, against the old ladder's 1.00x.
+    'yard':    [dict(n_skus=2_400, n_batches=10, dock_doors=1, door_team=1,
+                     recv_deadline=80.0, lead_minutes=lm, lead_spread=sp)
+                for lm, sp in ((960.0, 0.7), (480.0, 0.7), (240.0, 0.7),
+                               (120.0, 0.5), (0.0, 0.0))],
 }
 # run_simulation args per rung; sized so 5 rungs fit ~an hour at 18 workers.
 #
