@@ -1557,13 +1557,22 @@ def test_the_cursor_tracks_the_group_being_priced():
     prov.keys.clear()
     ev.place_load(units, set(), False)
     again = [k for i, k in enumerate(prov.keys) if i == 0 or k != prov.keys[i - 1]]
-    assert again[0] == groups[-1], (
-        'this call\'s grouping reads binkey_of with the PREVIOUS call\'s cursor still '
-        'standing — harmless (binkey_of is site-wide) and stated here so the tail '
-        'assertion below is not read as sloppiness')
-    assert again[-len(groups):] == groups, (
+    assert again == groups, (
         'the cursor must advance on a warm evaluator too — it is set ahead of the wp '
-        'memo, unconditionally, precisely so a memo hit cannot skip it')
+        'memo, unconditionally, precisely so a memo hit cannot skip it; and the provider '
+        'must be asked ONCE PER GROUP, not once per read')
+    assert len(prov.keys) == len(groups), (
+        f'the provider was asked {len(prov.keys)} times for {len(groups)} groups. '
+        f'`_Evaluator.b` memoises `for_key` per cursor position because it was 193,833 '
+        f'calls at yard depth 10.7 growing at k=1.86 — pure indirection on the T(T+1) '
+        f'term. A count above the group count means the memo stopped holding; below it '
+        f'means a group was priced with its predecessor\'s arm, which is the bug the '
+        f'assertions above exist for')
+    assert groups[-1] not in prov.keys[:1] or groups[0] == groups[-1], (
+        'this call\'s grouping no longer re-asks for the PREVIOUS call\'s cursor: it '
+        'reuses the owner still standing. Safe because `binkey_of` is one of the three '
+        'SITE-WIDE fields every owner must answer identically, which '
+        '`test_the_owners_must_agree_on_every_site_wide_field` enforces')
 
 
 def test_a_provider_that_answers_one_key_differently_moves_the_price():

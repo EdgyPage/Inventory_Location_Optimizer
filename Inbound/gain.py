@@ -223,7 +223,7 @@ class _Evaluator:
 
     __slots__ = ('_site', '_key', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
-                 '_wr', '_mom', '_tiers', '_tmpl', '_shared_excl')
+                 '_wr', '_mom', '_tiers', '_tmpl', '_shared_excl', '_b', '_ps')
 
     #: The caches that are pure functions of (space, bundle) and may therefore be SHARED
     #: across the two rankings of one drain -- `shared` below, `DockContext.gain_cache`.
@@ -247,6 +247,15 @@ class _Evaluator:
         #: The owner of the group being priced — the cursor `_params` advances.  None
         #: until the first group is keyed; see the class docstring.
         self._key = None
+        #: `_site.for_key(_key)` MEMOISED, and `_ps` the put speed read off it.  The
+        #: resolution is a pure function of `_key`, which moves exactly once per BinKey
+        #: group, and both are invalidated there.  Measured on the corrected yard ladder
+        #: (2026-09-20): `b` and `for_key` were 193,833 calls EACH at T=10.7, growing at
+        #: k=1.86 -- pure indirection on the T(T+1) term, re-resolving a value a whole
+        #: group shares.  `put_speed` is the hottest single reader (`_cost_at`, 80,530
+        #: calls at k=1.93), so it is hoisted out of the property entirely.
+        self._b = None
+        self._ps = None
         self.space = space
         #: {sku: (window total, window events)} for the futuresight entry, None for
         #: every lawful arm — swaps the static rates out of `_pair_cost` only.
@@ -310,8 +319,15 @@ class _Evaluator:
     # ── the owner cursor ──────────────────────────────────────────────────────────
     @property
     def b(self) -> GainBundle:
-        """The arm machinery owning the group being priced (class docstring)."""
-        return self._site.for_key(self._key)
+        """The arm machinery owning the group being priced (class docstring).
+
+        Resolved ONCE per group rather than per read.  `for_key` is a pure function of
+        `_key` -- that is the whole protocol -- so the only thing that can invalidate this
+        is `_params` moving the cursor, which is where it is cleared."""
+        b = self._b
+        if b is None:
+            b = self._b = self._site.for_key(self._key)
+        return b
 
     # ── per-key parameters ────────────────────────────────────────────────────────
     def _params(self, unit, own_key):
@@ -320,6 +336,7 @@ class _Evaluator:
         # be able to skip it (a second group with the same wp would then price
         # against the PREVIOUS group's arm).
         self._key = own_key
+        self._b = self._ps = None        # the cursor moved; both memos are the old owner's
         got = self._wp.get(own_key)
         if got is None:
             wp = self.b.wp_of(unit)
@@ -375,7 +392,9 @@ class _Evaluator:
         # silently.  Dropping the handling term also drops the HEIGHT MULTIPLIER, which is
         # bin-dependent and therefore does NOT cancel out of a difference between two
         # candidate bins; that is the part worth revisiting, and ticket 16 records it.
-        ps = self.b.put_speed
+        ps = self._ps
+        if ps is None:
+            ps = self._ps = self.b.put_speed
         put = put_seconds_at(x, y, speed=ps, cost=None)
         order = unit.order
         wr = self._wr
@@ -500,8 +519,13 @@ class _Evaluator:
             alloc = {}
         groups: dict = {}
         order: list = []
+        # `binkey_of` is one of the three SITE-WIDE fields (class docstring), the same object
+        # for every owner, so hoisting the cursor read out of this loop reads the same
+        # function it read per unit -- and this loop runs once per unit of every one of the
+        # T(T+1) placements a plan makes.
+        binkey_of = self.b.binkey_of
         for u in units:
-            k = self.b.binkey_of(u)
+            k = binkey_of(u)
             g = groups.get(k)
             if g is None:
                 groups[k] = g = []
