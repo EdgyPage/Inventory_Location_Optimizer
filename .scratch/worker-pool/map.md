@@ -88,7 +88,14 @@ architecture and context layers describe the pool that ships.  Reached at `devel
   candidate from snapshot `53964420` (`comparison_whatif_20260919_184523`).  Result: IDENTICAL on the
   comparable surface, 40 arms; the first cell-2 arm finished before the last cell-1 arm and the run
   started one log listener (ticket 07).
-- Throughput and the parent's memory: ticket 07.
+- Throughput, quiet host, same toy and six workers: matrix wall 118 s (cell-serial) ->
+  93 s (flat pool), utilisation 0.16 -> 0.19. The toy is the SMALL end of the effect --
+  20 units a cell on six workers was never starved, and its wall is dominated by the
+  parent's serial setup. The campaign shape (4 units a cell, 12 workers, 3 h units) is
+  where the 24 h -> 4 h claim lives, and no toy can stand in for it (ticket 07).
+- The parent's memory, from the new per-cell log line: 665 M peak holding one cell's
+  assets, 707 M holding two. That ~42 MB is the price of the retry path on an 8,000-SKU
+  catalogue; it scales with the catalogue (ticket 07).
 
 ## Fog (follow-ons, each its own ticket when taken)
 
