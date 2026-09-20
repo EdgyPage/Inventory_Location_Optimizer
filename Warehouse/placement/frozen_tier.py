@@ -153,18 +153,43 @@ class TierSlice:
     def aisle_buckets(self) -> dict:
         """`{aisle: {height_mult: _Cursor}}`, aisles and brackets each in first-appearance
         order of the surviving candidates — the travel-balanced and min-labor pools'
-        `by_aisle`."""
+        `by_aisle`.
+
+        THE AISLE ORDER IS A BARE `sorted`, AND THAT IS A PROOF RATHER THAN A HOPE.  It was
+        `sorted(per_aisle.items(), key=lambda kv: min(f for f, _m in kv[1]))` — one lambda
+        invocation per aisle, each building a generator and calling `min`, over ~1,400
+        aisles, ~650,000 opens per arm.  Carrying the minimum forward in the build pass
+        makes the key redundant.
+
+        Sorting `(minfirst, aid)` bare is byte-identical to the keyed sort, and NOT merely
+        because the keyed sort was stable: `minfirst` is an INDEX INTO `tier.bins`, and a
+        bin belongs to exactly one aisle, so two aisles can never carry the same `minfirst`.
+        The comparison therefore never reaches `aid`, and stability is not something this
+        order rests on.  The same argument settles the inner `lst.sort()` on `(first, m)`:
+        `first` is unique within an aisle, so `m` is never compared.
+        """
         tier = self.tier
+        ids, excl = tier.ids, self.excluded
         per_aisle: dict = {}
+        firsts: dict = {}
         for (aid, m), appear in tier._bucket_appear.items():
-            first = self._first_live(appear)
+            # `_first_live` inlined for its fast path: the first appearance is live unless
+            # this placement already took that bin, and it usually has not.
+            first = None
+            for i in appear:
+                if ids[i] not in excl:
+                    first = i
+                    break
             if first is not None:
                 per_aisle.setdefault(aid, []).append((first, m))
-        excl = self.excluded
+                f0 = firsts.get(aid)
+                if f0 is None or first < f0:
+                    firsts[aid] = first
         out: dict = {}
-        for aid, lst in sorted(per_aisle.items(), key=lambda kv: min(f for f, _m in kv[1])):
+        for _f, aid in sorted((f, aid) for aid, f in firsts.items()):
+            lst = per_aisle[aid]
             lst.sort()
-            out[aid] = {m: _Cursor(tier, tier._bucket_asc[(aid, m)], excl) for _f, m in lst}
+            out[aid] = {m: _Cursor(tier, tier._bucket_asc[(aid, m)], excl) for _f2, m in lst}
         return out
 
 
