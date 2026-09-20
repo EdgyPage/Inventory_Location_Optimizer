@@ -13486,6 +13486,11 @@
       "src": "Optimization/simdriver/scenario.py"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/scenario.py"
+    },
+    {
       "dst": "Optimization/simdriver/supervisor.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
@@ -13514,6 +13519,11 @@
       "dst": "Optimization/simdriver/sim_assets.py::build_shared_assets",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_build_assets"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells"
     },
     {
       "dst": "Optimization/simdriver/supervisor.py::SimBooks",
