@@ -311,6 +311,24 @@ def _seed_floats(src, keys) -> dict:
     return {k: float(src.get(k, 0.0)) for k in keys}
 
 
+def _bucket_writer(by_aisle, depth: int):
+    """How this pool moves a head: the mapping's own `writable`, or plain indexing.
+
+    A pool opened over a SHARED template (`frozen_tier._CowAisles` / `_CowBuckets`, which
+    the gain evaluator's rounds open over) must clone the one cursor a take moves rather
+    than mutate the template every other open is reading.  A pool opened over a plain dict
+    -- every wave placement, every eager build, every test -- owns its buckets outright
+    and indexes them.  Resolved ONCE per open, so the hot path is a bound-method call
+    either way and no `getattr` per take.
+    """
+    w = getattr(by_aisle, 'writable', None)
+    if w is not None:
+        return w
+    if depth == 1:
+        return lambda aid: by_aisle[aid]
+    return lambda aid, m: by_aisle[aid][m]
+
+
 def _co_by_aisle(row, idx_sets, partner_aisles, freq_by_idx) -> dict:
     """{aisle: Σ (lift - 1)·f_i over the SKU's partners i placed in that aisle}, for every
     aisle that holds at least one partner -- and NOTHING for the aisles that hold none.
@@ -1092,7 +1110,7 @@ class _RankedAssignPool(_Pool):
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_fbi', '_fbs', '_qbs', '_beta',
                  '_minimize', '_selector', '_order_key', '_all_idx',
                  '_by_aisle', '_D_of', '_head_bin', '_head_D',
-                 '_key_fn', '_rank', '_sel', '_led')
+                 '_key_fn', '_rank', '_sel', '_led', '_writer')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta,
@@ -1137,6 +1155,7 @@ class _RankedAssignPool(_Pool):
                 lst.sort(key=lambda bb: D_of[id(bb)], reverse=not minimize)   # head = extremal-D
                 by_aisle[aid] = deque(lst)
         self._D_of, self._by_aisle = D_of, by_aisle
+        self._writer = _bucket_writer(by_aisle, 1)
         self._head_bin = {aid: dq[0]           for aid, dq in by_aisle.items() if dq}
         self._head_D   = {aid: D_of[id(dq[0])] for aid, dq in by_aisle.items() if dq}
 
@@ -1221,8 +1240,11 @@ class _RankedAssignPool(_Pool):
             self._led.add_sku(best_aid, sku, self._aff._sku_to_idx.get(sku),
                               demand=f_s * q_s)
 
-        # Advance the chosen aisle's head; drop it when exhausted.
-        dq = self._by_aisle[best_aid]
+        # Advance the chosen aisle's head; drop it when exhausted.  THE ONE SITE THAT
+        # MOVES A HEAD, so the one that asks for a writable bucket -- over a shared
+        # template that clones this aisle's cursor, over a plain dict it is the dict
+        # lookup it always was (`_bucket_writer`).
+        dq = self._writer(best_aid)
         dq.popleft()
         if dq:
             head_bin[best_aid] = dq[0]
@@ -1482,7 +1504,7 @@ class _TravelBalancedPool(_Pool):
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
-                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_sel', '_led',
+                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_sel', '_led', '_writer',
                  '_pp', '_hv')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
@@ -1577,6 +1599,7 @@ class _TravelBalancedPool(_Pool):
                     heapq.heapify(lst)
                     groups[m] = HeapBucket(lst)
         self._by_aisle = by_aisle
+        self._writer = _bucket_writer(by_aisle, 2)
         # THE AISLE'S FIRST-APPEARANCE RANK is what makes the selection heap in `take`
         # byte-identical rather than merely equivalent.  The scan it replaces was
         # `for aid in by_aisle: if score < best_score` -- a strict `<` over a dict in insertion
@@ -1773,8 +1796,11 @@ class _TravelBalancedPool(_Pool):
                               pick_load=self._splp.get(sku, 0.0),
                               vol=(m_s if self._cart_on else None))
 
-        by_aisle[best_aid][m].pop_top()
-        # THE ONE SITE THAT MOVES A HEAD, so the one site that drops a head vector.  Bins
+        self._writer(best_aid, m).pop_top()
+        # THE ONE SITE THAT MOVES A HEAD, so the one site that drops a head vector -- and
+        # the one that asks for a WRITABLE bucket: over a shared template `_writer` clones
+        # this bucket's cursor so the template every other open is reading is untouched;
+        # over a plain dict it is the two lookups it always was (`_bucket_writer`).  Bins
         # only ever leave a pool and the exclusion set is fixed for its life, so no other
         # path can invalidate this cache -- see `_aisle_best`.
         del self._hv[best_aid]
@@ -1996,7 +2022,7 @@ class _MinLaborPool(_Pool):
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku',
                  '_bc_by_aid', '_row_items', '_max_reward', '_led',
-                 '_pp', '_row', '_deltas', '_sel')
+                 '_pp', '_row', '_deltas', '_sel', '_writer')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2039,6 +2065,7 @@ class _MinLaborPool(_Pool):
                     lst.sort(key=lambda bb: D_of[id(bb)])
                     groups[m] = deque(lst)
         self._D_of, self._by_aisle_brkt = D_of, by_aisle_brkt
+        self._writer = _bucket_writer(by_aisle_brkt, 2)
 
         self._last_sku = None
         self._sel: list = []          # (score, rank, aid) min-heap; see `take`
@@ -2285,7 +2312,11 @@ class _MinLaborPool(_Pool):
             # and so left the cached bc alone until the next run boundary.
             heapq.heappush(sel, win_ent)
             return None, None
-        self._drop(by_aisle_brkt[best_aid][chosen_m])
+        # THE ONE SITE THAT MOVES A BIN, so the one that asks for a WRITABLE bucket:
+        # over a shared template `_writer` clones this bucket's cursor so the template
+        # every other open is reading is untouched; over a plain dict it is the two
+        # lookups it always was (`_bucket_writer`).
+        self._drop(self._writer(best_aid, chosen_m))
         # THE ONE-ENTRY UPDATE, done here rather than at the head of the next `take`.  The
         # retired `elif` branch refreshed the winner with the NEXT unit's `var`; within a SKU
         # run `var` is constant, and across one the boundary rebuilds everything, so the

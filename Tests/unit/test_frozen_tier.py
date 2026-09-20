@@ -352,6 +352,118 @@ def test_min_labor_pool_is_identical_over_a_slice(seed, maximize):
     assert _frozen_state(st_e) == _frozen_state(st_s)
 
 
+# -- the round-shared prologue template (copy-on-write) -------------------------------
+
+def _open_family(family, cands, st, fixtures, maximize=False, cart=False):
+    """One pool of `family` over `cands` (a filtered list, a slice, or a slice over a
+    shared store) and the fresh state `st` -- the three constructions the tests above
+    make, in one place so the template test drives all three."""
+    aff, idx, fbs, qbs, fbi, plp, vol, wp, skus = fixtures
+    if family == 'assign':
+        return af._RankedAssignPool(cands, aff, wp, st['aisle_sku_sets'],
+                                    st['aisle_idx_sets'], st['aisle_demand_sum'],
+                                    fbi, fbs, qbs, 1.0, True)
+    if family == 'travel':
+        cart_arg = (st['aisle_vol_sum'], vol, 4.0, sum(fbs.values())) if cart else None
+        return af._TravelBalancedPool(
+            cands, aff, wp, st['aisle_sku_sets'], st['aisle_idx_sets'],
+            st['aisle_demand_sum'], st['aisle_pick_load_sum'], plp, fbs, qbs,
+            cart=cart_arg)
+    return af._MinLaborPool(cands, aff, wp, st['ss'], st['ii'], st['dd'], st['mp'],
+                            fbi, fbs, qbs, 0.5, maximize=maximize)
+
+
+_FAMILY_STATE = {'assign': _state_ranked, 'travel': _state_tb, 'minlabor': _state_ml}
+
+
+@pytest.mark.parametrize('seed', [41, 42, 43, 44, 45, 46])
+@pytest.mark.parametrize('family', ['assign', 'travel', 'minlabor'])
+def test_opens_over_one_shared_template_match_the_eager_build_and_each_other(seed, family):
+    """A round of the gain greedy opens many pools over the SAME (tier, exclusion set), so
+    the prologue is built once and every open reads it copy-on-write (`_CowBuckets`).
+
+    Three claims, and the second is the one a single-open test cannot make:
+
+      1. an open over the shared template decides exactly what the EAGER build decides;
+      2. a SECOND open over the same template, after the first has consumed it to
+         exhaustion, decides the same thing -- the first open's takes cloned cursors and
+         left the template standing;
+      3. the template really was shared: both opens saw one `_CowBuckets`/`_CowAisles`
+         over one base dict, asserted by identity rather than assumed.
+    """
+    rng = random.Random(seed)
+    bins = _bins(rng)
+    units, orders, skus = _units(rng)
+    aff, idx = _aff(skus + [99], [(1, 2, 4.0), (1, 99, 6.0), (2, 3, 2.5), (3, 4, 3.0)])
+    fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
+    qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
+    fbi = {idx[s]: fbs[s] for s in skus}
+    fbi[idx[99]] = 0.8
+    plp = {s: 0.7 * s for s in skus}
+    vol = {s: 300.0 * s for s in skus}
+    wp = _wp()
+    fixtures = (aff, idx, fbs, qbs, fbi, plp, vol, wp, skus)
+    excl = _exclusion(rng, bins, all_of_first_aisle=(seed % 2 == 0))
+    tier = _tier(bins, wp)
+    mkstate = _FAMILY_STATE[family]
+
+    st_e = mkstate(range(1, 6))
+    eager = _open_family(family, _filtered(bins, excl), st_e, fixtures)
+    want = _drive(eager, units)
+    assert any(b is not None for _s, b, _c in want), (
+        'the eager pool seated nothing -- the scene cannot show a shared template is right')
+
+    store: dict = {}
+    got = []
+    bases = []
+    for _ in range(2):
+        st = mkstate(range(1, 6))
+        pool = _open_family(family, tier.slice(excl, store), st, fixtures)
+        bucket_map = getattr(pool, '_by_aisle', None)
+        if bucket_map is None:
+            bucket_map = pool._by_aisle_brkt
+        bases.append(bucket_map._base)
+        got.append(_drive(pool, units))
+        assert _frozen_state(st) == _frozen_state(st_e), (
+            'a shared-template open committed different aisle state than the eager build')
+
+    assert len(store) == 1, (
+        f'{len(store)} templates for one (tier, exclusion set): the store key is not '
+        f'collapsing the opens a round makes, and nothing here is being reused')
+    assert bases[0] is bases[1], (
+        'the two opens did not share one base dict -- each rebuilt its own prologue and '
+        'the copy-on-write path is untested')
+    assert got[0] == want, 'the first shared-template open diverged from the eager build'
+    assert got[1] == want, (
+        'the SECOND open over the template diverged: the first open consumed the shared '
+        'structure instead of cloning what it moved')
+
+
+def test_a_cursor_clone_is_independent_and_leaves_its_source_alone():
+    """The copy-on-write primitive, directly: a clone pops without moving its source, and
+    a source that pops afterwards is unaffected by the clone."""
+    rng = random.Random(5)
+    bins = _bins(rng, n_aisles=1, per_aisle=8)
+    tier = _tier(bins, _wp())
+    aid = bins[0].location[0]
+    cur = _Cursor(tier, tier.aisle_order(aid), set())
+    seq = [cur[0]]
+    clone = cur.clone()
+    assert clone[0] is cur[0], 'a clone must start exactly where its source stands'
+    clone.popleft()
+    clone.popleft()
+    assert cur[0] is seq[0], 'popping the clone moved the source'
+    assert len(cur) == len(bins), 'popping the clone shortened the source'
+    order = tier.aisle_order(aid)
+    cur.popleft()
+    assert cur[0] is tier.bins[order[1]], (
+        'the source advanced by more than its own single pop')
+    assert clone[0] is tier.bins[order[2]], (
+        'the clone was dragged back by the source popping -- each side owns its own '
+        'position and nothing else')
+    assert len(cur) == len(bins) - 1 and len(clone) == len(bins) - 2
+
+
 def test_the_fixtures_actually_plant_ties_and_reorderings():
     """Non-vacuity: at least one seed excludes the first bin of the first-appearing aisle
     so the filtered aisle order differs, and the bin grid carries D ties across aisles."""

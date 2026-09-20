@@ -76,6 +76,7 @@ from Warehouse.kernel.cost_model import SpeedProfile
 from Warehouse.kernel.regime import regime_of
 from Warehouse.kernel.timeline import SECONDS_PER_DAY
 from Warehouse.placement import Assignment_Functions as af
+from Warehouse.placement import frozen_tier
 
 #: IMPORTED, not restated.  This line used to read `_DAY = 86400.0`, a third copy of the
 #: divisor beside the gate's and the fee metric's -- so it moved WITH the gate instead of
@@ -1160,6 +1161,138 @@ def test_pool_adapter_agrees_on_contention_and_never_mutates_live_state():
     assert _seqs(out) == [1, 0], 'the pool adapter sees the same contention signal'
     assert (live_ass, live_ais, live_ads) == snap, (
         'a virtual placement advanced the LIVE aisle bookkeeping — purity broken')
+
+
+# -- the round-shared pool prologue (ticket 04b) -----------------------------------
+
+def _frozen_pool_bundle(orders, live_ass, live_ais, live_ads):
+    """A pool bundle on the OVERLAY path: `freeze_tier` set, so the evaluator opens its
+    pools over `TierSlice`s and the round-shared prologue template is reachable."""
+    aff = SimpleNamespace(_sku_to_idx={})
+    fbs = {o.sku: o.demand.relative_frequency for o in orders}
+    qbs = {o.sku: o.demand.quantity_rate for o in orders}
+    okey = lambda u: u.order.demand.relative_frequency * u.order.labor_cost
+    opens: list = []
+
+    def factory(cands, state, wp_local):
+        opens.append(cands)
+        ass, ais, ads = (state['aisle_sku_sets'], state['aisle_idx_sets'],
+                         state['aisle_demand_sum'])
+        return af._RankedAssignPool(cands, aff, wp_local, ass, ais, ads,
+                                    {}, fbs, qbs, 1.0, True, order_key=okey)
+
+    bundle = _bundle(pool_factory=factory, freeze_tier=af.freeze_tier,
+                     aisle_state={'aisle_sku_sets': live_ass,
+                                  'aisle_idx_sets': live_ais,
+                                  'aisle_demand_sum': live_ads})
+    return bundle, opens
+
+
+def _frozen_scene(seed=7):
+    trailers, view = _random_scene(seed)
+    orders = sorted({it.unit.order for t in trailers for it in t.pending},
+                    key=lambda o: o.sku)
+    bundle, opens = _frozen_pool_bundle(orders, {}, {}, {})
+    return trailers, view, bundle, opens
+
+
+def test_the_round_shared_prologue_changes_no_plan(monkeypatch):
+    """Within a round every now-placement opens over the SAME exclusion object, so the
+    per-open prologue is built from identical inputs T times.  It is now built once and
+    read copy-on-write.  The reference is the SAME code with the store withheld, which is
+    the eager build byte for byte — that is what `slice(excluded)` without a store is."""
+    eager = frozen_tier.FrozenTier.slice
+
+    for predicted in (False, True):
+        trailers, view, bundle, opens = _frozen_scene()
+        shared = plan_order(trailers, bundle, view, predicted=predicted)
+        assert opens, 'the pool path was never taken; nothing below proves anything'
+        assert any(isinstance(c, frozen_tier.TierSlice) for c in opens), (
+            'no pool opened over a TierSlice — the overlay path is not wired and the '
+            'template cannot have been exercised')
+
+        trailers2, view2, bundle2, _ = _frozen_scene()
+        monkeypatch.setattr(frozen_tier.FrozenTier, 'slice',
+                            lambda self, excluded, store=None: eager(self, excluded, None))
+        try:
+            unshared = plan_order(trailers2, bundle2, view2, predicted=predicted)
+        finally:
+            monkeypatch.undo()
+        assert _seqs(shared) == _seqs(unshared), (
+            f'predicted={predicted}: the shared prologue moved the plan')
+
+
+def test_the_prologue_template_is_actually_read():
+    """The sabotage pin (06's rule, and memory `placement-oracles-pin-agreement-not-truth`):
+    the family oracles compare a pool half to its wave half, so both halves would see the
+    same leaked structure and agree.  Perturb the STORED template and the next open must
+    price differently, or the equivalence test above is passing on a template nothing
+    reads.
+
+    Aimed at the price rather than the permutation: an aisle order is only a TIE-BREAK, and
+    a scene whose aisles do not tie would absorb a reordering without moving anything."""
+    trailers, view, bundle, _ = _frozen_scene()
+    ev = _Evaluator(bundle, view)
+    # What `plan_order` declares before its now sweep: `taken` is the one exclusion
+    # object every candidate of a round is handed, so it is the one worth a template.
+    ev._shared_excl = frozenset((id(ev.taken),))
+    load = _load_units(trailers[0])
+    c0, _ = ev.place_load(load, ev.taken, False)         # warms the store
+    c_again, _ = ev.place_load(load, ev.taken, False)
+    assert c0 == c_again, (
+        'two identical placements priced differently — the scene is not deterministic '
+        'and the sabotage below would prove nothing')
+    assert ev._tmpl, (
+        'no prologue template was stored: the store is not reaching `_place_pool`, so '
+        'the equivalence test above compared the eager build against itself')
+
+    # Drop one aisle from every stored template.  A pool that reads the template loses
+    # that aisle's bins and must price the load higher; one that rebuilds ignores this.
+    cut = False
+    for k, (excl, tier, tmpl) in list(ev._tmpl.items()):
+        if len(tmpl) > 1:
+            short = dict(tmpl)
+            short.pop(next(iter(short)))
+            ev._tmpl[k] = (excl, tier, short)
+            cut = True
+    assert cut, 'no stored template had two aisles to cut — pick a wider scene'
+
+    c1, _ = ev.place_load(load, ev.taken, False)
+    assert c1 != c0, (
+        'a template missing a whole aisle priced the same load identically — nothing '
+        'read it, and the equivalence test above is vacuous')
+
+
+def test_a_one_off_exclusion_is_never_memoised():
+    """A defer side's `B - hole_t` belongs to ONE candidate, so a template over it would be
+    written once, read once, and held until the commit -- tens of MB a worker for nothing.
+    Only the sets `plan_order` declares shared get one."""
+    trailers, view, bundle, _ = _frozen_scene()
+    ev = _Evaluator(bundle, view)
+    ev._shared_excl = frozenset((id(ev.taken),))
+    load = _load_units(trailers[0])
+    ev.place_load(load, ev.taken, False)
+    shared_n = len(ev._tmpl)
+    assert shared_n, 'the declared set was not memoised; this test cannot show the contrast'
+    ev.place_load(load, set(), False)          # a set nobody declared
+    assert len(ev._tmpl) == shared_n, (
+        'an undeclared exclusion set was memoised — the store grows by one template per '
+        'candidate per key and nothing ever reads them')
+
+
+def test_a_commit_drops_every_template():
+    """`taken` is updated IN PLACE, so its id does not move when its contents do.  A
+    template keyed on that id and kept across the commit would hand the next round bins
+    the greedy has already consumed."""
+    trailers, view, bundle, _ = _frozen_scene()
+    ev = _Evaluator(bundle, view)
+    ev._shared_excl = frozenset((id(ev.taken),))
+    ev.place_load(_load_units(trailers[0]), ev.taken, False)
+    assert ev._tmpl
+    ev.taken.update([1, 2, 3])
+    ev.drop_templates()
+    assert ev._tmpl == {}, (
+        'a commit must empty the template store — see `_Evaluator.drop_templates`')
 
 
 def test_expectation_pricing_consumes_no_rng_and_permutes():

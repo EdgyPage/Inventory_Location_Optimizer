@@ -223,7 +223,7 @@ class _Evaluator:
 
     __slots__ = ('_site', '_key', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
-                 '_wr', '_mom', '_tiers')
+                 '_wr', '_mom', '_tiers', '_tmpl', '_shared_excl')
 
     #: The caches that are pure functions of (space, bundle) and may therefore be SHARED
     #: across the two rankings of one drain -- `shared` below, `DockContext.gain_cache`.
@@ -272,6 +272,19 @@ class _Evaluator:
         #
         # Scoped by the SPACE VIEW, which is frozen for the drain, so nothing here can go
         # stale within one (`Warehouse/placement/frozen_tier.py`).
+        #: THE ROUND'S PROLOGUE TEMPLATE STORE, and deliberately NOT one of the shared
+        #: seven: it is keyed on the identity of the EXCLUDED SET, which is this
+        #: greedy's own `taken` and this round's own leftover set.  It is dropped
+        #: whenever the greedy commits (`drop_templates`), because every template in it
+        #: was built over a take-set that has just moved.  See `frozen_tier._CowBuckets`
+        #: for what it holds and why an open reads it copy-on-write.
+        self._tmpl: dict = {}
+        #: The ids of the exclusion sets THIS ROUND hands to more than one candidate --
+        #: `taken` and the round's leftover base `B`, declared by `plan_order`.  Only
+        #: those are worth a template: a defer side's `B - hole_t` belongs to ONE
+        #: candidate, so memoising it would be written once, read once, and held until
+        #: the commit -- tens of MB a worker, for nothing.
+        self._shared_excl: frozenset = frozenset()
         if shared is None:
             for _n in self._SHARED_CACHES:
                 setattr(self, _n, {})
@@ -281,6 +294,18 @@ class _Evaluator:
                 if got is None:
                     got = shared[_n] = {}
                 setattr(self, _n, got)
+
+    # ── the round's prologue templates ────────────────────────────────────────────
+    def drop_templates(self) -> None:
+        """Forget every memoised pool prologue.  Called by `plan_order` the instant the
+        greedy commits a load's takes.
+
+        THE STORE IS KEYED ON THE EXCLUDED SET'S IDENTITY and `taken` is updated IN PLACE,
+        so its id does not move when its contents do: without this, the next round's opens
+        over `taken` would be served a prologue built before the commit -- bins the greedy
+        has since consumed, still standing.  That is the one way this cache can be wrong,
+        and it is why the drop is unconditional rather than a comparison."""
+        self._tmpl.clear()
 
     # ── the owner cursor ──────────────────────────────────────────────────────────
     @property
@@ -681,8 +706,21 @@ class _Evaluator:
                 used = cache.get(('used', key))
                 if used is None:
                     used = cache[('used', key)] = set()
-                sl = self._tier_for(key, predicted, wp).slice(
-                    excluded if not used else (excluded | used))
+                # THE TEMPLATE STORE IS PASSED ONLY WHEN `used` IS EMPTY, which is when
+                # `excluded` is the object the caller handed in -- `ev.taken` for every
+                # now-placement of a round, `B` for most of its defer side -- so the many
+                # opens of one round over one tier share one prologue.  A spill into a
+                # tier this same placement already drew from makes a ONE-OFF set, which
+                # no other open can hit, so memoising it would only grow the store.
+                tier = self._tier_for(key, predicted, wp)
+                # THE TEMPLATE STORE IS PASSED only for an exclusion set this round
+                # hands to more than one candidate, and only while `used` is empty (a
+                # spill back into a tier this placement already drew from makes a
+                # one-off set no other open can hit).  Everything else opens eagerly,
+                # exactly as it did before the template existed.
+                sl = (tier.slice(excluded, self._tmpl)
+                      if not used and id(excluded) in self._shared_excl
+                      else tier.slice(excluded | used if used else excluded))
                 if not sl:
                     continue
                 pool = self._make_pool(sl, wp, sliced=True)
@@ -799,9 +837,13 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         return got
 
     out: list = []
+    # `taken` is handed to every now-placement of every round and its id never moves;
+    # the round's `B` joins it below.  See `_Evaluator._shared_excl`.
+    ev._shared_excl = frozenset((id(ev.taken),))
     for t in forced_prefix:
         _c, takes = ev.place_load(_load(t), ev.taken, False)
         ev.taken.update(map(id, takes))
+        ev.drop_templates()      # `taken` moved in place; see `drop_templates`
         out.append(t)
     prefix_ids = {id(t) for t in out}
     remaining = [t for t in candidates if id(t) not in prefix_ids]
@@ -848,6 +890,10 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         # holding a bin uniquely.
         K = set(counts)
         B = ev.taken | K
+        # Declared FRESH rather than unioned: the previous round's `B` is dead by now
+        # and its id could have been reused, so carrying it forward would memoise a
+        # set nothing shares.
+        ev._shared_excl = frozenset((id(ev.taken), id(B)))
         best = None
         for t, c, tk, ids in swept:
             hole = {i for i in ids if counts[i] == 1 and i not in ev.taken}
@@ -857,6 +903,7 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
                 best = (t, g, tk)
         t, _g, tk = best
         ev.taken.update(map(id, tk))
+        ev.drop_templates()      # `taken` moved in place; see `drop_templates`
         out.append(t)
         remaining = [r for r in remaining if r is not t]
     return out

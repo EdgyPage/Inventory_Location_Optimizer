@@ -102,9 +102,15 @@ class FrozenTier:
                                 for a, lst in self._aisle_appear.items()}
         return self._aisle_desc[aid]
 
-    def slice(self, excluded) -> 'TierSlice':
-        """The tier minus `excluded` (a set of bin ids), for one pool open."""
-        return TierSlice(self, excluded)
+    def slice(self, excluded, store=None) -> 'TierSlice':
+        """The tier minus `excluded` (a set of bin ids), for one pool open.
+
+        `store` is the caller's TEMPLATE STORE -- a plain dict the slice memoises its
+        per-open structure into, so that the many opens a round makes over the SAME
+        (tier, excluded set) build it once and open over copy-on-write copies of it.
+        None (every caller but the gain evaluator) keeps the eager build, unchanged.
+        """
+        return TierSlice(self, excluded, store)
 
 
 class TierSlice:
@@ -114,11 +120,34 @@ class TierSlice:
     computed when a pool asks for its buckets, from each list's first non-excluded index.
     """
 
-    __slots__ = ('tier', 'excluded')
+    __slots__ = ('tier', 'excluded', 'store')
 
-    def __init__(self, tier: FrozenTier, excluded):
+    def __init__(self, tier: FrozenTier, excluded, store=None):
         self.tier = tier
         self.excluded = excluded
+        #: The caller's template store (see `FrozenTier.slice`), or None for the eager
+        #: build every non-evaluator caller gets.
+        self.store = store
+
+    # -- the template store -----------------------------------------------------------
+
+    def _template(self, kind, build):
+        """`build()`'s result for this (tier, excluded set), built at most once.
+
+        Keyed on the EXCLUDED SET'S IDENTITY, and the key holds a reference to that set,
+        so an id cannot be reused by a later object while the entry stands.  Identity and
+        not equality: two equal sets are two different rounds' answers and comparing
+        ~3,800 ids to find that out would cost more than the build.  The evaluator hands a
+        fresh store per plan, and `plan_order` drops it whenever the greedy commits (the
+        take-set moves, so every template over the old set is stale) -- so this never
+        grows past the handful of distinct sets one round is built from.
+        """
+        store = self.store
+        k = (kind, id(self.tier), id(self.excluded))
+        got = store.get(k)
+        if got is None:
+            got = store[k] = (self.excluded, self.tier, build())
+        return got[2]
 
     # -- the first-appearance order under exclusion ---------------------------------------
 
@@ -139,7 +168,17 @@ class TierSlice:
 
     def aisles(self, reverse: bool = False) -> dict:
         """`{aisle: _Cursor}` in first-appearance order of the surviving candidates, one
-        cursor per aisle over its D-sorted bins — `_RankedAssignPool`'s `by_aisle`."""
+        cursor per aisle over its D-sorted bins — `_RankedAssignPool`'s `by_aisle`.
+
+        With a template store this is `aisle_buckets`'s argument one level shallower: the
+        structure is a pure function of (tier, excluded set), so it is built once per round
+        and every further open reads it through a copy-on-write view."""
+        if self.store is not None:
+            return _CowAisles(self._template(
+                ('aisles', reverse), lambda: self._aisles_eager(reverse)))
+        return self._aisles_eager(reverse)
+
+    def _aisles_eager(self, reverse: bool = False) -> dict:
         tier = self.tier
         order = []
         for aid, appear in tier._aisle_appear.items():
@@ -168,6 +207,11 @@ class TierSlice:
         order rests on.  The same argument settles the inner `lst.sort()` on `(first, m)`:
         `first` is unique within an aisle, so `m` is never compared.
         """
+        if self.store is not None:
+            return _CowBuckets(self._template('buckets', self._aisle_buckets_eager))
+        return self._aisle_buckets_eager()
+
+    def _aisle_buckets_eager(self) -> dict:
         tier = self.tier
         ids, excl = tier.ids, self.excluded
         per_aisle: dict = {}
@@ -191,6 +235,184 @@ class TierSlice:
             lst.sort()
             out[aid] = {m: _Cursor(tier, tier._bucket_asc[(aid, m)], excl) for _f2, m in lst}
         return out
+
+
+class _CowAisles:
+    """`{aisle: _Cursor}` over a SHARED template, cloning the ONE cursor a take moves.
+
+    # ── why a template at all ─────────────────────────────────────────────────────────
+
+    Within one round of the gain greedy every candidate's now-placement calls
+    `place_load(load, ev.taken, False)` with the SAME exclusion set object, and the defer
+    side hands the same `B` to every candidate whose take-set holds no bin uniquely (see
+    `plan_order`).  So for a given (tier, excluded set) the per-open structure is built
+    from identical inputs, T times, and thrown away T times.  Measured on a synthetic tier
+    of the campaign shape (1,400 aisles, 3 brackets, 25,200 bins): `aisle_buckets()` costs
+    3.685 ms, of which the first-live walk and the sort are 33% and the 4,200 cursor
+    constructions are 67%.  Memoising only the SHAPE and rebuilding the cursors is 1.50x.
+    Opening over the template and cloning on the write is 0.0024 ms -- 1537x -- because a
+    pool seats ~12 units and so moves at most ~12 cursors however many it can see.
+
+    # ── the write, and why it is explicit ─────────────────────────────────────────────
+
+    A pool takes a bin by calling `popleft()`/`pop_top()`/`pop()` on a bucket it has just
+    READ, so no mapping can tell a read that precedes a write from one that does not.  The
+    pools therefore ASK: each has exactly one site that moves a head, and that site calls
+    `writable(...)`, which clones the cursor into this view's overlay and returns the
+    clone.  Every read after that resolves through the overlay, so the shared template is
+    never mutated and never observed stale.
+
+    Reads that settle (`_settle_lo` past newly excluded bins, `_settle_hi` from a `[-1]`)
+    do touch the template, and that is not a leak: for a FIXED exclusion set they are
+    idempotent memoisations of a pure scan, they converge to the same position from any
+    starting one, and a clone re-settles from its own copy before it uses either end.
+    """
+
+    __slots__ = ('_base', '_ov')
+
+    def __init__(self, base: dict):
+        self._base = base
+        self._ov: dict = {}
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __len__(self) -> int:
+        return len(self._base)
+
+    def __contains__(self, aid) -> bool:
+        return aid in self._base
+
+    def __getitem__(self, aid):
+        c = self._ov.get(aid)
+        return self._base[aid] if c is None else c
+
+    def get(self, aid, default=None):
+        c = self._ov.get(aid)
+        if c is not None:
+            return c
+        return self._base.get(aid, default)
+
+    def keys(self):
+        return self._base.keys()
+
+    def items(self):
+        ov = self._ov
+        for aid, c in self._base.items():
+            o = ov.get(aid)
+            yield aid, (c if o is None else o)
+
+    def values(self):
+        ov = self._ov
+        for aid, c in self._base.items():
+            o = ov.get(aid)
+            yield (c if o is None else o)
+
+    def writable(self, aid):
+        """The cursor for `aid`, cloned into this open's overlay on first ask."""
+        ov = self._ov
+        c = ov.get(aid)
+        if c is None:
+            c = ov[aid] = self._base[aid].clone()
+        return c
+
+
+class _CowBuckets:
+    """`{aisle: {height_mult: _Cursor}}` over a shared template -- `_CowAisles` one level
+    deeper, and every word of its docstring applies.  The overlay is per (aisle, bracket),
+    so a pool that empties one bracket of one aisle clones one cursor."""
+
+    __slots__ = ('_base', '_ov')
+
+    def __init__(self, base: dict):
+        self._base = base
+        self._ov: dict = {}
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __len__(self) -> int:
+        return len(self._base)
+
+    def __contains__(self, aid) -> bool:
+        return aid in self._base
+
+    def __getitem__(self, aid):
+        g = self._ov.get(aid)
+        base = self._base[aid]
+        return base if g is None else _CowInner(base, g)
+
+    def get(self, aid, default=None):
+        if aid not in self._base:
+            return default
+        return self[aid]
+
+    def keys(self):
+        return self._base.keys()
+
+    def items(self):
+        for aid in self._base:
+            yield aid, self[aid]
+
+    def values(self):
+        for aid in self._base:
+            yield self[aid]
+
+    def writable(self, aid, m):
+        """The cursor for `(aid, m)`, cloned into this open's overlay on first ask."""
+        ov = self._ov
+        g = ov.get(aid)
+        if g is None:
+            g = ov[aid] = {}
+        c = g.get(m)
+        if c is None:
+            c = g[m] = self._base[aid][m].clone()
+        return c
+
+
+class _CowInner:
+    """One aisle's brackets, overlay-first.  Built only for an aisle a take has moved --
+    an untouched aisle reads its template dict directly, at C speed."""
+
+    __slots__ = ('_base', '_ov')
+
+    def __init__(self, base: dict, ov: dict):
+        self._base = base
+        self._ov = ov
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __len__(self) -> int:
+        return len(self._base)
+
+    def __contains__(self, m) -> bool:
+        return m in self._base
+
+    def __getitem__(self, m):
+        c = self._ov.get(m)
+        return self._base[m] if c is None else c
+
+    def get(self, m, default=None):
+        c = self._ov.get(m)
+        if c is not None:
+            return c
+        return self._base.get(m, default)
+
+    def keys(self):
+        return self._base.keys()
+
+    def items(self):
+        ov = self._ov
+        for m, c in self._base.items():
+            o = ov.get(m)
+            yield m, (c if o is None else o)
+
+    def values(self):
+        ov = self._ov
+        for m, c in self._base.items():
+            o = ov.get(m)
+            yield (c if o is None else o)
 
 
 class _Cursor:
@@ -273,6 +495,25 @@ class _Cursor:
 
     def pop_top(self) -> None:
         self.popleft()
+
+    # -- the copy-on-write clone ----------------------------------------------------------
+
+    def clone(self) -> '_Cursor':
+        """An independent cursor at this one's exact position.
+
+        THREE FIELDS COPIED, THREE SHARED, and the split is the whole correctness claim:
+        `_lo`, `_hi` and `head` are this open's consumption and are copied; `_tier`,
+        `_order` and `_excl` are immutable for the pool's life -- the tier is frozen for
+        the drain, the order is one of its sorted index lists, and the exclusion set is
+        the one the slice was opened over -- so sharing them copies nothing that can move.
+
+        `__new__` and six stores, rather than `__init__`, because `__init__` would re-run
+        `_settle_lo` and re-scan the excluded prefix this cursor has already walked.
+        """
+        c = _Cursor.__new__(_Cursor)
+        c._tier, c._order, c._excl = self._tier, self._order, self._excl
+        c._lo, c._hi, c.head = self._lo, self._hi, self.head
+        return c
 
 
 class HeapBucket:
