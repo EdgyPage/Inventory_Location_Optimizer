@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_column_evidence · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_core_context_py___column_evidence" data-id="Optimization/Performance_Evaluations/core/context.py::_column_evidence">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a> <span class="sep">›</span> <span class="here"><code>_column_evidence</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_column_evidence</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_core_context_py.html"><code>Optimization/Performance_Evaluations/core/context.py</code></a></p>
+
+<pre class="sig"><code>def _column_evidence(con) -&gt; tuple</code></pre>
+<section class="doc">Capabilities this file proves by CARRYING A COLUMN rather than by holding rows.
+
+The row probe cannot settle these. `batch_stats` is in every vetted shape and every run
+writes rows into it, so `has_rows` answers True on a vintage that has neither placement
+-score column — and the evaluation would then render a run&#x27;s missing measurement as
+zeros, which is the one outcome the era gate exists to prevent. `Capability(table=None)`
+is the registry&#x27;s idiom for evidence the probe cannot reach; this is the caller side of
+it, which is why the column list lives beside the DDL and not here.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_core_context_py___probe_capabilities.html"><code>_probe_capabilities</code></a> <span class="dim">Optimization/Performance_Evaluations/core/context.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_core_context_py___column_evidence">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/core/context.py#:~:text=def%20_column_evidence">Source ↗</a></p>
+</article>
+</main>
+</body></html>

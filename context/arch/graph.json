@@ -3031,6 +3031,11 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.footer"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/context.py::_column_evidence",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities"
+    },
+    {
       "dst": "Schema/capability.py::probe",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities"
@@ -3108,6 +3113,11 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/units.py",
       "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/core/quantities.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/units.py::DURATION",
+      "kind": "ref",
       "src": "Optimization/Performance_Evaluations/core/quantities.py"
     },
     {
@@ -3204,6 +3214,11 @@
       "dst": "Optimization/Performance_Evaluations/common/units.py::Unit",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/quantities.py::_SHARE"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/units.py::Unit",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/quantities.py::_UNSERVED_UNITS"
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/families.py",
@@ -5208,6 +5223,86 @@
     {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
       "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/marks.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/quantities.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/layout/pick_owed.py::_per_batch",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::_census"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/layout/pick_owed.py::_per_batch",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::_entries"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::height_for_categories",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/marks.py::ranked",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/layout/pick_owed.py::_subtitle",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/layout/pick_owed.py::_census",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/layout/pick_owed.py::_entries",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/layout/pick_owed.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
+      "kind": "imports",
       "src": "Optimization/Performance_Evaluations/layout/travel.py"
     },
     {
@@ -6392,6 +6487,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/trajectories/overtime.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/trajectories/overtime.py::_dropped",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/trajectories/overtime.py::render"
     },
@@ -9996,6 +10096,16 @@
       "src": "Optimization/run_simulation.py::_build_parser"
     },
     {
+      "dst": "Optimization/runschema/sim_manifest.py::append_run_index",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_refuse_incomplete"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::close_run_record",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::_refuse_incomplete"
+    },
+    {
       "dst": "Optimization/analyze_run.py::analyze_run",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
@@ -10092,6 +10202,21 @@
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_write_run_spec",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::append_run_index",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::close_run_record",
+      "kind": "calls",
+      "src": "Optimization/run_simulation.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::open_run_record",
       "kind": "calls",
       "src": "Optimization/run_simulation.py::main"
     },
@@ -10272,6 +10397,16 @@
     },
     {
       "dst": "Optimization/run_unload_ranking.py::_units_of_cell",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::discriminating",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::rank_agreement",
       "kind": "calls",
       "src": "Optimization/run_unload_ranking.py::rank"
     },
@@ -11566,6 +11701,31 @@
       "src": "Optimization/runschema/resolver.py::RunTree.axes"
     },
     {
+      "dst": "Optimization/runschema/resolver.py::RunTree.cell_dir",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.cell_is_complete"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.channel_runs",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.cell_is_complete"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.glob",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.cell_is_complete"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.in_flight",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.cell_is_complete"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.sim_meta",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.cell_is_complete"
+    },
+    {
       "dst": "Optimization/runschema/runlayout.py::cells",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.cells"
@@ -11624,6 +11784,16 @@
       "dst": "Optimization/runschema/resolver.py::RunTree.path",
       "kind": "calls",
       "src": "Optimization/runschema/resolver.py::RunTree.group_outputs"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.cell_dir",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.in_flight"
+    },
+    {
+      "dst": "Optimization/runschema/resolver.py::RunTree.glob",
+      "kind": "calls",
+      "src": "Optimization/runschema/resolver.py::RunTree.in_flight"
     },
     {
       "dst": "Optimization/runschema/resolver.py::RunTree._parts_from_leaf",
@@ -11866,6 +12036,11 @@
       "src": "Optimization/runschema/sim_manifest.py::_save_resume"
     },
     {
+      "dst": "Optimization/runschema/sim_manifest.py::_run_history_path",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::_write_history"
+    },
+    {
       "dst": "Optimization/runschema/sim_manifest.py::_run_spec_path",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::_write_run_spec"
@@ -11874,6 +12049,41 @@
       "dst": "Schema/provenance.py::repo_provenance",
       "kind": "calls",
       "src": "Optimization/runschema/sim_manifest.py::_write_run_spec"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_run_index_path",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::append_run_index"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_write_history",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::close_run_record"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::read_run_history",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::close_run_record"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_write_history",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::open_run_record"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::read_run_history",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::open_run_record"
+    },
+    {
+      "dst": "Schema/provenance.py::repo_provenance",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::open_run_record"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::_run_history_path",
+      "kind": "calls",
+      "src": "Optimization/runschema/sim_manifest.py::read_run_history"
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_run_layout_path",
@@ -13451,6 +13661,46 @@
       "src": "Optimization/simdriver/leaf_scope.py::scope_for"
     },
     {
+      "dst": "Optimization/persistence/runtime_metrics.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/pacing.py"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::_mean",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::_index"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::weight_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::cell_order._est"
+    },
+    {
+      "dst": "Optimization/persistence/runtime_metrics.py::load_rows",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::load_pace"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::_index",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::load_pace"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::weight_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::weigh_jobs"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::_leaf_estimate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::weight_of"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::_leaves_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/pacing.py::weight_of"
+    },
+    {
       "dst": "Optimization/config/sim_config.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
@@ -13466,6 +13716,11 @@
       "src": "Optimization/simdriver/scenario.py"
     },
     {
+      "dst": "Optimization/runschema/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/scenario.py"
+    },
+    {
       "dst": "Optimization/runschema/runlayout.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
@@ -13477,6 +13732,11 @@
     },
     {
       "dst": "Optimization/simdriver/cells.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/scenario.py"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
     },
@@ -13521,6 +13781,16 @@
       "src": "Optimization/simdriver/scenario.py::_build_assets"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_cells_to_run"
+    },
+    {
+      "dst": "Optimization/simdriver/scenario.py::_cell_dir",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_cells_to_run"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_cells"
@@ -13549,6 +13819,11 @@
       "dst": "Optimization/simdriver/supervisor.py::sim_jobs",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_cells._rebuild"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_peak_rss_mib",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells._settled"
     },
     {
       "dst": "Optimization/simdriver/cells.py::cell_scope",
@@ -13596,17 +13871,17 @@
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::resolver_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
       "dst": "Optimization/simdriver/cells.py::Cell",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
       "dst": "Optimization/simdriver/cells.py::_build_cells",
-      "kind": "calls",
-      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
-    },
-    {
-      "dst": "Optimization/simdriver/cells.py::_cell_complete",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
@@ -13626,7 +13901,22 @@
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
+      "dst": "Optimization/simdriver/pacing.py::cell_order",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py::load_pace",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
       "dst": "Optimization/simdriver/scenario.py::_cell_dir",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/simdriver/scenario.py::_cells_to_run",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
@@ -14136,12 +14426,7 @@
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.finish"
     },
     {
-      "dst": "Optimization/simconfig/expected_travel.py::accumulate",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick"
-    },
-    {
-      "dst": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "dst": "Optimization/simdriver/strategy_runner.py::expected_pick_over",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick"
     },
@@ -14266,6 +14551,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_exact_pick_ctx",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_futuresight_window_w",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
@@ -14342,6 +14632,11 @@
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.init_travel_costs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
@@ -14542,6 +14837,11 @@
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::close_skipped_batch",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::expected_pick_over",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -14796,6 +15096,16 @@
       "src": "Optimization/simdriver/strategy_runner.py::close_skipped_batch"
     },
     {
+      "dst": "Optimization/simconfig/expected_travel.py::accumulate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::expected_pick_over"
+    },
+    {
+      "dst": "Optimization/simconfig/expected_travel.py::expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::expected_pick_over"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::keyframe_db_path",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::reset_strategy_db"
@@ -14807,6 +15117,11 @@
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/supervisor.py"
+    },
+    {
+      "dst": "Optimization/simdriver/pacing.py",
       "kind": "imports",
       "src": "Optimization/simdriver/supervisor.py"
     },
@@ -14896,6 +15211,11 @@
       "src": "Optimization/simdriver/supervisor.py::_finalize_unit_groups"
     },
     {
+      "dst": "Optimization/simdriver/pacing.py::weigh_jobs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::sim_jobs"
+    },
+    {
       "dst": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker",
       "kind": "ref",
       "src": "Optimization/simdriver/supervisor.py::sim_jobs"
@@ -14921,6 +15241,11 @@
       "src": "Optimization/simdriver/workpool.py::WorkPool._after_absorb"
     },
     {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._fire_settled",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool._after_absorb"
+    },
+    {
       "dst": "Optimization/simdriver/workpool.py::WorkPool._pump",
       "kind": "calls",
       "src": "Optimization/simdriver/workpool.py::WorkPool._after_absorb"
@@ -14941,6 +15266,11 @@
       "src": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations"
     },
     {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.settled_cells",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool._fire_settled"
+    },
+    {
       "dst": "Optimization/simdriver/workpool.py::_unblock_broken_pool",
       "kind": "calls",
       "src": "Optimization/simdriver/workpool.py::WorkPool._teardown_broken"
@@ -14956,6 +15286,11 @@
       "src": "Optimization/simdriver/workpool.py::WorkPool.absorb"
     },
     {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.progress",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.absorb"
+    },
+    {
       "dst": "Optimization/simdriver/workpool.py::WorkPool._absorb_future",
       "kind": "calls",
       "src": "Optimization/simdriver/workpool.py::WorkPool.drain"
@@ -14967,6 +15302,11 @@
     },
     {
       "dst": "Optimization/simdriver/workpool.py::WorkPool._pump",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.drain"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.progress",
       "kind": "calls",
       "src": "Optimization/simdriver/workpool.py::WorkPool.drain"
     },
@@ -15016,7 +15356,17 @@
       "src": "Optimization/simdriver/workpool.py::WorkPool.submit"
     },
     {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.progress",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.submit"
+    },
+    {
       "dst": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.when_done"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._fire_settled",
       "kind": "calls",
       "src": "Optimization/simdriver/workpool.py::WorkPool.when_done"
     },
@@ -19461,6 +19811,26 @@
       "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.current_sigma_fd"
     },
     {
+      "dst": "Warehouse/inventory/inventory_common.py::_wp_for",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin._handle_var",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed"
+    },
+    {
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.current_sigma_fd",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd"
@@ -19479,6 +19849,11 @@
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin._optimal_work_assign",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.optimal_work"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.pick_owed"
     },
     {
       "dst": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin._optimal_assign",
@@ -21566,11 +21941,6 @@
       "src": "scripts/archive_cells.py::archive_keyframes"
     },
     {
-      "dst": "scripts/archive_cells.py::_in_flight",
-      "kind": "calls",
-      "src": "scripts/archive_cells.py::cell_state"
-    },
-    {
       "dst": "scripts/archive_cells.py::_existing_ancestor",
       "kind": "calls",
       "src": "scripts/archive_cells.py::copy_verified"
@@ -21724,6 +22094,51 @@
       "dst": "scripts/prune_stale_analysis.py::find_stale",
       "kind": "calls",
       "src": "scripts/prune_stale_analysis.py::main"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py",
+      "kind": "imports",
+      "src": "scripts/run_index.py"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py",
+      "kind": "imports",
+      "src": "scripts/run_index.py"
+    },
+    {
+      "dst": "scripts/run_index.py::main",
+      "kind": "calls",
+      "src": "scripts/run_index.py"
+    },
+    {
+      "dst": "scripts/run_index.py::_out_dir",
+      "kind": "calls",
+      "src": "scripts/run_index.py::main"
+    },
+    {
+      "dst": "scripts/run_index.py::rows",
+      "kind": "calls",
+      "src": "scripts/run_index.py::main"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::read_run_history",
+      "kind": "calls",
+      "src": "scripts/run_index.py::rows"
+    },
+    {
+      "dst": "Optimization/runschema/sim_manifest.py::read_run_index",
+      "kind": "calls",
+      "src": "scripts/run_index.py::rows"
+    },
+    {
+      "dst": "scripts/run_index.py::_fold",
+      "kind": "calls",
+      "src": "scripts/run_index.py::rows"
+    },
+    {
+      "dst": "scripts/run_index.py::_roots",
+      "kind": "calls",
+      "src": "scripts/run_index.py::rows"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py",
@@ -24964,6 +25379,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/aggregate/traj.py",
+      "id": "Optimization/Performance_Evaluations/aggregate/traj.py::SERIES_OPTIONAL",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/aggregate/traj.py",
+      "name": "SERIES_OPTIONAL",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/aggregate/traj.py",
       "id": "Optimization/Performance_Evaluations/aggregate/traj.py::SERIES_QUANTITIES",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/aggregate/traj.py",
@@ -26132,6 +26555,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/common/series.py",
+      "id": "Optimization/Performance_Evaluations/common/series.py::_build_series._series",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/common/series.py",
+      "name": "_series",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/common/series.py",
       "id": "Optimization/Performance_Evaluations/common/series.py::_dump_series",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/common/series.py",
@@ -27212,6 +27643,14 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/core/context.py",
+      "id": "Optimization/Performance_Evaluations/core/context.py::_column_evidence",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/context.py",
+      "name": "_column_evidence",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/context.py",
       "id": "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/context.py",
@@ -27624,6 +28063,14 @@
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/core/quantities.py",
       "name": "_SHARE",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/quantities.py",
+      "id": "Optimization/Performance_Evaluations/core/quantities.py::_UNSERVED_UNITS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/core/quantities.py",
+      "name": "_UNSERVED_UNITS",
       "public": false
     },
     {
@@ -29019,6 +29466,94 @@
       "public": true
     },
     {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "Optimization.Performance_Evaluations.layout.pick_owed",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::CENSUS",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "CENSUS",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::CENSUS_MATERIAL",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "CENSUS_MATERIAL",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::QUANTITY",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "QUANTITY",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::_TITLES",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "_TITLES",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::_census",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "_census",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::_entries",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "_entries",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "_figure",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::_per_batch",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "_per_batch",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::_subtitle",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "_subtitle",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "id": "Optimization/Performance_Evaluations/layout/pick_owed.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/layout/pick_owed.py",
+      "name": "render",
+      "public": true
+    },
+    {
       "file": "Optimization/Performance_Evaluations/layout/travel.py",
       "id": "Optimization/Performance_Evaluations/layout/travel.py",
       "kind": "module",
@@ -29844,11 +30379,27 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/trajectories/overtime.py",
+      "id": "Optimization/Performance_Evaluations/trajectories/overtime.py::SERIES_OPTIONAL",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/trajectories/overtime.py",
+      "name": "SERIES_OPTIONAL",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/trajectories/overtime.py",
       "id": "Optimization/Performance_Evaluations/trajectories/overtime.py::SERIES_QUANTITIES",
       "kind": "const",
       "module": "Optimization/Performance_Evaluations/trajectories/overtime.py",
       "name": "SERIES_QUANTITIES",
       "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/trajectories/overtime.py",
+      "id": "Optimization/Performance_Evaluations/trajectories/overtime.py::_dropped",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/trajectories/overtime.py",
+      "name": "_dropped",
+      "public": false
     },
     {
       "file": "Optimization/Performance_Evaluations/trajectories/overtime.py",
@@ -32676,6 +33227,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::BATCH_PLACEMENT_SCORE_COLS",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "BATCH_PLACEMENT_SCORE_COLS",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::BATCH_UNKNOWN_ON_OLDER_VINTAGES",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -32764,6 +33323,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::CAP_PLACEMENT_SCORE",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "CAP_PLACEMENT_SCORE",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::CAP_REORDER_QUEUE",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -32844,10 +33411,26 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::PRE_EXACT_CHECK_SIM_SCHEMA_ID",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "PRE_EXACT_CHECK_SIM_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::PRE_FREE_INDEX_SIM_SCHEMA_ID",
       "kind": "const",
       "module": "Optimization/persistence/Picking_Data.py",
       "name": "PRE_FREE_INDEX_SIM_SCHEMA_ID",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::PRE_PICK_OWED_SIM_SCHEMA_ID",
+      "kind": "const",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "PRE_PICK_OWED_SIM_SCHEMA_ID",
       "public": true
     },
     {
@@ -35068,6 +35651,30 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::CENSUS_FIELD",
+      "kind": "const",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "CENSUS_FIELD",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::CENSUS_QUANTITY",
+      "kind": "const",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "CENSUS_QUANTITY",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::DEFAULT_CENSUS_MATERIAL_PCT",
+      "kind": "const",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "DEFAULT_CENSUS_MATERIAL_PCT",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::DEFAULT_K",
       "kind": "const",
       "module": "Optimization/run_unload_ranking.py",
@@ -35080,6 +35687,14 @@
       "kind": "const",
       "module": "Optimization/run_unload_ranking.py",
       "name": "DEFAULT_NOISE_FLOOR_PCT",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::EXACT_FIELD",
+      "kind": "const",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "EXACT_FIELD",
       "public": true
     },
     {
@@ -35156,6 +35771,14 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::discriminating",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "discriminating",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::main",
       "kind": "function",
       "module": "Optimization/run_unload_ranking.py",
@@ -35168,6 +35791,14 @@
       "kind": "function",
       "module": "Optimization/run_unload_ranking.py",
       "name": "rank",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::rank_agreement",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "rank_agreement",
       "public": true
     },
     {
@@ -36324,6 +36955,14 @@
     },
     {
       "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.cell_is_complete",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "cell_is_complete",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
       "id": "Optimization/runschema/resolver.py::RunTree.cells",
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
@@ -36384,6 +37023,14 @@
       "kind": "function",
       "module": "Optimization/runschema/resolver.py",
       "name": "group_outputs",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/resolver.py",
+      "id": "Optimization/runschema/resolver.py::RunTree.in_flight",
+      "kind": "function",
+      "module": "Optimization/runschema/resolver.py",
+      "name": "in_flight",
       "public": true
     },
     {
@@ -36780,6 +37427,14 @@
     },
     {
       "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::RUN_INDEX_NAME",
+      "kind": "const",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "RUN_INDEX_NAME",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
       "id": "Optimization/runschema/sim_manifest.py::_REPO_ROOT",
       "kind": "const",
       "module": "Optimization/runschema/sim_manifest.py",
@@ -36820,6 +37475,22 @@
     },
     {
       "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::_run_history_path",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "_run_history_path",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::_run_index_path",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "_run_index_path",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
       "id": "Optimization/runschema/sim_manifest.py::_run_layout_path",
       "kind": "function",
       "module": "Optimization/runschema/sim_manifest.py",
@@ -36844,11 +37515,59 @@
     },
     {
       "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::_write_history",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "_write_history",
+      "public": false
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
       "id": "Optimization/runschema/sim_manifest.py::_write_run_spec",
       "kind": "function",
       "module": "Optimization/runschema/sim_manifest.py",
       "name": "_write_run_spec",
       "public": false
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::append_run_index",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "append_run_index",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::close_run_record",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "close_run_record",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::open_run_record",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "open_run_record",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::read_run_history",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "read_run_history",
+      "public": true
+    },
+    {
+      "file": "Optimization/runschema/sim_manifest.py",
+      "id": "Optimization/runschema/sim_manifest.py::read_run_index",
+      "kind": "function",
+      "module": "Optimization/runschema/sim_manifest.py",
+      "name": "read_run_index",
+      "public": true
     },
     {
       "file": "Optimization/runschema/sim_manifest.py",
@@ -38564,14 +39283,6 @@
     },
     {
       "file": "Optimization/simdriver/cells.py",
-      "id": "Optimization/simdriver/cells.py::_cell_complete",
-      "kind": "function",
-      "module": "Optimization/simdriver/cells.py",
-      "name": "_cell_complete",
-      "public": false
-    },
-    {
-      "file": "Optimization/simdriver/cells.py",
       "id": "Optimization/simdriver/cells.py::_inbound_axis",
       "kind": "function",
       "module": "Optimization/simdriver/cells.py",
@@ -39299,6 +40010,110 @@
       "public": true
     },
     {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "Optimization.simdriver.pacing",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_KEY",
+      "kind": "const",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_KEY",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_LADDER",
+      "kind": "const",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_LADDER",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_index",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_index",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_index._put",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_put",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_leaf_estimate",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_leaf_estimate",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_leaves_of",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_leaves_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::_mean",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_mean",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::cell_order",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "cell_order",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::cell_order._est",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "_est",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::load_pace",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "load_pace",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::weigh_jobs",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "weigh_jobs",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/pacing.py",
+      "id": "Optimization/simdriver/pacing.py::weight_of",
+      "kind": "function",
+      "module": "Optimization/simdriver/pacing.py",
+      "name": "weight_of",
+      "public": true
+    },
+    {
       "file": "Optimization/simdriver/scenario.py",
       "id": "Optimization/simdriver/scenario.py",
       "kind": "module",
@@ -39324,6 +40139,14 @@
     },
     {
       "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_cells_to_run",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_cells_to_run",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
       "id": "Optimization/simdriver/scenario.py::_run_cells",
       "kind": "function",
       "module": "Optimization/simdriver/scenario.py",
@@ -39332,10 +40155,26 @@
     },
     {
       "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_run_cells._pos",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_pos",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
       "id": "Optimization/simdriver/scenario.py::_run_cells._rebuild",
       "kind": "function",
       "module": "Optimization/simdriver/scenario.py",
       "name": "_rebuild",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_run_cells._settled",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_settled",
       "public": false
     },
     {
@@ -39884,6 +40723,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_exact_pick_ctx",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_exact_pick_ctx",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_fsize_mb",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -40080,6 +40927,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "close_skipped_batch",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::expected_pick_over",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "expected_pick_over",
       "public": true
     },
     {
@@ -40348,6 +41203,14 @@
     },
     {
       "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._fire_settled",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_fire_settled",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
       "id": "Optimization/simdriver/workpool.py::WorkPool._pump",
       "kind": "function",
       "module": "Optimization/simdriver/workpool.py",
@@ -40396,10 +41259,42 @@
     },
     {
       "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.n_failed",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "n_failed",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.n_jobs",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "n_jobs",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.progress",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "progress",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
       "id": "Optimization/simdriver/workpool.py::WorkPool.remaining",
       "kind": "function",
       "module": "Optimization/simdriver/workpool.py",
       "name": "remaining",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.set_phase",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "set_phase",
       "public": true
     },
     {
@@ -46740,6 +47635,14 @@
     },
     {
       "file": "Warehouse/inventory/inventory_optimal.py",
+      "id": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_optimal.py",
+      "name": "enable_pick_owed",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_optimal.py",
       "id": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_optimal.py",
@@ -46764,10 +47667,26 @@
     },
     {
       "file": "Warehouse/inventory/inventory_optimal.py",
+      "id": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.pick_owed",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_optimal.py",
+      "name": "pick_owed",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_optimal.py",
       "id": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.place_optimal",
       "kind": "function",
       "module": "Warehouse/inventory/inventory_optimal.py",
       "name": "place_optimal",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/inventory_optimal.py",
+      "id": "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.placement_bin_map",
+      "kind": "function",
+      "module": "Warehouse/inventory/inventory_optimal.py",
+      "name": "placement_bin_map",
       "public": true
     },
     {
@@ -51836,14 +52755,6 @@
     },
     {
       "file": "scripts/archive_cells.py",
-      "id": "scripts/archive_cells.py::_in_flight",
-      "kind": "function",
-      "module": "scripts/archive_cells.py",
-      "name": "_in_flight",
-      "public": false
-    },
-    {
-      "file": "scripts/archive_cells.py",
       "id": "scripts/archive_cells.py::_quick_check",
       "kind": "function",
       "module": "scripts/archive_cells.py",
@@ -52104,6 +53015,62 @@
       "kind": "function",
       "module": "scripts/prune_stale_analysis.py",
       "name": "main",
+      "public": true
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py",
+      "kind": "module",
+      "module": "scripts/run_index.py",
+      "name": "scripts.run_index",
+      "public": true
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py::_REPO_ROOT",
+      "kind": "const",
+      "module": "scripts/run_index.py",
+      "name": "_REPO_ROOT",
+      "public": false
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py::_fold",
+      "kind": "function",
+      "module": "scripts/run_index.py",
+      "name": "_fold",
+      "public": false
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py::_out_dir",
+      "kind": "function",
+      "module": "scripts/run_index.py",
+      "name": "_out_dir",
+      "public": false
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py::_roots",
+      "kind": "function",
+      "module": "scripts/run_index.py",
+      "name": "_roots",
+      "public": false
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py::main",
+      "kind": "function",
+      "module": "scripts/run_index.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "scripts/run_index.py",
+      "id": "scripts/run_index.py::rows",
+      "kind": "function",
+      "module": "scripts/run_index.py",
+      "name": "rows",
       "public": true
     },
     {

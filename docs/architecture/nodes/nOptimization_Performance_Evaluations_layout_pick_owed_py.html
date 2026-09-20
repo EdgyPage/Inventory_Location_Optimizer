@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.layout.pick_owed · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_layout_pick_owed_py" data-id="Optimization/Performance_Evaluations/layout/pick_owed.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/layout/pick_owed.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.layout.pick_owed</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_layout_pick_owed_py.html"><code>Optimization/Performance_Evaluations/layout/pick_owed.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.layout.pick_owed</code></pre>
+<section class="doc">layout.pick_owed — what the PLANNED demand owes the placement, per arm.
+
+## The question this exists to answer, and why nothing else could
+
+The inbound campaign&#x27;s second phase ranks UNLOADING policies.  Every other metric in this
+suite is a FLOW — production seconds, unload seconds, throughput, items picked — and over
+a window long enough to unload everything a flow total is INVARIANT to the order the
+unloading happened in.  Same trailers, same packs, same seconds, different sequence.  The
+first phase-2 ranking came back as an exact tie across ten cells, and that was the honest
+answer to a question the metric could not be asked.
+
+An ordering policy changes WHEN stock reaches a shelf and WHICH shelf is free when it gets
+there.  That is a property of the STATE, not of the flow, so the measurement has to be a
+state read: at each batch, what would the run&#x27;s own planned demand cost to serve from
+where the stock currently stands?
+
+    pick_owed(t) = Σ over the planned lines, of the MEAN at-location cost over the bins
+                   that SKU actually occupies at batch t
+
+Same at-location arithmetic as `optimal_work` (`inventory_optimal._optimal_work_assign`,
+through the shared `cost_model.per_pick`) — but NOT the same weight basis, and that turns
+out to matter. `optimal_work` weights every SKU in the catalogue by its relative frequency;
+this weights the lines THIS RUN&#x27;S BATCHES ask for. Measured on the priced toy: 11,301,662 s
+against 54,971 s, a factor of 206. So there is no floor line on this figure and no ratio to
+report — see `_figure` for what was tried and why it was removed.
+
+That costs nothing phase 2 needs. The question is which of two cells placed the same stock
+better, and a comparison between arms of ONE run is exactly what a shared weight basis
+gives you: every cell of a matrix draws the same script from the same frozen inventory and
+the same seed, so two cells&#x27; scores differ only by where their stock ended up.
+
+## The honesty term, and why it is not folded in
+
+A planned line whose SKU has nothing on any shelf costs this score NOTHING — there is no
+bin to walk to.  Alone, that would rank &quot;leave it all in the yard&quot; first, which is the
+exact inversion the metric exists to prevent.  `unservable_weight` is the census of that
+demand, recorded per batch beside the score and carried onto this figure&#x27;s subtitle: a run
+whose census is materially non-zero was decided by AVAILABILITY, not by placement, and
+says so on the figure rather than being quietly published as a placement result.
+
+No fabricated penalty is charged for it.  A made-up number would make the score a single
+rankable scalar again at the cost of making it partly fiction, and which of the two forces
+moved it would no longer be recoverable from the figure.
+
+## Views
+
+Derived (`ranked` mark × `pick_owed_s`), exactly as `layout.travel`&#x27;s are:
+
+  absolute  each arm&#x27;s steady-state score, read across arms of the same run (the seconds
+            are not comparable to any other run&#x27;s: the weight basis is that run&#x27;s own
+            planned script)
+  percent   per-arm improvement against the baseline, with the bootstrap interval of the
+            PAIRED per-batch improvements, so a gap that crosses zero is reported as not
+            shown rather than as small</section>
+<section class="rel"><h2>Imports <span class="count">(5)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_chartkit_py.html"><code>Optimization.Performance_Evaluations.common.chartkit</code></a> <span class="dim">Optimization/Performance_Evaluations/common/chartkit.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_io_py.html"><code>Optimization.Performance_Evaluations.common.io</code></a> <span class="dim">Optimization/Performance_Evaluations/common/io.py</span></li><li><a href="nOptimization_Performance_Evaluations_common_marks_py.html"><code>Optimization.Performance_Evaluations.common.marks</code></a> <span class="dim">Optimization/Performance_Evaluations/common/marks.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_quantities_py.html"><code>Optimization.Performance_Evaluations.core.quantities</code></a> <span class="dim">Optimization/Performance_Evaluations/core/quantities.py</span></li><li><a href="nOptimization_Performance_Evaluations_core_registry_py.html"><code>Optimization.Performance_Evaluations.core.registry</code></a> <span class="dim">Optimization/Performance_Evaluations/core/registry.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(10)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py__CENSUS.html"><code>CENSUS</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py__CENSUS_MATERIAL.html"><code>CENSUS_MATERIAL</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py__QUANTITY.html"><code>QUANTITY</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py___TITLES.html"><code>_TITLES</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py___census.html"><code>_census</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py___entries.html"><code>_entries</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py___figure.html"><code>_figure</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py___per_batch.html"><code>_per_batch</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py___subtitle.html"><code>_subtitle</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li><li><a href="nOptimization_Performance_Evaluations_layout_pick_owed_py__render.html"><code>render</code></a> <span class="dim">Optimization/Performance_Evaluations/layout/pick_owed.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_layout_pick_owed_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/layout/pick_owed.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

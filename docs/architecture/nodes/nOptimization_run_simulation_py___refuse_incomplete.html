@@ -13,8 +13,8 @@
 <nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a> <span class="sep">›</span> <span class="here"><code>_refuse_incomplete</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_refuse_incomplete</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_simulation_py.html"><code>Optimization/run_simulation.py</code></a></p>
-
-<pre class="sig"><code>def _refuse_incomplete(info: dict, base_dir: str, log) -&gt; None</code></pre>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def _refuse_incomplete(info: dict, base_dir: str, log, attempt=None) -&gt; None</code></pre>
 <section class="doc">Exit 1, and run NO analysis, when the matrix left units unrecovered.
 
 THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  The pool driver (today
@@ -29,7 +29,7 @@ Analysis is refused rather than attempted because every downstream stage tolerat
 empty leaf set: the what-if writers would compare against holes and say nothing.  The run
 root and every finished arm&#x27;s checkpoint are left exactly as they are, and the resume
 command reruns only what is missing -- after which the analysis runs as usual.</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_runschema_sim_manifest_py__append_run_index.html"><code>append_run_index</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py__close_run_record.html"><code>close_run_record</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_simulation_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_simulation.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_simulation_py___refuse_incomplete">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_simulation.py#:~:text=def%20_refuse_incomplete">Source ↗</a></p>
 </article>
 </main>

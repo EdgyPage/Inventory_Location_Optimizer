@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_run_cells</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_scenario_py.html"><code>Optimization/simdriver/scenario.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span></div>
-<pre class="sig"><code>def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False, max_retries=2, resume_granularity=&#x27;strategy&#x27;) -&gt; dict</code></pre>
+<pre class="sig"><code>def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False, max_retries=2, resume_granularity=&#x27;strategy&#x27;, pace=None, cell_pos=None) -&gt; dict</code></pre>
 <section class="doc">Every cell&#x27;s units through ONE pool.  Returns {cell: [unfinished uids]} for the cells
 that left units unrecovered (a cell whose SETUP raised reports `(&#x27;setup&#x27;,)`; a leaf whose
 prepare raised reports `(&#x27;prepare&#x27;, tag)`), empty on a clean matrix.

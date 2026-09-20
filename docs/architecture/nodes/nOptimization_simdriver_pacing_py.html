@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.pacing · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_pacing_py" data-id="Optimization/simdriver/pacing.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/pacing.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.pacing</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_pacing_py.html"><code>Optimization/simdriver/pacing.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.pacing</code></pre>
+<section class="doc">pacing.py — how long a work unit will take, from a reference run&#x27;s own measurements.
+
+## Why a dispatch order is worth anything at all
+
+Every cell of a matrix feeds ONE pool, so the matrix wall is the worker-hours plus one
+unit: whatever is dispatched last still has to finish after everything else has. On a wide,
+shallow spec the units differ by more than an order of magnitude — a priced placement arm
+against `fifo` measured 39-59x on the campaign — so the tail is decided by WHICH unit goes
+last, not by how many there are.
+
+Measured on the ten-cell shape before this existed:
+
+| dispatch order                               | matrix wall |
+|---|---|
+| submission order (what the pool does bare)   | 5.57 h |
+| longest-first jobs                           | 5.37 h |
+| ...and heavy cells set up first              | 5.17 h |
+| the floor (worker-hours + the longest unit)  | 3.40 h |
+
+So the two levers together are worth ~7%, and ordering the CELLS is the bigger half. That
+half is only legal because `cells.cell_scope` made setup order result-neutral: a cell&#x27;s
+CONFIG writes are applied and restored by rebinding, so setting cell 7 up before cell 1
+cannot change what either produces.
+
+## Why this is OPT-IN
+
+A weight is a guess about the future taken from a different run. If the reference is
+mismatched — a different catalogue size, a different machine, a different era — the guess
+is wrong and the order is worse than submission order, which at least follows the spec a
+reader is looking at. `--pace-from` makes that a decision with a named source rather than a
+default nobody chose. It changes no byte of any result: the pool dispatches the same jobs,
+runs the same workers and writes the same files, in a different order.
+
+## What it reads
+
+`runtime_metrics` rows — `(cell, pair, config, channel, arm)` and the spans beside them —
+through `load_rows`, the one reader. No path is joined here and no declared artifact is
+named, in code or in prose: the run-tree ratchet counts every hand-written copy of a
+contract path and a new file has no baseline to be measured against.
+
+## The two things that are easy to get wrong
+
+**`total_s` is the UNIT loop&#x27;s wall, recorded on BOTH leaves of a coupled unit.** Summing
+it double-counts a coupled unit by exactly 2x and would put every coupled unit first on a
+matrix that mixes them with single leaves. It is `max` over a unit&#x27;s rows. `precomp_s` is
+measured OUTSIDE that loop and IS per leaf, so it sums.
+
+**A resume&#x27;s unit has less work left than the row describes.** A row is a FINISHED arm&#x27;s
+wall; a unit resuming at batch 380 of 400 has 5% of it left. The loop term is scaled by the
+remaining fraction and the setup term is not, because setup is paid again in full whatever
+batch the loop starts at.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nOptimization_persistence_runtime_metrics_py.html"><code>Optimization.persistence.runtime_metrics</code></a> <span class="dim">Optimization/persistence/runtime_metrics.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py.html"><code>Optimization.simdriver.scenario</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li><li><a href="nOptimization_simdriver_supervisor_py.html"><code>Optimization.simdriver.supervisor</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(12)</span></h2><ul><li><a href="nOptimization_simdriver_pacing_py___KEY.html"><code>_KEY</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py___LADDER.html"><code>_LADDER</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py__cell_order__est.html"><code>_est</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py___index.html"><code>_index</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py___leaf_estimate.html"><code>_leaf_estimate</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py___leaves_of.html"><code>_leaves_of</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py___mean.html"><code>_mean</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py___index__put.html"><code>_put</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py__cell_order.html"><code>cell_order</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py__load_pace.html"><code>load_pace</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py__weigh_jobs.html"><code>weigh_jobs</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_pacing_py__weight_of.html"><code>weight_of</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_pacing_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/pacing.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

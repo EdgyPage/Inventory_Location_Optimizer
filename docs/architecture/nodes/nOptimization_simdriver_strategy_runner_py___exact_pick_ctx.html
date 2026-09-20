@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_exact_pick_ctx · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___exact_pick_ctx" data-id="Optimization/simdriver/strategy_runner.py::_exact_pick_ctx">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_exact_pick_ctx</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_exact_pick_ctx</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+
+<pre class="sig"><code>def _exact_pick_ctx(args: dict, warehouse, orders, pick_cfg)</code></pre>
+<section class="doc">`(geometry, orders, pick_cfg, lines, cv)` for the keyframe-cadence check, or None.
+
+None on exactly the runs `_arm_expected_pick` returns None for -- no derived staffing
+block, or a channel section with no line count -- because it is the same expectation
+and needs the same two numbers.  That makes the store-only flag-off path a strict
+no-op here: the check costs it nothing, not even the geometry walk.
+
+The geometry IS walked a second time on a run that does take the check, once per arm,
+rather than being threaded out of `_arm_expected_pick`.  That function&#x27;s own bin map is
+what the placement fingerprint hashes and a test reads its source for that line; paying
+one aisle walk per arm is cheaper than making the stamp&#x27;s provenance harder to see.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_arm.html"><code>_build_arm</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___exact_pick_ctx">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_exact_pick_ctx">Source ↗</a></p>
+</article>
+</main>
+</body></html>

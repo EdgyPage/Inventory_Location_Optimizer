@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cell_is_complete · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_runschema_resolver_py__RunTree_cell_is_complete" data-id="Optimization/runschema/resolver.py::RunTree.cell_is_complete">
+<nav class="crumbs"><a href="../layers.html">opt_runschema</a> <span class="sep">›</span> <a href="../files/nOptimization_runschema_resolver_py.html"><code>Optimization/runschema/resolver.py</code></a> <span class="sep">›</span> <a href="nOptimization_runschema_resolver_py__RunTree.html"><code>RunTree</code></a> <span class="sep">›</span> <span class="here"><code>cell_is_complete</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>cell_is_complete</code></h1>
+<p class="meta">layer <span class="chip">opt_runschema</span> · file <a href="../files/nOptimization_runschema_resolver_py.html"><code>Optimization/runschema/resolver.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def cell_is_complete(self, cell: str, pairs=None) -&gt; tuple[bool, str]</code></pre>
+<section class="doc">`(is_complete, why)` for one cell — the predicate a RESUME may skip it on.
+
+## The defect this replaces
+
+`simdriver.cells._cell_complete` asked for at least ONE `sim_meta.json` per pair,
+anywhere under it.  A cell with two of eight leaves finalized answered True.  A
+skipped cell is never set up, never reaches the pool, and never reaches the coupled
+reconciler, so `unfinished` stays empty and the run EXITS 0 WITH A TORN PAIR.  The
+symptom is a leaf that is simply not there, weeks later, in an analysis that
+reports a smaller matrix without saying so.
+
+## The count, and why it is a UNION
+
+Store configs produce `&lt;store_cfg&gt;/store`; fulfillment configs produce
+`&lt;ff_cfg&gt;/fulfillment`.  A pair&#x27;s leaves are the SUM of the two, never their
+product — a cross-product rule would make every mixed cell permanently incomplete,
+which silently kills the skip and turns every resume into a full re-run.
+
+## Mixedness is PER PAIR, and it is read from disk
+
+A run can carry a mixed catalogue for one inventory pair and a store-only one for
+another, and the descriptor cannot say which: its channel list comes from CONFIG
+before any catalogue is read.  So the wanted count comes from the `config_json`
+records the setup pass wrote — one per (pair, config), written before any arm runs,
+which makes them the declaration of what this cell intends to produce.
+
+That count is then CHECKED against the layout: it must be either the store-only
+shape or the mixed one.  Anything else means the setup pass itself was interrupted
+part-way, and the honest answer there is &quot;not complete&quot; rather than a smaller
+target that would be trivially satisfied.
+
+## In-flight files
+
+A leaf killed inside its finalize window can have a `sim_meta.json` and still be
+mid-write.  `resume_pkl` and `checkpoint_pkl` are removed at finalize, so their
+presence anywhere in the cell means an arm was live.  Both are named through the
+CONTRACT, so renaming either in `schema.py` moves this probe with it instead of
+silently blinding it.
+
+Generalises `scripts/archive_cells.py:cell_state`, which had the strict count but
+one run-wide `mixed` flag; that function now delegates here.</section>
+<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_runschema_resolver_py__RunTree_cell_dir.html"><code>cell_dir</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree_channel_runs.html"><code>channel_runs</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree_glob.html"><code>glob</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree_in_flight.html"><code>in_flight</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li><li><a href="nOptimization_runschema_resolver_py__RunTree_sim_meta.html"><code>sim_meta</code></a> <span class="dim">Optimization/runschema/resolver.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_runschema_resolver_py__RunTree_cell_is_complete">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/runschema/resolver.py#:~:text=def%20cell_is_complete">Source ↗</a></p>
+</article>
+</main>
+</body></html>

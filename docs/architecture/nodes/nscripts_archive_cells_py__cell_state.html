@@ -15,11 +15,20 @@
 <p class="meta">layer <span class="chip">scripts</span> · file <a href="../files/nscripts_archive_cells_py.html"><code>scripts/archive_cells.py</code></a></p>
 
 <pre class="sig"><code>def cell_state(rt, cell: str, layout: dict, mixed: bool) -&gt; tuple[bool, str]</code></pre>
-<section class="doc">(is_complete, why). Stricter than the driver&#x27;s own resume probe.
+<section class="doc">(is_complete, why) — now `RunTree.cell_is_complete`, which this function became.
 
-The driver&#x27;s `_cell_complete` accepts one sim_meta.json per pair, so a cell with two of eight
-leaves finalized reports complete. Archiving on that would move a half-written cell.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py___in_flight.html"><code>_in_flight</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__archivable.html"><code>archivable</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
+It was the strict copy: the driver&#x27;s own `_cell_complete` accepted one sim_meta.json per
+pair and this one counted every leaf, so archiving was safe where resuming was not.  On
+2026-09-19 the strict one moved into the resolver and the loose one was deleted, which
+ends a real hazard — two predicates for one question, and the weaker one was the one
+deciding what a resume could skip.
+
+`mixed` is now IGNORED and kept only so callers need not change in the same commit.  It
+was a RUN-WIDE flag, and mixedness is per pair: a run can carry a mixed catalogue for one
+inventory pair and a store-only one for another, and this would then want the wrong leaf
+count for at least one of them.  The resolver reads each pair&#x27;s own config records
+instead.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__archivable.html"><code>archivable</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py__cell_state">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py#:~:text=def%20cell_state">Source ↗</a></p>
 </article>
 </main>

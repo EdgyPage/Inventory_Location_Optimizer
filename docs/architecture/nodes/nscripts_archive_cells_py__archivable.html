@@ -17,9 +17,24 @@
 <pre class="sig"><code>def archivable(rt, layout: dict, mixed: bool, include_last: bool) -&gt; list</code></pre>
 <section class="doc">Complete cells that are also safe to touch.
 
-Cells run sequentially, so a cell is provably not the live one once a LATER cell has started.
-The final cell only becomes safe when the run itself is over, which the caller asserts with
-include_last.</section>
+## The premise that stopped being true
+
+This used to reason: cells run sequentially, so a cell is provably not the live one once a
+LATER cell has started.  Since the flat work pool (2026-09-19) EVERY CELL&#x27;S UNITS SHARE
+ONE POOL and cells overlap by design — a later cell&#x27;s directory existing says nothing
+about whether an earlier cell still has units in flight, so that test was reasoning from
+a fact that had stopped being one.
+
+It is replaced by DIRECT EVIDENCE rather than by a stricter proxy: `cell_is_complete`
+refuses on any in-flight file, so a cell with a live arm has a `resume.pkl` or a
+checkpoint under it and is not archivable, whatever else has started.  That is a better
+test than the ordering one ever was, and it is the reason dropping the ordering test
+does not loosen the tool.
+
+`include_last` keeps its meaning and its job: the LAST cell in descriptor order is held
+back unless the caller asserts the simulation has exited.  The in-flight probe sees the
+simulator&#x27;s transients, not the analysis stage that runs after them, and the last cell is
+where that stage is still working when everything else looks finished.</section>
 <section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nscripts_archive_cells_py__cell_state.html"><code>cell_state</code></a> <span class="dim">scripts/archive_cells.py</span></li><li><a href="nscripts_archive_cells_py__is_archived.html"><code>is_archived</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nscripts_archive_cells_py__sweep.html"><code>sweep</code></a> <span class="dim">scripts/archive_cells.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nscripts_archive_cells_py__archivable">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/scripts/archive_cells.py#:~:text=def%20archivable">Source ↗</a></p>
 </article>

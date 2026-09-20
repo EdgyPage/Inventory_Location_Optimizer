@@ -2637,16 +2637,23 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/aggregate/traj.py::SERIES_OPTIONAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "SERIES_GATED"
+    },
     "Optimization/Performance_Evaluations/aggregate/traj.py::SERIES_QUANTITIES": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "SERIES_ORDER"
+      "value_preview": "SERIES_UNGATED"
     },
     "Optimization/Performance_Evaluations/aggregate/traj.py::render": {
       "decorators": [
-        "evaluation(key='agg.traj', label='Cross-profile trajectories (% vs baseline)', scope='aggregate', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES, views_suppressed=(('absolute', 'the aggregate series are already x-baseline normalized per profile and averaged across profiles, so an absolute view would restate the normalization: every axis would read \"x baseline\" and every baseline curve would sit at 1.0'), ('delta', \"a difference of two already-normalized ratios is not in the quantity's units and is not in any other units either; the percent view is the honest one at this scope\")))"
+        "evaluation(key='agg.traj', label='Cross-profile trajectories (% vs baseline)', scope='aggregate', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES, quantities_optional=SERIES_OPTIONAL, views_suppressed=(('absolute', 'the aggregate series are already x-baseline normalized per profile and averaged across profiles, so an absolute view would restate the normalization: every axis would read \"x baseline\" and every baseline curve would sit at 1.0'), ('delta', \"a difference of two already-normalized ratios is not in the quantity's units and is not in any other units either; the percent view is the honest one at this scope\")))"
       ],
       "doc": null,
       "is_async": false,
@@ -3655,6 +3662,13 @@
       "kind": "function",
       "signature": "(strategies, df_b, df_t, df_w=None, df_y=None)"
     },
+    "Optimization/Performance_Evaluations/common/series.py::_build_series._series": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(col)"
+    },
     "Optimization/Performance_Evaluations/common/series.py::_dump_series": {
       "decorators": [],
       "doc": null,
@@ -4607,6 +4621,13 @@
       "kind": "function",
       "signature": "(self) -> str"
     },
+    "Optimization/Performance_Evaluations/core/context.py::_column_evidence": {
+      "decorators": [],
+      "doc": "Capabilities this file proves by CARRYING A COLUMN rather than by holding rows.\n\nThe row probe cannot settle these. `batch_stats` is in every vetted shape and every run\nwrites rows into it, so `has_rows` answers True on a vintage that has neither placement\n-score column \u2014 and the evaluation would then render a run's missing measurement as\nzeros, which is the one outcome the era gate exists to prevent. `Capability(table=None)`\nis the registry's idiom for evidence the probe cannot reach; this is the caller side of\nit, which is why the column list lives beside the DDL and not here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(con) -> tuple"
+    },
     "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities": {
       "decorators": [],
       "doc": "Which optional sources EVERY arm of this context can actually answer from.\n\nThe runtime half of the era gate, and it opened the day a quantity first named a\ncapability. `core/era.py`'s static rule proves a declared read is either inside the\nguaranteed surface or named as a capability; that is a statement about the QUANTITY\nTABLE and says nothing about the file in front of you. A vetted vintage can carry a\nconditional table and no rows in it \u2014 measured across two archived cells,\n`aisle_metrics` has rows in 52 of 60 arms and `reorder_queue` in 68 of 166 \u2014 and\nwithout this probe the only symptom would be a figure that silently does not appear.\n\nINTERSECTED across arms, not unioned. A comparison figure draws every arm on one axis,\nso a capability one arm cannot answer is a capability the figure cannot use: the union\nwould license a chart that silently omits an arm, which reads as that arm scoring zero.\n\nAbsent files are skipped rather than counted as answering nothing \u2014 `requests` already\ndenies on those, with a better message, and folding the two would report a missing file\nas a data-era problem.",
@@ -4984,6 +5005,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "Unit('share')"
+    },
+    "Optimization/Performance_Evaluations/core/quantities.py::_UNSERVED_UNITS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Unit('count', 'lines')"
     },
     "Optimization/Performance_Evaluations/core/quantities.py::_agg": {
       "decorators": [],
@@ -6237,6 +6265,84 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py": {
+      "decorators": [],
+      "doc": "layout.pick_owed \u2014 what the PLANNED demand owes the placement, per arm.\n\n## The question this exists to answer, and why nothing else could\n\nThe inbound campaign's second phase ranks UNLOADING policies.  Every other metric in this\nsuite is a FLOW \u2014 production seconds, unload seconds, throughput, items picked \u2014 and over\na window long enough to unload everything a flow total is INVARIANT to the order the\nunloading happened in.  Same trailers, same packs, same seconds, different sequence.  The\nfirst phase-2 ranking came back as an exact tie across ten cells, and that was the honest\nanswer to a question the metric could not be asked.\n\nAn ordering policy changes WHEN stock reaches a shelf and WHICH shelf is free when it gets\nthere.  That is a property of the STATE, not of the flow, so the measurement has to be a\nstate read: at each batch, what would the run's own planned demand cost to serve from\nwhere the stock currently stands?\n\n    pick_owed(t) = \u03a3 over the planned lines, of the MEAN at-location cost over the bins\n                   that SKU actually occupies at batch t\n\nSame at-location arithmetic as `optimal_work` (`inventory_optimal._optimal_work_assign`,\nthrough the shared `cost_model.per_pick`) \u2014 but NOT the same weight basis, and that turns\nout to matter. `optimal_work` weights every SKU in the catalogue by its relative frequency;\nthis weights the lines THIS RUN'S BATCHES ask for. Measured on the priced toy: 11,301,662 s\nagainst 54,971 s, a factor of 206. So there is no floor line on this figure and no ratio to\nreport \u2014 see `_figure` for what was tried and why it was removed.\n\nThat costs nothing phase 2 needs. The question is which of two cells placed the same stock\nbetter, and a comparison between arms of ONE run is exactly what a shared weight basis\ngives you: every cell of a matrix draws the same script from the same frozen inventory and\nthe same seed, so two cells' scores differ only by where their stock ended up.\n\n## The honesty term, and why it is not folded in\n\nA planned line whose SKU has nothing on any shelf costs this score NOTHING \u2014 there is no\nbin to walk to.  Alone, that would rank \"leave it all in the yard\" first, which is the\nexact inversion the metric exists to prevent.  `unservable_weight` is the census of that\ndemand, recorded per batch beside the score and carried onto this figure's subtitle: a run\nwhose census is materially non-zero was decided by AVAILABILITY, not by placement, and\nsays so on the figure rather than being quietly published as a placement result.\n\nNo fabricated penalty is charged for it.  A made-up number would make the score a single\nrankable scalar again at the cost of making it partly fiction, and which of the two forces\nmoved it would no longer be recoverable from the figure.\n\n## Views\n\nDerived (`ranked` mark \u00d7 `pick_owed_s`), exactly as `layout.travel`'s are:\n\n  absolute  each arm's steady-state score, read across arms of the same run (the seconds\n            are not comparable to any other run's: the weight basis is that run's own\n            planned script)\n  percent   per-arm improvement against the baseline, with the bootstrap interval of the\n            PAIRED per-batch improvements, so a gap that crosses zero is reported as not\n            shown rather than as small",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::CENSUS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'unservable_weight'"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::CENSUS_MATERIAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.01"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::QUANTITY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'pick_owed_s'"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::_TITLES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'absolute': ('Pick work owed by the placement', \"this run's planned demand, served from where the stock stands; compare arms, not runs\"), 'percent': ('Pick work owed vs baseline', 'median of the p..."
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::_census": {
+      "decorators": [],
+      "doc": "(worst unservable weight over every arm and batch, the arm that carried it).\n\nThe MAXIMUM, not the mean: the question is whether this run was ever decided by\navailability, and a run that starved for five batches and recovered still had its\nscore decided by something other than placement across those five.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::_entries": {
+      "decorators": [],
+      "doc": "(entries, paired) \u2014 the absolute view's scalars, and the pairing for the rest.\n\nSame shape as `layout.travel._entries`, and deliberately so: an arm sharing fewer than\nthree batches with the baseline keeps its bar and loses its dot, which is the honest\npair of answers rather than dropping the arm from both.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, S, baseline)"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::_figure": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, entries, paired, baseline, view, out, census)"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::_per_batch": {
+      "decorators": [],
+      "doc": "One arm's per-batch column off the batch frame, indexed by batch.\n\nStraight off the frame rather than through the generic metric-series helper, for\n`layout.travel`'s reason: that helper takes a task frame it never consults for a\nbatch-scoped column, and asking the broker for it would cost a real read per arm and\nmake this evaluation's `needs=` a lie.\n\n`dropna` is load-bearing here and is not in `layout.travel`: both columns read NULL\nrather than 0.0 on a vintage that predates them (`BATCH_UNKNOWN_ON_OLDER_VINTAGES`),\nand a 0.0 would be the best score the column can take.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, key, column)"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::_subtitle": {
+      "decorators": [],
+      "doc": "The declared subtitle, plus the census when the census has something to say.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_sub, worst, who)"
+    },
+    "Optimization/Performance_Evaluations/layout/pick_owed.py::render": {
+      "decorators": [
+        "evaluation(key='layout.pick_owed', label='Pick work owed by the placement, per arm', scope='config', needs=('batch', 'series'), family='layout', shape='ranked', quantities=(QUANTITY,))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
     "Optimization/Performance_Evaluations/layout/travel.py": {
       "decorators": [],
       "doc": "layout.travel \u2014 travel cost per arm against the baseline, the layout family's\ncomparison work.\n\nThe layout family owned only the churn overlay, and churn is flat (often exactly zero\nwhen reslotting is off), so the family that should answer \"did this placement rule\nactually shorten the walking?\" answered nothing.  The quantity that does differentiate\narms \u2014 \u03a3 f\u00b7D, demand-weighted distance, the objective the assignment functions optimise \u2014\nwas reachable only through a diagnostics small-multiples grid, and diagnostics is the\nfamily explicitly exempted from comparison work.\n\nTwo views of one quantity, and the set is DERIVED (`ranked` mark \u00d7 `sigma_fd`), not\nchosen here.  A ranked mark's categories are ARMS, which do not pair with themselves, so\nthe derivation gives no delta \u2014 the per-batch difference lives with the serial marks:\n\n  absolute  each arm's steady-state \u03a3 f\u00b7D beside the layout floor when the run publishes\n            one, which turns a unitless objective into \"how much of the achievable\n            improvement did this rule capture\".\n  percent   per-arm improvement against the baseline, sorted, with the bootstrap interval\n            of the PAIRED per-batch improvements, so the ranking says which gaps are\n            separable and which are not: where an interval crosses zero, the arm has not\n            been shown to move travel at all.\n\n**The percent view used to be called `delta`.**  It computed `improvement_pct_series`,\nlabelled its axis through `pct_axis`, and saved as `delta_travel_vs_baseline.png` under\n`view='delta'` \u2014 a percent under a delta's name, which five save-time checks passed\nbecause every one of them compared a declaration against another declaration and none of\nthem ever saw a number.  It was not carelessness: the `layout` family's allow-list had no\n`percent` in it, so there was nowhere honest to put the figure.  Both halves are fixed \u2014\nthe view set comes from the quantity and the mark, and `common/marks.py` computes the\nstance from raw values, so the filename and the arithmetic come from one decision.",
@@ -6319,7 +6425,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['task_time.duration', 'task_time.breakdown', 'labor.production_legs', 'layout.travel', 'layout.churn', 'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard', 'diagnostics.metric_grids', '..."
+      "value_preview": "['task_time.duration', 'task_time.breakdown', 'labor.production_legs', 'layout.travel', 'layout.churn', 'layout.pick_owed', 'yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard', 'diagnost..."
     },
     "Optimization/Performance_Evaluations/presets.py::_GROUPS": {
       "decorators": [],
@@ -6966,16 +7072,30 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/Performance_Evaluations/trajectories/overtime.py::SERIES_OPTIONAL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "SERIES_GATED"
+    },
     "Optimization/Performance_Evaluations/trajectories/overtime.py::SERIES_QUANTITIES": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "SERIES_ORDER"
+      "value_preview": "SERIES_UNGATED"
+    },
+    "Optimization/Performance_Evaluations/trajectories/overtime.py::_dropped": {
+      "decorators": [],
+      "doc": "Gated quantities THIS run cannot answer, named so the absence is a statement.\n\n`quantities_optional=` buys the family its render on an archived run; it does not\nbuy silence.  A panel that is simply not there is indistinguishable from one nobody\ngot round to, which is the drift the era gate exists to end -- so the omission is\nlogged with the capability that would have served it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx)"
     },
     "Optimization/Performance_Evaluations/trajectories/overtime.py::render": {
       "decorators": [
-        "evaluation(key='trajectories.overtime', label='Over-time trajectories, absolute + % vs baseline', scope='config', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES)"
+        "evaluation(key='trajectories.overtime', label='Over-time trajectories, absolute + % vs baseline', scope='config', needs=('series',), family='trajectories', shape='serial', quantities=SERIES_QUANTITIES, quantities_optional=SERIES_OPTIONAL)"
       ],
       "doc": null,
       "is_async": false,
@@ -9449,12 +9569,19 @@
       "kind": "class",
       "signature": ""
     },
+    "Optimization/persistence/Picking_Data.py::BATCH_PLACEMENT_SCORE_COLS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('pick_owed_s', 'unservable_weight')"
+    },
     "Optimization/persistence/Picking_Data.py::BATCH_UNKNOWN_ON_OLDER_VINTAGES": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "('free_bins', 'put_spills')"
+      "value_preview": "('free_bins', 'put_spills', 'pick_owed_s', 'unservable_weight', 'pick_owed_exact_s')"
     },
     "Optimization/persistence/Picking_Data.py::BatchStats": {
       "decorators": [
@@ -9530,6 +9657,13 @@
       "signature": null,
       "value_preview": "'keyframes'"
     },
+    "Optimization/persistence/Picking_Data.py::CAP_PLACEMENT_SCORE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'placement_score'"
+    },
     "Optimization/persistence/Picking_Data.py::CAP_REORDER_QUEUE": {
       "decorators": [],
       "doc": null,
@@ -9600,12 +9734,26 @@
       "signature": null,
       "value_preview": "'487a65bf83a9'"
     },
+    "Optimization/persistence/Picking_Data.py::PRE_EXACT_CHECK_SIM_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'f6e58d087767'"
+    },
     "Optimization/persistence/Picking_Data.py::PRE_FREE_INDEX_SIM_SCHEMA_ID": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "'02a78953886c'"
+    },
+    "Optimization/persistence/Picking_Data.py::PRE_PICK_OWED_SIM_SCHEMA_ID": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'4e13ed321df9'"
     },
     "Optimization/persistence/Picking_Data.py::PRE_REALIZED_SIM_SCHEMA_IDS": {
       "decorators": [],
@@ -9663,7 +9811,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('d9854632d1b0', 'c37b50bf2b84', 'c6bacfdb5c77'..."
+      "value_preview": "_identity.register(_identity.Family(name='sim_db', declared_shape=declared_sim_schema_shape, meta_table=None, stamp_reader=_read_sim_stamp, known_ids=('f6e58d087767', '4e13ed321df9', 'd9854632d1b0'..."
     },
     "Optimization/persistence/Picking_Data.py::TASK_UNKNOWN_ON_OLDER_VINTAGES": {
       "decorators": [],
@@ -11505,7 +11653,7 @@
       "doc": "Exit 1, and run NO analysis, when the matrix left units unrecovered.\n\nTHE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  The pool driver (today\n`workpool.WorkPool.finish`, then `supervisor._supervise`) has always\nlogged the unrecovered units at ERROR with a resume command, and every level above it\nreturned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run\nthe analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print \"All\nsimulations complete.\" and exit 0 (`pool-run-swallows-dead-arms`).  A scheduled or detached\ndriver has ONLY the exit status to read.\n\nAnalysis is refused rather than attempted because every downstream stage tolerates an\nempty leaf set: the what-if writers would compare against holes and say nothing.  The run\nroot and every finished arm's checkpoint are left exactly as they are, and the resume\ncommand reruns only what is missing -- after which the analysis runs as usual.",
       "is_async": false,
       "kind": "function",
-      "signature": "(info: dict, base_dir: str, log) -> None"
+      "signature": "(info: dict, base_dir: str, log, attempt=None) -> None"
     },
     "Optimization/run_simulation.py::_unit_fraction": {
       "decorators": [],
@@ -11530,9 +11678,30 @@
     },
     "Optimization/run_unload_ranking.py": {
       "decorators": [],
-      "doc": "run_unload_ranking.py \u2014 phase 2's hand-off: rank the UNLOADING policies of a finished\nphase-2 run and write the contract's `unload_ranking_json` artifact at the run root.\n\nThe twin of `run_restock_selection` (phase 1's hand-off), one level up the funnel:\n\n  * phase 1 ranked restocking RULES on picking labour, in one cell;\n  * phase 2 runs phase 1's winning rule pair (plus the `fifo` rider) under every unloading\n    policy, one CELL per policy (`whatif_config.phase2_inbound_axis`), and this ranks the\n    CELLS;\n  * phase 3 crosses the best few of each in one confirmation run.\n\nTHE SCORE, decided with the user on 2026-09-18 (memory `inbound-campaign-is-a-three-phase-\nfunnel`): **total site labour** \u2014 picking plus put-away plus receiving, which is exactly the\n`ss_prod_total` each leaf's series document already carries (`common/series.py`: unload +\nput + pick, meaned over the steady-state window) \u2014 summed over a unit's two leaves and\nover the inventory pairs, in hours, lower is better.  Picking labour alone cannot rank\nunloading policies: across the campaign's first three cells it was identical to 0.01%.\nTwo cells whose labour differs by less than the NOISE FLOOR are a tie, and the tie is\nbroken by **yard overage** (`yard_overage_days`, the whole run's trailer-days past the free\nthreshold, from the SITE yard through `frames._ydf`), lower first.  The floor is declared,\nnot measured \u2014 0.1%, the size of the cross-cell pick deltas the three-cell analysis found \u2014\nand the artifact records it beside every rank so a reader can re-draw the line.\n\nWHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard's DB is\nnamed after the ARM PAIR it served (the contract's `site_inbound_db` template).  So the\nunits are enumerated from the site DBs through the run-tree contract (`rt.site_inbound_dbs`,\n`rt.arm_pair_of`, `rt.arm_pair_halves`), never from a directory name, and each unit maps to\na RULE PAIR and a stock mode through the strategy grid (`STRATEGY_BY_KEY`), never by parsing\nthe key.  A cell's score for a rule pair sums that pair's units (both stock modes), so the\nrider's ranking is reported beside the winner's and neither is read as the other.\n\nRefusals, each closing a way to hand phase 3 a plausible answer instead of an error:\n\n  * an UNCOUPLED root (no site DB anywhere) \u2014 phase 2 is coupled by definition and the\n    tie-break lives in the site yard;\n  * an unanalyzed root (no series documents) \u2014 says what to run, like phase 1's selector;\n  * a single cell \u2014 nothing to rank, and a ranking of one would still print a rank 1.\n\nThe output is a DECISION RECORD.  Copy the chosen cell set into `whatif_config` by hand for\nphase 3 (`PHASE3_UNLOAD`, beside `PHASE2_PAIRS`), for the same reason phase 1's pairs are\ncopied: a spec that read a JSON file at import would make the decision invisible.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n    python -m Optimization.analyze_run <phase-2 run root>\n    python -m Optimization.run_unload_ranking <phase-2 run root> [--pair store_rule,ful_rule]",
+      "doc": "run_unload_ranking.py \u2014 phase 2's hand-off: rank the UNLOADING policies of a finished\nphase-2 run and write the contract's `unload_ranking_json` artifact at the run root.\n\nThe twin of `run_restock_selection` (phase 1's hand-off), one level up the funnel:\n\n  * phase 1 ranked restocking RULES on picking labour, in one cell;\n  * phase 2 runs phase 1's winning rule pair (plus the `fifo` rider) under every unloading\n    policy, one CELL per policy (`whatif_config.phase2_inbound_axis`), and this ranks the\n    CELLS;\n  * phase 3 crosses the best few of each in one confirmation run.\n\nTHE SCORE \u2014 and the correction of 2026-09-19 that is the reason this module changed.\n\nIt ranked on **total site labour** (`ss_prod_total`: unload + put + pick, meaned over the\nsteady-state window).  That was wrong, and wrong in a way that produced an answer rather\nthan an error: every term in it is a FLOW, and over a window long enough to unload\neverything a flow total is INVARIANT to the ORDER the unloading happened in.  Same\ntrailers, same packs, same seconds.  The first phase-2 ranking came back an exact tie\nacross ten cells and that was the honest reply to a question the metric could not be asked.\n\nThe score now, set with the user on 2026-09-19: **the pick work the PLANNED demand owes the\nplacement** \u2014 `ss_pick_owed`, the steady-state mean of `batch_stats.pick_owed_s`, summed\nover a unit's two leaves and the inventory pairs, in seconds, lower is better.  Dock labour\nis the same whichever order the trailers come apart in; where the stock LANDS is not, and\nthat is what the whole warehouse pays for afterwards.  It is a STATE read, so it can see an\nordering policy: what the run's own planned batches would cost served from where the stock\ncurrently stands, priced with the same `cost_model.per_pick` arithmetic as `optimal_work`.\n\nTwo cells whose score differs by less than the NOISE FLOOR are a tie, and the tie is broken\nby **yard overage** (`yard_overage_days`, the whole run's trailer-days past the free\nthreshold, from the SITE yard through `frames._ydf`), lower first.  The floor is declared,\nnot measured \u2014 0.1% \u2014 and the artifact records it beside every rank so a reader can\nre-draw the line.\n\nTHE CENSUS, and the refusal it can trigger.  A planned line whose SKU has nothing on any\nshelf costs the score NOTHING, because there is no bin to walk to \u2014 so a score read alone\nwould rank \"leave it all in the yard\" first.  `ss_unservable` is the census of that demand.\nWhen it is materially non-zero the run was decided by AVAILABILITY rather than by\nplacement, and this tool writes the record, names no cells for phase 3, and exits non-zero.\nA fabricated penalty would make the score rankable again at the price of making it partly\nfiction, with no way to recover which force moved it.\n\nTWO VERDICTS the document carries beside the ranks, because a rank list cannot state\neither: `discriminating` is false when every cell lands in ONE tie group (the metric did\nnot separate the policies, which is a result and not a ranking), and `rank_agreement`\nreports whether the rule pairs that ran ordered the cells the same way \u2014 they are\nindependent replications of the same question, so disagreement is the honest signal that\nneither ordering is a property of the unloading policy.\n\nWHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard's DB is\nnamed after the ARM PAIR it served (the contract's `site_inbound_db` template).  So the\nunits are enumerated from the site DBs through the run-tree contract (`rt.site_inbound_dbs`,\n`rt.arm_pair_of`, `rt.arm_pair_halves`), never from a directory name, and each unit maps to\na RULE PAIR and a stock mode through the strategy grid (`STRATEGY_BY_KEY`), never by parsing\nthe key.  A cell's score for a rule pair sums that pair's units (both stock modes), so the\nrider's ranking is reported beside the winner's and neither is read as the other.\n\nRefusals, each closing a way to hand phase 3 a plausible answer instead of an error:\n\n  * a MATERIAL census \u2014 the ranking would be about availability, not placement;\n  * an UNCOUPLED root (no site DB anywhere) \u2014 phase 2 is coupled by definition and the\n    tie-break lives in the site yard;\n  * an unanalyzed root (no series documents) \u2014 says what to run, like phase 1's selector;\n  * a single cell \u2014 nothing to rank, and a ranking of one would still print a rank 1.\n\nThe output is a DECISION RECORD.  Copy the chosen cell set into `whatif_config` by hand for\nphase 3 (`PHASE3_UNLOAD`, beside `PHASE2_PAIRS`), for the same reason phase 1's pairs are\ncopied: a spec that read a JSON file at import would make the decision invisible.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n    python -m Optimization.analyze_run <phase-2 run root>\n    python -m Optimization.run_unload_ranking <phase-2 run root> [--pair store_rule,ful_rule]",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/run_unload_ranking.py::CENSUS_FIELD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'ss_unservable'"
+    },
+    "Optimization/run_unload_ranking.py::CENSUS_QUANTITY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'unservable_weight'"
+    },
+    "Optimization/run_unload_ranking.py::DEFAULT_CENSUS_MATERIAL_PCT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "1.0"
     },
     "Optimization/run_unload_ranking.py::DEFAULT_K": {
       "decorators": [],
@@ -11548,19 +11717,26 @@
       "signature": null,
       "value_preview": "0.1"
     },
+    "Optimization/run_unload_ranking.py::EXACT_FIELD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'ss_pick_owed_exact'"
+    },
     "Optimization/run_unload_ranking.py::METRIC_FIELD": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'ss_prod_total'"
+      "value_preview": "'ss_pick_owed'"
     },
     "Optimization/run_unload_ranking.py::METRIC_QUANTITY": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "'total_production_time'"
+      "value_preview": "'pick_owed_s'"
     },
     "Optimization/run_unload_ranking.py::TIE_QUANTITY": {
       "decorators": [],
@@ -11606,10 +11782,17 @@
     },
     "Optimization/run_unload_ranking.py::_units_of_cell": {
       "decorators": [],
-      "doc": "One row per unit of the cell: its rule pair, stock mode, labour hours and overage.",
+      "doc": "One row per unit of the cell: its rule pair, stock mode, score, census and overage.\n\nThe score and the census are read from the SAME series document in the same pass, and\nboth are summed over the unit's two leaves.  They must travel together: a score is only\na placement result to the extent its census is zero.",
       "is_async": false,
       "kind": "function",
       "signature": "(rt, cell: str, cell_dir: str, threshold_days: float, log) -> list"
+    },
+    "Optimization/run_unload_ranking.py::discriminating": {
+      "decorators": [],
+      "doc": "Did the SCORE separate the cells at all, or did the tie-break decide everything?\n\nFalse when every ranked cell sits in one tie group.  That is not a failure of the run\nand not a bug \u2014 it is the result \u201cthese policies do not differ on this metric, at this\nscale, over this window\u201d \u2014 but a rank list cannot say it, and a reader handed\n`chosen[0]` has no way to tell it from a real separation.  The 2026-09-18 ranking that\nprompted the whole metric change would have reported False here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ranked: list) -> bool"
     },
     "Optimization/run_unload_ranking.py::main": {
       "decorators": [],
@@ -11623,11 +11806,18 @@
       "doc": "Rank the cells of a finished, analyzed, coupled phase-2 run and write the artifact.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir: str, *, k: int=DEFAULT_K, noise_floor_pct: float=DEFAULT_NOISE_FLOOR_PCT, primary_pair: tuple | None=None, log=print) -> dict"
+      "signature": "(base_dir: str, *, k: int=DEFAULT_K, noise_floor_pct: float=DEFAULT_NOISE_FLOOR_PCT, census_material_pct: float=DEFAULT_CENSUS_MATERIAL_PCT, primary_pair: tuple | None=None, log=print) -> dict"
+    },
+    "Optimization/run_unload_ranking.py::rank_agreement": {
+      "decorators": [],
+      "doc": "Do the rule pairs that ran order the cells the same way?\n\nEach rule pair is an INDEPENDENT replication of the same question \u2014 same cells, same\ngeometry, same planned demand, a different restocking rule underneath.  If the unloading\npolicy is what the score is measuring, the orders agree; if they disagree, the order is\na property of the rule pair and not of the policy, and neither ranking should be handed\nto phase 3 as though it were.\n\nReturns `{'pairs': [...], 'orders': {pair: [cells]}, 'agree': bool, 'common': [cells],\n'note': str}`.  Compared over the cells EVERY pair ranked, because a pair that poisoned\na cell has no opinion about it and must not be read as disagreeing.  Fewer than two\npairs with an opinion answers `agree: None` \u2014 unknown, not true.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rankings: dict) -> dict"
     },
     "Optimization/run_unload_ranking.py::rank_cells": {
       "decorators": [],
-      "doc": "Order `entries` (`{'cell', 'labor_hours', 'overage_days'}`) cheapest labour first,\nbreaking ties inside the floor by overage.  Returns NEW dicts with `rank`, `tie_group`,\n`decided_by` and `margin_pct` added; entries with a non-finite labour go last with\n`rank: None`.\n\nA tie is not transitive \u2014 A within the floor of B and B of C says nothing about A and C \u2014\nso \"tie\" is defined operationally: walking the labour order, an entry joins the OPEN\ngroup while it is within the floor of that group's cheapest member, else it opens a new\none.  Inside a group the order is overage, then labour, then name; across groups it is\nlabour.  `margin_pct` is the labour gap to the NEXT rank as a percent of this one, so a\nreader sees the separations the plan asked for rather than a bare list.",
+      "doc": "Order `entries` (`{'cell', 'owed_seconds', 'overage_days'}`) cheapest score first,\nbreaking ties inside the floor by overage.  Returns NEW dicts with `rank`, `tie_group`,\n`decided_by` and `margin_pct` added; entries with a non-finite score go last with\n`rank: None`.\n\nA tie is not transitive \u2014 A within the floor of B and B of C says nothing about A and C \u2014\nso \"tie\" is defined operationally: walking the score order, an entry joins the OPEN\ngroup while it is within the floor of that group's cheapest member, else it opens a new\none.  Inside a group the order is overage, then score, then name; across groups it is\nscore.  `margin_pct` is the score gap to the NEXT rank as a percent of this one, so a\nreader sees the separations rather than a bare list.\n\n`owed_seconds` was `owed_seconds` until 2026-09-19, when the score stopped being a flow\ntotal.  Renamed rather than reused: a decision record whose key says hours of labour\nwhile the number is seconds owed by a placement is the kind of thing that gets quoted.",
       "is_async": false,
       "kind": "function",
       "signature": "(entries: list, noise_floor_pct: float) -> list"
@@ -12623,6 +12813,13 @@
       "kind": "function",
       "signature": "(self, cell: str) -> str"
     },
+    "Optimization/runschema/resolver.py::RunTree.cell_is_complete": {
+      "decorators": [],
+      "doc": "`(is_complete, why)` for one cell \u2014 the predicate a RESUME may skip it on.\n\n## The defect this replaces\n\n`simdriver.cells._cell_complete` asked for at least ONE `sim_meta.json` per pair,\nanywhere under it.  A cell with two of eight leaves finalized answered True.  A\nskipped cell is never set up, never reaches the pool, and never reaches the coupled\nreconciler, so `unfinished` stays empty and the run EXITS 0 WITH A TORN PAIR.  The\nsymptom is a leaf that is simply not there, weeks later, in an analysis that\nreports a smaller matrix without saying so.\n\n## The count, and why it is a UNION\n\nStore configs produce `<store_cfg>/store`; fulfillment configs produce\n`<ff_cfg>/fulfillment`.  A pair's leaves are the SUM of the two, never their\nproduct \u2014 a cross-product rule would make every mixed cell permanently incomplete,\nwhich silently kills the skip and turns every resume into a full re-run.\n\n## Mixedness is PER PAIR, and it is read from disk\n\nA run can carry a mixed catalogue for one inventory pair and a store-only one for\nanother, and the descriptor cannot say which: its channel list comes from CONFIG\nbefore any catalogue is read.  So the wanted count comes from the `config_json`\nrecords the setup pass wrote \u2014 one per (pair, config), written before any arm runs,\nwhich makes them the declaration of what this cell intends to produce.\n\nThat count is then CHECKED against the layout: it must be either the store-only\nshape or the mixed one.  Anything else means the setup pass itself was interrupted\npart-way, and the honest answer there is \"not complete\" rather than a smaller\ntarget that would be trivially satisfied.\n\n## In-flight files\n\nA leaf killed inside its finalize window can have a `sim_meta.json` and still be\nmid-write.  `resume_pkl` and `checkpoint_pkl` are removed at finalize, so their\npresence anywhere in the cell means an arm was live.  Both are named through the\nCONTRACT, so renaming either in `schema.py` moves this probe with it instead of\nsilently blinding it.\n\nGeneralises `scripts/archive_cells.py:cell_state`, which had the strict count but\none run-wide `mixed` flag; that function now delegates here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, pairs=None) -> tuple[bool, str]"
+    },
     "Optimization/runschema/resolver.py::RunTree.cells": {
       "decorators": [],
       "doc": "[(cell_name, cell_dir), \u2026] in descriptor order (so partial/crashed cells are included).",
@@ -12678,6 +12875,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, group: str) -> list[str]"
+    },
+    "Optimization/runschema/resolver.py::RunTree.in_flight": {
+      "decorators": [],
+      "doc": "Transients a finalize removes \u2014 their presence means an arm was live.\n\nCell-relative, sorted, deduped.  Named through the contract (`resume_pkl`,\n`checkpoint_pkl`) rather than as literals, so a rename in `schema.py` moves the\nprobe rather than blinding it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str) -> list"
     },
     "Optimization/runschema/resolver.py::RunTree.is_sweep": {
       "decorators": [
@@ -13030,6 +13234,13 @@
       "kind": "module",
       "signature": null
     },
+    "Optimization/runschema/sim_manifest.py::RUN_INDEX_NAME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'run_index.jsonl'"
+    },
     "Optimization/runschema/sim_manifest.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
@@ -13065,6 +13276,20 @@
       "kind": "function",
       "signature": "(run_dir: str) -> str"
     },
+    "Optimization/runschema/sim_manifest.py::_run_history_path": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> str"
+    },
+    "Optimization/runschema/sim_manifest.py::_run_index_path": {
+      "decorators": [],
+      "doc": "The ledger beside the run roots \u2014 the PARENT of this run's directory.\n\nDerived from the run root rather than read from the environment, so a run written\nsomewhere other than the configured output directory indexes itself where it actually\nlanded instead of into a ledger that describes a different tree.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> str"
+    },
     "Optimization/runschema/sim_manifest.py::_run_layout_path": {
       "decorators": [],
       "doc": null,
@@ -13086,12 +13311,54 @@
       "kind": "function",
       "signature": "(run_dir: str, run_ids: dict, starts: dict) -> None"
     },
+    "Optimization/runschema/sim_manifest.py::_write_history": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, hist: list) -> None"
+    },
     "Optimization/runschema/sim_manifest.py::_write_run_spec": {
       "decorators": [],
       "doc": "Persist the fully-resolved run spec (argv + resolved run-shaping params + the resolved\ninventory pairs) to <base>/run_spec.json, atomically.  On --resume this is read back so a\nbare `python run_simulation.py --resume DIR` reconstructs the run with zero retyped flags\nand no find_latest_db_pairs drift.\n\n`repo_commit` / `repo_dirty` are added HERE rather than by the caller so that every producer of\na run_spec gets them without opting in \u2014 the point of the stamp is that it cannot be forgotten.\nThey are provenance, not run shape: `_apply_run_spec` overlays an explicit whitelist of fields\nonto argv, so a resume ignores them and keeps the ORIGINAL run's commit on record.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, spec: dict) -> None"
+    },
+    "Optimization/runschema/sim_manifest.py::append_run_index": {
+      "decorators": [],
+      "doc": "Append one line to the cross-run ledger.  BEST-EFFORT: never raises, never blocks.\n\nA failure to write an index entry must not sink a run -- the run's own history file is\nthe authority and this is a convenience over it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, event: str, payload: dict) -> None"
+    },
+    "Optimization/runschema/sim_manifest.py::close_run_record": {
+      "decorators": [],
+      "doc": "Stamp the outcome onto the record `open_run_record` returned.\n\nBEST-EFFORT AND SILENT. A ledger write that sank a finished twelve-hour run would be\nworse than the gap it closes; an unclosed record already reads as \"never reported back\".",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, attempt: int, *, status: str, unfinished=None, analysis_ran=None) -> None"
+    },
+    "Optimization/runschema/sim_manifest.py::open_run_record": {
+      "decorators": [],
+      "doc": "Append a launch record and return its ATTEMPT NUMBER (1 for the first).\n\nCalled after the preflight gate, at the one point where the whole construction is in\nscope: before it, a failed preflight's cleanup could tear a record that describes a run\nthat never began.\n\n`resume_of` and `attempt` are derived HERE from what is already on disk rather than\npassed in, so a caller cannot get the chain wrong: the attempt is the count of records\nalready present plus one, and `resume_of` is the previous record's `started`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, record: dict) -> int"
+    },
+    "Optimization/runschema/sim_manifest.py::read_run_history": {
+      "decorators": [],
+      "doc": "The launch records for one run root, oldest first.  `[]` when there are none.\n\nTolerant of a truncated or hand-edited file: this is a LEDGER, and a reader that raised\non a malformed one would take a whole campaign's history with it. A file that cannot be\nparsed reads as no history, and the next append starts a fresh list beside it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str) -> list"
+    },
+    "Optimization/runschema/sim_manifest.py::read_run_index": {
+      "decorators": [],
+      "doc": "Every ledger line under one output directory, oldest first.\n\nA malformed line is SKIPPED rather than fatal, for the reason the history reader gives:\na ledger that raises takes a campaign's worth of records with it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir: str) -> list"
     },
     "Optimization/runschema/sim_manifest.py::read_run_layout": {
       "decorators": [],
@@ -14602,13 +14869,6 @@
       "kind": "function",
       "signature": "(spec)"
     },
-    "Optimization/simdriver/cells.py::_cell_complete": {
-      "decorators": [],
-      "doc": "A cell is done when it has \u22651 sim_meta.json per pair (all its configs finalized).",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(scenario_base: str, pairs: list) -> bool"
-    },
     "Optimization/simdriver/cells.py::_inbound_axis": {
       "decorators": [],
       "doc": "The spec's inbound axis as [(name_suffix, overrides|None)], validated.\n\nDefaults to the single inert entry `[('', None)]`, which is what every spec written before\nthe inbound axis existed resolves to: no suffix, no CONFIG write, byte-identical names and\nbehaviour.  A real axis is a list of `(suffix, {inbound_key: value})` pairs \u2014 keys are\n`CONFIG['global']` `inbound_*` names with the prefix dropped.\n\nThree refusals, each closing a failure with no error message:\n\n* **An unknown key.**  A misspelt name creates a new `CONFIG['global']` entry that\n  `inbound_spec()` never reads, so the cell runs the DEFAULT policy under the swept\n  policy's name.  Checked on every axis, inert or not.\n* **A missing suffix on a real axis.**  `_build_cells` dedupes by name, so inbound-on and\n  inbound-off collapse into ONE cell \u2014 the matrix comes out smaller than it was asked for\n  and nothing says so.\n* **Duplicate suffixes.**  The same collapse by another route.\n\nThere used to be a fourth: every entry had to state every key ANY entry set, because\n`_apply_cell` wrote into a process-wide CONFIG that was never reset between cells, so a\nkey cell 3 wrote and cell 4 omitted left cell 4 running cell 3's policy under its own\nname.  The driver now applies each cell inside `cell_scope`, which restores CONFIG on\nexit, so an omitted key means the RUN-level value (the command line or the settings\ndefault) and nothing else -- well-defined, and the refusal's reason is gone with it.",
@@ -15253,6 +15513,96 @@
       "kind": "function",
       "signature": "(pool, site) -> LeafScope"
     },
+    "Optimization/simdriver/pacing.py": {
+      "decorators": [],
+      "doc": "pacing.py \u2014 how long a work unit will take, from a reference run's own measurements.\n\n## Why a dispatch order is worth anything at all\n\nEvery cell of a matrix feeds ONE pool, so the matrix wall is the worker-hours plus one\nunit: whatever is dispatched last still has to finish after everything else has. On a wide,\nshallow spec the units differ by more than an order of magnitude \u2014 a priced placement arm\nagainst `fifo` measured 39-59x on the campaign \u2014 so the tail is decided by WHICH unit goes\nlast, not by how many there are.\n\nMeasured on the ten-cell shape before this existed:\n\n| dispatch order                               | matrix wall |\n|---|---|\n| submission order (what the pool does bare)   | 5.57 h |\n| longest-first jobs                           | 5.37 h |\n| ...and heavy cells set up first              | 5.17 h |\n| the floor (worker-hours + the longest unit)  | 3.40 h |\n\nSo the two levers together are worth ~7%, and ordering the CELLS is the bigger half. That\nhalf is only legal because `cells.cell_scope` made setup order result-neutral: a cell's\nCONFIG writes are applied and restored by rebinding, so setting cell 7 up before cell 1\ncannot change what either produces.\n\n## Why this is OPT-IN\n\nA weight is a guess about the future taken from a different run. If the reference is\nmismatched \u2014 a different catalogue size, a different machine, a different era \u2014 the guess\nis wrong and the order is worse than submission order, which at least follows the spec a\nreader is looking at. `--pace-from` makes that a decision with a named source rather than a\ndefault nobody chose. It changes no byte of any result: the pool dispatches the same jobs,\nruns the same workers and writes the same files, in a different order.\n\n## What it reads\n\n`runtime_metrics` rows \u2014 `(cell, pair, config, channel, arm)` and the spans beside them \u2014\nthrough `load_rows`, the one reader. No path is joined here and no declared artifact is\nnamed, in code or in prose: the run-tree ratchet counts every hand-written copy of a\ncontract path and a new file has no baseline to be measured against.\n\n## The two things that are easy to get wrong\n\n**`total_s` is the UNIT loop's wall, recorded on BOTH leaves of a coupled unit.** Summing\nit double-counts a coupled unit by exactly 2x and would put every coupled unit first on a\nmatrix that mixes them with single leaves. It is `max` over a unit's rows. `precomp_s` is\nmeasured OUTSIDE that loop and IS per leaf, so it sums.\n\n**A resume's unit has less work left than the row describes.** A row is a FINISHED arm's\nwall; a unit resuming at batch 380 of 400 has 5% of it left. The loop term is scaled by the\nremaining fraction and the setup term is not, because setup is paid again in full whatever\nbatch the loop starts at.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/pacing.py::_KEY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('cell', 'pair', 'config', 'channel', 'arm')"
+    },
+    "Optimization/simdriver/pacing.py::_LADDER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(('exact', lambda c, p, cf, ch, a: (c, p, cf, ch, a), 'this arm, in this cell'), ('arm_any_cell', lambda c, p, cf, ch, a: (p, cf, ch, a), 'this arm on this leaf, in some other cell'), ('leaf', lamb..."
+    },
+    "Optimization/simdriver/pacing.py::_index": {
+      "decorators": [],
+      "doc": "Rows -> the ladder's lookup tables, each a mean over the rows that share its key.\n\nBuilt eagerly because every table is small (one entry per arm at the widest) and\nbecause a lazy fold would re-scan the row list once per unit.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows) -> dict"
+    },
+    "Optimization/simdriver/pacing.py::_index._put": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name, key, secs)"
+    },
+    "Optimization/simdriver/pacing.py::_leaf_estimate": {
+      "decorators": [],
+      "doc": "`(seconds, which rung answered)` for ONE leaf \u2014 0.0 and `'none'` when nothing does.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(book: dict, cell, pair, cfg, chan, arm) -> tuple[float, str]"
+    },
+    "Optimization/simdriver/pacing.py::_leaves_of": {
+      "decorators": [],
+      "doc": "`[(pair, config, channel, arm, start_i, n_batches)]` for one unit's rows.\n\nREAD FROM THE PAYLOAD, never by slicing the uid. A uid's four slots mean\n`(pair, config, channel, arm)` on a one-leaf unit and `(pair, 'coupled', arm_store,\narm_ful)` on a coupled one \u2014 same arity, different meanings \u2014 so a positional read\nwould file a coupled unit under a config named `coupled` with the wrong arm.\n\nThe CHANNEL is `'store'` on a store-only layout, never `''`: that is what the group key\ncarries and what `runtime_metrics` records, so a lookup that normalised it to empty\nwould miss every row of every store-only run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(payload: dict) -> list"
+    },
+    "Optimization/simdriver/pacing.py::_mean": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(vals) -> float"
+    },
+    "Optimization/simdriver/pacing.py::cell_order": {
+      "decorators": [],
+      "doc": "`cells` reordered heaviest-first for SETUP, or unchanged with an empty book.\n\nSetting the heavy cells up first is the bigger half of the measured gain (5.37 h ->\n5.17 h on the ten-cell shape) and it is only legal because `cells.cell_scope` made setup\norder result-neutral: a cell's CONFIG writes are applied and restored by rebinding, so\nwhich cell is set up first cannot change what any of them produces.\n\nTHE DESCRIPTOR IS NOT REORDERED. The run's own descriptor keeps spec order, because\nthat is what every reader \u2014 the analysis, the ranking, a person reading a log \u2014 treats\nas the cells' identity. Only the loop that sets them up is reordered, and the log says\nso.\n\n`pairs_and_units` is `{cell_name: [payloads]}` when the driver already knows a cell's\nunits, and `{}` when it does not (the usual case: units are built inside the setup loop,\nwhich is the thing being ordered). With `{}` the estimate falls to the book's `cell`\nrung \u2014 the weakest one, but the only one available before a unit exists, and the spread\nit captures is between cells, which is exactly the axis being sorted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cells, pairs_and_units, book: dict, log=None) -> list"
+    },
+    "Optimization/simdriver/pacing.py::cell_order._est": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell)"
+    },
+    "Optimization/simdriver/pacing.py::load_pace": {
+      "decorators": [],
+      "doc": "The pace book for one reference run \u2014 `{}` when it has nothing to say.\n\nCalled ONCE per invocation, before the first cell submits: `load_rows` opens a SQLite\nfile and a per-unit call would reopen it per unit.\n\nBest-effort by design. A reference run that cannot be read is a worse dispatch order,\nnever a failed run, so every failure here logs and returns `{}` \u2014 which the pool reads\nas \"no weights\", which is submission order, which is what it did before this existed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(run_root: str, log: logging.Logger | None=None) -> dict"
+    },
+    "Optimization/simdriver/pacing.py::weigh_jobs": {
+      "decorators": [],
+      "doc": "Stamp `Job.weight` on one cell's jobs, in place, and return them.\n\nA no-op with an empty book, which is what keeps `--pace-from` off the default path.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell: str, jobs, book: dict, log: logging.Logger | None=None) -> list"
+    },
+    "Optimization/simdriver/pacing.py::weight_of": {
+      "decorators": [],
+      "doc": "This unit's estimated seconds \u2014 the pool's `Job.weight`, dispatched descending.\n\n`max` over the unit's leaves for the loop term and `sum` for nothing else, because\n`total_s` is the UNIT loop's wall recorded on BOTH leaves of a coupled unit: summing it\nwould rate every coupled unit at twice its cost and float it to the front of a matrix\nthat mixes unit kinds. (`precomp_s` really is per leaf and really does sum, but it is\nfolded into each leaf's estimate here rather than tracked apart \u2014 a setup span is a few\npercent of a unit and splitting the two would buy a decimal place in a guess.)\n\n0.0 when the book cannot answer, which the pool reads as \"no opinion\" and breaks by\nsubmission order \u2014 the behaviour without a reference run at all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell: str, payload: dict, book: dict) -> float"
+    },
     "Optimization/simdriver/scenario.py": {
       "decorators": [],
       "doc": "simdriver.scenario \u2014 the cell-matrix driver over ONE work pool.\n\nEvery run is a cell matrix (a plain run is the single cell k1_off).  `_run_whatif_matrix`\nbuilds the cells from a spec, freezes the sampled inventory once when there is more than one\ncell, and then streams EVERY cell's units into one `workpool.WorkPool` (`_run_cells`): each\ncell's setup -- manifest, shared assets reshaped from the frozen inventory, work units -- runs\nin the parent, in spec order, INSIDE that cell's `cells.cell_scope`, and its units go into the\npool the moment they exist, while the previous cells' units are still running.  No worker\nwaits for a cell boundary, and there is no second path: a single cell is a one-cell matrix\nthrough the same code (2026-09-19; until then one executor was opened per cell and the matrix\nwall was the sum of the cells' slowest units).",
@@ -15273,16 +15623,37 @@
       "kind": "function",
       "signature": "(base_dir: str, cell: Cell) -> str"
     },
+    "Optimization/simdriver/scenario.py::_cells_to_run": {
+      "decorators": [],
+      "doc": "`(run_tree_or_None, cells_that_still_need_running)` \u2014 the resume skip decision.\n\nA named function because it is the decision that can LOSE a cell, and because the only\nhonest test of it is one that drives the production path rather than a second copy of\nthe rule.\n\nTHE PREDICATE LIVES IN THE RESOLVER, the layer that owns tree enumeration \u2014 and it had\nto move there, because the one it replaces let a resume exit 0 with a torn pair.\n`cells._cell_complete` accepted ONE completeness marker per pair, so a cell with two\nof eight leaves read complete; the skip then meant the cell was never set up, never\npooled and never reconciled, so nothing was left to report it.\n\nGUARDED: a run root with no contract descriptor answers None, and the answer is DO NOT\nSKIP. A resume that re-runs a finished cell wastes hours; one that skips an unfinished\ncell loses it, and only one of those is recoverable.\n\nThe returned `RunTree` is handed back rather than rebuilt by the caller because the\ncontradiction guard after the pool asks the same question of the same tree.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, cells, pairs, resume, log)"
+    },
     "Optimization/simdriver/scenario.py::_run_cells": {
       "decorators": [],
       "doc": "Every cell's units through ONE pool.  Returns {cell: [unfinished uids]} for the cells\nthat left units unrecovered (a cell whose SETUP raised reports `('setup',)`; a leaf whose\nprepare raised reports `('prepare', tag)`), empty on a clean matrix.\n\nTHE SHAPE.  For each cell in spec order: `cell_scope(cell)` -> `assets_for(cell,\ncell_dir)` (the shared assets; `_run_whatif_matrix` builds them, a harness may hand in\nones it built) -> `_build_work_units` -> `pool.submit` -> `pool.absorb()`.  The pool\nabsorbs and finalizes what landed between one cell's setup and the next, so a cell's\nunits are running while the next cell is being set up; only the WAIT between cells is\ngone.  At campaign scale setup is ~6 min a cell against units of 15 min to 3 h, so the\npool is fed continuously after the first cell.\n\nA CELL'S SHARED ASSETS LIVE UNTIL ITS LAST UNIT LANDS (`kept`), not until its units are\nsubmitted: a rebuild after a broken pool re-runs `_build_work_units` over the SAME\nassets with `mid_flight=True` (the coupled reconciler's contract), exactly as the old\nper-cell supervisor did, and never `build_shared_assets` again -- on a single-cell run\nthat would RE-SAMPLE and rewrite the planned inventory under the units in flight.  The\naffinity CSR is dropped at submit (the unit builder reads only its path).  On a wide,\nshallow spec every cell's inventory can be alive at once; the parent's memory is the\nprice of the retry path, and it is logged per cell.\n\nA cell whose setup RAISES (a campaign pin that does not match, a derivation that\ndisagrees with the record) is reported and skipped, and the pool keeps running the\nothers: an exception must never unwind into the pool with units in flight.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False, max_retries=2, resume_granularity='strategy') -> dict"
+      "signature": "(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False, max_retries=2, resume_granularity='strategy', pace=None, cell_pos=None) -> dict"
+    },
+    "Optimization/simdriver/scenario.py::_run_cells._pos": {
+      "decorators": [],
+      "doc": "This cell's position IN THE SPEC, which is what `cell_pos` is documented to mean.\n\nIt was the index into the todo list, so a resume that skipped two cells labelled the\nthird one `1/8` -- a progress line that disagrees with the descriptor, the log's own\nCELL banner and every other reader of the cell's identity.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell)"
     },
     "Optimization/simdriver/scenario.py::_run_cells._rebuild": {
       "decorators": [],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name)"
+    },
+    "Optimization/simdriver/scenario.py::_run_cells._settled": {
+      "decorators": [],
+      "doc": "A cell's last unit landed: drop its shared assets NOW.\n\nThis used to happen only inside the setup loop below, so the assets of every cell\nthat settled during the DRAIN -- on a wide, shallow spec, most of them -- were held\nuntil the run ended.  The peak the parent has to fit is what decides how wide a\nmatrix can go, and it was being set by bookkeeping rather than by the work.\nIdempotent by construction: a rebuild after a broken pool re-submits the cell, and\n`_units` rebuilds `kept[name]` from `assets_for` when it is missing.",
       "is_async": false,
       "kind": "function",
       "signature": "(name)"
@@ -15299,7 +15670,7 @@
       "doc": "Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a\nplain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once\n(tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze\nand samples fresh \u2014 the flat run as it always was, nested under its cell dir.  Returns\n{'cells': [names], 'reference': name, 'unfinished': {cell: [unit ids]}} -- `unfinished` holds\nonly cells that left units unrecovered, so an empty dict is a clean matrix.\n\n`max_tasks_per_child` is accepted for the saved run specs that pass it and IGNORED: the\nexecutor is built with recycling pinned at 1 (`supervisor._sim_executor`).",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy', max_tasks_per_child=1)"
+      "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy', max_tasks_per_child=1, pace_from=None)"
     },
     "Optimization/simdriver/scenario.py::_run_whatif_matrix._assets": {
       "decorators": [],
@@ -15564,7 +15935,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope, sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
+      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, exact_ctx, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope, sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
     },
     "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS": {
       "decorators": [],
@@ -15755,6 +16126,13 @@
       "signature": null,
       "value_preview": "{p.key for p in _POLICY_BY_KEY.values() if p.gain == 'pool'}"
     },
+    "Optimization/simdriver/strategy_runner.py::_exact_pick_ctx": {
+      "decorators": [],
+      "doc": "`(geometry, orders, pick_cfg, lines, cv)` for the keyframe-cadence check, or None.\n\nNone on exactly the runs `_arm_expected_pick` returns None for -- no derived staffing\nblock, or a channel section with no line count -- because it is the same expectation\nand needs the same two numbers.  That makes the store-only flag-off path a strict\nno-op here: the check costs it nothing, not even the geometry walk.\n\nThe geometry IS walked a second time on a run that does take the check, once per arm,\nrather than being threaded out of `_arm_expected_pick`.  That function's own bin map is\nwhat the placement fingerprint hashes and a test reads its source for that line; paying\none aisle walk per arm is cheaper than making the stamp's provenance harder to see.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, warehouse, orders, pick_cfg)"
+    },
     "Optimization/simdriver/strategy_runner.py::_fsize_mb": {
       "decorators": [],
       "doc": "Size in MiB, or 0.0 when the file is not there.\n\nA `-wal` sidecar legitimately vanishes: SQLite folds it back and removes it, so its\nabsence is a measurement and not a failure.",
@@ -15929,6 +16307,13 @@
       "kind": "function",
       "signature": "(*, batch_id, mgr, arm_clock, put_clock, k_pickers, run_id, demanded, sigma_fd, reload_moves, reorder_placements, skus_reordered, units_ordered, put_workers, put_crews, shift_seconds, put_base=None, reset_clocks=True, lead_depth=None)"
     },
+    "Optimization/simdriver/strategy_runner.py::expected_pick_over": {
+      "decorators": [],
+      "doc": "The closed-form expected pick day over ONE placement, whatever produced it.\n\nExtracted from `_arm_expected_pick` so the same arithmetic can be re-taken over the\nplacement a run is standing in at some later batch, not only over the one it started\nwith.  The two callers differ in exactly one thing -- which bins they hand it -- which\nis the point: an expectation whose only input that moved is the placement is an\nexpectation that MEASURES the placement.\n\n`geometry` is hoisted by the caller because `Geometry.from_warehouse` walks every aisle\nand the warehouse does not change shape mid-run; rebuilding it per call would make a\nper-keyframe check cost the geometry every time for an identical answer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bin_map: dict, geometry, orders, pick_cfg, lines: float, cv: float) -> dict"
+    },
     "Optimization/simdriver/strategy_runner.py::load_worker_checkpoint": {
       "decorators": [],
       "doc": null,
@@ -16055,10 +16440,10 @@
     },
     "Optimization/simdriver/supervisor.py::sim_jobs": {
       "decorators": [],
-      "doc": "One cell's `(uid, args)` work units as the pool's `Job`s, stamped with what the\nworker's log line reads: `cell` (the logger name and every per-arm line), `job_tag`,\nthe per-cell `job_index/job_total`, and `cell_pos` (this cell's position in the spec).\nThere is no whole-run job counter any more: the old `gjob` assumed every cell had the\nsame unit count and was wrong on resume and after a retry; matrix progress is now the\npool's own `[pool] N unit(s) done` line.\n\n`_run_strategy_worker` is read from THIS module at call time so a fixture can rebind it\nbefore the driver runs (`_broken_pool_driver.py` does, for a worker that cannot import).",
+      "doc": "One cell's `(uid, args)` work units as the pool's `Job`s, stamped with what the\nworker's log line reads: `cell` (the logger name and every per-arm line), `job_tag`,\nthe per-cell `job_index/job_total`, and `cell_pos` (this cell's position in the spec).\nThere is no whole-run job counter any more: the old `gjob` assumed every cell had the\nsame unit count and was wrong on resume and after a retry; matrix progress is now the\npool's own `[pool] N unit(s) done` line.\n\n`pace` is the OPTIONAL pace book (`simdriver.pacing.load_pace`). Given one, each job\ncarries an estimated duration and the pool dispatches heaviest first; without one every\nweight is 0.0 and the pool breaks ties by submission order, which is what it did before\npacing existed. KEYWORD-ONLY and threaded through the driver's `_rebuild` as well: a run\nthat survives a broken pool and resubmits must not silently revert to submission order\nfor the half of the matrix it has left.\n\n`_run_strategy_worker` is read from THIS module at call time so a fixture can rebind it\nbefore the driver runs (`_broken_pool_driver.py` does, for a worker that cannot import).",
       "is_async": false,
       "kind": "function",
-      "signature": "(cell, units, *, cell_index=1, cell_total=1)"
+      "signature": "(cell, units, *, cell_index=1, cell_total=1, pace=None)"
     },
     "Optimization/simdriver/workpool.py": {
       "decorators": [],
@@ -16126,7 +16511,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, max_workers, log, *, executor_factory, run_root=None, max_retries=2, on_success=None, on_failure=None, resume_hint=None, worker_logging=True)"
+      "signature": "(self, max_workers, log, *, executor_factory, run_root=None, max_retries=2, on_success=None, on_failure=None, on_settle=None, resume_hint=None, worker_logging=True)"
     },
     "Optimization/simdriver/workpool.py::WorkPool._absorb_future": {
       "decorators": [],
@@ -16152,6 +16537,13 @@
     "Optimization/simdriver/workpool.py::WorkPool._fire_continuations": {
       "decorators": [],
       "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._fire_settled": {
+      "decorators": [],
+      "doc": "Announce each newly settled cell exactly once.\n\nAFTER `_fire_continuations`, deliberately: a continuation may submit more jobs for\nits own cell (the analysis stage does), and a cell with a continuation still to\nfire is not settled.  Announcing first would drop assets a resubmission needs.\n\nA cell can leave `_settled` on a REBUILD -- `submit` is called again for it after a\nbroken pool -- so membership is re-derived rather than latched: the driver's\nhandler is idempotent (a `dict.pop`), and a second announcement after a genuine\nresubmission is correct, not a bug.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
@@ -16198,6 +16590,31 @@
       "kind": "function",
       "signature": "(self, cell, key) -> tuple"
     },
+    "Optimization/simdriver/workpool.py::WorkPool.n_failed": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.n_jobs": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "Units submitted so far, across every cell.  NOT the matrix total until every\ncell has been set up, which is why `progress()` marks it provisional.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.progress": {
+      "decorators": [],
+      "doc": "THE line a person watching a twelve-hour run reads.\n\nIt answers, in order, the four things they are actually asking: what is this doing,\nhow far through is it, which cell is it on, and is anything broken.\n\n    [pool] simulate  unit 233/366+  cell 7/10  ->  12 running, 121 queued  2 FAILED\n\n`366+` marks a PROVISIONAL total: cells are set up one at a time, so until the last\none has submitted, the denominator is only the units queued so far and will grow.\nThe `+` is dropped the moment the cell count is complete, which is also the moment\nthe number becomes worth extrapolating from.\n\nThe old line said `N unit(s) done; M in flight, K pending` and had no denominator at\nall -- deliberately, because the whole-run counter it replaced assumed every cell\nhad the same unit count and was wrong on resume and after a retry. The pool does not\nhave to assume: it counts what it was actually handed.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, note: str='') -> str"
+    },
     "Optimization/simdriver/workpool.py::WorkPool.remaining": {
       "decorators": [],
       "doc": "{cell: sorted keys not done} for the cells that have any.",
@@ -16205,19 +16622,26 @@
       "kind": "function",
       "signature": "(self) -> dict"
     },
+    "Optimization/simdriver/workpool.py::WorkPool.set_phase": {
+      "decorators": [],
+      "doc": "Name what the RUN is doing, for the progress line.  Cosmetic and free.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, phase: str, *, cells_expected=None) -> None"
+    },
     "Optimization/simdriver/workpool.py::WorkPool.settled_cells": {
       "decorators": [],
-      "doc": "Cells whose EVERY submitted job has resolved and nothing is queued -- the\ndriver drops a cell's shared assets on this (the assets a retry rebuilds from).",
+      "doc": "Cells whose EVERY submitted job has resolved and nothing is queued.\n\nThe driver drops a cell's shared assets on this (the assets a retry rebuilds from).\nRead through the `on_settle` hook rather than polled, so a cell that settles during\nthe DRAIN -- when the driver is inside `finish` and running no code of its own --\nreleases its memory then rather than at the end of the run.\n\nA cell with an unfired continuation is NOT settled: `_fire_settled` runs after\n`_fire_continuations`, so a continuation that submits more jobs has already put them\nin `_pending` by the time this is asked.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> list"
     },
     "Optimization/simdriver/workpool.py::WorkPool.submit": {
       "decorators": [],
-      "doc": "Queue one cell's jobs (any iterable of `Job`), dispatch as far as the pool allows,\nand return how many were queued.  A key already DONE for this cell is skipped -- a\nrebuild after a break hands back every job of the cell, finished ones included.",
+      "doc": "Queue one cell's jobs (any iterable of `Job`), dispatch as far as the pool allows,\nand return how many were queued.  A key already DONE for this cell is skipped -- a\nrebuild after a break hands back every job of the cell, finished ones included.\n\n`pos` is `(index, total)` for this cell IN THE SPEC, carried only so the log line can\nname it; the pool never orders anything by it.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, cell, jobs) -> int"
+      "signature": "(self, cell, jobs, *, pos=None) -> int"
     },
     "Optimization/simdriver/workpool.py::WorkPool.when_done": {
       "decorators": [],
@@ -21668,7 +22092,7 @@
     },
     "Warehouse/inventory/inventory_optimal.py": {
       "decorators": [],
-      "doc": "inventory_optimal.py \u2014 optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map.\n\n`OptimalLayoutMixin` holds the benchmark/optimal-placement methods.  Mixed into\nInventory_Manager so the public API (`place_optimal`, `optimal_sigma_fd`, `optimal_work`,\n`build_optimal_map`, `current_sigma_fd`, `enable_sigma_fd`, `tracked_sigma_fd`) is\nunchanged.  All instance state it reads (`self._key`, `self._execute_placement`,\n`self._originals`, `self._unavailable`, `self._bin_pref`, `self._map_target`,\n`self._sigma_*`) is initialised by Inventory_Manager.__init__.",
+      "doc": "inventory_optimal.py \u2014 optimal layout, \u03a3f\u00b7D objective, full-labor floor + optimal map.\n\n`OptimalLayoutMixin` holds the benchmark/optimal-placement methods.  Mixed into\nInventory_Manager so the public API (`place_optimal`, `optimal_sigma_fd`, `optimal_work`,\n`build_optimal_map`, `current_sigma_fd`, `enable_sigma_fd`, `tracked_sigma_fd`,\n`enable_pick_owed`, `pick_owed`) is unchanged.  All instance state it reads (`self._key`,\n`self._execute_placement`, `self._originals`, `self._unavailable`, `self._bin_pref`,\n`self._map_target`, `self._sigma_*`, `self._po_*`) is initialised by\nInventory_Manager.__init__.\n\nTWO SCORES OVER ONE PLACEMENT, and the difference is the point.  `optimal_work` is the\nFLOOR -- what the planned demand would cost if every unit sat in its labour-optimal bin.\n`pick_owed` is what it costs from where the stock actually IS at this instant.  They share\n`per_pick`, so the gap between them is a property of the placement and not of two\narithmetics that drifted.",
       "kind": "module",
       "signature": null
     },
@@ -21743,6 +22167,13 @@
       "kind": "function",
       "signature": "(self, freq_of: dict, x_speed: float, y_speed: float) -> float"
     },
+    "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_pick_owed": {
+      "decorators": [],
+      "doc": "Bind the planned demand and the pick cost that `pick_owed` scores against.\n\n`weight_of` is the DEMAND WEIGHT per SKU -- the planned lines the run will actually\nask for, summed off the precomputed batch script.  It is not `relative_frequency`:\nthe script is what the run runs, it is identical across every cell of a matrix (one\nfrozen inventory, one seed), and using it means the score answers \"against the\nbatches this run will field\" rather than \"against the distribution they were drawn\nfrom\".  A caller with no script (the inline-sampling fallback) may pass the\nfrequencies instead; the score is then the expectation rather than the realisation.\n\n`qty_of` is the planned pieces per pick, and `orders`/`wp` supply the per-SKU\nhandling term -- both fixed for the run, so the per-SKU coefficient is resolved\nONCE here and the per-batch read is a lookup and two multiplies per occupied bin.\n\nONE cost expression, shared with `_optimal_work_assign` through `per_pick`: the\nscore and the floor it is read against must be the same arithmetic or their ratio\nmeans nothing.  `wp` is this leaf's channel cost (a channel run sets\n`wp.by_regime = None`), which is why no per-regime resolution happens here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, weight_of: dict, qty_of: dict, orders: list[Order], wp) -> None"
+    },
     "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.enable_sigma_fd": {
       "decorators": [],
       "doc": "Bind the freq map + speeds and seed the incremental Sigma f*D from a\nsingle full scan.  Afterwards tracked_sigma_fd() is O(1): the running sum is\nmaintained on every placement / pick-empty / eviction.  x_speed/y_speed are ft/s;\n_sigma_x/_sigma_y store the per-inch PACE so the incremental updates stay multiplies.",
@@ -21764,12 +22195,26 @@
       "kind": "function",
       "signature": "(self, orders: list[Order], freq_of: dict, qty_of: dict, wp) -> float"
     },
+    "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.pick_owed": {
+      "decorators": [],
+      "doc": "`(seconds owed, unservable weight)` for the planned demand, from where the\nstock is RIGHT NOW.\n\n    seconds owed      = \u03a3 over SKUs with shelf stock of\n                          w_s \u00b7 mean over that SKU's bins of\n                            [ D(bin) + M(y_bin) \u00b7 h_s ]\n    unservable weight = \u03a3 w_s over planned SKUs with NO shelf stock\n\nTHE MEAN OVER THE SKU'S OWN BINS, not a sum: a line asks for the SKU once and is\nserved from one of its locations, so holding the same SKU in four bins does not\ncost four picks.  Summing instead would score a well-stocked SKU as expensive and\ninvert the whole metric.\n\nTHE TWO NUMBERS ARE RETURNED TOGETHER AND NEITHER IS COMPLETE ALONE.  A SKU with\nnothing on a shelf contributes NOTHING to the first term -- absence reads as free\n-- so a caller that ranked on `seconds owed` by itself would rank \"leave it in the\nyard\" first, which is the exact inversion this pairing exists to prevent.  The\nsecond number is what says how much of the planned demand the first one declined\nto price.  No penalty is fabricated for it here: what an unserved line will\neventually cost depends on where that stock lands, which this function cannot see.\n\nNOT COMPARABLE TO `optimal_work`, and not to another run.  The at-location\narithmetic is the same (`cost_model.per_pick`), the WEIGHT BASIS is not:\n`optimal_work` weights every SKU by its relative frequency over the catalogue, this\nweights the lines the run's own batches ask for.  Measured 206x apart on the priced\ntoy.  What it IS comparable across is the arms and cells of ONE run, which draw the\nsame script from the same frozen inventory and the same seed -- which is the\ncomparison it exists for.\n\nOne pass over the occupied bins, plus one over the SKUs that have any.  That is the\nsame order as the conservation ledger's own per-batch walk; it is a separate pass\nrather than a fold into it so this cost model stays inside the inventory layer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple[float, float]"
+    },
     "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.place_optimal": {
       "decorators": [],
       "doc": "Stock the warehouse at the pure-global-D optimal layout.  Returns the\noptimal Sigma f*D.  Bumps _reorder_placements per unit (the worker discards\nthe initial-stock churn with a pop_churn() before the batch loop).",
       "is_async": false,
       "kind": "function",
       "signature": "(self, orders: list[Order], freq_of: dict, x_speed: float, y_speed: float) -> float"
+    },
+    "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.placement_bin_map": {
+      "decorators": [],
+      "doc": "`{sku: [(aisle_id, bayX, bayY, qty), ...]}` over the bins occupied RIGHT NOW.\n\nThe input shape `simconfig.expected_travel.PlacementDist.initial` takes, so the\nclosed-form expectation can be re-taken over a placement mid-run rather than only\nover the one an arm started with.  That is the cross-check `pick_owed` needs and\ncannot be: the two price a placement by different models -- this one walks every\nSKU's own bins and weights by the planned script, the closed form routes carts\nthrough aisles and weights by relative frequency -- so agreement between their\nORDERINGS is evidence about the placement, and agreement between their values\nwould only be evidence that one was computed from the other.\n\nBuilt from `_unavailable`, the occupied-bin index, NOT from `warehouse.bins`: the\nlatter is every bin the geometry has and is two orders of magnitude larger on a\nrun with free space, and the empty ones contribute nothing but the walk.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
     },
     "Warehouse/inventory/inventory_optimal.py::OptimalLayoutMixin.tracked_sigma_fd": {
       "decorators": [],
@@ -26272,13 +26717,6 @@
       "kind": "function",
       "signature": "(path: str) -> str"
     },
-    "scripts/archive_cells.py::_in_flight": {
-      "decorators": [],
-      "doc": "resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.\n\nThe names come from the CONTRACT (`resume_pkl` / `checkpoint_pkl`), not from hardcoded\nliterals: preflight declared both transients, so renaming either in schema.py moves this\nprobe with it instead of silently blinding it.  Returned as sorted cell-relative paths, the\nsame shape the old cell walk produced.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(rt, cell: str) -> list"
-    },
     "scripts/archive_cells.py::_quick_check": {
       "decorators": [],
       "doc": "Integrity-check a copied SQLite file WITHOUT touching the directory it lives in.\n\n`immutable=1` is load-bearing, not a micro-optimisation. These DBs are written in WAL mode, so\na plain read-only open makes SQLite create `-wal` and `-shm` sidecars next to the file. Doing\nthat while verifying an archive adds two files per DB to the destination \u2014 548 extra files for\na 274-DB cell \u2014 which silently inflated the copy and broke the count check that follows.\n`immutable=1` promises the file cannot change, so SQLite skips the sidecars entirely.",
@@ -26323,7 +26761,7 @@
     },
     "scripts/archive_cells.py::archivable": {
       "decorators": [],
-      "doc": "Complete cells that are also safe to touch.\n\nCells run sequentially, so a cell is provably not the live one once a LATER cell has started.\nThe final cell only becomes safe when the run itself is over, which the caller asserts with\ninclude_last.",
+      "doc": "Complete cells that are also safe to touch.\n\n## The premise that stopped being true\n\nThis used to reason: cells run sequentially, so a cell is provably not the live one once a\nLATER cell has started.  Since the flat work pool (2026-09-19) EVERY CELL'S UNITS SHARE\nONE POOL and cells overlap by design \u2014 a later cell's directory existing says nothing\nabout whether an earlier cell still has units in flight, so that test was reasoning from\na fact that had stopped being one.\n\nIt is replaced by DIRECT EVIDENCE rather than by a stricter proxy: `cell_is_complete`\nrefuses on any in-flight file, so a cell with a live arm has a `resume.pkl` or a\ncheckpoint under it and is not archivable, whatever else has started.  That is a better\ntest than the ordering one ever was, and it is the reason dropping the ordering test\ndoes not loosen the tool.\n\n`include_last` keeps its meaning and its job: the LAST cell in descriptor order is held\nback unless the caller asserts the simulation has exited.  The in-flight probe sees the\nsimulator's transients, not the analysis stage that runs after them, and the last cell is\nwhere that stage is still working when everything else looks finished.",
       "is_async": false,
       "kind": "function",
       "signature": "(rt, layout: dict, mixed: bool, include_last: bool) -> list"
@@ -26344,7 +26782,7 @@
     },
     "scripts/archive_cells.py::cell_state": {
       "decorators": [],
-      "doc": "(is_complete, why). Stricter than the driver's own resume probe.\n\nThe driver's `_cell_complete` accepts one sim_meta.json per pair, so a cell with two of eight\nleaves finalized reports complete. Archiving on that would move a half-written cell.",
+      "doc": "(is_complete, why) \u2014 now `RunTree.cell_is_complete`, which this function became.\n\nIt was the strict copy: the driver's own `_cell_complete` accepted one sim_meta.json per\npair and this one counted every leaf, so archiving was safe where resuming was not.  On\n2026-09-19 the strict one moved into the resolver and the loose one was deleted, which\nends a real hazard \u2014 two predicates for one question, and the weaker one was the one\ndeciding what a resume could skip.\n\n`mixed` is now IGNORED and kept only so callers need not change in the same commit.  It\nwas a RUN-WIDE flag, and mixedness is per pair: a run can carry a mixed catalogue for one\ninventory pair and a store-only one for another, and this would then want the wrong leaf\ncount for at least one of them.  The resolver reads each pair's own config records\ninstead.",
       "is_async": false,
       "kind": "function",
       "signature": "(rt, cell: str, layout: dict, mixed: bool) -> tuple[bool, str]"
@@ -26507,6 +26945,54 @@
       "is_async": false,
       "kind": "function",
       "signature": "(argv: list[str]) -> int"
+    },
+    "scripts/run_index.py": {
+      "decorators": [],
+      "doc": "run_index.py \u2014 which runs happened, which phase each belonged to, and did they finish.\n\nBefore the launch record there was no cross-run index anywhere: the directory listing WAS\nthe index, and answering \"which of these forty roots were phase 2, and did they complete?\"\nmeant opening forty `run_spec.json` files one at a time \u2014 each of which is written once at\nlaunch and never rewritten, so none of them could answer the second half of the question at\nall.\n\nTwo sources, and the difference matters:\n\n  * `run_index.jsonl`, one line per launch and per completion, appended OUTSIDE every run\n    root. Cheap, and it survives a root being archived or deleted. Best-effort on the write\n    side, so it can be incomplete.\n  * `<root>/run_history.json`, the per-run ledger. The AUTHORITY: one record per launch\n    including every resume, with the construction and the outcome. Read with `--deep`, which\n    opens every root it lists.\n\nA record whose `status` is null means that launch never reported back \u2014 killed, crashed, or\nthe machine went down. That is a different fact from a launch that failed, and the two are\nnever merged here.\n\n    python scripts/run_index.py                        # every run under the output dir\n    python scripts/run_index.py --phase 2              # just the phase-2 runs\n    python scripts/run_index.py --status incomplete    # what needs resuming\n    python scripts/run_index.py --deep --run comparison_whatif_20260919_222506",
+      "kind": "module",
+      "signature": null
+    },
+    "scripts/run_index.py::_REPO_ROOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
+    },
+    "scripts/run_index.py::_fold": {
+      "decorators": [],
+      "doc": "Ledger lines -> `{run: {...}}`, last write wins per field.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lines) -> dict"
+    },
+    "scripts/run_index.py::_out_dir": {
+      "decorators": [],
+      "doc": "The configured run-output directory, through the ONE key that names it.\n\nImported for its side effect (`.env` into `os.environ`) exactly as the archiver does,\nand never hardwired: the drive this lands on has moved more than once.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> str"
+    },
+    "scripts/run_index.py::_roots": {
+      "decorators": [],
+      "doc": "Run roots on disk, newest first \u2014 the fallback when the ledger has no line for one.\n\nA root that predates the ledger (every root before 2026-09-19) is still listed, with\nwhatever its own history file says, which for those is nothing. Listing it as UNKNOWN is\nthe honest answer; omitting it would make the tool quietly describe a smaller archive\nthan the one in front of you.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir: str) -> list"
+    },
+    "scripts/run_index.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "scripts/run_index.py::rows": {
+      "decorators": [],
+      "doc": "One row per run root, newest first.  `deep` opens each root's own history file.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir: str, *, deep: bool=False) -> list"
     },
     "scripts/schema_report.py": {
       "decorators": [],

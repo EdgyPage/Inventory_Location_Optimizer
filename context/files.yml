@@ -183,6 +183,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "SERIES_QUANTITIES", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "const"}
+      - {name: "SERIES_OPTIONAL", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/aggregate/traj.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/catalog/fixed.py":
@@ -552,6 +553,15 @@ files:
     key_symbols:
       - {name: "render", file: "Optimization/Performance_Evaluations/layout/churn.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/layout/pick_owed.py":
+    purpose: "what the PLANNED demand owes the placement, per arm."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "QUANTITY", file: "Optimization/Performance_Evaluations/layout/pick_owed.py", kind: "const"}
+      - {name: "CENSUS", file: "Optimization/Performance_Evaluations/layout/pick_owed.py", kind: "const"}
+      - {name: "CENSUS_MATERIAL", file: "Optimization/Performance_Evaluations/layout/pick_owed.py", kind: "const"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/layout/pick_owed.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/layout/travel.py":
     purpose: "travel cost per arm against the baseline, the layout family's comparison view (delta and forest panels over demand-weighted distance)."
     layer: "evaluations"
@@ -655,6 +665,7 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "SERIES_QUANTITIES", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "const"}
+      - {name: "SERIES_OPTIONAL", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "const"}
       - {name: "render", file: "Optimization/Performance_Evaluations/trajectories/overtime.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/yard/binding.py":
@@ -1006,14 +1017,18 @@ files:
       - {name: "CAP_YARD", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_CARRYOVER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "CAP_SHIFT_DAYS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "CAP_PLACEMENT_SCORE", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "SIM_CAPABILITIES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "OCCUPANCY_LADDER", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "BATCH_UNKNOWN_ON_OLDER_VINTAGES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "BATCH_PLACEMENT_SCORE_COLS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "TASK_UNKNOWN_ON_OLDER_VINTAGES", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_REALIZED_SIM_SCHEMA_IDS", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_CARRY_SPLIT_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_REWORK_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_FREE_INDEX_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "PRE_PICK_OWED_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "PRE_EXACT_CHECK_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1147,10 +1162,16 @@ files:
     key_symbols:
       - {name: "METRIC_FIELD", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "METRIC_QUANTITY", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "EXACT_FIELD", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "CENSUS_FIELD", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "CENSUS_QUANTITY", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "DEFAULT_CENSUS_MATERIAL_PCT", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "TIE_QUANTITY", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "DEFAULT_NOISE_FLOOR_PCT", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "DEFAULT_K", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "rank_cells", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "discriminating", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "rank_agreement", file: "Optimization/run_unload_ranking.py", kind: "function"}
       - {name: "rank", file: "Optimization/run_unload_ranking.py", kind: "function"}
       - {name: "main", file: "Optimization/run_unload_ranking.py", kind: "function"}
     notes: ""
@@ -1264,6 +1285,12 @@ files:
     purpose: "run bookkeeping artifacts."
     layer: "opt_runschema"
     key_symbols:
+      - {name: "read_run_history", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
+      - {name: "open_run_record", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
+      - {name: "close_run_record", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
+      - {name: "RUN_INDEX_NAME", file: "Optimization/runschema/sim_manifest.py", kind: "const"}
+      - {name: "append_run_index", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
+      - {name: "read_run_index", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "write_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "read_run_layout", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
       - {name: "write_run_manifest", file: "Optimization/runschema/sim_manifest.py", kind: "function"}
@@ -1490,6 +1517,15 @@ files:
       - {name: "SiteScope", file: "Optimization/simdriver/leaf_scope.py", kind: "class"}
       - {name: "scope_for", file: "Optimization/simdriver/leaf_scope.py", kind: "function"}
     notes: ""
+  "Optimization/simdriver/pacing.py":
+    purpose: "how long a work unit will take, from a reference run's own measurements."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "load_pace", file: "Optimization/simdriver/pacing.py", kind: "function"}
+      - {name: "weight_of", file: "Optimization/simdriver/pacing.py", kind: "function"}
+      - {name: "weigh_jobs", file: "Optimization/simdriver/pacing.py", kind: "function"}
+      - {name: "cell_order", file: "Optimization/simdriver/pacing.py", kind: "function"}
+    notes: ""
   "Optimization/simdriver/scenario.py":
     purpose: "One scenario (manifest + shared assets + flat pool + blank-arm check) + the cell-matrix driver _run_whatif_matrix that loops _build_cells so every run is a cell matrix."
     layer: "opt_simdriver"
@@ -1519,6 +1555,7 @@ files:
     layer: "opt_simdriver"
     key_symbols:
       - {name: "placement_fingerprint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
+      - {name: "expected_pick_over", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "save_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "load_worker_checkpoint", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
       - {name: "reset_strategy_db", file: "Optimization/simdriver/strategy_runner.py", kind: "function"}
@@ -3344,6 +3381,12 @@ files:
       - {name: "test_an_ordinary_failure_is_quarantined_not_retried", file: "Tests/integration/test_work_pool.py", kind: "function"}
       - {name: "test_a_raise_inside_on_success_is_that_jobs_failure", file: "Tests/integration/test_work_pool.py", kind: "function"}
       - {name: "test_settled_cells_names_a_cell_only_once_every_job_resolved", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_on_settle_fires_from_inside_the_drain_not_only_from_the_setup_loop", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_on_settle_fires_once_per_cell", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_cell_with_a_continuation_still_to_fire_is_not_settled", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_the_progress_line_carries_the_phase_the_unit_count_and_the_cell", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_the_progress_line_says_how_many_failed", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_pool_nobody_told_the_phase_still_prints_a_line", file: "Tests/integration/test_work_pool.py", kind: "function"}
       - {name: "test_a_raise_in_the_driver_books_what_landed_and_does_not_wait", file: "Tests/integration/test_work_pool.py", kind: "function"}
     notes: ""
   "Tests/integration/test_writer_paths_golden.py":
@@ -3727,6 +3770,25 @@ files:
       - {name: "test_the_same_rules_pass_when_no_cell_names_a_gain_policy", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
       - {name: "test_a_faithful_ranking_over_the_runnable_cells_is_accepted", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
       - {name: "test_an_uncoupled_spec_naming_the_same_cells_is_not_refused", file: "Tests/unit/test_campaign_cells_can_run.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_cell_is_complete.py":
+    purpose: "what a resume is allowed to skip, and the torn pair it used to."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_finished_mixed_cell_is_complete", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_store_only_pair_is_complete_with_one_leaf", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_one_mixed_pair_beside_one_store_only_pair_in_the_same_cell", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_one_finalized_leaf_of_a_mixed_pair_is_NOT_complete", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_leaf_killed_inside_its_finalize_window_is_NOT_complete", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_half_written_setup_is_not_a_smaller_target", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_cell_that_never_started_is_not_complete", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_missing_pair_is_not_complete", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_it_refuses_rather_than_guessing_without_a_layout", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_pairs_default_to_the_layouts_when_none_are_passed", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_archive_cells_delegates_to_the_one_predicate", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_archivable_no_longer_reasons_from_cell_ordering", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_resume_skips_the_clean_cell_and_re_runs_the_torn_one", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
+      - {name: "test_a_root_with_no_descriptor_skips_nothing", file: "Tests/unit/test_cell_is_complete.py", kind: "function"}
     notes: ""
   "Tests/unit/test_cell_overrides.py":
     purpose: "a cell changes the run, not the declaration."
@@ -5010,6 +5072,24 @@ files:
       - {name: "test_outside_a_render_out_dir_refuses", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
       - {name: "test_fresh_wipes_the_derived_dir", file: "Tests/unit/test_out_dir_derivation.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_pacing.py":
+    purpose: "a dispatch order taken from a reference run's own measurements."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_coupled_unit_is_the_MAX_of_its_leaves_not_the_sum", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_the_setup_span_is_added_and_the_loop_span_is_what_scales", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_a_nearly_finished_resumed_unit_sinks_to_the_back", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_a_finished_unit_at_start_i_equal_to_n_batches_keeps_its_full_weight", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_identity_comes_from_the_payload_not_from_a_uid_slice", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_a_store_only_leaf_is_channel_store_not_empty", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_the_exact_key_wins_and_the_ladder_falls_through_in_order", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_an_empty_book_weighs_nothing_which_is_submission_order", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_an_unreadable_reference_is_a_warning_not_a_failure", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_rows_with_no_measured_time_are_ignored", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_weigh_jobs_stamps_in_place_and_is_a_no_op_without_a_book", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_cells_are_set_up_heaviest_first_and_the_spec_order_is_untouched", file: "Tests/unit/test_pacing.py", kind: "function"}
+      - {name: "test_cell_order_prefers_the_units_it_is_given_over_the_cell_mean", file: "Tests/unit/test_pacing.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_painters_levels.py":
     purpose: "the absolute over-time view must stay readable at 34 arms."
     layer: "tests"
@@ -5088,6 +5168,30 @@ files:
       - {name: "test_every_registered_config_converts", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
       - {name: "test_the_field_set_is_derived_from_the_dataclass", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
       - {name: "test_no_module_builds_a_pickconfig_from_a_config_dict_on_its_own", file: "Tests/unit/test_pick_config_conversion.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_pick_owed.py":
+    purpose: "what the planned demand costs to serve from where the stock IS."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_score_is_the_mean_over_a_skus_bins_not_the_sum", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+      - {name: "test_moving_a_hot_sku_to_a_far_high_bin_raises_the_score_by_the_bin_gap", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+      - {name: "test_the_height_bracket_is_in_the_score", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+      - {name: "test_a_planned_sku_with_no_shelf_stock_scores_nothing_and_is_reported", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+      - {name: "test_a_sku_nobody_ordered_does_not_move_the_score", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+      - {name: "test_the_planned_quantity_reaches_the_handling_term", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+      - {name: "test_unarmed_it_is_inert", file: "Tests/unit/test_pick_owed.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py":
+    purpose: "pick_owed and the closed-form expected-travel evaluation order placements the same way."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_both_models_call_the_inverted_placement_the_dearer_one", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
+      - {name: "test_the_closed_forms_agreement_comes_from_height_not_from_travel", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
+      - {name: "test_the_two_models_are_not_the_same_number", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
+      - {name: "test_moving_one_hot_sku_to_the_far_aisle_moves_both_the_same_way", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
+      - {name: "test_an_unplaced_hot_sku_is_free_to_the_proxy_and_the_closed_form_cannot_price_it_either", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
+      - {name: "test_the_proxy_separates_a_spread_placement_that_the_closed_form_cannot", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
+      - {name: "test_the_agreement_is_not_an_artifact_of_one_geometry", file: "Tests/unit/test_pick_owed_agrees_with_the_closed_form.py", kind: "function"}
     notes: ""
   "Tests/unit/test_pick_stream_lockstep.py":
     purpose: "the two picker loops emit the SAME EVENTS, not just the"
@@ -5204,6 +5308,7 @@ files:
       - {name: "test_the_significance_axis_labels_moved_only_where_recorded", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_the_aggregate_axis_labels_moved_only_where_recorded", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_the_overtime_axis_labels_moved_only_where_recorded", file: "Tests/unit/test_present_collapse.py", kind: "function"}
+      - {name: "test_every_recorded_overtime_addition_is_still_one", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_every_recorded_move_is_still_a_move", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_every_recorded_move_carries_a_real_reason", file: "Tests/unit/test_present_collapse.py", kind: "function"}
       - {name: "test_the_headline_metric_groups_did_not_move_at_all", file: "Tests/unit/test_present_collapse.py", kind: "function"}
@@ -5723,6 +5828,27 @@ files:
       - {name: "test_reorder_qty_cv_zero_is_exact_ideal", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_lead_zero_is_plain_fillback", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
       - {name: "test_reorder_qty_grows_with_lead", file: "Tests/unit/test_rng_determinism.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_run_history.py":
+    purpose: "the record of how a run was constructed, and whether it finished."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_first_launch_opens_attempt_one_with_no_parent", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_each_resume_appends_and_chains_to_the_one_before", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_the_attempt_number_is_derived_not_taken_from_the_caller", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_closing_an_attempt_that_does_not_exist_is_a_no_op", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_a_malformed_history_reads_as_none_rather_than_raising", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_a_missing_root_never_raises_from_the_reader", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_the_ledger_lands_beside_the_run_roots_not_inside_one", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_the_ledger_appends_and_skips_a_malformed_line", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_an_unwritable_ledger_never_raises", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_the_index_reader_folds_launches_and_outcomes_per_run", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_a_new_launch_reopens_a_run_that_had_reported_complete", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_a_root_that_predates_the_ledger_is_listed_as_unknown", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_deep_reads_the_run_s_own_history_as_the_authority", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_the_artifact_is_declared_by_the_run_tree_contract", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_every_funnel_spec_declares_its_phase", file: "Tests/unit/test_run_history.py", kind: "function"}
+      - {name: "test_the_rider_spec_needs_no_selection_artifact", file: "Tests/unit/test_run_history.py", kind: "function"}
     notes: ""
   "Tests/unit/test_run_shaping_accessors.py":
     purpose: "a tunable is read at call time, never snapshotted."
@@ -6468,14 +6594,17 @@ files:
     purpose: "Pins run_unload_ranking: the tie-grouping rule (labour outside the floor, overage inside, non-transitive chains anchored on the group's cheapest), per-pair cell ranking on summed unit hours over a JSON scratch tree with the site readers patched, poisoning by a missing reading, and the three refusals (uncoupled, unanalyzed, one cell)."
     layer: "tests"
     key_symbols:
-      - {name: "test_labour_decides_outside_the_floor_even_against_a_worse_overage", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_score_decides_outside_the_floor_even_against_a_worse_overage", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_overage_decides_inside_the_floor", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_a_chain_of_near_ties_groups_against_the_open_groups_cheapest", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
-      - {name: "test_a_missing_labour_reading_ranks_last_with_no_rank", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_missing_score_reading_ranks_last_with_no_rank", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_rank_cells_returns_new_dicts_and_leaves_the_input_alone", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
-      - {name: "test_cells_are_ranked_per_rule_pair_on_summed_unit_hours", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_cells_are_ranked_per_rule_pair_on_summed_unit_scores", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_inside_the_floor_the_site_overage_decides_the_cell", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_a_unit_with_a_missing_reading_poisons_its_cell_for_that_pair", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_material_census_refuses_to_name_cells_and_still_writes_the_record", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_one_tie_group_reports_not_discriminating", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_rule_pairs_that_disagree_are_reported_as_disagreeing", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_an_uncoupled_root_is_refused", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_a_single_cell_is_refused", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_an_unanalyzed_root_says_what_to_run", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
@@ -7222,6 +7351,13 @@ files:
       - {name: "declared_dir_names", file: "scripts/prune_stale_analysis.py", kind: "function"}
       - {name: "find_stale", file: "scripts/prune_stale_analysis.py", kind: "function"}
       - {name: "main", file: "scripts/prune_stale_analysis.py", kind: "function"}
+    notes: ""
+  "scripts/run_index.py":
+    purpose: "which runs happened, which phase each belonged to, and did they finish."
+    layer: "scripts"
+    key_symbols:
+      - {name: "rows", file: "scripts/run_index.py", kind: "function"}
+      - {name: "main", file: "scripts/run_index.py", kind: "function"}
     notes: ""
   "scripts/schema_report.py":
     purpose: "the CLI over `Schema/compat.py`, and the one place that knows every family."

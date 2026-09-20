@@ -15,7 +15,11 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
 
 <pre class="sig"><code>def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log) -&gt; list</code></pre>
-<section class="doc">One row per unit of the cell: its rule pair, stock mode, labour hours and overage.</section>
+<section class="doc">One row per unit of the cell: its rule pair, stock mode, score, census and overage.
+
+The score and the census are read from the SAME series document in the same pass, and
+both are summed over the unit&#x27;s two leaves.  They must travel together: a score is only
+a placement result to the extent its census is zero.</section>
 <section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___read_leaves.html"><code>_read_leaves</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___rule_of.html"><code>_rule_of</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_unload_ranking_py___site_units.html"><code>_site_units</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_overage.html"><code>_unit_overage</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py___units_of_cell">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20_units_of_cell">Source ↗</a></p>
 </article>

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>sim_jobs</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span></div>
-<pre class="sig"><code>def sim_jobs(cell, units, *, cell_index=1, cell_total=1)</code></pre>
+<pre class="sig"><code>def sim_jobs(cell, units, *, cell_index=1, cell_total=1, pace=None)</code></pre>
 <section class="doc">One cell&#x27;s `(uid, args)` work units as the pool&#x27;s `Job`s, stamped with what the
 worker&#x27;s log line reads: `cell` (the logger name and every per-arm line), `job_tag`,
 the per-cell `job_index/job_total`, and `cell_pos` (this cell&#x27;s position in the spec).
@@ -22,9 +22,16 @@ There is no whole-run job counter any more: the old `gjob` assumed every cell ha
 same unit count and was wrong on resume and after a retry; matrix progress is now the
 pool&#x27;s own `[pool] N unit(s) done` line.
 
+`pace` is the OPTIONAL pace book (`simdriver.pacing.load_pace`). Given one, each job
+carries an estimated duration and the pool dispatches heaviest first; without one every
+weight is 0.0 and the pool breaks ties by submission order, which is what it did before
+pacing existed. KEYWORD-ONLY and threaded through the driver&#x27;s `_rebuild` as well: a run
+that survives a broken pool and resubmits must not silently revert to submission order
+for the half of the matrix it has left.
+
 `_run_strategy_worker` is read from THIS module at call time so a fixture can rebind it
 before the driver runs (`_broken_pool_driver.py` does, for a worker that cannot import).</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_workpool_py__Job.html"><code>Job</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___tag_of.html"><code>_tag_of</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_cells.html"><code>_run_cells</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li><li><a href="nOptimization_simdriver_scenario_py___run_cells__rebuild.html"><code>_rebuild</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nOptimization_simdriver_pacing_py__weigh_jobs.html"><code>weigh_jobs</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker.html"><code>_run_strategy_worker</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_workpool_py__Job.html"><code>Job</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___tag_of.html"><code>_tag_of</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_cells.html"><code>_run_cells</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li><li><a href="nOptimization_simdriver_scenario_py___run_cells__rebuild.html"><code>_rebuild</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_supervisor_py__sim_jobs">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/supervisor.py#:~:text=def%20sim_jobs">Source ↗</a></p>
 </article>
 </main>

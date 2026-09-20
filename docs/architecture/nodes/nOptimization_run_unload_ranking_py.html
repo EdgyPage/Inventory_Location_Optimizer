@@ -26,17 +26,43 @@ The twin of `run_restock_selection` (phase 1&#x27;s hand-off), one level up the 
     CELLS;
   * phase 3 crosses the best few of each in one confirmation run.
 
-THE SCORE, decided with the user on 2026-09-18 (memory `inbound-campaign-is-a-three-phase-
-funnel`): **total site labour** — picking plus put-away plus receiving, which is exactly the
-`ss_prod_total` each leaf&#x27;s series document already carries (`common/series.py`: unload +
-put + pick, meaned over the steady-state window) — summed over a unit&#x27;s two leaves and
-over the inventory pairs, in hours, lower is better.  Picking labour alone cannot rank
-unloading policies: across the campaign&#x27;s first three cells it was identical to 0.01%.
-Two cells whose labour differs by less than the NOISE FLOOR are a tie, and the tie is
-broken by **yard overage** (`yard_overage_days`, the whole run&#x27;s trailer-days past the free
+THE SCORE — and the correction of 2026-09-19 that is the reason this module changed.
+
+It ranked on **total site labour** (`ss_prod_total`: unload + put + pick, meaned over the
+steady-state window).  That was wrong, and wrong in a way that produced an answer rather
+than an error: every term in it is a FLOW, and over a window long enough to unload
+everything a flow total is INVARIANT to the ORDER the unloading happened in.  Same
+trailers, same packs, same seconds.  The first phase-2 ranking came back an exact tie
+across ten cells and that was the honest reply to a question the metric could not be asked.
+
+The score now, set with the user on 2026-09-19: **the pick work the PLANNED demand owes the
+placement** — `ss_pick_owed`, the steady-state mean of `batch_stats.pick_owed_s`, summed
+over a unit&#x27;s two leaves and the inventory pairs, in seconds, lower is better.  Dock labour
+is the same whichever order the trailers come apart in; where the stock LANDS is not, and
+that is what the whole warehouse pays for afterwards.  It is a STATE read, so it can see an
+ordering policy: what the run&#x27;s own planned batches would cost served from where the stock
+currently stands, priced with the same `cost_model.per_pick` arithmetic as `optimal_work`.
+
+Two cells whose score differs by less than the NOISE FLOOR are a tie, and the tie is broken
+by **yard overage** (`yard_overage_days`, the whole run&#x27;s trailer-days past the free
 threshold, from the SITE yard through `frames._ydf`), lower first.  The floor is declared,
-not measured — 0.1%, the size of the cross-cell pick deltas the three-cell analysis found —
-and the artifact records it beside every rank so a reader can re-draw the line.
+not measured — 0.1% — and the artifact records it beside every rank so a reader can
+re-draw the line.
+
+THE CENSUS, and the refusal it can trigger.  A planned line whose SKU has nothing on any
+shelf costs the score NOTHING, because there is no bin to walk to — so a score read alone
+would rank &quot;leave it all in the yard&quot; first.  `ss_unservable` is the census of that demand.
+When it is materially non-zero the run was decided by AVAILABILITY rather than by
+placement, and this tool writes the record, names no cells for phase 3, and exits non-zero.
+A fabricated penalty would make the score rankable again at the price of making it partly
+fiction, with no way to recover which force moved it.
+
+TWO VERDICTS the document carries beside the ranks, because a rank list cannot state
+either: `discriminating` is false when every cell lands in ONE tie group (the metric did
+not separate the policies, which is a result and not a ranking), and `rank_agreement`
+reports whether the rule pairs that ran ordered the cells the same way — they are
+independent replications of the same question, so disagreement is the honest signal that
+neither ordering is a property of the unloading policy.
 
 WHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard&#x27;s DB is
 named after the ARM PAIR it served (the contract&#x27;s `site_inbound_db` template).  So the
@@ -48,6 +74,7 @@ rider&#x27;s ranking is reported beside the winner&#x27;s and neither is read as
 
 Refusals, each closing a way to hand phase 3 a plausible answer instead of an error:
 
+  * a MATERIAL census — the ranking would be about availability, not placement;
   * an UNCOUPLED root (no site DB anywhere) — phase 2 is coupled by definition and the
     tie-break lives in the site yard;
   * an unanalyzed root (no series documents) — says what to run, like phase 1&#x27;s selector;
@@ -60,7 +87,7 @@ copied: a spec that read a JSON file at import would make the decision invisible
 Run AFTER `analyze_run` (which writes the series JSONs):
     python -m Optimization.analyze_run &lt;phase-2 run root&gt;
     python -m Optimization.run_unload_ranking &lt;phase-2 run root&gt; [--pair store_rule,ful_rule]</section>
-<section class="rel"><h2>Imports <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_config_settings_py.html"><code>Optimization.config.settings</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_strategies_py.html"><code>Optimization.config.strategies</code></a> <span class="dim">Optimization/config/strategies.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_run_restock_selection_py.html"><code>Optimization.run_restock_selection</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py.html"><code>Optimization.runschema.sim_manifest</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(14)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_K.html"><code>DEFAULT_K</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_NOISE_FLOOR_PCT.html"><code>DEFAULT_NOISE_FLOOR_PCT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__METRIC_FIELD.html"><code>METRIC_FIELD</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__METRIC_QUANTITY.html"><code>METRIC_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__TIE_QUANTITY.html"><code>TIE_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___label.html"><code>_label</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___site_units.html"><code>_site_units</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___threshold_for.html"><code>_threshold_for</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_overage.html"><code>_unit_overage</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___units_of_cell.html"><code>_units_of_cell</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank_cells.html"><code>rank_cells</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+<section class="rel"><h2>Imports <span class="count">(7)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_common_frames_py.html"><code>Optimization.Performance_Evaluations.common.frames</code></a> <span class="dim">Optimization/Performance_Evaluations/common/frames.py</span></li><li><a href="nOptimization_config_settings_py.html"><code>Optimization.config.settings</code></a> <span class="dim">Optimization/config/settings.py</span></li><li><a href="nOptimization_config_strategies_py.html"><code>Optimization.config.strategies</code></a> <span class="dim">Optimization/config/strategies.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py.html"><code>Optimization.persistence.Picking_Data</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_run_restock_selection_py.html"><code>Optimization.run_restock_selection</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_runschema___init___py.html"><code>Optimization.runschema</code></a> <span class="dim">Optimization/runschema/__init__.py</span></li><li><a href="nOptimization_runschema_sim_manifest_py.html"><code>Optimization.runschema.sim_manifest</code></a> <span class="dim">Optimization/runschema/sim_manifest.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(20)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__CENSUS_FIELD.html"><code>CENSUS_FIELD</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__CENSUS_QUANTITY.html"><code>CENSUS_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_CENSUS_MATERIAL_PCT.html"><code>DEFAULT_CENSUS_MATERIAL_PCT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_K.html"><code>DEFAULT_K</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__DEFAULT_NOISE_FLOOR_PCT.html"><code>DEFAULT_NOISE_FLOOR_PCT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__EXACT_FIELD.html"><code>EXACT_FIELD</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__METRIC_FIELD.html"><code>METRIC_FIELD</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__METRIC_QUANTITY.html"><code>METRIC_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__TIE_QUANTITY.html"><code>TIE_QUANTITY</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___REPO_ROOT.html"><code>_REPO_ROOT</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___label.html"><code>_label</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___site_units.html"><code>_site_units</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___threshold_for.html"><code>_threshold_for</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_overage.html"><code>_unit_overage</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___units_of_cell.html"><code>_units_of_cell</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__discriminating.html"><code>discriminating</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__main.html"><code>main</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank_agreement.html"><code>rank_agreement</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py__rank_cells.html"><code>rank_cells</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py">Source ↗</a></p>
 </article>
 </main>

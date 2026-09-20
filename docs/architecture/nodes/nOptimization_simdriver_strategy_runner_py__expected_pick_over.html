@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>expected_pick_over · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py__expected_pick_over" data-id="Optimization/simdriver/strategy_runner.py::expected_pick_over">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>expected_pick_over</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>expected_pick_over</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def expected_pick_over(bin_map: dict, geometry, orders, pick_cfg, lines: float, cv: float) -&gt; dict</code></pre>
+<section class="doc">The closed-form expected pick day over ONE placement, whatever produced it.
+
+Extracted from `_arm_expected_pick` so the same arithmetic can be re-taken over the
+placement a run is standing in at some later batch, not only over the one it started
+with.  The two callers differ in exactly one thing -- which bins they hand it -- which
+is the point: an expectation whose only input that moved is the placement is an
+expectation that MEASURES the placement.
+
+`geometry` is hoisted by the caller because `Geometry.from_warehouse` walks every aisle
+and the warehouse does not change shape mid-run; rebuilding it per call would make a
+per-keyframe check cost the geometry every time for an identical answer.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py__accumulate.html"><code>accumulate</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_expected_travel_py__expected_pick.html"><code>expected_pick</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___arm_expected_pick.html"><code>_arm_expected_pick</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___build_leaf__step.html"><code>_step</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py__expected_pick_over">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20expected_pick_over">Source ↗</a></p>
+</article>
+</main>
+</body></html>

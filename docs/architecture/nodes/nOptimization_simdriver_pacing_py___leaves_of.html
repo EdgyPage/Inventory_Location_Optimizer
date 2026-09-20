@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_leaves_of · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_pacing_py___leaves_of" data-id="Optimization/simdriver/pacing.py::_leaves_of">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_pacing_py.html"><code>Optimization/simdriver/pacing.py</code></a> <span class="sep">›</span> <span class="here"><code>_leaves_of</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_leaves_of</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_pacing_py.html"><code>Optimization/simdriver/pacing.py</code></a></p>
+
+<pre class="sig"><code>def _leaves_of(payload: dict) -&gt; list</code></pre>
+<section class="doc">`[(pair, config, channel, arm, start_i, n_batches)]` for one unit&#x27;s rows.
+
+READ FROM THE PAYLOAD, never by slicing the uid. A uid&#x27;s four slots mean
+`(pair, config, channel, arm)` on a one-leaf unit and `(pair, &#x27;coupled&#x27;, arm_store,
+arm_ful)` on a coupled one — same arity, different meanings — so a positional read
+would file a coupled unit under a config named `coupled` with the wrong arm.
+
+The CHANNEL is `&#x27;store&#x27;` on a store-only layout, never `&#x27;&#x27;`: that is what the group key
+carries and what `runtime_metrics` records, so a lookup that normalised it to empty
+would miss every row of every store-only run.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_pacing_py__weight_of.html"><code>weight_of</code></a> <span class="dim">Optimization/simdriver/pacing.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_pacing_py___leaves_of">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/pacing.py#:~:text=def%20_leaves_of">Source ↗</a></p>
+</article>
+</main>
+</body></html>

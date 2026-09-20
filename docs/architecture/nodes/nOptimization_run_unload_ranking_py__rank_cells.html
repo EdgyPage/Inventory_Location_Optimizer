@@ -15,17 +15,21 @@
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
 
 <pre class="sig"><code>def rank_cells(entries: list, noise_floor_pct: float) -&gt; list</code></pre>
-<section class="doc">Order `entries` (`{&#x27;cell&#x27;, &#x27;labor_hours&#x27;, &#x27;overage_days&#x27;}`) cheapest labour first,
+<section class="doc">Order `entries` (`{&#x27;cell&#x27;, &#x27;owed_seconds&#x27;, &#x27;overage_days&#x27;}`) cheapest score first,
 breaking ties inside the floor by overage.  Returns NEW dicts with `rank`, `tie_group`,
-`decided_by` and `margin_pct` added; entries with a non-finite labour go last with
+`decided_by` and `margin_pct` added; entries with a non-finite score go last with
 `rank: None`.
 
 A tie is not transitive — A within the floor of B and B of C says nothing about A and C —
-so &quot;tie&quot; is defined operationally: walking the labour order, an entry joins the OPEN
+so &quot;tie&quot; is defined operationally: walking the score order, an entry joins the OPEN
 group while it is within the floor of that group&#x27;s cheapest member, else it opens a new
-one.  Inside a group the order is overage, then labour, then name; across groups it is
-labour.  `margin_pct` is the labour gap to the NEXT rank as a percent of this one, so a
-reader sees the separations the plan asked for rather than a bare list.</section>
+one.  Inside a group the order is overage, then score, then name; across groups it is
+score.  `margin_pct` is the score gap to the NEXT rank as a percent of this one, so a
+reader sees the separations rather than a bare list.
+
+`owed_seconds` was `owed_seconds` until 2026-09-19, when the score stopped being a flow
+total.  Renamed rather than reused: a decision record whose key says hours of labour
+while the number is seconds owed by a placement is the kind of thing that gets quoted.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py__rank_cells">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20rank_cells">Source ↗</a></p>
 </article>

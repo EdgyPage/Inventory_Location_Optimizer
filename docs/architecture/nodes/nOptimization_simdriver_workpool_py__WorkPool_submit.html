@@ -14,11 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>submit</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a></p>
 
-<pre class="sig"><code>def submit(self, cell, jobs) -&gt; int</code></pre>
+<pre class="sig"><code>def submit(self, cell, jobs, *, pos=None) -&gt; int</code></pre>
 <section class="doc">Queue one cell&#x27;s jobs (any iterable of `Job`), dispatch as far as the pool allows,
 and return how many were queued.  A key already DONE for this cell is skipped -- a
-rebuild after a break hands back every job of the cell, finished ones included.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool__book.html"><code>_book</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__pump.html"><code>_pump</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool_finish.html"><code>finish</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section>
+rebuild after a break hands back every job of the cell, finished ones included.
+
+`pos` is `(index, total)` for this cell IN THE SPEC, carried only so the log line can
+name it; the pool never orders anything by it.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool__book.html"><code>_book</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__pump.html"><code>_pump</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_progress.html"><code>progress</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool_finish.html"><code>finish</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workpool_py__WorkPool_submit">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workpool.py#:~:text=def%20submit">Source ↗</a></p>
 </article>
 </main>

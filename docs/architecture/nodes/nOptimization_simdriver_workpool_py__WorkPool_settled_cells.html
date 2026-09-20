@@ -13,11 +13,19 @@
 <nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_workpool_py__WorkPool.html"><code>WorkPool</code></a> <span class="sep">›</span> <span class="here"><code>settled_cells</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>settled_cells</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+
 <pre class="sig"><code>def settled_cells(self) -&gt; list</code></pre>
-<section class="doc">Cells whose EVERY submitted job has resolved and nothing is queued -- the
-driver drops a cell&#x27;s shared assets on this (the assets a retry rebuilds from).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="doc">Cells whose EVERY submitted job has resolved and nothing is queued.
+
+The driver drops a cell&#x27;s shared assets on this (the assets a retry rebuilds from).
+Read through the `on_settle` hook rather than polled, so a cell that settles during
+the DRAIN -- when the driver is inside `finish` and running no code of its own --
+releases its memory then rather than at the end of the run.
+
+A cell with an unfired continuation is NOT settled: `_fire_settled` runs after
+`_fire_continuations`, so a continuation that submits more jobs has already put them
+in `_pending` by the time this is asked.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool__fire_settled.html"><code>_fire_settled</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workpool_py__WorkPool_settled_cells">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workpool.py#:~:text=def%20settled_cells">Source ↗</a></p>
 </article>
 </main>
