@@ -10,6 +10,14 @@ WHY THIS MUST NOT RAISE: it runs at the front of every simulation and every cata
 and a producer that dies because provenance could not be derived is strictly worse than one that
 records ``unknown``.  A shallow clone, a source export with no ``.git``, a machine with no git on
 PATH and a wedged index lock all resolve to a recorded value rather than an exception.
+
+THE EXPORT STAMP, and why it is not a nicety.  Every campaign in this repo runs from a
+``git archive`` copy, because a spawn-per-job run re-imports the tree for every unit and must not
+see the working tree move under it (memory ``detached-runs-import-the-working-tree``).  An archive
+carries no ``.git``, so the runs whose provenance matters MOST -- the multi-day ones nobody will
+remember the details of -- were exactly the ones recording ``repo_commit: unknown``.  Caught
+2026-09-20, on a phase-2 campaign launch.  So an export may carry ``.source_commit`` at its root
+and this reads it when git metadata is absent; ``write_source_stamp`` is what puts it there.
 """
 from __future__ import annotations
 
@@ -79,6 +87,41 @@ def _head_commit(git_dir: str) -> str | None:
     return None
 
 
+#: An export's own record of what it was cut from, read when there is no git metadata.
+#: One line: the sha, optionally followed by the word `dirty` when the export carries edits on
+#: top of that commit (a probe snapshot with files overlaid, which this session made several
+#: of).  Plain text rather than JSON so a human reading a snapshot directory can answer "what
+#: is this?" with `cat`.
+SOURCE_STAMP = '.source_commit'
+
+
+def _stamped(repo_root: str) -> dict | None:
+    """`repo_provenance`'s answer from an export stamp, or None when there is no stamp."""
+    try:
+        with open(os.path.join(repo_root, SOURCE_STAMP), encoding='utf-8') as f:
+            text = f.read().strip()
+    except OSError:
+        return None
+    if not text:
+        return None
+    parts = text.split()
+    # An archive is an export of a COMMIT, so it is clean by construction unless the stamp says
+    # otherwise.  That is a stronger answer than `None`, and it is the true one.
+    return {'repo_commit': parts[0][:12], 'repo_dirty': 'dirty' in parts[1:]}
+
+
+def write_source_stamp(dest_root: str, sha: str, *, dirty: bool = False) -> str:
+    """Write `dest_root/.source_commit` so an export can say what it came from.
+
+    Called by whatever cuts the export: `git archive` has no hook for this, and an exporter
+    that forgets is exactly how a campaign ends up recording `unknown`.
+    """
+    path = os.path.join(dest_root, SOURCE_STAMP)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(f'{sha}{" dirty" if dirty else ""}\n')
+    return path
+
+
 def repo_provenance(repo_root: str = _REPO_ROOT) -> dict:
     """{'repo_commit': <short sha> | 'unknown', 'repo_dirty': True | False | None}.
 
@@ -88,7 +131,9 @@ def repo_provenance(repo_root: str = _REPO_ROOT) -> dict:
     """
     git_dir = _git_dir(repo_root)
     if git_dir is None:
-        return {'repo_commit': 'unknown', 'repo_dirty': None}
+        # Git metadata WINS when both are present: a clone that also carries a stamp is a
+        # clone, and its working tree is the truth about what is running.
+        return _stamped(repo_root) or {'repo_commit': 'unknown', 'repo_dirty': None}
     sha = _head_commit(git_dir)
     dirty: bool | None = None
     try:
