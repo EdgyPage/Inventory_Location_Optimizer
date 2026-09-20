@@ -435,3 +435,28 @@ class OptimalLayoutMixin:
             else:
                 unservable += w
         return owed, unservable
+
+    def placement_bin_map(self) -> dict:
+        """`{sku: [(aisle_id, bayX, bayY, qty), ...]}` over the bins occupied RIGHT NOW.
+
+        The input shape `simconfig.expected_travel.PlacementDist.initial` takes, so the
+        closed-form expectation can be re-taken over a placement mid-run rather than only
+        over the one an arm started with.  That is the cross-check `pick_owed` needs and
+        cannot be: the two price a placement by different models -- this one walks every
+        SKU's own bins and weights by the planned script, the closed form routes carts
+        through aisles and weights by relative frequency -- so agreement between their
+        ORDERINGS is evidence about the placement, and agreement between their values
+        would only be evidence that one was computed from the other.
+
+        Built from `_unavailable`, the occupied-bin index, NOT from `warehouse.bins`: the
+        latter is every bin the geometry has and is two orders of magnitude larger on a
+        run with free space, and the empty ones contribute nothing but the walk.
+        """
+        out: dict = {}
+        for b in self._unavailable.values():
+            st = b.storage
+            if st is None:
+                continue
+            out.setdefault(st.order.sku, []).append(
+                (b.aisle.aisle_id, b.bayX, b.bayY, int(st.quantity)))
+        return out

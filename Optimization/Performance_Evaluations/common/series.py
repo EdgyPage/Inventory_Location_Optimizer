@@ -108,6 +108,13 @@ def _build_series(strategies, df_b, df_t, df_w=None, df_y=None):
             # in: the two are one reading, and a run where this is materially non-zero was
             # decided by availability rather than by placement.
             ss_unservable=_ss_mean(ssb, ssb, 'unservable_weight'),
+            # The closed form's second opinion on the same placement, meaned over the
+            # KEYFRAME batches inside the window -- the only rows that carry it. NaN on a
+            # run that took no check, which `_ss_mean` already answers for an absent
+            # column and pandas answers for an all-NaN one. Seconds PER UNIT and a
+            # different model, so it is never differenced against `ss_pick_owed`: the two
+            # are compared as ORDERS over arms, which is what makes the cheap one usable.
+            ss_pick_owed_exact=_ss_mean(ssb, ssb, 'pick_owed_exact_s'),
             ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
             ss_prod_hours=(float(sst.groupby('batch_id')['duration'].sum().mean())
                            if len(sst) else float('nan')),

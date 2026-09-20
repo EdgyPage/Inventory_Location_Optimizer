@@ -442,7 +442,9 @@ def test_the_pre_split_vintage_reads_the_carry_halves_as_none_and_its_verdict_as
                'free_bins',
                # The placement score, 2026-09-19 -- postdates this vintage like the five
                # above it, so today's schema carries it and the fake must not.
-               'pick_owed_s', 'unservable_weight'):
+               'pick_owed_s', 'unservable_weight',
+               # ...and its closed-form second opinion, hours later the same day.
+               'pick_owed_exact_s'):
         con.execute(f'ALTER TABLE batch_stats DROP COLUMN {_c}')
     # THE THREE RETIRED INDEXES, PUT BACK.  `ix_bp_bin`, `ix_be_bin` and `ix_picks_run_sku`
     # existed on every file of both vintages faked here and were removed from the schema by the

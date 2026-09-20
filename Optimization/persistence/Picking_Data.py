@@ -62,6 +62,7 @@ class BatchStats:
     sigma_fd: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*D)
     pick_owed_s: float = 0.0      # pick seconds the PLANNED demand owes this placement
     unservable_weight: float = 0.0  # planned weight pick_owed_s could not price (no shelf stock)
+    pick_owed_exact_s: float | None = None   # the closed form's s/unit, keyframe batches only
     reload_moves: int = 0         # re-slot bin moves this batch (layout churn)
     reorder_placements: int = 0   # reorder unit PLACEMENTS this batch (units binned; restock churn)
     skus_reordered: int = 0       # distinct SKUs reordered this batch (N in the reorder log line)
@@ -405,6 +406,32 @@ _CREATE_BATCH_STATS = """
         -- where this is materially non-zero was decided by availability, not by placement,
         -- and the ranking refuses it rather than reporting an order.
         unservable_weight      REAL    NOT NULL DEFAULT 0,
+        -- THE SECOND OPINION, and the only thing that can fail `pick_owed_s` as a proxy.
+        -- The closed-form expected pick day (`simconfig/expected_travel`) re-taken over
+        -- the placement this run is standing in, written ONLY on keyframe batches and
+        -- NULL on every other row -- which is why this one column is nullable where its
+        -- two neighbours are NOT NULL: "not measured at this batch" is a different fact
+        -- from "measured as zero", and there is no default that could say the first.
+        --
+        -- It is a DIFFERENT MODEL, deliberately: `pick_owed_s` walks each SKU's own bins
+        -- and weights by the planned script; this routes carts through aisles and weights
+        -- by relative frequency. Two models agreeing on a VALUE would only prove one was
+        -- computed from the other; two models agreeing on an ORDER is evidence about the
+        -- placement. Seconds per unit, not per batch -- never compare it to pick_owed_s.
+        --
+        -- HOW MUCH OF A CHECK IT IS, measured (Tests/unit/test_pick_owed_agrees_with_
+        -- the_closed_form.py): the closed form models a day as ONE SWEEP PER AISLE, so its
+        -- travel term is ~0.4% of the modelled day and it is INSENSITIVE to which aisle a
+        -- SKU lands in.  Its placement signal is the height bracket and the within-aisle
+        -- span -- terms `pick_owed_s` also carries.  So agreement between the two is
+        -- weaker evidence than it looks and DISAGREEMENT is the informative direction.
+        -- Recorded anyway: a second model that moves the other way is the only signal in
+        -- the repo that the score has stopped tracking pick work.
+        --
+        -- NULL on every run before 2026-09-19, on any run that did not arm the score, and
+        -- on any run without the derived staffing block (the expectation needs its line
+        -- count and spread), which includes every flag-off store-only run.
+        pick_owed_exact_s      REAL,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -1370,7 +1397,19 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 is no optional-fill to negotiate because there is no column on an
     #                 existing table.  The only thing that MOVED on an uncoupled run is this
     #                 stamp itself.
-    known_ids=('4e13ed321df9',  # before the placement score: 2026-09-17 (145800bb) ..
+    known_ids=('f6e58d087767',  # the placement score without its second opinion:
+                                # 2026-09-19 (0b4eb92a) .. 2026-09-19 (990386d8), a
+                                # few hours.  `batch_stats` gains `pick_owed_exact_s`,
+                                # the closed-form expected pick re-taken over the
+                                # placement at each KEYFRAME batch and NULL on every
+                                # other row -- the only check that can fail
+                                # `pick_owed_s` as a proxy, because it is a different
+                                # model (cart routing, relative frequency) over the
+                                # same bins.  A pure addition, so it needs its own
+                                # `batch_frame` override omitting it
+                                # (`PRE_EXACT_CHECK_SIM_SCHEMA_ID`) or this vintage
+                                # falls to the frozen legacy body.
+              '4e13ed321df9',  # before the placement score: 2026-09-17 (145800bb) ..
                                 # 2026-09-19 (0b4eb92a).  `batch_stats` gains `pick_owed_s`
                                 # and `unservable_weight` -- what the PLANNED demand owes
                                 # the current placement, and the weight that score declined
@@ -1757,7 +1796,11 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    # placement -- the best score the column can take -- so a pre-vintage run
                    # would outrank every run that measured itself.
                    'pick_owed_s': None,
-                   'unservable_weight': None}
+                   'unservable_weight': None,
+                   # None on its own terms: this column is NULL on most rows of a run that
+                   # DOES record it, so None here is the same statement the live column
+                   # makes -- not measured at this batch -- rather than a stand-in.
+                   'pick_owed_exact_s': None}
 #: The optional columns whose fill is None BY DESIGN -- a vintage that never recorded them
 #: reads UNKNOWN, never zero -- so the type gate (`test_written_columns_are_readable`) asserts
 #: the None rather than the column's INTEGER.  Every other optional default is the true
@@ -1765,7 +1808,8 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
 #: vintages) sets the same two to None explicitly, since the dataclass default is a WRITER's
 #: default and that body is the one place it would otherwise be READ.
 BATCH_UNKNOWN_ON_OLDER_VINTAGES = ('free_bins', 'put_spills',
-                                   'pick_owed_s', 'unservable_weight')
+                                   'pick_owed_s', 'unservable_weight',
+                                   'pick_owed_exact_s')
 
 #: The placement score's two columns, named once so the runtime capability probe and the
 #: DDL cannot drift apart. `CAP_PLACEMENT_SCORE` is settled by asking a file whether
@@ -1796,7 +1840,7 @@ _BATCH_WRITE_COLS = (
     'work_day', 'released_late',
     'recv_depth', 'recv_unloaded', 'recv_cut', 'recv_seconds',
     'put_topups', 'put_spills', 'recv_repacks', 'recv_repacked_packs', 'free_bins',
-    'pick_owed_s', 'unservable_weight',
+    'pick_owed_s', 'unservable_weight', 'pick_owed_exact_s',
     'is_outlier',
 )
 
@@ -2009,14 +2053,28 @@ PRE_FREE_INDEX_SIM_SCHEMA_ID = '02a78953886c'
 #: reachable, and therefore what stops an unscored run reading as a perfect placement.
 PRE_PICK_OWED_SIM_SCHEMA_ID = '4e13ed321df9'
 
+#: The placement score before its closed-form second opinion (2026-09-19, hours apart).
+#: `pick_owed_exact_s` is another pure ADDITION and takes the same treatment for the same
+#: reason as the pair above: without an override omitting it, the canonical SELECT names a
+#: column this vintage lacks, the query is UNSUPPORTED, and `load_batch_stats` falls to the
+#: frozen legacy body instead of to the None fill.  Two vintages hours apart looks like
+#: churn and is not: a run made between the two commits is a real file, and a reader that
+#: cannot open it is a reader that quietly loses it.
+PRE_EXACT_CHECK_SIM_SCHEMA_ID = 'f6e58d087767'
+
+_dataset.override('sim_db', 'batch_frame', PRE_EXACT_CHECK_SIM_SCHEMA_ID,
+                  _batch_frame_sql('pick_owed_exact_s'))
 _dataset.override('sim_db', 'batch_frame', PRE_PICK_OWED_SIM_SCHEMA_ID,
-                  _batch_frame_sql('pick_owed_s', 'unservable_weight'))
+                  _batch_frame_sql('pick_owed_s', 'unservable_weight',
+                                   'pick_owed_exact_s'))
 _dataset.override('sim_db', 'batch_frame', PRE_FREE_INDEX_SIM_SCHEMA_ID,
-                  _batch_frame_sql('put_spills', 'pick_owed_s', 'unservable_weight'))
+                  _batch_frame_sql('put_spills', 'pick_owed_s', 'unservable_weight',
+                                   'pick_owed_exact_s'))
 _dataset.override('sim_db', 'batch_frame', PRE_REWORK_SIM_SCHEMA_ID,
                   _batch_frame_sql('put_spills', 'put_topups', 'recv_repacks',
                                    'recv_repacked_packs', 'free_bins',
-                                   'pick_owed_s', 'unservable_weight'))
+                                   'pick_owed_s', 'unservable_weight',
+                                   'pick_owed_exact_s'))
 _dataset.override(
     'sim_db', 'shift_day_frame', PRE_CARRY_SPLIT_SIM_SCHEMA_ID,
     'SELECT ' + _shift_day_select(c for c in _SHIFT_DAY_COLS

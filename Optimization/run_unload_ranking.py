@@ -93,6 +93,18 @@ from Optimization.run_restock_selection import (                             # n
 #: a later reader knows which figure to look at as well as which number summed.
 METRIC_FIELD = 'ss_pick_owed'
 METRIC_QUANTITY = 'pick_owed_s'
+#: The closed form's second opinion, meaned over the keyframe batches of the window.  A
+#: DIFFERENT MODEL of the same placement (cart routing against relative frequency, where
+#: the score walks each SKU's own bins against the planned script), so it is never
+#: differenced against the score -- it is ranked, and the two ORDERS are compared.
+#:
+#: ASYMMETRIC, and the asymmetry is measured (`Tests/unit/
+#: test_pick_owed_agrees_with_the_closed_form.py`): the closed form walks every aisle once
+#: a day, so its travel term is ~0.4% of its total and it cannot see AISLE CHOICE at all.
+#: Its placement signal is the height bracket, which the score also carries.  Agreement is
+#: therefore weak evidence; DISAGREEMENT is the informative direction and means the score
+#: moved on something a second model prices the other way.  Reported, never enforced.
+EXACT_FIELD = 'ss_pick_owed_exact'
 #: The honesty term, read beside the score and never added to it.  Planned demand with no
 #: shelf stock, which the score prices at zero.
 CENSUS_FIELD = 'ss_unservable'
@@ -299,6 +311,8 @@ def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log) -> 
                 for ch, (_run, ser) in per_channel.items()}
         cens = {ch: {s.get('key'): s.get(CENSUS_FIELD) for s in ser.get('strategies', [])}
                 for ch, (_run, ser) in per_channel.items()}
+        exct = {ch: {s.get('key'): s.get(EXACT_FIELD) for s in ser.get('strategies', [])}
+                for ch, (_run, ser) in per_channel.items()}
         runs_by_channel = {ch: run for ch, (run, _ser) in per_channel.items()}
         for arm_pair, halves, site_db in _site_units(rt, cell, pair, have):
             readings = [secs.get(ch, {}).get(arm) for ch, arm in halves.items()]
@@ -308,6 +322,11 @@ def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log) -> 
             # score to poison either -- `owed` is already None there.
             unserv = sum(x for x in (cens.get(ch, {}).get(arm) for ch, arm in halves.items())
                          if _finite(x))
+            # SUMMED over the unit's two leaves like the score, and None unless BOTH
+            # answered: this is a cross-check, so a half-measured unit is no check at all
+            # and must not quietly become a cheaper one.
+            _ex = [exct.get(ch, {}).get(arm) for ch, arm in halves.items()]
+            exact = sum(_ex) if _ex and all(_finite(x) for x in _ex) else None
             store_arm = halves.get(RULE_PAIR_ORDER[0])
             rule_pair = [_rule_of(halves.get(ch)) for ch in RULE_PAIR_ORDER]
             strat = STRATEGY_BY_KEY.get(store_arm) if store_arm else None
@@ -318,6 +337,7 @@ def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log) -> 
                 'stock_mode': getattr(strat, 'initial', None),
                 'owed_seconds': owed,
                 'unservable': unserv,
+                'exact_s_per_unit': exact,
                 'overage_days': _unit_overage(rt, runs_by_channel, halves, site_db,
                                               threshold_days, log),
             })
@@ -364,6 +384,7 @@ def rank(base_dir: str, *, k: int = DEFAULT_K, noise_floor_pct: float = DEFAULT_
     # its cell for that pair: a partial sum would rank a cell measured on fewer leaves as
     # cheaper, which is the one arithmetic error that always favours the broken cell.
     by_pair_cell: dict = defaultdict(lambda: {'score': 0.0, 'census': 0.0, 'overage': 0.0,
+                                              'exact': 0.0, 'exact_missing': False,
                                               'n': 0, 'missing': False})
     for u in units:
         rec = by_pair_cell[(_label(u['rule_pair']), u['cell'])]
@@ -373,6 +394,10 @@ def rank(base_dir: str, *, k: int = DEFAULT_K, noise_floor_pct: float = DEFAULT_
         else:
             rec['missing'] = True
         rec['census'] += u['unservable'] if _finite(u.get('unservable')) else 0.0
+        if _finite(u.get('exact_s_per_unit')):
+            rec['exact'] += u['exact_s_per_unit']
+        else:
+            rec['exact_missing'] = True
         rec['overage'] += u['overage_days'] if _finite(u['overage_days']) else 0.0
     pairs = sorted({lbl for lbl, _c in by_pair_cell})
     rider = _label(BASELINE_RULE_PAIR)
@@ -415,6 +440,33 @@ def rank(base_dir: str, *, k: int = DEFAULT_K, noise_floor_pct: float = DEFAULT_
             log(f"    {str(e['rank']):>4}  {e['cell']:<20} {sc:>14} s owed  "
                 f"census {cp:>8}  overage {e['overage_days']:.3f} d  "
                 f"[{e['decided_by']}]{m}")
+
+    # THE PROXY CHECK.  The same cells ranked again on the closed form, per rule pair,
+    # and the two orders compared.  Reported, never enforced: a disagreement is a finding
+    # about the metric, and turning it into a refusal here would mean a tool that cannot
+    # report its own most interesting result.  Absent (`None`) on every run whose arms took
+    # no check -- keyframes off, flag-off, or a vintage before 2026-09-19.
+    exact_rankings, exact_check = {}, None
+    for lbl in pairs:
+        ents = [{'cell': cell,
+                 'owed_seconds': (None if rec['exact_missing'] else rec['exact']),
+                 'overage_days': rec['overage']}
+                for (l, cell), rec in by_pair_cell.items() if l == lbl]
+        if any(_finite(e['owed_seconds']) for e in ents):
+            exact_rankings[lbl] = rank_cells(ents, noise_floor_pct)
+    if exact_rankings:
+        exact_check = {lbl: {
+            'score_order': [e['cell'] for e in rankings[lbl] if e['rank'] is not None],
+            'exact_order': [e['cell'] for e in exact_rankings[lbl] if e['rank'] is not None],
+        } for lbl in exact_rankings}
+        for lbl, rec in exact_check.items():
+            rec['agree'] = rec['score_order'] == rec['exact_order']
+        _bad = sorted(l for l, r in exact_check.items() if not r['agree'])
+        if _bad:
+            log(f'\n  !! the closed form orders the cells DIFFERENTLY from the score on '
+                f'{", ".join(_bad)}. The score is a proxy for pick work; an independent '
+                f'evaluation of the same placements disagreeing with it is the one result '
+                f'that says the proxy cannot be used.')
 
     agreement = rank_agreement(rankings)
     if agreement['agree'] is False:
@@ -479,6 +531,20 @@ def rank(base_dir: str, *, k: int = DEFAULT_K, noise_floor_pct: float = DEFAULT_
                                'group, i.e. the score did not separate the policies. A '
                                'result, not a failure -- but not a ranking either.',
         'rank_agreement': agreement,
+        'exact_check': exact_check,
+        'exact_check_note': 'the same cells ranked on ' + EXACT_FIELD + ', the closed-form '
+                            'expected pick re-taken over each placement at keyframe '
+                            'cadence. A DIFFERENT MODEL at a different grain (seconds per '
+                            'unit), so only the ORDERS are comparable. null when no arm '
+                            'took the check. Reported, never enforced -- AND ASYMMETRIC: '
+                            'the closed form walks every aisle once a day, so its travel '
+                            'term is ~0.4% of its total and it cannot see aisle choice at '
+                            'all. Its placement signal is the height bracket, which the '
+                            'score also carries. AGREEMENT here is therefore weak evidence; '
+                            'DISAGREEMENT is the informative direction, and it means the '
+                            'score has moved on something the closed form prices the other '
+                            'way. Measured in Tests/unit/'
+                            'test_pick_owed_agrees_with_the_closed_form.py.',
         'refused': refused,
         'k': k,
         'rule_pair_order': list(RULE_PAIR_ORDER),

@@ -262,6 +262,7 @@
     "figures_layout_pngs": {
       "evaluation": [
         "layout.churn",
+        "layout.pick_owed",
         "layout.travel"
       ],
       "path": "{cell}/{pair}/{config}/{channel?}/figures/layout/*.png",

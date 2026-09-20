@@ -149,6 +149,52 @@ def placement_fingerprint(bin_map: dict) -> str:
     return h.hexdigest()[:16]
 
 
+def expected_pick_over(bin_map: dict, geometry, orders, pick_cfg,
+                       lines: float, cv: float) -> dict:
+    """The closed-form expected pick day over ONE placement, whatever produced it.
+
+    Extracted from `_arm_expected_pick` so the same arithmetic can be re-taken over the
+    placement a run is standing in at some later batch, not only over the one it started
+    with.  The two callers differ in exactly one thing -- which bins they hand it -- which
+    is the point: an expectation whose only input that moved is the placement is an
+    expectation that MEASURES the placement.
+
+    `geometry` is hoisted by the caller because `Geometry.from_warehouse` walks every aisle
+    and the warehouse does not change shape mid-run; rebuilding it per call would make a
+    per-keyframe check cost the geometry every time for an identical answer.
+    """
+    from Optimization.simconfig import expected_travel as _et
+    dist = _et.PlacementDist.initial(bin_map, geometry)
+    rates = _et.accumulate(orders, pick_cfg, dist, geometry)
+    return _et.expected_pick(rates, geometry, pick_cfg, lines, cv)
+
+
+def _exact_pick_ctx(args: dict, warehouse, orders, pick_cfg):
+    """`(geometry, orders, pick_cfg, lines, cv)` for the keyframe-cadence check, or None.
+
+    None on exactly the runs `_arm_expected_pick` returns None for -- no derived staffing
+    block, or a channel section with no line count -- because it is the same expectation
+    and needs the same two numbers.  That makes the store-only flag-off path a strict
+    no-op here: the check costs it nothing, not even the geometry walk.
+
+    The geometry IS walked a second time on a run that does take the check, once per arm,
+    rather than being threaded out of `_arm_expected_pick`.  That function's own bin map is
+    what the placement fingerprint hashes and a test reads its source for that line; paying
+    one aisle walk per arm is cheaper than making the stamp's provenance harder to see.
+    """
+    st = args.get('staffing') or {}
+    derived = st.get('derived') if isinstance(st, dict) else None
+    if not derived:
+        return None
+    section = (derived.get('channels') or {}).get(args.get('channel_name') or 'store')
+    expected = (section or {}).get('expected') if section else None
+    if not expected or not expected.get('lines'):
+        return None
+    from Optimization.simconfig import expected_travel as _et
+    return (_et.Geometry.from_warehouse(warehouse), orders, pick_cfg,
+            float(expected['lines']), float(expected.get('cv') or 0.0))
+
+
 def _arm_expected_pick(args: dict, warehouse, orders, pick_cfg, log) -> dict | None:
     """The arm's expected day under ITS OWN initial placement, or None flag-off.
 
@@ -175,10 +221,8 @@ def _arm_expected_pick(args: dict, warehouse, orders, pick_cfg, log) -> dict | N
         u = b.storage
         if u is not None:
             bin_map.setdefault(u.order.sku, []).append((b.aisle.aisle_id, b.bayX, b.bayY, int(u.quantity)))
-    dist = _et.PlacementDist.initial(bin_map, geometry)
-    rates = _et.accumulate(orders, pick_cfg, dist, geometry)
-    out = _et.expected_pick(rates, geometry, pick_cfg, float(expected['lines']),
-                            float(expected.get('cv') or 0.0))
+    out = expected_pick_over(bin_map, geometry, orders, pick_cfg,
+                             float(expected['lines']), float(expected.get('cv') or 0.0))
     out['pair_s_pick'] = float(expected['s_pick'])
     # The PLACEMENT FINGERPRINT: a hash of the bin map the expectation was computed from,
     # so the stamp names the placement, not just `placement: initial` and the geometry.
@@ -1276,7 +1320,8 @@ class ArmAssembly:
                   '_recv_day', '_recv_workers', '_release', '_roll_over', '_seed_terms',
                   '_shift_seconds', '_space_tl', 'affinity', 'arm_clock', 'audit', 'batch_cfg',
                   'batches', 'bin_rec', 'checkpoint', 'ckpt_win', 'cov', 'ctx', 'db_path',
-                  'denom', 'expected_pick', 'fi', 'freq_by_idx', 'freq_by_sku', 'inventory',
+                  'denom', 'exact_ctx', 'expected_pick', 'fi', 'freq_by_idx', 'freq_by_sku',
+                  'inventory',
                   'k_pickers', 'keyframe_interval', 'kf_db', 'last_dur', 'lift_cache', 'log',
                   'map_lap_pct', 'mgr', 'n_batches', 'opt_x', 'opt_y', 'pb', 'pe', 'pick_cfg',
                   'pk', 'pm', 'pq', 'pqs', 'pt', 'put_clock', 'qty_by_sku',
@@ -1289,7 +1334,8 @@ class ArmAssembly:
                          _recv_day, _recv_workers, _release, _roll_over, _seed_terms,
                          _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg,
                          batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom,
-                         expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers,
+                         exact_ctx, expected_pick, fi, freq_by_idx, freq_by_sku, inventory,
+                         k_pickers,
                          keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr,
                          n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt,
                          put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope,
@@ -1327,6 +1373,7 @@ class ArmAssembly:
         self.ctx = ctx
         self.db_path = db_path
         self.denom = denom
+        self.exact_ctx = exact_ctx
         self.expected_pick = expected_pick
         self.fi = fi
         self.freq_by_idx = freq_by_idx
@@ -1732,6 +1779,11 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     map_lap_pct = _map_lap_pct(mgr)
     # The arm's own expected day, off the placement it just made (None flag-off).
     expected_pick = _arm_expected_pick(args, warehouse, inventory.orders, pick_cfg, log)
+    # The same expectation's inputs, kept so the batch loop can RE-TAKE it over the
+    # placement the run is standing in at each keyframe.  That is the only check that can
+    # fail `pick_owed_s` as a proxy: a different model, over the same bins, at the same
+    # instants -- see the column's own comment in `Picking_Data`.
+    _exact_ctx = _exact_pick_ctx(args, warehouse, inventory.orders, pick_cfg)
 
     # Fill rate is over THIS channel's regime bins: a per-channel worker only stocks its own
     # regime's units, so dividing by the whole (mixed) warehouse would understate fill by the
@@ -2167,7 +2219,8 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     #   sample  Batch(...) order-sampling only (the precompute/dedup target)
     #   task    Task.from_batch(...) only (sequential — reads live placement)
     #   kf      the keyframe sqlite write (a sub-span of pre, not a partition member)
-    #   pre     fused_pre_snapshot + snapshot_aisle_metrics + keyframe write
+    #   pre     fused_pre_snapshot + snapshot_aisle_metrics + keyframe write +
+    #           the keyframe-cadence closed-form check (all three are keyframe-only)
     #   sim     DeferredPickSimulation construct + run (p1/p2 = its internal split)
     #   extract extract_batch/task/picker/picks
     #   inv     bin accounting: the conservation ledger (was: snapshot_bin_inventory)
@@ -2256,7 +2309,8 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
                       _space_tl=_space_tl, affinity=affinity, arm_clock=arm_clock, audit=audit,
                       batch_cfg=batch_cfg, batches=batches, bin_rec=bin_rec,
                       checkpoint=checkpoint, ckpt_win=ckpt_win, cov=cov, ctx=ctx,
-                      db_path=db_path, denom=denom, expected_pick=expected_pick, fi=fi,
+                      db_path=db_path, denom=denom, exact_ctx=_exact_ctx,
+                      expected_pick=expected_pick, fi=fi,
                       freq_by_idx=freq_by_idx, freq_by_sku=freq_by_sku, inventory=inventory,
                       k_pickers=k_pickers, keyframe_interval=keyframe_interval, kf_db=kf_db,
                       last_dur=last_dur, lift_cache=lift_cache, log=log,
@@ -2656,6 +2710,31 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             _k0 = time.perf_counter()
             save_bin_keyframe(asm.kf_db, asm.run_id, i, kf_rows)
             asm.timers.add('kf', time.perf_counter() - _k0)
+        # THE SECOND OPINION on the placement score, at the SAME cadence and therefore at
+        # the same instants as the keyframes a reader can replay.  A different model over
+        # the same bins: `pick_owed_s` walks each SKU's own bins against the planned
+        # script, this routes carts through aisles against relative frequency.  Agreement
+        # between their ORDERINGS is what makes the cheap one usable as a proxy, and
+        # nothing else in this repo would notice if it stopped holding.
+        #
+        # Deliberately NOT under the `kf` stopwatch: `t_kf` means the keyframe DB write and
+        # a bench comparison across this change would silently re-read as a slower write.
+        # It rides `t_pre`, which the section comment above now says.
+        #
+        # It is keyed on `_want_kf` and not on `kf_db`, so a run with keyframes off takes
+        # no check -- one knob, and the check is always re-takeable from the keyframe it
+        # sits on.  `exact_ctx` is None on every flag-off and store-only run, which makes
+        # the whole block a no-op there rather than a cheap one.
+        _owed_exact = None
+        if _want_kf and asm.exact_ctx is not None:
+            _g, _o, _p, _lines, _cv = asm.exact_ctx
+            _x0 = time.perf_counter()
+            _owed_exact = float(expected_pick_over(
+                asm.mgr.placement_bin_map(), _g, _o, _p, _lines, _cv)['s_pick'])
+            _x_s = time.perf_counter() - _x0
+            if i == asm.start_i or _x_s > 5.0:
+                asm.log.info(f'  [score] batch {i}: closed-form check '
+                             f'{_owed_exact:.4f} s/unit  ({_x_s:.1f}s)')
         asm.timers.split('pre')
 
         # ── conservation ledger ────────────────────────────────────────────────
@@ -2742,6 +2821,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
              _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
             _bs.free_bins = _free
             _bs.pick_owed_s, _bs.unservable_weight = _owed, _unserv
+            _bs.pick_owed_exact_s = _owed_exact
             _bs.released_late = bstate.late
             asm.pb.append(_bs)
             asm.we.extend(_we_skip)
@@ -2825,6 +2905,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         (bs.put_topups, bs.put_spills, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
         bs.free_bins = _free
         bs.pick_owed_s, bs.unservable_weight = _owed, _unserv
+        bs.pick_owed_exact_s = _owed_exact
         bs.released_late      = bstate.late
         # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
         # number comes from the place that knows it -- none is re-derived as a residual,

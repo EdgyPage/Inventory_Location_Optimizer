@@ -59,6 +59,12 @@ SIM_DB_SEMANTICS: dict = {
                                   note='planned demand pick_owed_s declined to price '
                                        '(no shelf stock); non-zero means the score was '
                                        'decided by availability, not placement'),
+        'pick_owed_exact_s':  Col(SCORE, 's', 'batch',
+                                  note='the closed form re-taken over this placement, on '
+                                       'KEYFRAME BATCHES ONLY (NULL elsewhere) and in '
+                                       'seconds PER UNIT -- a different model at a '
+                                       'different grain, for rank agreement, never to be '
+                                       'compared with pick_owed_s as a value'),
         'reload_moves':       Col(COUNT, 'moves', 'batch'),
         'reorder_placements': Col(COUNT, 'units', 'batch', account=PACKS,
                                   note='storage units placed, not merchandise'),
