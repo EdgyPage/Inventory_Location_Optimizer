@@ -16,10 +16,26 @@ quantity cannot move with unload ORDER at all. Phase 2's exact-tie ranking
 ([[unload-key-does-not-rank-like-gain]], [[inbound-campaign-is-a-three-phase-funnel]]) was the
 honest answer to a question `ss_prod_total` cannot be asked.
 
-Measured 2026-09-19, two unload cells sharing one restocking pair: `fifo` restock arms were
-BIT-IDENTICAL across the cells (FIFO ignores rank when placing, so arrival order cannot change
-placement — consistent with [[fifo-restock-ignores-initial-placement]]); `rank_*` arms differed
-in 31–35 of 40 batches and moved `ss_prod_total` by only 0.18–0.24%.
+Measured 2026-09-19, two unload cells sharing one restocking pair: the `fifo` rider's arms were
+BIT-IDENTICAL across those two cells, `rank_*` arms differed in 31–35 of 40 batches, and
+`ss_prod_total` moved only 0.18–0.24%.
+
+**CORRECTED the same day, on three cells instead of two.** "The rider is identical across unload
+cells" is FALSE as a general claim, and the reason it looked true is worth more than the claim
+was. Against `k1_off_fifo`, the `fifo` rider on the live campaign:
+
+| unload cell | rider batch rows differing | picking wall | mean detention |
+|---|---|---|---|
+| `k1_off_lifo` | 38 / 40 | +0.11% | −1.8% (29,941 s vs 30,483 s) |
+| `k1_off_gmyopic` | 0 / 40 | identical | identical |
+
+So a policy that reorders on a rule INDEPENDENT of placement (`lifo`) does move the rider. A
+policy that ranks trailers BY PLACEMENT GAIN degenerates to arrival order under FIFO restock,
+because FIFO placement makes the gain signal flat and the tie-break falls back to arrival order —
+the yard's out-of-arrival-order steps are 312 in BOTH the `fifo` and `gmyopic` cells and 330 in
+`lifo`. `gain_myopic` is not inert: its WINNER arms differ from the `fifo` cell's in 35/40 and
+37/40 batches. It is inert *under the rider only*, which is a statement about the pairing and not
+about the policy.
 
 **The replacement: `pick_owed_s` (`Optimization/Performance_Evaluations/layout/pick_owed.py`,
 persisted via `Optimization/persistence/Picking_Data.py`, read by

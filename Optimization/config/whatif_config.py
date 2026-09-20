@@ -549,12 +549,26 @@ SPECS = {
     # together and they are "magic pick" and "magic unload", in parallel, with phase 3 the
     # cross of the two winner sets.
     #
-    # REGISTERED, NOT RECOMMENDED YET.  Under FIFO restock the unload policy is BIT-IDENTICAL
-    # by construction -- FIFO ignores rank when it places, so arrival order cannot change
-    # placement -- which makes the rider pair a guaranteed exact tie and this spec's own
-    # ranking uninformative about the policies. Its value is the parallel LICENCE and the
-    # yard/receiving evidence it produces, not a winner. Launching it is a decision to take
-    # deliberately, which is why it is a named spec rather than a flag on the other one.
+    # WHAT IT CAN AND CANNOT SEPARATE, measured on three cells of the live campaign rather
+    # than assumed.  Against `k1_off_fifo`, the rider's own arms:
+    #
+    #     k1_off_lifo      38 of 40 batch rows differ   picking +0.11%   detention -1.8%
+    #     k1_off_gmyopic    0 of 40 batch rows differ   identical        identical
+    #
+    # So the rider DOES separate a policy that reorders on a rule independent of placement.
+    # It CANNOT separate the gain family: those rank trailers by the placement gain their
+    # contents would earn, and under FIFO restock the placement does not depend on the
+    # ranking, so the gain signal is flat and the tie-break falls back to arrival order.
+    # The yard's out-of-arrival-order steps are 312 in BOTH the `fifo` and `gmyopic` cells
+    # and 330 in `lifo`, which is the same fact read from the trailers.
+    #
+    # `gain_myopic` IS NOT INERT -- its WINNER arms differ from the `fifo` cell's in 35/40
+    # and 37/40 batches. It is inert UNDER THE RIDER, which is a statement about the pairing
+    # and not about the policy.
+    #
+    # REGISTERED, NOT A SUBSTITUTE for `inbound_unload`.  Run it to buy the parallel
+    # licence, the yard and receiving evidence, and a verdict on the placement-independent
+    # policies; do not read a gain-family tie here as a result about that family.
     'inbound_unload_rider': {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'rule_pairs': (('fifo', 'fifo'),),
