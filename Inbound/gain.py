@@ -787,10 +787,35 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         # The defer side: leftovers = what the OTHER candidates leave standing
         # (leave-one-out over the sweep's takes — the module note's deviation),
         # plus the predicted tier when the arm may see it.
+        #
+        # THE EXCLUSION IS SET ALGEBRA, NOT A COMPREHENSION OVER EVERY SWEPT BIN.  It was
+        # `others = {i for i, n in counts.items() if n > 1 or i not in ids}` followed by
+        # `ev.taken | others` — a PYTHON-level pass over `counts` (~3,800 bins at campaign
+        # scale) for every one of the T candidates, and then a C-level union of the same
+        # size on top.  Both collapse into one C-level difference over a per-round set:
+        #
+        #   K     = set(counts)                   # every bin the sweep took, per round
+        #   O_t   = {i in ids_t : counts[i] == 1}  # the bins ONLY this candidate took
+        #   others_t = K \ O_t                    # the comprehension, exactly: an i in K is
+        #                                         # kept unless counts[i] == 1 AND i in ids_t
+        #   A | (K \ O_t) = (A | K) \ (O_t \ A) = B \ hole_t       # A = ev.taken
+        #
+        # so the per-candidate work is O(|ids_t|) (~160) in Python plus one C-level
+        # `set.difference`, instead of O(|counts|) in Python plus the union.  `B` is built
+        # once per round.  Nothing downstream reads the exclusion as anything but a
+        # membership test (`id(b) not in excluded`, `excluded | used`), so a set with the
+        # same CONTENTS is the same argument — see `_avail`, `_useat` and `_place_pool`.
+        #
+        # When `hole_t` is empty the exclusion IS `B`, the same object for every such
+        # candidate; under the pool adapters that is the common case, because the
+        # candidates draw the cheapest bins from the same aisles and few of them end up
+        # holding a bin uniquely.
+        K = set(counts)
+        B = ev.taken | K
         best = None
         for t, c, tk, ids in swept:
-            others = {i for i, n in counts.items() if n > 1 or i not in ids}
-            defer_c, _tk = ev.place_load(_load(t), ev.taken | others, predicted)
+            hole = {i for i in ids if counts[i] == 1 and i not in ev.taken}
+            defer_c, _tk = ev.place_load(_load(t), B - hole if hole else B, predicted)
             g = defer_c - c
             if best is None or g > best[1]:
                 best = (t, g, tk)

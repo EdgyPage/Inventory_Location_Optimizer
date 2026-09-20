@@ -733,6 +733,47 @@ def test_sabotaged_sort_structure_is_caught():
         'vacuous')
 
 
+def test_the_leave_one_out_exclusion_is_the_comprehension_it_replaced():
+    """`plan_order` builds the defer side's exclusion as `B - hole_t` over a per-round
+    `B = taken | set(counts)`, instead of the per-candidate comprehension
+    `taken | {i for i, n in counts.items() if n > 1 or i not in ids}`.
+
+    `_naive_plan` above still carries the comprehension, so the structured-vs-naive test
+    already gates this end to end on the merge and uniform adapters.  What it CANNOT do is
+    exercise the shapes the algebra actually turns on — an empty sweep, a candidate that
+    took nothing, a bin every candidate took, a `taken` that overlaps the sweep — because a
+    random scene rarely produces them.  This drives the two expressions directly over
+    randomised (counts, ids, taken) triples including all four.
+    """
+    rng = random.Random(20260920)
+
+    def old(taken, counts, ids):
+        return taken | {i for i, n in counts.items() if n > 1 or i not in ids}
+
+    def new(taken, counts, ids):
+        B = taken | set(counts)
+        hole = {i for i in ids if counts[i] == 1 and i not in taken}
+        return B - hole if hole else B
+
+    cases = 0
+    for _ in range(600):
+        universe = list(range(rng.randint(0, 12)))
+        taken = {i for i in universe if rng.random() < 0.3}
+        # A sweep: each candidate's take-set, counted the way `plan_order` counts it.
+        sets = [{i for i in universe if rng.random() < 0.4}
+                for _ in range(rng.randint(1, 4))]
+        counts: dict = {}
+        for s in sets:
+            for i in s:
+                counts[i] = counts.get(i, 0) + 1
+        for ids in sets:
+            assert old(taken, counts, ids) == new(taken, counts, ids), (
+                f'the algebra diverged: taken={sorted(taken)} counts={counts} '
+                f'ids={sorted(ids)}')
+            cases += 1
+    assert cases > 500, 'the sweep produced too few cases to have proven anything'
+
+
 # ── 8. the uniform adapter: fifo's draw, priced exactly (ticket 21) ───────────────
 
 def _price_pair(view, unit, bin_, key=_KEY_M):
