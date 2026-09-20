@@ -700,7 +700,11 @@ def analyze_cells(cell_items, log: logging.Logger, *, workers: int = 1,
     factory = _analysis_executor if workers and workers > 1 else InlineExecutor
     with WorkPool(max(1, workers or 1), log, executor_factory=factory, worker_logging=False,
                   on_success=_on_success, on_failure=_on_failure) as pool:
-        for cell, cell_dir in cell_items:
+        # The analysis is the run's SECOND phase and shares the pool's progress line, so a
+        # reader watching one log sees `analyse` take over from `drain` rather than a second
+        # counter starting at zero for no stated reason.
+        pool.set_phase('analyse', cells_expected=len(cell_items))
+        for ci, (cell, cell_dir) in enumerate(cell_items, start=1):
             rt, _cell = _tree_for(cell_dir)
             rec = _cell_record(rt, cell)
 
@@ -715,7 +719,7 @@ def analyze_cells(cell_items, log: logging.Logger, *, workers: int = 1,
             log.info(f'  [{cell}] Config stage: {len(cfg_jobs)} job(s)  '
                      f'(preset={preset}, granularity={granularity}, workers={workers})')
             jobs = _as_jobs(cell, cfg_jobs)
-            pool.submit(cell, jobs)
+            pool.submit(cell, jobs, pos=(ci, len(cell_items)))
 
             def _after_config(cell=cell, cell_dir=cell_dir, rt=rt, under=_under_the_cell):
                 # aggregate stage needs every series doc on disk first
@@ -733,6 +737,7 @@ def analyze_cells(cell_items, log: logging.Logger, *, workers: int = 1,
                 pool.submit(cell, _as_jobs(cell, agg + site))
             pool.when_done(cell, [j.key for j in jobs], _after_config)
             pool.absorb()
+        pool.set_phase('analyse (drain)')
         left = pool.finish(rebuild=lambda cell: [Job(key=k, fn=_run_job, payload=j)
                                                  for k, j in in_hand.get(cell, {}).items()])
     for cell, _dir in cell_items:

@@ -86,12 +86,16 @@ def test_every_cells_config_jobs_are_submitted_before_any_aggregate_job(harness,
     submits = []
 
     class _Recording(wp.WorkPool):
-        def submit(self, cell, jobs):
+        def submit(self, cell, jobs, **kw):
+            # `**kw` rather than the real signature: this override exists to WATCH the
+            # calls, and every keyword the pool grows for its own bookkeeping (`pos`, for
+            # the progress line) would otherwise turn a cosmetic addition into a failure
+            # here, which teaches whoever hits it to change the wrong file.
             jobs = list(jobs)
             submits.append((cell, sorted({j.payload['stage'] for j in jobs})))
             if cell == 'c2' and submits[-1][1] == ['config']:
                 gate.set()                     # both cells' config jobs are in: let them run
-            return super().submit(cell, jobs)
+            return super().submit(cell, jobs, **kw)
     monkeypatch.setattr(ra, 'WorkPool', _Recording)
     real_run = ra._run_job
 

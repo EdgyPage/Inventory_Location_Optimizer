@@ -1611,11 +1611,14 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     cell_pos = args.get('cell_pos')
     log.info('=' * 60)
     if job_tag is not None:
-        # per-arm line with the cell-local progress counter and the cell's position in the
-        # matrix.  The whole-run counter that used to sit beside it assumed every cell had
-        # the same unit count and was wrong on resume and after a retry; matrix progress is
-        # the parent's `[pool] N unit(s) done` line now (workpool.WorkPool.absorb).
-        _prog = f'Job {job_index}/{job_total}'
+        # The arm's own header: the run PHASE, this unit's place in its cell, and the cell's
+        # place in the SPEC.  A worker cannot know the matrix-wide unit counter -- it is one
+        # process of many and the total is still growing while cells are set up -- so that
+        # number lives on the parent's `[pool]` line and this one does not guess at it.
+        # `cell_pos` is the SPEC position, not the todo index: a resume that skipped two
+        # cells used to label the third one `1/8`.
+        _phase = args.get('phase') or ''
+        _prog = (f'{_phase}  ' if _phase else '') + f'unit {job_index}/{job_total}'
         if cell_pos:
             _prog += f'  [cell {cell_pos}]'
         log.info(f'{_prog}  {job_tag}')

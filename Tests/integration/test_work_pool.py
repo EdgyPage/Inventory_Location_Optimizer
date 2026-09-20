@@ -19,7 +19,13 @@ can pass:
     worker-death explanation runs once; retries spent -> the unrecovered jobs are reported
     PER CELL, the shape `run_simulation._refuse_incomplete` reads.
   - QUARANTINE: an ordinary failure is reported, never retried, never rebuilt.
-  - SETTLEMENT: `settled_cells` names a cell only once its every job has resolved.
+  - SETTLEMENT: `settled_cells` names a cell only once its every job has resolved, and
+    `on_settle` ANNOUNCES it -- including from inside the drain, which is where a cell that
+    is not the last submitted actually finishes and where the driver runs no code of its
+    own. Polling from the setup loop meant the cells that settle late held their shared
+    assets (an inventory apiece) for the whole run.
+  - THE PROGRESS LINE carries the run PHASE, `unit N/M` (marked provisional while cells
+    are still submitting), `cell N/M`, what is running and what failed.
   - A RAISE IN THE DRIVER does not wait for the jobs in flight: what landed is booked, what
     never started is cancelled, and the `with` exits at once.
 
@@ -321,6 +327,135 @@ def test_settled_cells_names_a_cell_only_once_every_job_resolved():
         gate.set()
         assert pool.finish(rebuild=lambda c: pytest.fail('no rebuild')) == {}
         assert sorted(pool.settled_cells()) == ['fast', 'slow']
+
+
+def test_on_settle_fires_from_inside_the_drain_not_only_from_the_setup_loop():
+    """THE LEAK THIS HOOK CLOSES.  A cell that settles while `finish` is draining must be
+    announced THEN, not at the end of the run.
+
+    The driver drops a cell's shared assets on this hook -- an inventory, an affinity map,
+    a batch script per pair. It used to poll `settled_cells()` inside its SETUP loop, so
+    once the last cell was submitted nothing asked again: on a wide, shallow matrix that
+    left almost every cell's assets alive for the whole drain, which is the longest stretch
+    of the run and the one whose peak decides how wide a matrix can go.
+    """
+    gate = threading.Event()
+    seen = []
+
+    def slow(payload):
+        gate.wait(20)
+        return _ok(payload)
+
+    pool, _books = _pool(4, on_settle=seen.append)
+    with pool:
+        pool.submit('early', _jobs('early', ('e1',)))
+        pool.submit('late', _jobs('late', ('l1',), fn=slow))
+        deadline = time.monotonic() + 5
+        while 'early' not in seen and time.monotonic() < deadline:
+            pool.absorb()
+            time.sleep(0.01)
+        assert seen == ['early'], seen
+
+        # `late` settles INSIDE finish(), with the driver running no code of its own.
+        gate.set()
+        assert pool.finish(rebuild=lambda c: pytest.fail('no rebuild')) == {}
+    assert seen == ['early', 'late'], seen
+
+
+def test_on_settle_fires_once_per_cell():
+    """The driver's handler pops a dict; a second announcement would log a release that did
+    not happen and make the held-cell count a fiction."""
+    seen = []
+    pool, _books = _pool(4, on_settle=seen.append)
+    with pool:
+        pool.submit('c1', _jobs('c1', ('a', 'b')))
+        assert pool.finish(rebuild=lambda c: pytest.fail('no rebuild')) == {}
+        pool.absorb()
+        pool.absorb()
+    assert seen == ['c1'], seen
+
+
+def test_a_cell_with_a_continuation_still_to_fire_is_not_settled():
+    """A continuation may SUBMIT MORE JOBS for its own cell -- the analysis stage does.
+    Announcing settlement before it fires would drop the very assets the resubmission
+    needs, and the failure would land in the retry path, hours later."""
+    seen = []
+    pool, _books = _pool(4, on_settle=seen.append)
+    with pool:
+        pool.submit('c1', _jobs('c1', ('a',)))
+        fired = []
+
+        def more():
+            fired.append(True)
+            pool.submit('c1', _jobs('c1', ('b',)))
+
+        pool.when_done('c1', ('a',), more)
+        assert pool.finish(rebuild=lambda c: pytest.fail('no rebuild')) == {}
+    assert fired == [True], 'the continuation never ran, so this proves nothing'
+    assert seen == ['c1'], seen
+    assert pool.job_index('c1', 'b') is not None, (
+        'the job the continuation submitted never reached the pool, so settlement was not '
+        'deferred past the continuation')
+
+
+# ── the progress line a person actually reads ──────────────────────────────
+
+def test_the_progress_line_carries_the_phase_the_unit_count_and_the_cell():
+    """The four things someone watching a twelve-hour run is asking, in one line.
+
+    It is only a log line, so a regression here is invisible to every other test and
+    perfectly silent to the run itself -- which is exactly why it is pinned. The specific
+    way it goes wrong is a part quietly disappearing: a phase that stops being set, a cell
+    count that stays at zero, a denominator that never becomes final.
+    """
+    pool, _books = _pool(4)
+    with pool:
+        pool.set_phase('simulate', cells_expected=2)
+        pool.submit('c1', _jobs('c1', ('a', 'b')), pos=(1, 2))
+        line = pool.progress()
+        assert 'simulate' in line
+        assert 'unit 0/2+' in line, f'a provisional total must be marked: {line}'
+        assert '%' not in line, (
+            f'a percentage against a growing denominator goes DOWN as cells are added, '
+            f'which reads as work being undone: {line}')
+        assert 'cell 1/2' in line, line
+
+        pool.submit('c2', _jobs('c2', ('c',)), pos=(2, 2))
+        assert pool.finish(rebuild=lambda c: pytest.fail('no rebuild')) == {}
+        done = pool.progress()
+    assert 'unit 3/3 (100%)' in done, (
+        f'with every cell submitted the total is final, the `+` is dropped and the '
+        f'percentage appears: {done}')
+    assert 'cell 2/2' in done, done
+    assert 'FAILED' not in done, done
+
+
+def test_the_progress_line_says_how_many_failed():
+    """A count that is absent when it is zero and loud when it is not -- the run's exit
+    status is decided by it, and a reader should not have to scroll for it."""
+    def worker(payload):
+        if payload['key'] == 'bad':
+            raise RuntimeError('deterministic')
+        return _ok(payload)
+
+    pool, _books = _pool(2)
+    with pool:
+        pool.set_phase('simulate', cells_expected=1)
+        pool.submit('c1', _jobs('c1', ('ok', 'bad'), fn=worker), pos=(1, 1))
+        pool.finish(rebuild=lambda c: pytest.fail('an ordinary failure never rebuilds'))
+        line = pool.progress()
+    assert '1 FAILED' in line, line
+    assert 'unit 1/2' in line, f'a failed unit is not a done one: {line}'
+
+
+def test_a_pool_nobody_told_the_phase_still_prints_a_line():
+    """Both drivers set it, and a harness that does not must not crash on the log line."""
+    pool, _books = _pool(2)
+    with pool:
+        pool.submit('c1', _jobs('c1', ('a',)))
+        assert pool.finish(rebuild=lambda c: pytest.fail('no rebuild')) == {}
+        line = pool.progress()
+    assert 'run' in line and 'unit 1/1' in line, line
 
 
 # ── a raise in the driver ──────────────────────────────────────────────────────────────

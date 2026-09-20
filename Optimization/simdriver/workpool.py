@@ -234,7 +234,8 @@ class WorkPool:
     Manager is a process nobody should start for nothing."""
 
     def __init__(self, max_workers, log, *, executor_factory, run_root=None, max_retries=2,
-                 on_success=None, on_failure=None, resume_hint=None, worker_logging=True):
+                 on_success=None, on_failure=None, on_settle=None, resume_hint=None,
+                 worker_logging=True):
         self.max_workers = int(max_workers or 1)
         self.log = log
         self.run_root = run_root
@@ -242,6 +243,24 @@ class WorkPool:
         self._factory = executor_factory
         self._on_success = on_success or (lambda cell, key, payload, res: None)
         self._on_failure = on_failure or (lambda cell, key, payload, exc: None)
+        # Fired ONCE per cell, the moment its last job resolves and nothing of its is
+        # queued.  The driver drops the cell's shared assets here.  Before this hook the
+        # driver polled `settled_cells()` inside its SETUP loop, which meant the last cells
+        # -- and on a wide, shallow spec that is most of them -- held their inventories for
+        # the whole drain, the longest stretch of the run.  A callback rather than more
+        # polling because the drain is exactly where the driver is not running any code.
+        self._on_settle = on_settle or (lambda cell: None)
+        self._settled: set = set()
+        # ── the progress line's context, all of it set by the driver ──────────────────
+        # `phase` is what the RUN is doing, not what the pool is doing: a reader watching a
+        # twelve-hour campaign wants to know it is simulating rather than analysing, and
+        # which retry it is on, from the one line that repeats.  `_cells_expected` is how
+        # many cells will EVENTUALLY submit, which the pool cannot know -- cells are set up
+        # one at a time and the count decides whether the unit total is final or still
+        # growing.  Both default to something honest: no phase name, and an unknown cell
+        # count that prints as the cells seen so far.
+        self.phase = ''
+        self._cells_expected = None
         self._resume_hint = resume_hint
         self._worker_logging = bool(worker_logging)
         self.pool = None
@@ -296,10 +315,66 @@ class WorkPool:
             book = self._cells[cell] = _CellBook()
         return book
 
-    def submit(self, cell, jobs) -> int:
+    def set_phase(self, phase: str, *, cells_expected=None) -> None:
+        """Name what the RUN is doing, for the progress line.  Cosmetic and free."""
+        self.phase = phase or ''
+        if cells_expected is not None:
+            self._cells_expected = int(cells_expected)
+
+    @property
+    def n_jobs(self) -> int:
+        """Units submitted so far, across every cell.  NOT the matrix total until every
+        cell has been set up, which is why `progress()` marks it provisional."""
+        return sum(len(b.jobs) for b in self._cells.values())
+
+    @property
+    def n_failed(self) -> int:
+        return sum(len(b.failed) for b in self._cells.values())
+
+    def progress(self, note: str = '') -> str:
+        """THE line a person watching a twelve-hour run reads.
+
+        It answers, in order, the four things they are actually asking: what is this doing,
+        how far through is it, which cell is it on, and is anything broken.
+
+            [pool] simulate  unit 233/366+  cell 7/10  ->  12 running, 121 queued  2 FAILED
+
+        `366+` marks a PROVISIONAL total: cells are set up one at a time, so until the last
+        one has submitted, the denominator is only the units queued so far and will grow.
+        The `+` is dropped the moment the cell count is complete, which is also the moment
+        the number becomes worth extrapolating from.
+
+        The old line said `N unit(s) done; M in flight, K pending` and had no denominator at
+        all -- deliberately, because the whole-run counter it replaced assumed every cell
+        had the same unit count and was wrong on resume and after a retry. The pool does not
+        have to assume: it counts what it was actually handed.
+        """
+        total = self.n_jobs
+        seen = len(self._cells)
+        want = self._cells_expected
+        final = want is not None and seen >= want
+        head = f'  [pool] {self.phase or "run"}'.rstrip()
+        out = f'{head}  unit {self._n_done}/{total}{"" if final else "+"}'
+        # The PERCENTAGE only once the denominator is final. Printed against a growing total
+        # it would go DOWN as cells are added, which reads as work being undone.
+        if final and total:
+            out += f' ({100.0 * self._n_done / total:.0f}%)'
+        if seen or want:
+            out += f'  cell {seen}/{want if want is not None else seen}'
+        out += f'  ->  {len(self._futures)} running, {len(self._pending)} queued'
+        if self.n_failed:
+            out += f'  {self.n_failed} FAILED'
+        if note:
+            out += f'  {note}'
+        return out
+
+    def submit(self, cell, jobs, *, pos=None) -> int:
         """Queue one cell's jobs (any iterable of `Job`), dispatch as far as the pool allows,
         and return how many were queued.  A key already DONE for this cell is skipped -- a
-        rebuild after a break hands back every job of the cell, finished ones included."""
+        rebuild after a break hands back every job of the cell, finished ones included.
+
+        `pos` is `(index, total)` for this cell IN THE SPEC, carried only so the log line can
+        name it; the pool never orders anything by it."""
         book = self._book(cell)
         n = 0
         for job in jobs:
@@ -311,9 +386,12 @@ class WorkPool:
             self._seq += 1
             heapq.heappush(self._pending, (-float(job.weight), self._seq, cell, job))
             n += 1
+        # A caller that names the cell's position but never set the phase still gets a
+        # finite denominator: the total is right there in the second slot.
+        if pos and self._cells_expected is None and len(pos) > 1:
+            self._cells_expected = int(pos[1])
         self._pump()
-        self.log.info(f'  [pool] cell {cell}: {n} job(s) queued; {len(self._futures)} in flight, '
-                      f'{len(self._pending)} pending across {len(self._cells)} cell(s)')
+        self.log.info(self.progress(f'(+{n} from {cell})'))
         return n
 
     def _pump(self) -> None:
@@ -359,6 +437,25 @@ class WorkPool:
     def _after_absorb(self) -> None:
         self._pump()
         self._fire_continuations()
+        self._fire_settled()
+
+    def _fire_settled(self) -> None:
+        """Announce each newly settled cell exactly once.
+
+        AFTER `_fire_continuations`, deliberately: a continuation may submit more jobs for
+        its own cell (the analysis stage does), and a cell with a continuation still to
+        fire is not settled.  Announcing first would drop assets a resubmission needs.
+
+        A cell can leave `_settled` on a REBUILD -- `submit` is called again for it after a
+        broken pool -- so membership is re-derived rather than latched: the driver's
+        handler is idempotent (a `dict.pop`), and a second announcement after a genuine
+        resubmission is correct, not a bug.
+        """
+        for cell in self.settled_cells():
+            if cell in self._settled:
+                continue
+            self._settled.add(cell)
+            self._on_settle(cell)
 
     def absorb(self) -> bool:
         """Absorb every job that has completed WITHOUT waiting, refill the executor, fire
@@ -370,8 +467,7 @@ class WorkPool:
                     break
                 self._absorb_future(fut)
             if done:
-                self.log.info(f'  [pool] {self._n_done} unit(s) done; {len(self._futures)} in '
-                              f'flight, {len(self._pending)} pending')
+                self.log.info(self.progress())
         if not self.broke:
             self._after_absorb()
         return not self.broke
@@ -392,6 +488,8 @@ class WorkPool:
                 self._absorb_future(fut)
             if not self.broke:
                 self._after_absorb()
+                if done:
+                    self.log.info(self.progress())
         return not self.broke
 
     # ── continuations ───────────────────────────────────────────────────────────────────
@@ -403,6 +501,7 @@ class WorkPool:
         callback may submit more jobs."""
         self._continuations.append((cell, frozenset(keys), callback))
         self._fire_continuations()
+        self._fire_settled()
 
     def _fire_continuations(self) -> None:
         while True:
@@ -417,12 +516,22 @@ class WorkPool:
 
     # ── settlement and recovery ─────────────────────────────────────────────────────────
     def settled_cells(self) -> list:
-        """Cells whose EVERY submitted job has resolved and nothing is queued -- the
-        driver drops a cell's shared assets on this (the assets a retry rebuilds from)."""
+        """Cells whose EVERY submitted job has resolved and nothing is queued.
+
+        The driver drops a cell's shared assets on this (the assets a retry rebuilds from).
+        Read through the `on_settle` hook rather than polled, so a cell that settles during
+        the DRAIN -- when the driver is inside `finish` and running no code of its own --
+        releases its memory then rather than at the end of the run.
+
+        A cell with an unfired continuation is NOT settled: `_fire_settled` runs after
+        `_fire_continuations`, so a continuation that submits more jobs has already put them
+        in `_pending` by the time this is asked.
+        """
         queued = {cell for _w, _s, cell, _j in self._pending}
         flying = {cell for cell, _j in self._futures.values()}
+        pending_cont = {cell for cell, _keys, _cb in self._continuations}
         return [cell for cell, book in self._cells.items()
-                if cell not in queued and cell not in flying
+                if cell not in queued and cell not in flying and cell not in pending_cont
                 and set(book.jobs) <= book.resolved]
 
     def remaining(self) -> dict:

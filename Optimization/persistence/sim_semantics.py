@@ -60,6 +60,12 @@ SIM_DB_SEMANTICS: dict = {
                                        '(no shelf stock); non-zero means the score was '
                                        'decided by availability, not placement'),
         'pick_owed_exact_s':  Col(SCORE, 's', 'batch',
+                                  null_means='this batch took no check -- it is not a '
+                                             'keyframe batch, or the run predates the '
+                                             'column, or it carried no derived staffing '
+                                             'block for the expectation to read. NOT a '
+                                             'placement that owes nothing, which is the '
+                                             'best score the column can take',
                                   note='the closed form re-taken over this placement, on '
                                        'KEYFRAME BATCHES ONLY (NULL elsewhere) and in '
                                        'seconds PER UNIT -- a different model at a '

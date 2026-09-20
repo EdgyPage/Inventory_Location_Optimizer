@@ -206,13 +206,20 @@ def _sim_executor(max_workers: int):
                                                   max_tasks_per_child=recycle)
 
 
-def sim_jobs(cell, units, *, cell_index=1, cell_total=1):
+def sim_jobs(cell, units, *, cell_index=1, cell_total=1, pace=None):
     """One cell's `(uid, args)` work units as the pool's `Job`s, stamped with what the
     worker's log line reads: `cell` (the logger name and every per-arm line), `job_tag`,
     the per-cell `job_index/job_total`, and `cell_pos` (this cell's position in the spec).
     There is no whole-run job counter any more: the old `gjob` assumed every cell had the
     same unit count and was wrong on resume and after a retry; matrix progress is now the
     pool's own `[pool] N unit(s) done` line.
+
+    `pace` is the OPTIONAL pace book (`simdriver.pacing.load_pace`). Given one, each job
+    carries an estimated duration and the pool dispatches heaviest first; without one every
+    weight is 0.0 and the pool breaks ties by submission order, which is what it did before
+    pacing existed. KEYWORD-ONLY and threaded through the driver's `_rebuild` as well: a run
+    that survives a broken pool and resubmits must not silently revert to submission order
+    for the half of the matrix it has left.
 
     `_run_strategy_worker` is read from THIS module at call time so a fixture can rebind it
     before the driver runs (`_broken_pool_driver.py` does, for a worker that cannot import)."""
@@ -222,8 +229,12 @@ def sim_jobs(cell, units, *, cell_index=1, cell_total=1):
         sa['job_index'], sa['job_total'] = idx, total
         sa['cell'] = cell                       # stamped on every worker line (cell/strategy)
         sa['cell_pos'] = f'{cell_index}/{cell_total}'
+        sa['phase'] = 'simulate'
         sa['job_tag'] = _tag_of(cell, uid)
         jobs.append(Job(key=uid, fn=_run_strategy_worker, payload=sa))
+    if pace:
+        from Optimization.simdriver import pacing
+        pacing.weigh_jobs(cell, jobs, pace)
     return jobs
 
 
