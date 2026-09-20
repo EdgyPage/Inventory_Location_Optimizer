@@ -134,3 +134,8 @@
 - [Worker imported CONFIG via a function-body import](worker-imported-config-through-a-function-body-import.md) — fixed 2026-09-19; guard now walks AST
 - [Cell-complete skips a torn pair](cell-complete-skips-a-torn-pair.md) — OPEN: _cell_complete answers complete on one sim_meta.json per pair
 - [Cell record overlay at job-build time](cell-record-overlay-at-job-build-time.md) — cell's record applied while building its jobs
+- [pick_owed_s replaces flow totals for unload ranking](pick-owed-s-replaces-flow-totals-for-unload-ranking.md) — ss_prod_total's 50-batch window can't see 40-deep ordering
+- [expected_travel closed form is an asymmetric check](expected-travel-closed-form-is-an-asymmetric-check.md) — one-sweep-per-aisle; disagreement is the informative direction
+- [Toy fixture cannot discriminate unload policies](toy-fixture-cannot-discriminate-unload-policies.md) — 1-trailer yard ties exactly; placement rules still separate 8.8%
+- [Phases one and two are sequencing-independent](phases-one-and-two-are-sequencing-independent.md) — PHASE2_STAFFING_PIN is a label digest, not a completion check
+- [A new column needs two more lists than the schema](a-new-column-needs-two-more-lists-than-the-schema.md) — frames._bdf and series.py are unseen by unit tests
