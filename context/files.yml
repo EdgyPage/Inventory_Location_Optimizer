@@ -4595,6 +4595,8 @@ files:
       - {name: "test_min_labor_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_opens_over_one_shared_template_match_the_eager_build_and_each_other", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_a_cursor_clone_is_independent_and_leaves_its_source_alone", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_the_min_labor_aisle_order_stays_sorted_through_a_whole_drive", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_a_broken_aisle_order_raises_rather_than_mispricing", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_fixtures_actually_plant_ties_and_reorderings", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_min_labor_deltas_through_the_inverse_equal_the_per_aisle_fold", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_override_actually_moves_a_choice_on_some_seed", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
