@@ -142,3 +142,4 @@
 - [Meso ladder cannot size a pool open](meso-ladder-cannot-size-the-pool-prologue.md) — 74 buckets vs 4,200, T≈3 vs 25; a 1.4x win reads as a regression
 - [_aisle_best is what a pool open now costs](aisle-best-is-what-a-pool-open-now-costs.md) — 72% of the residue: live_aisles × SKU-run boundaries
 - [Phase 2 binds the reference catalogue](phase2-binds-the-reference-catalogue-not-the-default.md) — without --profiles-dir the staffing pin refuses 4 minutes in
+- [The gain sweep cannot be made incremental](the-gain-sweep-cannot-be-made-incremental.md) — every commit invalidates EVERY candidate; reuse potential is zero
