@@ -1983,17 +1983,20 @@ class _MinLaborPool(_Pool):
     was written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop
     iterates CSR column order unconditionally and must keep doing so.
 
-    The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) refreshes the last winner
-    LAZILY -- on the next unit rather than eagerly after the pop -- because a unit that finds
-    no bin leaves nothing stale to repair.  `_last_winner` is cleared every call and re-set
-    only after a successful drop.
+    The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) is rebuilt at the run
+    boundary and carries a `_sel` HEAP alongside it, one entry per live aisle, ordered
+    `(fq*bc, rank)`.  The winner's `bc` is refreshed EAGERLY at the end of the take that
+    moved it -- the retired lazy refresh repaired it on the next unit instead, which a heap
+    cannot do, because between the two a stale entry would be popped in the wrong place.  A
+    unit that finds no bin still leaves nothing stale: it pushes its held-out entry back
+    unchanged.
     """
 
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
-                 '_s2i', '_matrix', '_rep', '_drop', '_last_sku', '_last_winner',
+                 '_s2i', '_matrix', '_rep', '_drop', '_last_sku',
                  '_bc_by_aid', '_row_items', '_max_reward', '_led',
-                 '_pp', '_row', '_deltas')
+                 '_pp', '_row', '_deltas', '_sel')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2038,7 +2041,7 @@ class _MinLaborPool(_Pool):
         self._D_of, self._by_aisle_brkt = D_of, by_aisle_brkt
 
         self._last_sku = None
-        self._last_winner = None
+        self._sel: list = []          # (score, rank, aid) min-heap; see `take`
         self._bc_by_aid: dict = {}
         self._row_items: list = []
         self._max_reward = 0.0
@@ -2165,25 +2168,25 @@ class _MinLaborPool(_Pool):
             self._row_items = row_items
             self._max_reward = lam * sum(w for _, w in row_items)
 
-            # Cheap per-aisle bin cost (O(brackets)); sort so the affinity prune can fire.
+            # Cheap per-aisle bin cost (O(brackets)); ordered so the affinity prune can fire.
             pp = self._pp = {}
             bc_by_aid = {}
-            for aid in by_aisle_brkt:
+            sel = []
+            for i, aid in enumerate(by_aisle_brkt):
                 bc = self._aisle_best_cost(aid, var, pp)
                 if bc is not None:
                     bc_by_aid[aid] = bc
+                    # `i` IS the rank, and it is the tie-break that makes the heap below
+                    # byte-identical to the stable sort it replaces -- see `take`'s
+                    # selection block.  Ranks come from one `enumerate(by_aisle_brkt)` and
+                    # never move, so an aisle's rank is the same integer wherever it is read.
+                    sel.append(((-(fq * bc) if maximize else fq * bc), i, aid))
+            heapq.heapify(sel)                  # O(A) at C level, no key function
+            self._sel = sel
             self._bc_by_aid = bc_by_aid
             self._row = _partner_row(self._aff, sku)
             self._deltas = self._partner_deltas(row_items) if row_items else {}
             self._last_sku = sku
-        elif self._last_winner is not None:
-            # Same SKU as the previous unit: only the winner aisle's deque changed.
-            bc = self._aisle_best_cost(self._last_winner, var, self._pp)
-            if bc is None:
-                self._bc_by_aid.pop(self._last_winner, None)
-            else:
-                self._bc_by_aid[self._last_winner] = bc
-        self._last_winner = None                # set again only on a successful pop
 
         bc_by_aid, row_items = self._bc_by_aid, self._row_items
         max_reward = self._max_reward
@@ -2192,11 +2195,32 @@ class _MinLaborPool(_Pool):
             return None, None
         # minimise: ascending fq*bc, prune once base - max_reward >= best (reward can't save
         # it).  maximise: descending fq*bc, prune once base <= best (reward only lowers it).
-        order = sorted(bc_by_aid, key=lambda a: fq * bc_by_aid[a], reverse=maximize)
-
+        #
+        # THIS WAS A FULL SORT, PER UNIT.  `sorted(bc_by_aid, key=lambda a: fq*bc_by_aid[a])`
+        # ran ~1,400 lambda calls and ~14,700 comparisons on every placement, while the loop
+        # below usually breaks after a handful because the prune fires -- and within a SKU
+        # run only the WINNER's `bc` moves, which is exactly the one-entry update a heap does
+        # cheaply.  It is the same conversion `_TravelBalancedPool.take` already made.
+        #
+        # BYTE-IDENTICAL, on two clauses rather than on hope.  (1) `sorted(key=...)` is
+        # stable, so equal `fq*bc` kept `bc_by_aid` insertion order, which is
+        # `by_aisle_brkt` order; the heap carries that order as an explicit rank, and ranks
+        # are unique, so `(key, rank)` is a strict total order reproducing the stable sort.
+        # (2) The prune breaks on the same test at the same point because the heap yields
+        # the aisles in the same sequence -- so the aisles VISITED, and the `self._better`
+        # first-wins-on-ties among them, are unchanged.
+        #
+        # The heap holds exactly one entry per key of `bc_by_aid` and nothing stale: what is
+        # popped here is pushed back below, except the winner, which is re-pushed at the tail
+        # with the bc its own placement just changed.
+        sel = self._sel
+        popped = []
         best_aid = None
         best_score = None
-        for aid in order:
+        while sel:
+            ent = heapq.heappop(sel)
+            popped.append(ent)
+            aid = ent[2]
             base = fq * bc_by_aid[aid]
             if best_score is not None:
                 if maximize:
@@ -2218,8 +2242,16 @@ class _MinLaborPool(_Pool):
             score = base - lam * delta
             if best_score is None or self._better(score, best_score):
                 best_score, best_aid = score, aid
+        # Everything visited goes back, so the heap keeps exactly one current entry per key
+        # of `bc_by_aid`.  The winner is held out: its `bc` is about to move, and it is
+        # re-pushed at the tail once `_drop` has moved it.
+        for ent in popped:
+            if ent[2] != best_aid:
+                heapq.heappush(sel, ent)
         if best_aid is None:
             return None, None
+        win_ent = popped[-1] if popped[-1][2] == best_aid else next(
+            e for e in popped if e[2] == best_aid)
 
         # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst
         # max-D per height band), with the centroid term pulling toward (min) or away from
@@ -2230,19 +2262,42 @@ class _MinLaborPool(_Pool):
         cbest = None
         intercept, per_item = self._intercept, self._per_item
         D_of, x_pace = self._D_of, self._x_pace
+        # `pp` already holds `per_pick(m, ..., var, ...)` for this run -- `_aisle_best_cost`
+        # filled it at the boundary three dozen lines up, keyed on the same `m` for the same
+        # `var`.  This pass was calling `per_pick` again, per unit per bracket, for a float
+        # the memo already had.  Same call, same float; `_aisle_best` states the identity.
+        pp = self._pp
         for m, dq in by_aisle_brkt[best_aid].items():
             if not dq:
                 continue
             b = self._rep(dq)
-            cost = per_pick(m, intercept, var, 1, per_item) + D_of[id(b)]
+            p = pp.get(m)
+            if p is None:
+                p = pp[m] = per_pick(m, intercept, var, 1, per_item)
+            cost = p + D_of[id(b)]
             if cx is not None:
                 cost += x_pace * abs(b.x_phys - cx)
             if cbest is None or self._better(cost, cbest):
                 cbest, chosen, chosen_m = cost, b, m
         if chosen is None:
+            # Nothing moved, so the winner's entry is still current -- put it back unchanged.
+            # This mirrors the retired `_last_winner` refresh, which stayed None on this path
+            # and so left the cached bc alone until the next run boundary.
+            heapq.heappush(sel, win_ent)
             return None, None
         self._drop(by_aisle_brkt[best_aid][chosen_m])
-        self._last_winner = best_aid            # the one aisle whose cached bc is now stale
+        # THE ONE-ENTRY UPDATE, done here rather than at the head of the next `take`.  The
+        # retired `elif` branch refreshed the winner with the NEXT unit's `var`; within a SKU
+        # run `var` is constant, and across one the boundary rebuilds everything, so the
+        # value is the same wherever it is computed -- and doing it here is what lets the
+        # heap hold no stale entry at any point.
+        bc = self._aisle_best_cost(best_aid, var, self._pp)
+        if bc is None:
+            bc_by_aid.pop(best_aid, None)       # exhausted: it leaves both books together
+        else:
+            bc_by_aid[best_aid] = bc
+            heapq.heappush(sel, ((-(fq * bc) if maximize else fq * bc),
+                                 win_ent[1], best_aid))
 
         if sku not in self._ass[best_aid]:
             self._led.add_sku(best_aid, sku, demand=fq)
