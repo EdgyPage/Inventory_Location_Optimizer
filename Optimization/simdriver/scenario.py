@@ -29,6 +29,7 @@ from Optimization.runschema.runlayout import iter_sim_dbs
 from Optimization.simdriver.cells import (
     Cell, _build_cells, _cell_complete, _tightest_split, cell_scope, reference_cell,
 )
+from Optimization.simdriver.strategy_runner import _peak_rss_mib
 from Optimization.simdriver.supervisor import SimBooks, _sim_executor, sim_jobs
 from Optimization.simdriver.workpool import WorkPool
 from Optimization.simdriver.workunits import _build_work_units, _record_coverage
@@ -176,6 +177,16 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
             pool.absorb()                          # log + finalize what landed during this setup
             for settled in pool.settled_cells():
                 kept.pop(settled, None)
+            # THE PARENT'S SIDE OF THE TRADE, once a cell.  A cell's assets live until its last
+            # unit lands (so a retry never rebuilds them), which on a wide, shallow spec can
+            # mean several cells' inventories alive at once -- the one cost the flat pool adds
+            # to the parent.  Peak RSS, not current: the high-water mark is what would have to
+            # fit, and it is the number a reader needs before widening a matrix.  Reuses the
+            # worker's stdlib probe (`strategy_runner._peak_rss_mib`); None on a platform that
+            # will not answer, and then the line simply says so.
+            _rss = _peak_rss_mib()
+            log.info(f'  [pool] parent holds {len(kept)} cell(s) of shared assets  '
+                     f'peak_rss={f"{_rss:,.0f}M" if _rss is not None else "n/a"}')
         left = pool.finish(rebuild=_rebuild)
     books.sweep()                                  # safety sweep, per cell
     for name, uids in left.items():

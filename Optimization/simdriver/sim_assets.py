@@ -69,8 +69,11 @@ def build_shared_assets(
 
     `keyframe_interval` None means the declared default, read at CALL time: the default
     used to be `CONFIG['global']['keyframe_interval']` in the signature, a snapshot taken at
-    import that no CLI override could reach -- the `_INITIAL_FILL` shape `sim_config`'s own
-    docstring forbids.  Every caller passes the value explicitly, which is why it never bit.
+    import that no CLI override could reach -- the same shape as the import-time fill
+    snapshot that once made a run misreport its own sizing in its warehouse DB, which
+    `sim_config`'s docstring forbids and `Tests/unit/test_run_shaping_params.py` still
+    watches this module for by name.  Every caller passes the value explicitly, which is
+    why the default never bit.
 
     Warehouse is sized so total bins ≥ N_SKUS × 1.1 (minimum replicas of the
     60-type layout satisfying that constraint).

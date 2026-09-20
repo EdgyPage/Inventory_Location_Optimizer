@@ -266,10 +266,19 @@ def test_apply_run_shape_warns_loudly_when_the_run_predates_run_spec(tmp_path, c
 
 
 def test_run_analysis_threads_max_skus_into_the_rebuild():
+    """The run's own shape is restored BEFORE any warehouse is rebuilt, and its cap reaches
+    the rebuild.  Pinned on `analyze_cells` -- the one place the stage starts since every
+    cell moved onto one pool (2026-09-19); it was `run_analysis(base_dir)` before, and the
+    restore then happened once per cell with identical values."""
     import Optimization.run_analysis as ra
-    src = inspect.getsource(ra)
-    assert '_apply_run_shape(base_dir, log)' in src
-    assert 'max_skus=max_skus' in src, 'the cap must reach build_shared_assets'
+    driver = inspect.getsource(ra.analyze_cells)
+    assert '_apply_run_shape(' in driver, (
+        'the stage no longer restores the run\'s shaping params before it rebuilds a '
+        'warehouse -- a standalone re-analysis would size from THIS checkout')
+    assert driver.index('_apply_run_shape(') < driver.index('_config_jobs('), (
+        'the restore must precede the job build: _config_jobs is what rebuilds the warehouse')
+    assert 'max_skus=max_skus' in inspect.getsource(ra._config_jobs), \
+        'the cap must reach build_shared_assets'
 
 
 # ── 4: worker recycling is PINNED at 1, and the flag says so ─────────────────────
