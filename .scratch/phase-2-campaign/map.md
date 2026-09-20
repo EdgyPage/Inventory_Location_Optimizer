@@ -196,6 +196,59 @@ launches on the full ten cells.
   `python -m Optimization.run_unload_ranking <root>`; copy `chosen` into `PHASE3_UNLOAD`,
   register `inbound_confirm`, launch phase 3 the same way.
 
+## Stopped a third time, and why -- 2026-09-20
+
+- **The running campaign could not answer phase 2 at all.** `comparison_whatif_20260919_163818`
+  carried sim schema `4e13ed321df9`, the vintage before the placement score: no `pick_owed_s`,
+  no `unservable_weight`, no `pick_owed_exact_s`. `run_unload_ranking` reads `ss_pick_owed`
+  (memory `pick-owed-s-replaces-flow-totals-for-unload-ranking`), which would have been NaN on
+  every leaf. Finishing it would have bought a ranking on a metric that is an exact tie by
+  construction. That -- not the cost -- is what made a fresh run the right call; the root stays
+  on disk as evidence and will not be resumed. Task `ILO_phase2_inbound_unload` is stopped.
+- **A performance round landed first**, seven commits, each byte-identical on the 40-arm
+  `_toy_priced` digest against one baseline taken before any of them:
+
+  | | commit | what it removed |
+  |---|---|---|
+  | 1 | `c9a447af` | the pool prologue's three O(A) dicts (`_rank` deleted, `_load`/`_vol_load` bulk-seeded) |
+  | 2 | `07b92b7e` | `aisle_buckets`' per-aisle lambda + `min` sort key; the order is a bare `sorted` and that is a proof, not a hope |
+  | 3a | `d6e32f76` | the run boundary's per-bracket head re-extraction (a cached per-aisle head vector) |
+  | 3b | `999b23c4` | `_MinLaborPool`'s per-unit full sort over every live aisle -> the heap its sibling already had |
+  | 4a | `3b987851` | the leave-one-out exclusion's Python pass over every swept bin -> set algebra |
+  | 4b | `db300f38` | the per-open pool prologue -> one per round, read copy-on-write |
+  | 5 | `5f8eb197` | the drain's second ranking rebuilding every frozen tier |
+
+- **Two measurements that did not come out as the plan predicted, recorded because the plan's
+  numbers would otherwise be read as results:**
+  - Stage 5 was predicted to HALVE `FrozenTier.__init__`. It went `[178,178,178,182,178]` ->
+    `[96,96,96,100,108]` per rung, 1.65-1.85x. The residue is structural: the yard ranking
+    ranks STANDING trailers and the dock ranking ranks STAGED ones, so their touched
+    (BinKey, predicted) sets overlap heavily but not perfectly.
+  - The meso calltree ladder says Stage 4b is a REGRESSION (+169,343 traced calls). It is the
+    wrong instrument: its tier carries 74 buckets against the campaign's 4,200 and its round
+    has ~3 candidate trailers against 25, so both gaps push the same way. At the campaign
+    shape a real `_TravelBalancedPool` open goes 13.35 ms -> 9.23 ms. Memory
+    `meso-ladder-cannot-size-the-pool-prologue`.
+- **What a pool open now costs, and what is left.** The prologue (`aisle_buckets()`) was 3.685
+  ms of a 13.35 ms open -- 33% first-live walk and sort, 67% the 4,200 `_Cursor`
+  constructions. Memoising only the SHAPE is 1.50x; opening over a shared template and cloning
+  on the write is 1537x on the prologue, which is why 4b took the second shape. Of the 9.23 ms
+  that remains, a cProfile puts **72% in `_TravelBalancedPool._aisle_best`** -- 11,212 calls
+  per open, live aisles x SKU-run boundaries, to seat ~12 units. That is the next target and
+  it is NOT taken here: Stage 3a deliberately kept the count
+  (`test_placement_selection_is_not_a_scan.py` pins it), so cutting it is a decision rather
+  than a refactor. Memory `aisle-best-is-what-a-pool-open-now-costs`.
+- **The trailer bound became a probe cell** (`679b18f6`), not a setting: `k1_off_gmyopic_k8`
+  joins the axis, its unbounded twin is the `gmyopic` cell of the same matrix. 10 cells -> 11,
+  40 units -> 44. It is not results-preserving, and the discrimination risk is the point --
+  a cheaper cell that ranks like `fifo` is not a win.
+- **A launch trap cost four minutes and is now a memory.** A phase-2 spec carries
+  `PHASE2_STAFFING_PIN`, and `--profiles-dir` defaults to the `catalogue` tree whose NEWEST run
+  is the 40k perf catalogue. Phase 1 and phase 2 both ran against the sibling
+  `catalogue_reference_lt0` tree. Without `--profiles-dir` the run binds the wrong pair and
+  dies at the pin with every unit unrecovered. Memory
+  `phase2-binds-the-reference-catalogue-not-the-default`.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
