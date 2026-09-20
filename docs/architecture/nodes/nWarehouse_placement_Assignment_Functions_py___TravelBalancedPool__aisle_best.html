@@ -20,7 +20,23 @@ Height scales the whole at-location pick: cost = m*(intercept + per_item + var) 
 
 `pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value
 depends on (m, var) and not on the aisle, so a SKU run evaluates it at most once per
-bracket instead of once per aisle per bracket.  Same call, same float.</section>
+bracket instead of once per aisle per bracket.  Same call, same float.
+
+THE HEAD VECTOR is what this reads instead of the bucket dict.  The body used to walk
+`self._by_aisle[aid].items()` and pull `h.head` through an attribute per bracket, and
+it is called once per live aisle at every SKU-run boundary -- ~1,400 x ~12 per open,
+~650,000 opens per arm, the largest single term in the gain evaluator.  The `(m, D,
+bin)` triples it was re-extracting are invariant between head moves, so they are
+cached per aisle and the loop is a tuple walk plus `pp[m] + D`.
+
+The cache is var-INDEPENDENT on purpose: `var` changes at every run boundary, so a
+cached COST would be wrong there, while the heads have not moved.  Invalidation is
+one aisle at the one site that moves a head (`pop_top` in `take`), and that is
+complete because bins only ever leave a pool and `_Cursor`&#x27;s exclusion set is fixed
+for the pool&#x27;s life.
+
+Same operands in the same order, so the strict `&lt;` keeps the same winner on an exact
+tie, and an empty vector is the `best is None` the `continue` used to produce.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_cost_model_py__per_pick.html"><code>per_pick</code></a> <span class="dim">Warehouse/kernel/cost_model.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool_take.html"><code>take</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool__aisle_best">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_aisle_best">Source ↗</a></p>
 </article>

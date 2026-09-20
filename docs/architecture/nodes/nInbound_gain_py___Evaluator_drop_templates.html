@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>drop_templates · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py___Evaluator_drop_templates" data-id="Inbound/gain.py::_Evaluator.drop_templates">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="sep">›</span> <span class="here"><code>drop_templates</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>drop_templates</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def drop_templates(self) -&gt; None</code></pre>
+<section class="doc">Forget every memoised pool prologue.  Called by `plan_order` the instant the
+greedy commits a load&#x27;s takes.
+
+THE STORE IS KEYED ON THE EXCLUDED SET&#x27;S IDENTITY and `taken` is updated IN PLACE,
+so its id does not move when its contents do: without this, the next round&#x27;s opens
+over `taken` would be served a prologue built before the commit -- bins the greedy
+has since consumed, still standing.  That is the one way this cache can be wrong,
+and it is why the drop is unconditional rather than a comparison.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator_drop_templates">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20drop_templates">Source ↗</a></p>
+</article>
+</main>
+</body></html>

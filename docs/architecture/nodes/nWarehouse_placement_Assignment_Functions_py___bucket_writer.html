@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_bucket_writer · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___bucket_writer" data-id="Warehouse/placement/Assignment_Functions.py::_bucket_writer">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_bucket_writer</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_bucket_writer</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>def _bucket_writer(by_aisle, depth: int)</code></pre>
+<section class="doc">How this pool moves a head: the mapping&#x27;s own `writable`, or plain indexing.
+
+A pool opened over a SHARED template (`frozen_tier._CowAisles` / `_CowBuckets`, which
+the gain evaluator&#x27;s rounds open over) must clone the one cursor a take moves rather
+than mutate the template every other open is reading.  A pool opened over a plain dict
+-- every wave placement, every eager build, every test -- owns its buckets outright
+and indexes them.  Resolved ONCE per open, so the hot path is a bound-method call
+either way and no `getattr` per take.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___MinLaborPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___RankedAssignPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool___init__.html"><code>__init__</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___bucket_writer">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_bucket_writer">Source ↗</a></p>
+</article>
+</main>
+</body></html>

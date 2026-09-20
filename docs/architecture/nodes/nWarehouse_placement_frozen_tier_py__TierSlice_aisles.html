@@ -16,8 +16,12 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>def aisles(self, reverse: bool=False) -&gt; dict</code></pre>
 <section class="doc">`{aisle: _Cursor}` in first-appearance order of the surviving candidates, one
-cursor per aisle over its D-sorted bins — `_RankedAssignPool`&#x27;s `by_aisle`.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__first_live.html"><code>_first_live</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor.html"><code>_Cursor</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+cursor per aisle over its D-sorted bins — `_RankedAssignPool`&#x27;s `by_aisle`.
+
+With a template store this is `aisle_buckets`&#x27;s argument one level shallower: the
+structure is a pure function of (tier, excluded set), so it is built once per round
+and every further open reads it through a copy-on-write view.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__aisles_eager.html"><code>_aisles_eager</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__template.html"><code>_template</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___CowAisles.html"><code>_CowAisles</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py__TierSlice_aisles">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py#:~:text=def%20aisles">Source ↗</a></p>
 </article>
 </main>

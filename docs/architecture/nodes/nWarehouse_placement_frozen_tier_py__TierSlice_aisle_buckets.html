@@ -17,8 +17,21 @@
 <pre class="sig"><code>def aisle_buckets(self) -&gt; dict</code></pre>
 <section class="doc">`{aisle: {height_mult: _Cursor}}`, aisles and brackets each in first-appearance
 order of the surviving candidates — the travel-balanced and min-labor pools&#x27;
-`by_aisle`.</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__first_live.html"><code>_first_live</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___Cursor.html"><code>_Cursor</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+`by_aisle`.
+
+THE AISLE ORDER IS A BARE `sorted`, AND THAT IS A PROOF RATHER THAN A HOPE.  It was
+`sorted(per_aisle.items(), key=lambda kv: min(f for f, _m in kv[1]))` — one lambda
+invocation per aisle, each building a generator and calling `min`, over ~1,400
+aisles, ~650,000 opens per arm.  Carrying the minimum forward in the build pass
+makes the key redundant.
+
+Sorting `(minfirst, aid)` bare is byte-identical to the keyed sort, and NOT merely
+because the keyed sort was stable: `minfirst` is an INDEX INTO `tier.bins`, and a
+bin belongs to exactly one aisle, so two aisles can never carry the same `minfirst`.
+The comparison therefore never reaches `aid`, and stability is not something this
+order rests on.  The same argument settles the inner `lst.sort()` on `(first, m)`:
+`first` is unique within an aisle, so `m` is never compared.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__aisle_buckets_eager.html"><code>_aisle_buckets_eager</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__template.html"><code>_template</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li><li><a href="nWarehouse_placement_frozen_tier_py___CowBuckets.html"><code>_CowBuckets</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py__TierSlice_aisle_buckets">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py#:~:text=def%20aisle_buckets">Source ↗</a></p>
 </article>
 </main>

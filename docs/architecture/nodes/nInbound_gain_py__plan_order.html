@@ -14,12 +14,15 @@
 <h1><span class="kind kind-function">function</span> <code>plan_order</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>def plan_order(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, _ev: _Evaluator | None=None) -&gt; list</code></pre>
+<pre class="sig"><code>def plan_order(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None) -&gt; list</code></pre>
 <section class="doc">10&#x27;s greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
 resolves through (`OneOwnerBundle` on a single-channel run), never a bare
 `GainBundle`.  `forced_prefix` is the urgency gate&#x27;s FIFO head — consumed first,
 unscored.  `window_rates` is the futuresight entry&#x27;s
-aggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists
+aggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the
+DRAIN&#x27;s cache dict (`ctx.gain_cache`), through which this ranking and the OTHER
+ranking of the same drain share the seven pure structures that
+`_Evaluator._SHARED_CACHES` names -- never the greedy&#x27;s own `taken`.  `_ev` exists
 ONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure
 the test perturbs); production callers never pass it.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py__futuresight.html"><code>futuresight</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__gain_forecast.html"><code>gain_forecast</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__gain_gated.html"><code>gain_gated</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py__gain_myopic.html"><code>gain_myopic</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>

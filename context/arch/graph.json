@@ -20991,6 +20991,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_bucket_writer",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_check_tier",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
@@ -21116,6 +21121,11 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_bucket_writer",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_check_tier",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__init__"
@@ -21151,7 +21161,17 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_bucket_writer",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_check_tier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_seed_floats",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
     },
@@ -21651,24 +21671,54 @@
       "src": "Warehouse/placement/frozen_tier.py::FrozenTier.slice"
     },
     {
-      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._first_live",
-      "kind": "calls",
-      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
-    },
-    {
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor",
       "kind": "calls",
-      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_eager"
     },
     {
       "dst": "Warehouse/placement/frozen_tier.py::TierSlice._first_live",
       "kind": "calls",
-      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice._aisles_eager"
     },
     {
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor",
       "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice._aisles_eager"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_eager",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._template",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_CowBuckets",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._aisles_eager",
+      "kind": "calls",
       "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._template",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_CowAisles",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
+    },
+    {
+      "dst": "Warehouse/placement/frozen_tier.py::_CowInner",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::_CowBuckets.__getitem__"
     },
     {
       "dst": "Warehouse/placement/frozen_tier.py::_Cursor._settle_hi",
@@ -23523,6 +23573,14 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator.drop_templates",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "drop_templates",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator.place_load",
       "kind": "function",
       "module": "Inbound/gain.py",
@@ -23999,6 +24057,14 @@
       "kind": "function",
       "module": "Inbound/gain_cow.py",
       "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_CowView.seed_floats",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "seed_floats",
       "public": true
     },
     {
@@ -32303,6 +32369,14 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "PHASE1_RUN_DEFAULTS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_BOUND_PROBE_K",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_BOUND_PROBE_K",
       "public": true
     },
     {
@@ -50891,6 +50965,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_bucket_writer",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_bucket_writer",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -51151,6 +51233,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_score_expected_popularity",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_seed_floats",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_seed_floats",
       "public": false
     },
     {
@@ -51803,10 +51893,34 @@
     },
     {
       "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_eager",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_aisle_buckets_eager",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice._aisles_eager",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_aisles_eager",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
       "id": "Warehouse/placement/frozen_tier.py::TierSlice._first_live",
       "kind": "function",
       "module": "Warehouse/placement/frozen_tier.py",
       "name": "_first_live",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice._template",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_template",
       "public": false
     },
     {
@@ -51823,6 +51937,262 @@
       "kind": "function",
       "module": "Warehouse/placement/frozen_tier.py",
       "name": "aisles",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_CowAisles",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.__contains__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.__getitem__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.__iter__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.get",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.items",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "items",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.keys",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.values",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "values",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowAisles.writable",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "writable",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_CowBuckets",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.__contains__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.__getitem__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.__iter__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.get",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.items",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "items",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.keys",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.values",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "values",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowBuckets.writable",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "writable",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner",
+      "kind": "class",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "_CowInner",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.__contains__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__contains__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.__getitem__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.__iter__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__iter__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.__len__",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.get",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "get",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.items",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "items",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.keys",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "keys",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_CowInner.values",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "values",
       "public": true
     },
     {
@@ -51880,6 +52250,14 @@
       "module": "Warehouse/placement/frozen_tier.py",
       "name": "_settle_lo",
       "public": false
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::_Cursor.clone",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "clone",
+      "public": true
     },
     {
       "file": "Warehouse/placement/frozen_tier.py",

@@ -14,8 +14,13 @@
 <h1><span class="kind kind-function">function</span> <code>slice</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def slice(self, excluded) -&gt; &#x27;TierSlice&#x27;</code></pre>
-<section class="doc">The tier minus `excluded` (a set of bin ids), for one pool open.</section>
+<pre class="sig"><code>def slice(self, excluded, store=None) -&gt; &#x27;TierSlice&#x27;</code></pre>
+<section class="doc">The tier minus `excluded` (a set of bin ids), for one pool open.
+
+`store` is the caller&#x27;s TEMPLATE STORE -- a plain dict the slice memoises its
+per-open structure into, so that the many opens a round makes over the SAME
+(tier, excluded set) build it once and open over copy-on-write copies of it.
+None (every caller but the gain evaluator) keeps the eager build, unchanged.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice.html"><code>TierSlice</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py__FrozenTier_slice">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py#:~:text=def%20slice">Source ↗</a></p>
 </article>

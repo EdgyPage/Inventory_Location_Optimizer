@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_CowAisles · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_frozen_tier_py___CowAisles" data-id="Warehouse/placement/frozen_tier.py::_CowAisles">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a> <span class="sep">›</span> <span class="here"><code>_CowAisles</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_CowAisles</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a></p>
+
+<pre class="sig"><code>class _CowAisles</code></pre>
+<section class="doc">`{aisle: _Cursor}` over a SHARED template, cloning the ONE cursor a take moves.
+
+# ── why a template at all ─────────────────────────────────────────────────────────
+
+Within one round of the gain greedy every candidate&#x27;s now-placement calls
+`place_load(load, ev.taken, False)` with the SAME exclusion set object, and the defer
+side hands the same `B` to every candidate whose take-set holds no bin uniquely (see
+`plan_order`).  So for a given (tier, excluded set) the per-open structure is built
+from identical inputs, T times, and thrown away T times.  Measured on a synthetic tier
+of the campaign shape (1,400 aisles, 3 brackets, 25,200 bins): `aisle_buckets()` costs
+3.685 ms, of which the first-live walk and the sort are 33% and the 4,200 cursor
+constructions are 67%.  Memoising only the SHAPE and rebuilding the cursors is 1.50x.
+Opening over the template and cloning on the write is 0.0024 ms -- 1537x -- because a
+pool seats ~12 units and so moves at most ~12 cursors however many it can see.
+
+# ── the write, and why it is explicit ─────────────────────────────────────────────
+
+A pool takes a bin by calling `popleft()`/`pop_top()`/`pop()` on a bucket it has just
+READ, so no mapping can tell a read that precedes a write from one that does not.  The
+pools therefore ASK: each has exactly one site that moves a head, and that site calls
+`writable(...)`, which clones the cursor into this view&#x27;s overlay and returns the
+clone.  Every read after that resolves through the overlay, so the shared template is
+never mutated and never observed stale.
+
+Reads that settle (`_settle_lo` past newly excluded bins, `_settle_hi` from a `[-1]`)
+do touch the template, and that is not a leak: for a FIXED exclusion set they are
+idempotent memoisations of a pure scan, they converge to the same position from any
+starting one, and a clone re-settles from its own copy before it uses either end.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice_aisles.html"><code>aisles</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py___CowAisles">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py#:~:text=class%20_CowAisles">Source ↗</a></p>
+</article>
+</main>
+</body></html>

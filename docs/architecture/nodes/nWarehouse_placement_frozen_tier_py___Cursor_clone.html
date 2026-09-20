@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>clone · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_frozen_tier_py___Cursor_clone" data-id="Warehouse/placement/frozen_tier.py::_Cursor.clone">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a> <span class="sep">›</span> <a href="nWarehouse_placement_frozen_tier_py___Cursor.html"><code>_Cursor</code></a> <span class="sep">›</span> <span class="here"><code>clone</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>clone</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def clone(self) -&gt; &#x27;_Cursor&#x27;</code></pre>
+<section class="doc">An independent cursor at this one&#x27;s exact position.
+
+THREE FIELDS COPIED, THREE SHARED, and the split is the whole correctness claim:
+`_lo`, `_hi` and `head` are this open&#x27;s consumption and are copied; `_tier`,
+`_order` and `_excl` are immutable for the pool&#x27;s life -- the tier is frozen for
+the drain, the order is one of its sorted index lists, and the exclusion set is
+the one the slice was opened over -- so sharing them copies nothing that can move.
+
+`__new__` and six stores, rather than `__init__`, because `__init__` would re-run
+`_settle_lo` and re-scan the excluded prefix this cursor has already walked.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py___Cursor_clone">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py#:~:text=def%20clone">Source ↗</a></p>
+</article>
+</main>
+</body></html>

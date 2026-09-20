@@ -32,10 +32,13 @@ so its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift 
 was written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop
 iterates CSR column order unconditionally and must keep doing so.
 
-The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) refreshes the last winner
-LAZILY -- on the next unit rather than eagerly after the pop -- because a unit that finds
-no bin leaves nothing stale to repair.  `_last_winner` is cleared every call and re-set
-only after a successful drop.</section>
+The SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) is rebuilt at the run
+boundary and carries a `_sel` HEAP alongside it, one entry per live aisle, ordered
+`(fq*bc, rank)`.  The winner&#x27;s `bc` is refreshed EAGERLY at the end of the take that
+moved it -- the retired lazy refresh repaired it on the next unit instead, which a heap
+cannot do, because between the two a stale entry would be popped in the wrong place.  A
+unit that finds no bin still leaves nothing stale: it pushes its held-out entry back
+unchanged.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___build_minlabor_pool_fn_open_pool.html"><code>open_pool</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li><li><a href="nWarehouse_placement_Assignment_Functions_py___ranked_minlabor_impl.html"><code>_ranked_minlabor_impl</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___MinLaborPool">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_MinLaborPool">Source ↗</a></p>
 </article>

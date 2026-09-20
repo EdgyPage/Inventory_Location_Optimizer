@@ -893,6 +893,7 @@ files:
       - {name: "PHASE1_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_BOUND_PROBE_K", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "COUPLED_CHANNELS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -4592,6 +4593,8 @@ files:
       - {name: "test_ranked_assign_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_travel_balanced_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_min_labor_pool_is_identical_over_a_slice", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_opens_over_one_shared_template_match_the_eager_build_and_each_other", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_a_cursor_clone_is_independent_and_leaves_its_source_alone", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_fixtures_actually_plant_ties_and_reorderings", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_min_labor_deltas_through_the_inverse_equal_the_per_aisle_fold", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_override_actually_moves_a_choice_on_some_seed", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
@@ -4667,6 +4670,7 @@ files:
       - {name: "test_the_driver_validates_a_spec_that_never_came_through_get_spec", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_an_inbound_spec_with_no_arm_set_is_refused_at_the_driver_too", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_unload_spec_carries_the_winner_and_the_rider_and_nothing_else", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
+      - {name: "test_the_trailer_bound_probe_is_a_pair_and_only_the_bound_differs", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_axis_keep_filter_subsets_and_refuses_a_name_it_does_not_build", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
       - {name: "test_the_campaign_scale_probe_is_the_reference_and_first_priced_cell_only", file: "Tests/unit/test_funnel_spec_pairs.py", kind: "function"}
     notes: ""
@@ -4765,6 +4769,7 @@ files:
       - {name: "test_a_load_seatable_nowhere_prices_zero_and_cancels", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_structured_plan_equals_naive_rebuild_per_candidate", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_sabotaged_sort_structure_is_caught", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_leave_one_out_exclusion_is_the_comprehension_it_replaced", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_the_uniform_price_is_the_exact_expectation_of_the_real_draw", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_the_height_multiplier_is_averaged_per_bin_not_read_at_the_mean_height", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_uniform_consumption_is_a_count_not_a_set", file: "Tests/unit/test_gain_plan.py", kind: "function"}
@@ -4774,7 +4779,14 @@ files:
       - {name: "test_uniform_forecast_reads_the_predicted_tier_and_a_sabotaged_moment_is_caught", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_the_rider_plans_a_real_drain_through_the_driver_bundle", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_entry_through_yard_order_is_pure_and_permutes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_drain_shares_its_pure_structures_across_both_rankings", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_drain_cache_never_carries_the_greedys_own_state", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_sabotage_hook_refuses_a_shared_cache", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_pool_adapter_agrees_on_contention_and_never_mutates_live_state", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_round_shared_prologue_changes_no_plan", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_the_prologue_template_is_actually_read", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_one_off_exclusion_is_never_memoised", file: "Tests/unit/test_gain_plan.py", kind: "function"}
+      - {name: "test_a_commit_drops_every_template", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_expectation_pricing_consumes_no_rng_and_permutes", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_spec_carries_the_gate_knobs_and_zero_survives", file: "Tests/unit/test_gain_plan.py", kind: "function"}
       - {name: "test_driver_bundle_carries_the_spec_knobs_and_refuses_unserved_arms", file: "Tests/unit/test_gain_plan.py", kind: "function"}
@@ -7284,7 +7296,7 @@ files:
       - {name: "RELOADERS", file: "Warehouse/placement/Capacity_Reloader.py", kind: "const"}
     notes: ""
   "Warehouse/placement/frozen_tier.py":
-    purpose: "Ticket 03 (phase-2 campaign): FrozenTier sorts one tier's candidates once per drain (D map, per-aisle and per-(aisle, bracket) stable D-sorted buckets, appearance orders); TierSlice overlays one exclusion set per pool open with lazy-skipping cursors that speak the pools' deque/bucket protocol, recomputing aisle and bracket first-appearance order under exclusion so every tie-break is byte-identical to the eager build."
+    purpose: "Ticket 03 (phase-2 campaign): FrozenTier sorts one tier's candidates once per drain (D map, per-aisle and per-(aisle, bracket) stable D-sorted buckets, appearance orders); TierSlice overlays one exclusion set per pool open with lazy-skipping cursors that speak the pools' deque/bucket protocol, recomputing aisle and bracket first-appearance order under exclusion so every tie-break is byte-identical to the eager build. Since 2026-09-20 a TierSlice may also carry a caller's template STORE: the first open over a (tier, exclusion set) builds that structure and every further open of the same round reads it copy-on-write (_CowAisles / _CowBuckets / _CowInner), with _Cursor.clone copying only the three position fields, so a pool that seats ~12 units clones ~12 cursors instead of rebuilding ~4,200."
     layer: "wh_placement"
     key_symbols:
       - {name: "FrozenTier", file: "Warehouse/placement/frozen_tier.py", kind: "class"}

@@ -886,7 +886,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, bundle, space, window_rates=None)"
+      "signature": "(self, bundle, space, window_rates=None, shared=None)"
     },
     "Inbound/gain.py::_Evaluator._avail": {
       "decorators": [],
@@ -1002,6 +1002,13 @@
       "kind": "function",
       "signature": "(self) -> GainBundle"
     },
+    "Inbound/gain.py::_Evaluator.drop_templates": {
+      "decorators": [],
+      "doc": "Forget every memoised pool prologue.  Called by `plan_order` the instant the\ngreedy commits a load's takes.\n\nTHE STORE IS KEYED ON THE EXCLUDED SET'S IDENTITY and `taken` is updated IN PLACE,\nso its id does not move when its contents do: without this, the next round's opens\nover `taken` would be served a prologue built before the commit -- bins the greedy\nhas since consumed, still standing.  That is the one way this cache can be wrong,\nand it is why the drop is unconditional rather than a comparison.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
     "Inbound/gain.py::_Evaluator.place_load": {
       "decorators": [],
       "doc": "(cost, takes) of placing `units` against the availability that `excluded`\nleaves standing; `predicted` merges the deferral tier in.  Groups by the\nunit's OWN BinKey in load order (the canonical pack order is deterministic),\nspilling up the chain per group.\n\n`alloc` is the sweep's shared block allocator, read by the uniform adapter\nONLY (see `_place_uniform`) and inert for the other two.  None gives this\nplacement its own, which is what the forced prefix and the deferral side\nwant: each of those stands alone, against an `excluded` that already carries\nwhatever went before it.",
@@ -1068,10 +1075,10 @@
     },
     "Inbound/gain.py::plan_order": {
       "decorators": [],
-      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.",
+      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, _ev: _Evaluator | None=None) -> list"
+      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None) -> list"
     },
     "Inbound/gain.py::plan_order._load": {
       "decorators": [],
@@ -1429,6 +1436,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Inbound/gain_cow.py::_CowView.seed_floats": {
+      "decorators": [],
+      "doc": "`{k: float(self.get(k, 0.0)) for k in keys}` in ONE Python frame.\n\nThe pools seed their running per-aisle float books from a view at every open, over\nevery live aisle -- ~1,400 keys at campaign scale, ~650,000 opens per arm.  Written\nas a comprehension over `self.get`, that is a Python call per key, and it was the\nsingle largest thing a view cost the pool prologue.  Reading the two backing dicts\ndirectly makes the whole seed one frame.\n\n`get`'s semantics, deliberately, not `__getitem__`'s: a float falls straight through\nwithout materializing, which is the whole point of `_CowFloats`.  The read-only\ncontract on what `get` hands back is satisfied by construction here, because the\nseed COPIES each value into the pool's own dict.\n\nOverridden by no subclass -- the float shape is the only one a pool seeds this way,\nand a set or an inner mapping would need a copy per key rather than a `float()`.\nThe caller (`Assignment_Functions._seed_floats`) duck-types it, because\n`Warehouse/placement/` may not import this package.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, keys) -> dict"
     },
     "Inbound/gain_cow.py::_CowView.values": {
       "decorators": [],
@@ -8770,6 +8784,13 @@
       "signature": null,
       "value_preview": "{**ERA_RUN_DEFAULTS, **INBOUND_ARRIVAL_REGIME, 'n_batches': CAMPAIGN_DEPTH_DAYS}"
     },
+    "Optimization/config/whatif_config.py::PHASE2_BOUND_PROBE_K": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "8"
+    },
     "Optimization/config/whatif_config.py::PHASE2_DOCK_DOORS": {
       "decorators": [],
       "doc": null,
@@ -8936,7 +8957,7 @@
       "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\n`keep` names the entries to KEEP by suffix (`('fifo', 'gmyopic', 'inb_off')`), for a\nspec that runs a pre-screened subset of the axis rather than all ten; None keeps every\nentry.  A name the axis does not build is refused -- a typo here would silently run a\nsmaller campaign than the one asked for, which is the `_inbound_axis` failure class.\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nUntil 2026-09-19 that was load-bearing: `_apply_cell` wrote into a process-wide CONFIG\nthat was never reset between cells, so a key one cell wrote and the next omitted left the\nsecond running the first's policy under its own name, and `_inbound_axis` refused a\npartial entry.  The driver now applies each cell inside `cells.cell_scope`, which restores\nCONFIG on exit, so an omitted key would mean the run-level value.  The full record stays\nhere anyway: the spec is the whole experimental condition, readable without knowing what\nthe command line defaulted to.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nTHE ANCHOR IS NOT A CROSS-PHASE VALIDITY CHECK, and saying so here was false (site-dock 06\nsection 3, which rewrote this paragraph rather than amending it \u2014 a stale comment claiming a\nguarantee the campaign does not have is worse than no comment).  EVERY cell of phase 2 runs\nthe COUPLED site model, `inb_off` included, because coupling is a property of the RUN and is\nDECLARED (`--couple-channels`, carried by `PHASE2_RUN_DEFAULTS`), never inferred from the\ninbound flag.  So `inb_off` is the inbound-OFF POLE INSIDE the coupled model \u2014 the control\nfor \"does running an inbound pipeline at all change the answer, versus which policy runs it\",\nand the only cell with no yard, which makes it the structural zero for every yard quantity.\n\nWhat that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1\nis UNCOUPLED and, since department-calibration decision 11, inbound-ON, so it ranks\nplacement arms under 2x the site put labour: an\nuncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the\nbreak).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded\nagainst its own nine siblings; coupling every cell inverts that, and the matrix's own deltas\nare what the campaign publishes, so that is the side kept whole.  The asymmetry is not a\nclean scaling either \u2014 what doubles is put and receiving CAPACITY, not labour seconds, and\nunder drain-or-cap a larger crew cuts less and completes more per day by an amount that\ndiffers per arm \u2014 so a RANK comparison across the boundary is no more invariant than an\nhours one.  The caveat is carried as a STAMP (`restock_selection.json`'s `put_regime:\n'per-leaf'`) and published with the campaign; there is no runtime gate because nothing in\nthe codebase reads two run roots, so there is no join to gate.  The one reachable mistake \u2014\npointing the selector at a coupled root \u2014 is refused by `run_restock_selection.select`.\n\nThe reference is `fifo`, so every delta reads \"versus FIFO\", which is the campaign's own\nquestion.  The anchor is present as a cell, never the reference.",
       "is_async": false,
       "kind": "function",
-      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES, keep=None)"
+      "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES, bound_probe_k=PHASE2_BOUND_PROBE_K, keep=None)"
     },
     "Optimization/config/whatif_config.py::phase2_inbound_axis._policy": {
       "decorators": [],
@@ -24730,7 +24751,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool": {
       "decorators": [],
-      "doc": "`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with\n`maximize=True` (one function, both arms, every extremum flipped).\n\nUnlike `_TravelBalancedPool` there is NO per-aisle running load: this policy MINIMISES\ntotal labor rather than BALANCING it.  Its path dependence flows entirely through the\ndeques (pool state) and through two manager dicts that `take` commits to --\n`aisle_idx_sets`, which the affinity reward reads, and `aisle_member_pos`, whose appended\ncolumns the partner centroid sums in placement order.  That second one is the quieter of\nthe two and worth naming: `cx` is not a tie-break, it is the term that picks the bin.\n\nTHE DELTA SUM IS INLINED ON PURPOSE (`for ci, w in row_items: if ci in ais`).  It looks\nlike a candidate for `_delta_lift_from_row`, and unifying them would be a bug:\n`_delta_lift_from_row` switches which side it iterates on `len(row) <= len(member_set)`,\nso its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift b91cf38\nwas written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop\niterates CSR column order unconditionally and must keep doing so.\n\nThe SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) refreshes the last winner\nLAZILY -- on the next unit rather than eagerly after the pop -- because a unit that finds\nno bin leaves nothing stale to repair.  `_last_winner` is cleared every call and re-set\nonly after a successful drop.",
+      "doc": "`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with\n`maximize=True` (one function, both arms, every extremum flipped).\n\nUnlike `_TravelBalancedPool` there is NO per-aisle running load: this policy MINIMISES\ntotal labor rather than BALANCING it.  Its path dependence flows entirely through the\ndeques (pool state) and through two manager dicts that `take` commits to --\n`aisle_idx_sets`, which the affinity reward reads, and `aisle_member_pos`, whose appended\ncolumns the partner centroid sums in placement order.  That second one is the quieter of\nthe two and worth naming: `cx` is not a tie-break, it is the term that picks the bin.\n\nTHE DELTA SUM IS INLINED ON PURPOSE (`for ci, w in row_items: if ci in ais`).  It looks\nlike a candidate for `_delta_lift_from_row`, and unifying them would be a bug:\n`_delta_lift_from_row` switches which side it iterates on `len(row) <= len(member_set)`,\nso its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift b91cf38\nwas written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop\niterates CSR column order unconditionally and must keep doing so.\n\nThe SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) is rebuilt at the run\nboundary and carries a `_sel` HEAP alongside it, one entry per live aisle, ordered\n`(fq*bc, rank)`.  The winner's `bc` is refreshed EAGERLY at the end of the take that\nmoved it -- the retired lazy refresh repaired it on the next unit instead, which a heap\ncannot do, because between the two a stale entry would be popped in the wrong place.  A\nunit that finds no bin still leaves nothing stale: it pushes its held-out entry back\nunchanged.",
       "kind": "class",
       "signature": "(_Pool)"
     },
@@ -25001,7 +25022,7 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best": {
       "decorators": [],
-      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept + per_item + var) + D.\n\n`pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value\ndepends on (m, var) and not on the aisle, so a SKU run evaluates it at most once per\nbracket instead of once per aisle per bracket.  Same call, same float.",
+      "doc": "(cost, mult, bin) of the cheapest available bin in the aisle for this var.\nHeight scales the whole at-location pick: cost = m*(intercept + per_item + var) + D.\n\n`pp` memoises `per_pick(m, ...)` per height multiplier for THIS var -- the value\ndepends on (m, var) and not on the aisle, so a SKU run evaluates it at most once per\nbracket instead of once per aisle per bracket.  Same call, same float.\n\nTHE HEAD VECTOR is what this reads instead of the bucket dict.  The body used to walk\n`self._by_aisle[aid].items()` and pull `h.head` through an attribute per bracket, and\nit is called once per live aisle at every SKU-run boundary -- ~1,400 x ~12 per open,\n~650,000 opens per arm, the largest single term in the gain evaluator.  The `(m, D,\nbin)` triples it was re-extracting are invariant between head moves, so they are\ncached per aisle and the loop is a tuple walk plus `pp[m] + D`.\n\nThe cache is var-INDEPENDENT on purpose: `var` changes at every run boundary, so a\ncached COST would be wrong there, while the heads have not moved.  Invalidation is\none aisle at the one site that moves a head (`pop_top` in `take`), and that is\ncomplete because bins only ever leave a pool and `_Cursor`'s exclusion set is fixed\nfor the pool's life.\n\nSame operands in the same order, so the strict `<` keeps the same winner on an exact\ntie, and an empty vector is the `best is None` the `continue` used to produce.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, aid, var, pp=None)"
@@ -25054,6 +25075,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(aisle_index, unit, minimize: bool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_bucket_writer": {
+      "decorators": [],
+      "doc": "How this pool moves a head: the mapping's own `writable`, or plain indexing.\n\nA pool opened over a SHARED template (`frozen_tier._CowAisles` / `_CowBuckets`, which\nthe gain evaluator's rounds open over) must clone the one cursor a take moves rather\nthan mutate the template every other open is reading.  A pool opened over a plain dict\n-- every wave placement, every eager build, every test -- owns its buckets outright\nand indexes them.  Resolved ONCE per open, so the hot path is a bound-method call\neither way and no `getattr` per take.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(by_aisle, depth: int)"
     },
     "Warehouse/placement/Assignment_Functions.py::_build_aisle_score_fn": {
       "decorators": [],
@@ -25285,6 +25313,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(unit) -> float"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_seed_floats": {
+      "decorators": [],
+      "doc": "`{k: float(src.get(k, 0.0)) for k in keys}` -- with ONE Python frame, not one per key.\n\nA pool seeds two running per-aisle float books at open (`_load`, `_vol_load`), each over\nevery live aisle: ~1,400 keys at campaign scale, ~650,000 opens per arm.  Handed the\nmanager's own dict that is already all C-level and this is the comprehension it always\nwas.  Handed the gain evaluator's copy-on-write view (`Inbound.gain_cow._CowFloats`) it\nwas A PYTHON CALL PER KEY, because `_CowView.get` is a Python method -- about 900 million\nof them per arm, for a dict the pool discards after seating ~12 units.\n\nThe view answers `seed_floats` itself instead, reading its two backing dicts at C level.\nDuck-typed rather than imported: `Warehouse/placement/` may not import `Inbound/`\n(`context/architecture.yml`'s boundaries), and the fallback is what a plain dict takes.\nSame keys, same values, same order -- `dict` preserves insertion order and `keys` is\nwalked once either way.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(src, keys) -> dict"
     },
     "Warehouse/placement/Assignment_Functions.py::_travel_balanced_impl": {
       "decorators": [],
@@ -25786,10 +25821,10 @@
     },
     "Warehouse/placement/frozen_tier.py::FrozenTier.slice": {
       "decorators": [],
-      "doc": "The tier minus `excluded` (a set of bin ids), for one pool open.",
+      "doc": "The tier minus `excluded` (a set of bin ids), for one pool open.\n\n`store` is the caller's TEMPLATE STORE -- a plain dict the slice memoises its\nper-open structure into, so that the many opens a round makes over the SAME\n(tier, excluded set) build it once and open over copy-on-write copies of it.\nNone (every caller but the gain evaluator) keeps the eager build, unchanged.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, excluded) -> 'TierSlice'"
+      "signature": "(self, excluded, store=None) -> 'TierSlice'"
     },
     "Warehouse/placement/frozen_tier.py::HeapBucket": {
       "decorators": [],
@@ -25843,7 +25878,21 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, tier: FrozenTier, excluded)"
+      "signature": "(self, tier: FrozenTier, excluded, store=None)"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_eager": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice._aisles_eager": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, reverse: bool=False) -> dict"
     },
     "Warehouse/placement/frozen_tier.py::TierSlice._first_live": {
       "decorators": [],
@@ -25852,19 +25901,247 @@
       "kind": "function",
       "signature": "(self, appear: list)"
     },
+    "Warehouse/placement/frozen_tier.py::TierSlice._template": {
+      "decorators": [],
+      "doc": "`build()`'s result for this (tier, excluded set), built at most once.\n\nKeyed on the EXCLUDED SET'S IDENTITY, and the key holds a reference to that set,\nso an id cannot be reused by a later object while the entry stands.  Identity and\nnot equality: two equal sets are two different rounds' answers and comparing\n~3,800 ids to find that out would cost more than the build.  The evaluator hands a\nfresh store per plan, and `plan_order` drops it whenever the greedy commits (the\ntake-set moves, so every template over the old set is stale) -- so this never\ngrows past the handful of distinct sets one round is built from.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, kind, build)"
+    },
     "Warehouse/placement/frozen_tier.py::TierSlice.aisle_buckets": {
       "decorators": [],
-      "doc": "`{aisle: {height_mult: _Cursor}}`, aisles and brackets each in first-appearance\norder of the surviving candidates \u2014 the travel-balanced and min-labor pools'\n`by_aisle`.",
+      "doc": "`{aisle: {height_mult: _Cursor}}`, aisles and brackets each in first-appearance\norder of the surviving candidates \u2014 the travel-balanced and min-labor pools'\n`by_aisle`.\n\nTHE AISLE ORDER IS A BARE `sorted`, AND THAT IS A PROOF RATHER THAN A HOPE.  It was\n`sorted(per_aisle.items(), key=lambda kv: min(f for f, _m in kv[1]))` \u2014 one lambda\ninvocation per aisle, each building a generator and calling `min`, over ~1,400\naisles, ~650,000 opens per arm.  Carrying the minimum forward in the build pass\nmakes the key redundant.\n\nSorting `(minfirst, aid)` bare is byte-identical to the keyed sort, and NOT merely\nbecause the keyed sort was stable: `minfirst` is an INDEX INTO `tier.bins`, and a\nbin belongs to exactly one aisle, so two aisles can never carry the same `minfirst`.\nThe comparison therefore never reaches `aid`, and stability is not something this\norder rests on.  The same argument settles the inner `lst.sort()` on `(first, m)`:\n`first` is unique within an aisle, so `m` is never compared.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> dict"
     },
     "Warehouse/placement/frozen_tier.py::TierSlice.aisles": {
       "decorators": [],
-      "doc": "`{aisle: _Cursor}` in first-appearance order of the surviving candidates, one\ncursor per aisle over its D-sorted bins \u2014 `_RankedAssignPool`'s `by_aisle`.",
+      "doc": "`{aisle: _Cursor}` in first-appearance order of the surviving candidates, one\ncursor per aisle over its D-sorted bins \u2014 `_RankedAssignPool`'s `by_aisle`.\n\nWith a template store this is `aisle_buckets`'s argument one level shallower: the\nstructure is a pure function of (tier, excluded set), so it is built once per round\nand every further open reads it through a copy-on-write view.",
       "is_async": false,
       "kind": "function",
       "signature": "(self, reverse: bool=False) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles": {
+      "decorators": [],
+      "doc": "`{aisle: _Cursor}` over a SHARED template, cloning the ONE cursor a take moves.\n\n# \u2500\u2500 why a template at all \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nWithin one round of the gain greedy every candidate's now-placement calls\n`place_load(load, ev.taken, False)` with the SAME exclusion set object, and the defer\nside hands the same `B` to every candidate whose take-set holds no bin uniquely (see\n`plan_order`).  So for a given (tier, excluded set) the per-open structure is built\nfrom identical inputs, T times, and thrown away T times.  Measured on a synthetic tier\nof the campaign shape (1,400 aisles, 3 brackets, 25,200 bins): `aisle_buckets()` costs\n3.685 ms, of which the first-live walk and the sort are 33% and the 4,200 cursor\nconstructions are 67%.  Memoising only the SHAPE and rebuilding the cursors is 1.50x.\nOpening over the template and cloning on the write is 0.0024 ms -- 1537x -- because a\npool seats ~12 units and so moves at most ~12 cursors however many it can see.\n\n# \u2500\u2500 the write, and why it is explicit \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\nA pool takes a bin by calling `popleft()`/`pop_top()`/`pop()` on a bucket it has just\nREAD, so no mapping can tell a read that precedes a write from one that does not.  The\npools therefore ASK: each has exactly one site that moves a head, and that site calls\n`writable(...)`, which clones the cursor into this view's overlay and returns the\nclone.  Every read after that resolves through the overlay, so the shared template is\nnever mutated and never observed stale.\n\nReads that settle (`_settle_lo` past newly excluded bins, `_settle_hi` from a `[-1]`)\ndo touch the template, and that is not a leak: for a FIXED exclusion set they are\nidempotent memoisations of a pure scan, they converge to the same position from any\nstarting one, and a clone re-settles from its own copy before it uses either end.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid) -> bool"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, base: dict)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid, default=None)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowAisles.writable": {
+      "decorators": [],
+      "doc": "The cursor for `aid`, cloned into this open's overlay on first ask.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets": {
+      "decorators": [],
+      "doc": "`{aisle: {height_mult: _Cursor}}` over a shared template -- `_CowAisles` one level\ndeeper, and every word of its docstring applies.  The overlay is per (aisle, bracket),\nso a pool that empties one bracket of one aisle clones one cursor.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid) -> bool"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, base: dict)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid, default=None)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowBuckets.writable": {
+      "decorators": [],
+      "doc": "The cursor for `(aid, m)`, cloned into this open's overlay on first ask.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, aid, m)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner": {
+      "decorators": [],
+      "doc": "One aisle's brackets, overlay-first.  Built only for an aisle a take has moved --\nan untouched aisle reads its template dict directly, at C speed.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.__contains__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, m) -> bool"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, m)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, base: dict, ov: dict)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.__iter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.get": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, m, default=None)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.items": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.keys": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/frozen_tier.py::_CowInner.values": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Warehouse/placement/frozen_tier.py::_Cursor": {
       "decorators": [],
@@ -25913,6 +26190,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
+    },
+    "Warehouse/placement/frozen_tier.py::_Cursor.clone": {
+      "decorators": [],
+      "doc": "An independent cursor at this one's exact position.\n\nTHREE FIELDS COPIED, THREE SHARED, and the split is the whole correctness claim:\n`_lo`, `_hi` and `head` are this open's consumption and are copied; `_tier`,\n`_order` and `_excl` are immutable for the pool's life -- the tier is frozen for\nthe drain, the order is one of its sorted index lists, and the exclusion set is\nthe one the slice was opened over -- so sharing them copies nothing that can move.\n\n`__new__` and six stores, rather than `__init__`, because `__init__` would re-run\n`_settle_lo` and re-scan the excluded prefix this cursor has already walked.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> '_Cursor'"
     },
     "Warehouse/placement/frozen_tier.py::_Cursor.pop": {
       "decorators": [],
