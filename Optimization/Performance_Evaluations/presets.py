@@ -40,6 +40,15 @@ _DETAIL   = ['task_time.duration', 'task_time.breakdown',
              # name the `work_events` capability, so the era gate refuses with a reason.
              'labor.production_legs',
              'layout.travel', 'layout.churn',
+             # The phase-2 placement score. Beside `layout.travel` because it asks
+             # the same question of the same family -- what did the placement rule do
+             # to the warehouse -- with the two differences that make it rankable for
+             # an INBOUND policy: it weights by the run's own planned batches rather
+             # than by a frequency, and it carries the height and handling terms, so
+             # its floor is `optimal_work` rather than Sigma f.D. Gated on the
+             # `placement_score` capability, so the era gate refuses it with a reason
+             # on every run before 2026-09-19 rather than drawing zeros.
+             'layout.pick_owed',
              # The yard family renders only where a yard ran; its request is DENIED on
              # every inbound-off run, which is every run in the archive, and the driver
              # logs that rather than drawing four figures of zero.

@@ -62,6 +62,19 @@ _LEGACY_OVERTIME_YL = {
     'layout_travel':     'total f·D (lower = better)',
 }
 
+#: Over-time stems minted AFTER the collapse.  The legacy table above stays frozen -- it
+#: is the record of what four tables used to say -- so growth is recorded here instead, and
+#: the set assertion below is "the legacy entries are all still there, and every extra one
+#: is named" rather than "the set never changes".  Forbidding growth outright would make
+#: the acceptance test for a finished refactor into a veto on every new measurement.
+_ADDED_OVERTIME_STEMS = {
+    'pick_owed': 'the phase-2 placement score, 2026-09-19: what the planned demand owes '
+                 'the current layout. Minted after the collapse, so it never had a legacy '
+                 'label for the four tables to disagree about',
+    'pick_owed_unservable': 'its census half, added in the same commit and for the same '
+                            'reason',
+}
+
 #: (table, metric-or-stem) -> (new string, why it moved).  Every difference must be here.
 #: Keyed by TABLE as well as name because the two namespaces overlap and disagree:
 #: `production_time` is unchanged as a significance metric and changed as an over-time
@@ -136,9 +149,25 @@ def test_the_aggregate_axis_labels_moved_only_where_recorded():
 
 def test_the_overtime_axis_labels_moved_only_where_recorded():
     actual = _actual('overtime')
-    assert set(actual) == set(_LEGACY_OVERTIME_YL), 'the over-time figure SET changed'
+    assert set(_LEGACY_OVERTIME_YL) <= set(actual), (
+        'an over-time figure the collapse inherited has been dropped or renamed')
+    extra = set(actual) - set(_LEGACY_OVERTIME_YL)
+    assert extra == set(_ADDED_OVERTIME_STEMS), (
+        f'the over-time figure set grew without a record: {sorted(extra)}. Add each new '
+        f'stem to _ADDED_OVERTIME_STEMS with why it has no legacy label.')
     moved = _check('overtime', _LEGACY_OVERTIME_YL, actual)
     assert moved == {'throughput', 'production_time'}
+
+
+def test_every_recorded_overtime_addition_is_still_one():
+    """A stale addition is the same debt as a stale exception: it would let a genuinely
+    dropped legacy stem be re-added under the growth allowance and pass."""
+    actual = _actual('overtime')
+    for stem, why in _ADDED_OVERTIME_STEMS.items():
+        assert stem in actual, f'_ADDED_OVERTIME_STEMS names {stem!r}, which nothing mints'
+        assert stem not in _LEGACY_OVERTIME_YL, (
+            f'{stem!r} IS a legacy stem, so it is not growth -- delete the entry')
+        assert len(why.split()) >= 10, f'{stem}: the reason is too short to be one'
 
 
 def test_every_recorded_move_is_still_a_move():

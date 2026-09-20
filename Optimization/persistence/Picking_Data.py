@@ -1567,6 +1567,7 @@ CAP_VIZ_CACHE = 'viz_cache'          # a FRESH derived sidecar — not table-pro
 CAP_YARD = 'yard'                    # the standing yard's stamps + per-drain levels
 CAP_CARRYOVER = 'carryover'          # what did not get done this batch, and why
 CAP_SHIFT_DAYS = 'shift_days'        # the drain-or-cap ledger: one close-out per working day
+CAP_PLACEMENT_SCORE = 'placement_score'   # batch_stats' pick_owed_s / unservable_weight
 
 SIM_CAPABILITIES = {c.name: c for c in (
     # The calibrated era's ledger, added 2026-09-06 with the equilibrium check.  Rows exist
@@ -1647,6 +1648,18 @@ SIM_CAPABILITIES = {c.name: c for c in (
     _capability.Capability(
         name=CAP_REORDER_QUEUE, table='reorder_queue', exact=True,
         phase='start-of-batch', caveat=''),
+    # The phase-2 placement score, added 2026-09-19.  NOT table-probed, and it is the first
+    # capability whose evidence is a COLUMN rather than a table: `batch_stats` is in every
+    # vetted shape and carries rows in every run, so a row probe would report this available
+    # on an archived vintage that has neither column and the evaluation would render zeros.
+    # `table=None` is the registry's own idiom for "the caller establishes this by other
+    # means" (`Schema/capability.py`), and the caller is
+    # `Performance_Evaluations/core/context.py:_probe_capabilities`, which asks each arm's
+    # `batch_stats` for the columns by name and passes the result through `probe(extra=...)`.
+    _capability.Capability(
+        name=CAP_PLACEMENT_SCORE, table=None, exact=True,
+        phase='end-of-batch, folded over every occupied bin in the pre-snapshot pass',
+        caveat=''),
     _capability.Capability(
         name=CAP_KEYFRAMES, table=None, exact=True,
         phase='the keyframe batch itself', caveat=''),
@@ -1753,6 +1766,12 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
 #: default and that body is the one place it would otherwise be READ.
 BATCH_UNKNOWN_ON_OLDER_VINTAGES = ('free_bins', 'put_spills',
                                    'pick_owed_s', 'unservable_weight')
+
+#: The placement score's two columns, named once so the runtime capability probe and the
+#: DDL cannot drift apart. `CAP_PLACEMENT_SCORE` is settled by asking a file whether
+#: `batch_stats` CARRIES these, not by asking whether the table holds rows -- it always
+#: does. See the capability's own comment for why that distinction is the whole point.
+BATCH_PLACEMENT_SCORE_COLS = ('pick_owed_s', 'unservable_weight')
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)

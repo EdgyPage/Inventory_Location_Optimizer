@@ -78,6 +78,7 @@ _LITERALS = {
     'task_time.breakdown':            ('figures', 'task_time'),
     'layout.churn':                   ('figures', 'layout'),
     'layout.travel':                  ('figures', 'layout'),
+    'layout.pick_owed':               ('figures', 'layout'),
     'diagnostics.metric_grids':       ('figures', 'diagnostics'),
     'diagnostics.scorecards':         ('figures', 'diagnostics'),
     'sig.suite':                      ('figures', 'significance'),

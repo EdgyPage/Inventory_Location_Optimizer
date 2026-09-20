@@ -197,10 +197,17 @@ UNREGISTERED_STEMS = {
                   'the rollup instead of the trajectory',
     'layout_travel': 'Sigma f.D over batches; the ranked per-arm views in the layout '
                      'family are what the pages cite',
+    'pick_owed': 'the placement score over batches, added 2026-09-19 for the phase-2 '
+                 'ranking and not yet staged on any page; no published experiment has '
+                 'run on a vintage that records it, so staging it now would register a '
+                 'figure every archived run omits',
+    'pick_owed_unservable': 'its census half, added in the same commit and staged '
+                            'nowhere for the same reason; it is read as a gate on the '
+                            'score rather than as a page figure in its own right',
 }
 
 #: A ceiling on the above, so the registry gap stays a decision rather than a habit.
-UNREGISTERED_CEILING = 4
+UNREGISTERED_CEILING = 6
 
 
 def _registered_stems() -> set:

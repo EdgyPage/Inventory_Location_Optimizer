@@ -11,18 +11,23 @@ percent view is declared.
 from Optimization.Performance_Evaluations.core.registry import (
     evaluation, EVAL_BY_KEY)
 from Optimization.Performance_Evaluations.common import io, painters
-from Optimization.Performance_Evaluations.core.quantities import SERIES_ORDER
+from Optimization.Performance_Evaluations.core.quantities import (
+    SERIES_GATED, SERIES_UNGATED)
 
 #: what the shared over-time painter draws, in its declared render order — the
-#: SAME tuple `painters.overtime_metrics()` walks, so this evaluation cannot come
-#: to declare a different set from the one it renders.
-SERIES_QUANTITIES = SERIES_ORDER
+#: UNION is `painters.overtime_metrics()`'s own `SERIES_ORDER`, so this evaluation cannot
+#: come to declare a different set from the one it renders.  The split is the era gate's:
+#: the gated pair is DRAWN exactly like the rest and omitted per quantity when the run
+#: predates it, rather than costing the whole family its render (`registry.evaluation`).
+SERIES_QUANTITIES = SERIES_UNGATED
+SERIES_OPTIONAL = SERIES_GATED
 
 
 @evaluation(key='agg.traj', label='Cross-profile trajectories (% vs baseline)',
             scope='aggregate', needs=('series',),
             family='trajectories', shape='serial',
             quantities=SERIES_QUANTITIES,
+            quantities_optional=SERIES_OPTIONAL,
             views_suppressed=(
                 ('absolute', 'the aggregate series are already x-baseline normalized '
                              'per profile and averaged across profiles, so an '

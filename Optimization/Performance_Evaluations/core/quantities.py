@@ -283,6 +283,7 @@ class Quantity:
 # and therefore parallelism-dependent.
 
 _COUNT_UNITS = Unit('count', 'units')
+_UNSERVED_UNITS = Unit('count', 'lines')
 _LABOR_W = Unit('score', 'W')
 _SCORE = Unit('score')
 _SHARE = Unit('share')
@@ -583,6 +584,36 @@ QUANTITIES: tuple = (
               'Near-absent inbound-off, which is what makes it the leg that only the '
               'campaign moves.'),
 
+    # ── the placement score: what the PLANNED demand owes the current layout ─────
+    # The phase-2 metric.  Every flow total in this table -- production time, unload
+    # seconds, throughput -- is invariant to an inbound ORDERING policy over a window
+    # long enough to unload everything, because ordering changes only WHEN stock reaches
+    # a shelf and not whether it does.  These two are the state read that can see it.
+    # Gated: the two columns arrived on 2026-09-19 and no earlier vintage carries them,
+    # so an archived run must REFUSE the evaluation rather than render it as zeros.
+    Quantity(
+        key='pick_owed_s', label='Pick work owed by the placement',
+        axis_stem='pick seconds owed', unit=units.DURATION, direction='lower',
+        source=Source(per_batch=('batch', 'pick_owed_s'), steady_state='ss_pick_owed',
+                      series=('batch', 'pick_owed_s', None, None)),
+        stem='pick_owed', series_title='Pick work owed by the placement',
+        capability='placement_score',
+        notes='What the run\'s PLANNED batches would cost served from where the stock '
+              'stands. A placement score, not a flow: an inbound ORDERING policy changes '
+              'only WHEN stock reaches a shelf, so every flow total is invariant to it. '
+              'Read with `unservable_weight` — a SKU with nothing on a shelf costs this '
+              'nothing, so alone it would rank "leave it in the yard" first.'),
+    Quantity(
+        key='unservable_weight', label='Planned demand with no shelf stock',
+        axis_stem='unservable planned lines', unit=_UNSERVED_UNITS, direction='lower',
+        source=Source(per_batch=('batch', 'unservable_weight'),
+                      steady_state='ss_unservable',
+                      series=('batch', 'unservable_weight', None, None)),
+        stem='pick_owed_unservable', series_title='Planned demand off the shelf',
+        capability='placement_score',
+        notes='The half of the planned demand `pick_owed_s` declined to price. Non-zero '
+              'means the score was decided by availability rather than by placement.'),
+
     # ── the calibrated era: declared throughput delivered, or not ─────────────────
     # The ONE directional read-out of the throughput audit.  The audit's other numbers --
     # realized vs expected utilization per department -- have no honest direction (a
@@ -667,7 +698,23 @@ HEADLINE_ORDER: tuple = ('production_time', 'makespan', 'throughput',
 #: against batch index by the shared over-time painter, so it is listed as a deliberate
 #: exclusion rather than left to be noticed as an absence.
 SERIES_ORDER: tuple = ('task_duration', 'task_mean_duration', 'throughput',
-                       'production_time', 'sigma_fd')
+                       'production_time', 'sigma_fd',
+                       # The placement pair is drawn as a TRAJECTORY on purpose. The
+                       # steady-state window is 50 batches and a campaign is 40 deep, so a
+                       # scalar over it averages the warm-up in -- and the warm-up is
+                       # exactly where a placement score discriminates, because that is
+                       # when the replenishment wave is still reaching the shelf.
+                       'pick_owed_s', 'unservable_weight')
+
+#: `SERIES_ORDER` split by the era gate, so an over-time evaluation can declare the whole
+#: family without taking a refusal for the part of it an archived run cannot answer.  The
+#: painter still walks `SERIES_ORDER` itself, so RENDER ORDER is untouched; this is only
+#: about what an evaluation promises.  A gated quantity goes in `quantities_optional=`,
+#: which `requests.era_shortfall` ignores, and the render says which ones it dropped --
+#: the narrow permission `registry.evaluation` documents, and the alternative is deleting
+#: every trajectory figure from every run made before 2026-09-19 over two of seven panels.
+SERIES_UNGATED: tuple = tuple(k for k in SERIES_ORDER if not BY_KEY[k].capability)
+SERIES_GATED: tuple = tuple(k for k in SERIES_ORDER if BY_KEY[k].capability)
 
 #: series-sourced quantities the over-time painter does NOT draw, and why.
 SERIES_ELSEWHERE: dict = {

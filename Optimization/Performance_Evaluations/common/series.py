@@ -98,6 +98,16 @@ def _build_series(strategies, df_b, df_t, df_w=None, df_y=None):
             ss_thr_task=ss_thr_task,
             ss_dur=float(ssb['duration'].mean()),
             ss_sigma=float(ssb['sigma_fd'].mean()),
+            # WHAT THE PLANNED DEMAND OWES THE PLACEMENT, meaned over the same window.
+            # NaN -- not zero -- on every run before 2026-09-19 and on any run that did not
+            # arm the score: zero is the BEST value this column can take, so an unscored run
+            # reading 0 would outrank every measured one. `_bdf` fills the pair with None on
+            # those vintages (`BATCH_UNKNOWN_ON_OLDER_VINTAGES`), which means this way.
+            ss_pick_owed=_ss_mean(ssb, ssb, 'pick_owed_s'),
+            # The weight the score above DECLINED to price. Reported beside it, never folded
+            # in: the two are one reading, and a run where this is materially non-zero was
+            # decided by availability rather than by placement.
+            ss_unservable=_ss_mean(ssb, ssb, 'unservable_weight'),
             ss_task_mean=float(sst['duration'].mean()) if len(sst) else float('nan'),
             ss_prod_hours=(float(sst.groupby('batch_id')['duration'].sum().mean())
                            if len(sst) else float('nan')),

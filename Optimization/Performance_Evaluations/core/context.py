@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sqlite3
 
 from Schema import compat as _compat
 from Schema import identity as _identity
@@ -94,6 +95,26 @@ REQUIRES = _compat.Requires(
     })
 
 
+def _column_evidence(con) -> tuple:
+    """Capabilities this file proves by CARRYING A COLUMN rather than by holding rows.
+
+    The row probe cannot settle these. `batch_stats` is in every vetted shape and every run
+    writes rows into it, so `has_rows` answers True on a vintage that has neither placement
+    -score column — and the evaluation would then render a run's missing measurement as
+    zeros, which is the one outcome the era gate exists to prevent. `Capability(table=None)`
+    is the registry's idiom for evidence the probe cannot reach; this is the caller side of
+    it, which is why the column list lives beside the DDL and not here.
+    """
+    from Optimization.persistence.Picking_Data import (
+        BATCH_PLACEMENT_SCORE_COLS, CAP_PLACEMENT_SCORE)
+    try:
+        have = {r[1] for r in con.execute('PRAGMA table_info(batch_stats)')}
+    except sqlite3.Error:
+        return ()
+    return ((CAP_PLACEMENT_SCORE,)
+            if set(BATCH_PLACEMENT_SCORE_COLS) <= have else ())
+
+
 def _probe_capabilities(strategies, log: logging.Logger) -> frozenset:
     """Which optional sources EVERY arm of this context can actually answer from.
 
@@ -124,7 +145,8 @@ def _probe_capabilities(strategies, log: logging.Logger) -> frozenset:
         con = _connect.read_only(path, immutable=True)
         try:
             per_arm.append(_capability.probe(con, SIM_CAPABILITIES.values(),
-                                             run_id=s.get('run_id')))
+                                             run_id=s.get('run_id'),
+                                             extra=_column_evidence(con)))
         finally:
             con.close()
     have = frozenset.intersection(*per_arm) if per_arm else frozenset()

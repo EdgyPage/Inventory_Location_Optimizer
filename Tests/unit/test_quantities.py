@@ -77,6 +77,13 @@ _ADDED_METRICS = [
     ('total_production_time', 'work',      'production_seconds', True),
     ('putaway_time',          'work',      'put_seconds',        True),
     ('unload_time',           'work',      'unload_seconds',     True),
+    # 2026-09-19, the phase-2 placement score. Every metric above it is a FLOW, and a
+    # flow total over a window long enough to unload everything is invariant to an inbound
+    # ORDERING policy -- which is why phase 2's first ranking came back an exact tie. These
+    # two are a STATE read: what the run's planned batches would cost served from where the
+    # stock currently stands, and the half of that demand no shelf can serve.
+    ('pick_owed_s',           'batch',     'pick_owed_s',        True),
+    ('unservable_weight',     'batch',     'unservable_weight',  True),
 ]
 
 
