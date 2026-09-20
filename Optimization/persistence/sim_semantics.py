@@ -51,6 +51,14 @@ SIM_DB_SEMANTICS: dict = {
                                   note='per-ARM axis: two arms’ stamps are not comparable'),
         'batch_end_time':     Col(STAMP, 's', 'arm', clock=SIM),
         'sigma_fd':           Col(SCORE, 's-weighted', 'batch'),
+        'pick_owed_s':        Col(SCORE, 's', 'batch',
+                                  note='pick seconds the PLANNED demand owes this '
+                                       'placement; read with unservable_weight, never '
+                                       'alone -- an absent SKU costs it nothing'),
+        'unservable_weight':  Col(SCORE, 'lines', 'batch',
+                                  note='planned demand pick_owed_s declined to price '
+                                       '(no shelf stock); non-zero means the score was '
+                                       'decided by availability, not placement'),
         'reload_moves':       Col(COUNT, 'moves', 'batch'),
         'reorder_placements': Col(COUNT, 'units', 'batch', account=PACKS,
                                   note='storage units placed, not merchandise'),

@@ -2,10 +2,17 @@
 
 `OptimalLayoutMixin` holds the benchmark/optimal-placement methods.  Mixed into
 Inventory_Manager so the public API (`place_optimal`, `optimal_sigma_fd`, `optimal_work`,
-`build_optimal_map`, `current_sigma_fd`, `enable_sigma_fd`, `tracked_sigma_fd`) is
-unchanged.  All instance state it reads (`self._key`, `self._execute_placement`,
-`self._originals`, `self._unavailable`, `self._bin_pref`, `self._map_target`,
-`self._sigma_*`) is initialised by Inventory_Manager.__init__.
+`build_optimal_map`, `current_sigma_fd`, `enable_sigma_fd`, `tracked_sigma_fd`,
+`enable_pick_owed`, `pick_owed`) is unchanged.  All instance state it reads (`self._key`,
+`self._execute_placement`, `self._originals`, `self._unavailable`, `self._bin_pref`,
+`self._map_target`, `self._sigma_*`, `self._po_*`) is initialised by
+Inventory_Manager.__init__.
+
+TWO SCORES OVER ONE PLACEMENT, and the difference is the point.  `optimal_work` is the
+FLOOR -- what the planned demand would cost if every unit sat in its labour-optimal bin.
+`pick_owed` is what it costs from where the stock actually IS at this instant.  They share
+`per_pick`, so the gap between them is a property of the placement and not of two
+arithmetics that drifted.
 """
 from __future__ import annotations
 
@@ -339,3 +346,92 @@ class OptimalLayoutMixin:
     def tracked_sigma_fd(self) -> float:
         """The incrementally-maintained Sigma f*D (see enable_sigma_fd).  O(1)."""
         return self._sigma_fd
+
+    # ── the pick work owed by the current placement ────────────────────────────────
+    # WHY A SECOND ACCUMULATOR.  Sigma f*D above is the convergence metric and is
+    # deliberately quantity-blind (a top-up into an occupied bin does not move it) and
+    # height-blind.  Neither is a defect there -- it measures how well the OCCUPANCY is
+    # arranged.  It cannot answer "what will the planned demand cost to serve from here",
+    # which needs the height bracket and the pieces a pick handles, so extending it in
+    # place would break the thing it is already trusted for.
+
+    def enable_pick_owed(self, weight_of: dict, qty_of: dict, orders: list[Order], wp) -> None:
+        """Bind the planned demand and the pick cost that `pick_owed` scores against.
+
+        `weight_of` is the DEMAND WEIGHT per SKU -- the planned lines the run will actually
+        ask for, summed off the precomputed batch script.  It is not `relative_frequency`:
+        the script is what the run runs, it is identical across every cell of a matrix (one
+        frozen inventory, one seed), and using it means the score answers "against the
+        batches this run will field" rather than "against the distribution they were drawn
+        from".  A caller with no script (the inline-sampling fallback) may pass the
+        frequencies instead; the score is then the expectation rather than the realisation.
+
+        `qty_of` is the planned pieces per pick, and `orders`/`wp` supply the per-SKU
+        handling term -- both fixed for the run, so the per-SKU coefficient is resolved
+        ONCE here and the per-batch read is a lookup and two multiplies per occupied bin.
+
+        ONE cost expression, shared with `_optimal_work_assign` through `per_pick`: the
+        score and the floor it is read against must be the same arithmetic or their ratio
+        means nothing.  `wp` is this leaf's channel cost (a channel run sets
+        `wp.by_regime = None`), which is why no per-regime resolution happens here."""
+        self._po_x = sec_per_inch(wp.x_speed)
+        self._po_y = sec_per_inch(wp.y_speed)
+        self._po_brackets = tuple(getattr(wp, 'height_brackets', ()) or ())
+        intercept = wp.pick_intercept
+        per_item = wp.pick_per_item
+        # h_s = intercept + q·per_item + q·v_s -- the M-coefficient of one pick, at
+        # mult=1 so the bin's own M(y) scales it in `pick_owed`.
+        self._po_hand = {
+            c.sku: per_pick(1.0, intercept, self._handle_var(c, _wp_for(wp, c)),
+                            qty_of.get(c.sku, 0.0), per_item)
+            for c in orders}
+        self._po_weight = dict(weight_of)
+
+    def pick_owed(self) -> tuple[float, float]:
+        """`(seconds owed, unservable weight)` for the planned demand, from where the
+        stock is RIGHT NOW.
+
+            seconds owed      = Σ over SKUs with shelf stock of
+                                  w_s · mean over that SKU's bins of
+                                    [ D(bin) + M(y_bin) · h_s ]
+            unservable weight = Σ w_s over planned SKUs with NO shelf stock
+
+        THE MEAN OVER THE SKU'S OWN BINS, not a sum: a line asks for the SKU once and is
+        served from one of its locations, so holding the same SKU in four bins does not
+        cost four picks.  Summing instead would score a well-stocked SKU as expensive and
+        invert the whole metric.
+
+        THE TWO NUMBERS ARE RETURNED TOGETHER AND NEITHER IS COMPLETE ALONE.  A SKU with
+        nothing on a shelf contributes NOTHING to the first term -- absence reads as free
+        -- so a caller that ranked on `seconds owed` by itself would rank "leave it in the
+        yard" first, which is the exact inversion this pairing exists to prevent.  The
+        second number is what says how much of the planned demand the first one declined
+        to price.  No penalty is fabricated for it here: what an unserved line will
+        eventually cost depends on where that stock lands, which this function cannot see.
+
+        One pass over the occupied bins, plus one over the SKUs that have any.  That is the
+        same order as the conservation ledger's own per-batch walk; it is a separate pass
+        rather than a fold into it so this cost model stays inside the inventory layer."""
+        if self._po_weight is None:
+            return 0.0, 0.0
+        cost_sum: dict = defaultdict(float)
+        n_bins: dict = defaultdict(int)
+        xs, ys, brackets = self._po_x, self._po_y, self._po_brackets
+        hand = self._po_hand
+        for b in self._unavailable.values():
+            st = b.storage
+            if st is None:
+                continue
+            sku = st.order.sku
+            cost_sum[sku] += (xs * b.x_phys + ys * b.y_phys
+                              + height_multiplier(brackets, b.y_phys) * hand.get(sku, 0.0))
+            n_bins[sku] += 1
+        owed = 0.0
+        unservable = 0.0
+        for sku, w in self._po_weight.items():
+            n = n_bins.get(sku, 0)
+            if n:
+                owed += w * (cost_sum[sku] / n)
+            else:
+                unservable += w
+        return owed, unservable

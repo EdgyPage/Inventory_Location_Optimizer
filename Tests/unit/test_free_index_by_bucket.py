@@ -246,6 +246,11 @@ def test_the_vintages_before_the_table_read_unknown_never_zero(tmp_path, vintage
     # assert-the-bound-id step exists to make loud (memory
     # `immutable-readers-see-only-the-checkpointed-file`).
     con.execute('DROP TABLE site_receiving')
+    # The placement score postdates both vintages too (2026-09-19), and for the same
+    # reason must come back off the fake: today's schema carries it, neither of these ever
+    # did, so a fake that keeps it re-derives to an id no run ever wrote.
+    for _c in ('pick_owed_s', 'unservable_weight'):
+        con.execute(f'ALTER TABLE batch_stats DROP COLUMN {_c}')
     con.execute('ALTER TABLE batch_stats DROP COLUMN put_spills')
     con.execute('ALTER TABLE bin_placement DROP COLUMN unit_size')
     con.execute('ALTER TABLE bin_placement DROP COLUMN bin_size')

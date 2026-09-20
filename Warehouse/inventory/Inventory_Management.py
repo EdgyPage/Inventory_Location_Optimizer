@@ -378,6 +378,16 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         self._sigma_y: float = 0.0   # per-inch PACE (sec_per_inch of the ft/s y_speed)
         self._sigma_fd: float = 0.0
 
+        # The PICK WORK OWED score (`enable_pick_owed` / `pick_owed`) — what the planned
+        # demand will cost to serve from the CURRENT placement.  None until the harness
+        # binds a demand weighting and a pick cost; see `enable_pick_owed` for why this is
+        # a second accumulator rather than an extension of Sigma f*D above.
+        self._po_weight: dict | None = None     # sku -> planned lines (the demand weight)
+        self._po_hand: dict = {}                # sku -> per-pick handling at its planned qty
+        self._po_x: float = 0.0                 # per-inch PACE, as _sigma_x
+        self._po_y: float = 0.0
+        self._po_brackets: tuple = ()           # height brackets M(y)
+
         # Put-away timing.  None until enable_putaway_timing() binds a crew speed + cost
         # model; then every _execute_placement costs seconds and appends a record.
         # OFF by default so a test, a Diagnostics probe or any direct caller that has no

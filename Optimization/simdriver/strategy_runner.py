@@ -1768,6 +1768,21 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # Seed the incremental Sigma f*D tracker once; per-batch reads are then O(1)
     # (maintained on placement/eviction/pick-empty) instead of a full bin scan.
     mgr.enable_sigma_fd(freq_by_sku, opt_x, opt_y)
+    # WHAT THE PLANNED DEMAND WILL OWE THE PLACEMENT (`Inventory_Manager.pick_owed`).  The
+    # weight is the SCRIPT -- the lines these exact batches ask for, summed once here --
+    # because that is what the run will actually field, and because every cell of a matrix
+    # draws the same script from the same frozen inventory and seed, so two cells' scores
+    # differ only by where their stock ended up.  Falling back to `freq_by_sku` when this
+    # worker is sampling inline keeps the score defined; it is then the expectation rather
+    # than the realisation, which the ranking states.
+    _po_weight = freq_by_sku
+    if batches is not None:
+        _lines: dict = {}
+        for _b in batches[:n_batches]:
+            for _sku in _b.items:
+                _lines[_sku] = _lines.get(_sku, 0.0) + 1.0
+        _po_weight = _lines
+    mgr.enable_pick_owed(_po_weight, qty_by_sku, inventory.orders, wp)
 
     # ── the two crews, and the axis they share ─────────────────────────────────
     # The pick crew's mode comes from the channel's PickerProfile ('store_machine' is a
@@ -2518,6 +2533,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # draining it here would hide exactly that finding.
         _rwk = asm.mgr.snapshot_putaway_rework()
         _free = asm.mgr.free_bin_depth()
+        # WHAT THE PLANNED DEMAND OWES THIS PLACEMENT, at the same instant as the levels
+        # above and for the same reason: after the restock pass, before this batch's picks,
+        # so the score reads the shelf the batch is about to be served from.  A level, not
+        # a flow -- see `Inventory_Manager.pick_owed`, and read the pair together.
+        # `(0.0, 0.0)` when the arm did not arm the score, which is what an older run and
+        # a flag-off run both look like.
+        _owed, _unserv = asm.mgr.pick_owed()
         asm.fi.extend((i, *_k, _n) for _k, _n in asm.mgr.free_bin_depth_by_bucket())
         # The yard's two row sources, drained here for `queue_state_rows`' reason: both
         # RESET, so exactly one call per batch, above the skip guard so a skipped batch
@@ -2719,6 +2741,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             (_bs.put_topups, _bs.put_spills,
              _bs.recv_repacks, _bs.recv_repacked_packs) = _rwk
             _bs.free_bins = _free
+            _bs.pick_owed_s, _bs.unservable_weight = _owed, _unserv
             _bs.released_late = bstate.late
             asm.pb.append(_bs)
             asm.we.extend(_we_skip)
@@ -2801,6 +2824,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         (bs.recv_depth, bs.recv_unloaded, bs.recv_cut, bs.recv_seconds) = _rcv
         (bs.put_topups, bs.put_spills, bs.recv_repacks, bs.recv_repacked_packs) = _rwk
         bs.free_bins = _free
+        bs.pick_owed_s, bs.unservable_weight = _owed, _unserv
         bs.released_late      = bstate.late
         # THE CARRY: everything this batch was asked for and did not pick, by CAUSE.  Each
         # number comes from the place that knows it -- none is re-derived as a residual,

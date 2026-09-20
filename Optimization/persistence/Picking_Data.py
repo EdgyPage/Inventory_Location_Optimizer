@@ -60,6 +60,8 @@ class BatchStats:
     batch_start_time: float = 0.0 # min picker-event time (batch-relative clock)
     batch_end_time:   float = 0.0 # max picker-event time (≈ duration)
     sigma_fd: float = 0.0         # realised demand-weighted within-aisle travel (Sigma f*D)
+    pick_owed_s: float = 0.0      # pick seconds the PLANNED demand owes this placement
+    unservable_weight: float = 0.0  # planned weight pick_owed_s could not price (no shelf stock)
     reload_moves: int = 0         # re-slot bin moves this batch (layout churn)
     reorder_placements: int = 0   # reorder unit PLACEMENTS this batch (units binned; restock churn)
     skus_reordered: int = 0       # distinct SKUs reordered this batch (N in the reorder log line)
@@ -381,6 +383,28 @@ _CREATE_BATCH_STATS = """
         -- vintage (`_bdf` fills None, and the rework clause omits it) rather than as a floor
         -- of zero, which would read as an exhausted index.
         free_bins              INTEGER NOT NULL DEFAULT 0,
+        -- ── what the planned demand owes the current placement ───────────────────
+        -- SCORE: the pick seconds the run's PLANNED batches would cost served from where
+        -- the stock stands at this batch -- `Inventory_Manager.pick_owed`, the same
+        -- `per_pick` arithmetic as the `optimal_work` floor on `simulation_runs`, so the
+        -- two divide.  A placement score, NOT a flow: do not sum it across batches.
+        --
+        -- It exists because an INBOUND ORDERING policy changes only WHEN stock reaches a
+        -- shelf, never how much work a run contains, so every flow total is invariant to
+        -- it -- phase 2's ranking on `ss_prod_total` came out an exact tie on every cell
+        -- and fell through to name order.
+        --
+        -- 0 on every run before 2026-09-19 and on any run whose worker did not arm the
+        -- score.  0 is NOT a floor a real run could reach, so readers surface the pre-
+        -- vintage value as UNKNOWN rather than as a perfect placement (the `put_spills`
+        -- rule above, not the `put_topups` one).
+        pick_owed_s            REAL    NOT NULL DEFAULT 0,
+        -- The planned demand weight `pick_owed_s` DECLINED TO PRICE, because those SKUs
+        -- had nothing on a shelf.  The two are one reading: an absent SKU costs the score
+        -- nothing, so `pick_owed_s` alone would rank "leave it in the yard" first.  A run
+        -- where this is materially non-zero was decided by availability, not by placement,
+        -- and the ranking refuses it rather than reporting an order.
+        unservable_weight      REAL    NOT NULL DEFAULT 0,
         is_outlier             INTEGER NOT NULL DEFAULT 0
     )
 """
@@ -1346,7 +1370,16 @@ SIM_DB_FAMILY = _identity.register(_identity.Family(
     #                 is no optional-fill to negotiate because there is no column on an
     #                 existing table.  The only thing that MOVED on an uncoupled run is this
     #                 stamp itself.
-    known_ids=('d9854632d1b0',  # the three unread indexes, before the deletion test:
+    known_ids=('4e13ed321df9',  # before the placement score: 2026-09-17 (145800bb) ..
+                                # 2026-09-19 (0b4eb92a).  `batch_stats` gains `pick_owed_s`
+                                # and `unservable_weight` -- what the PLANNED demand owes
+                                # the current placement, and the weight that score declined
+                                # to price.  A pure addition, so this id is served by the
+                                # `PRE_PICK_OWED_SIM_SCHEMA_ID` override, which omits both
+                                # and lets the optional fill read them UNKNOWN: a 0 would
+                                # be the best score the column can take, and every
+                                # unscored run would outrank every measured one.
+              'd9854632d1b0',  # the three unread indexes, before the deletion test:
                                 # 2026-09-17 (145800bb .. e54489bb).  `ix_bp_bin`,
                                 # `ix_be_bin` and `ix_picks_run_sku` existed on every
                                 # run written in this window and are absent after it.
@@ -1704,14 +1737,22 @@ _BATCH_OPTIONAL = {'task_makespan': 0.0, 'thr_task': 0.0, 'thr_batch': 0.0,
                    'free_bins': None,
                    # None for the same reason: the chain spilled up on every vintage that
                    # had a tier ladder, and only this one counts it.
-                   'put_spills': None}
+                   'put_spills': None,
+                   # None for the same reason again, and it is the sharper case of the two:
+                   # every earlier run HAD a placement that owed the planned demand real
+                   # seconds and simply never scored it.  A 0 here would read as a perfect
+                   # placement -- the best score the column can take -- so a pre-vintage run
+                   # would outrank every run that measured itself.
+                   'pick_owed_s': None,
+                   'unservable_weight': None}
 #: The optional columns whose fill is None BY DESIGN -- a vintage that never recorded them
 #: reads UNKNOWN, never zero -- so the type gate (`test_written_columns_are_readable`) asserts
 #: the None rather than the column's INTEGER.  Every other optional default is the true
 #: pre-vintage value in the column's own type.  The legacy loader body (unvetted archive
 #: vintages) sets the same two to None explicitly, since the dataclass default is a WRITER's
 #: default and that body is the one place it would otherwise be READ.
-BATCH_UNKNOWN_ON_OLDER_VINTAGES = ('free_bins', 'put_spills')
+BATCH_UNKNOWN_ON_OLDER_VINTAGES = ('free_bins', 'put_spills',
+                                   'pick_owed_s', 'unservable_weight')
 _BATCH_COLS = ('run_id', 'batch_id', 'duration', 'num_tasks', 'total_items',
                'avg_concurrent_pickers', 'picking_pct', 'traveling_pct', 'is_outlier',
                *_BATCH_OPTIONAL)
@@ -1736,6 +1777,7 @@ _BATCH_WRITE_COLS = (
     'work_day', 'released_late',
     'recv_depth', 'recv_unloaded', 'recv_cut', 'recv_seconds',
     'put_topups', 'put_spills', 'recv_repacks', 'recv_repacked_packs', 'free_bins',
+    'pick_owed_s', 'unservable_weight',
     'is_outlier',
 )
 
@@ -1940,11 +1982,22 @@ PRE_REWORK_SIM_SCHEMA_ID = '798778f4fae1'
 #: fake the vintage.
 PRE_FREE_INDEX_SIM_SCHEMA_ID = '02a78953886c'
 
+#: Everything before the placement score (2026-09-19).  `pick_owed_s` and
+#: `unservable_weight` are a pure ADDITION, and a pure addition still needs its own
+#: override: the canonical SQL names every column, so a vintage lacking these two is
+#: UNSUPPORTED by it and `load_batch_stats` would fall to its frozen legacy body instead of
+#: to the optional fill.  Omitting them here is what makes the None in `_BATCH_OPTIONAL`
+#: reachable, and therefore what stops an unscored run reading as a perfect placement.
+PRE_PICK_OWED_SIM_SCHEMA_ID = '4e13ed321df9'
+
+_dataset.override('sim_db', 'batch_frame', PRE_PICK_OWED_SIM_SCHEMA_ID,
+                  _batch_frame_sql('pick_owed_s', 'unservable_weight'))
 _dataset.override('sim_db', 'batch_frame', PRE_FREE_INDEX_SIM_SCHEMA_ID,
-                  _batch_frame_sql('put_spills'))
+                  _batch_frame_sql('put_spills', 'pick_owed_s', 'unservable_weight'))
 _dataset.override('sim_db', 'batch_frame', PRE_REWORK_SIM_SCHEMA_ID,
                   _batch_frame_sql('put_spills', 'put_topups', 'recv_repacks',
-                                   'recv_repacked_packs', 'free_bins'))
+                                   'recv_repacked_packs', 'free_bins',
+                                   'pick_owed_s', 'unservable_weight'))
 _dataset.override(
     'sim_db', 'shift_day_frame', PRE_CARRY_SPLIT_SIM_SCHEMA_ID,
     'SELECT ' + _shift_day_select(c for c in _SHIFT_DAY_COLS
