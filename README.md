@@ -289,6 +289,7 @@ python -m Optimization.run_simulation --resume <run_dir>                 # zero 
 | `--keyframe-interval` | (CONFIG: 25) | full bin snapshot every K batches (0 disables). Not the reconstruction mechanism — the bin-mutation log is; a keyframe is its independent audit and a qty anchor |
 | `--max-tasks-per-child` | 1 | recycle a pool worker after N jobs |
 | `--resume` | — | resume from a run directory; flags are read back from `run_spec.json` |
+| `--pace-from` | — | dispatch units heaviest-first, and set the heavy cells up first, from a reference run's own measurements. **Result-neutral**: same jobs, same workers, same files, different order — measured worth ~7% of the matrix wall on a ten-cell shape. Opt-in, because a mismatched reference makes the order worse than the spec order. Point it at THIS run root to self-pace a resume off its own finished arms |
 | `--resume-granularity` | `strategy` | `strategy` restarts a partial arm bit-identically; `batch` continues from checkpoint (faster, not bit-identical) |
 | `--no-analyze` | — | skip the automatic in-process analysis |
 | `--no-preflight` | — | skip the run-tree schema check |
@@ -319,12 +320,24 @@ is also settable per cell (above), which is how phase 2 sweeps ten policies in o
 
 ```
 comparison[_whatif]_<ts>/
-  run_layout.json  run_spec.json  run.log  runtime_metrics.db
+  run_layout.json  run_spec.json  run_history.json  run.log  runtime_metrics.db
   _frozen/<pair>/planned_inventory.db                 # multi-cell runs only
   <cell>/<pair>/warehouse.db
   <cell>/<pair>/<config>/config.json
   <cell>/<pair>/<config>[/<channel>]/sim_<strategy>.db (+ .keyframes.db)
   whatif_{delta,labor,volume}.{csv,json}              # multi-cell runs only
+```
+
+`run_spec.json` is the run's INVOCATION, written once at launch and never rewritten;
+`run_history.json` is one record per LAUNCH, including every resume, with how each one
+ended. A record whose `status` is null means that launch never reported back — killed,
+crashed, machine down — which is a different fact from one that failed.
+
+Beside the run roots (not inside one, so it survives a root being archived) is
+`run_index.jsonl`, one line per launch and per completion across every run. Read it with:
+
+```bash
+python scripts/run_index.py --phase 2 --status incomplete
 ```
 
 **Consume these levels positionally, never by name.** The store *config* and the store *channel*

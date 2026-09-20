@@ -12,6 +12,7 @@ byte-identical and the two runs indistinguishable.
 """
 import json
 import os
+from datetime import datetime
 import pickle
 
 
@@ -89,6 +90,166 @@ def _load_run_spec(base_dir: str):
         return None
     with open(path) as f:
         return json.load(f)
+
+
+# ── run history (run_history.json) — every LAUNCH, and how each one ended ────────
+#
+# `run_spec.json` beside it is the run's INVOCATION, written once and never rewritten: it
+# has no timestamp, no status, and no trace of the three attempts a long campaign takes.
+# So nothing durable said a run had finished, and nothing said how it was put together --
+# which phase it belongs to, which cells it declared, how many units each planned.
+#
+# APPEND-ONLY, one record per launch INCLUDING EVERY RESUME, which is the rule neither
+# existing writer has. Each record is opened at the top of a launch and closed at the tail,
+# on BOTH paths -- including the refusal path, which today raises without recording
+# anything at all.
+
+def _run_history_path(base_dir: str) -> str:
+    return os.path.join(base_dir, 'run_history.json')
+
+
+def read_run_history(base_dir: str) -> list:
+    """The launch records for one run root, oldest first.  `[]` when there are none.
+
+    Tolerant of a truncated or hand-edited file: this is a LEDGER, and a reader that raised
+    on a malformed one would take a whole campaign's history with it. A file that cannot be
+    parsed reads as no history, and the next append starts a fresh list beside it.
+    """
+    path = _run_history_path(base_dir)
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding='utf-8') as f:
+            doc = json.load(f)
+    except Exception:                                  # noqa: BLE001 - a ledger never raises
+        return []
+    return doc if isinstance(doc, list) else []
+
+
+def open_run_record(base_dir: str, record: dict) -> int:
+    """Append a launch record and return its ATTEMPT NUMBER (1 for the first).
+
+    Called after the preflight gate, at the one point where the whole construction is in
+    scope: before it, a failed preflight's cleanup could tear a record that describes a run
+    that never began.
+
+    `resume_of` and `attempt` are derived HERE from what is already on disk rather than
+    passed in, so a caller cannot get the chain wrong: the attempt is the count of records
+    already present plus one, and `resume_of` is the previous record's `started`.
+    """
+    hist = read_run_history(base_dir)
+    rec = {
+        **record,
+        # AFTER the caller's fields, not before: spread first, these three would be
+        # overridable, and a caller that passed its own `attempt` could re-use a number and
+        # leave two records claiming to be attempt 1 -- which is how a torn campaign comes
+        # to read as a clean one. They are derived from what is on disk and nothing else.
+        'attempt': len(hist) + 1,
+        'resume_of': hist[-1].get('started') if hist else None,
+        'started': datetime.now().isoformat(timespec='seconds'),
+        **repo_provenance(),
+        # Closed by `close_run_record`. Present and null from the start so a record that was
+        # never closed -- a kill, a crash, a machine that lost power -- is DISTINGUISHABLE
+        # from one that finished: `status: null` means "this launch never reported back",
+        # which is a different fact from "it failed".
+        'status': None, 'ended': None, 'unfinished': None, 'analysis_ran': None,
+    }
+    _write_history(base_dir, hist + [rec])
+    return rec['attempt']
+
+
+def close_run_record(base_dir: str, attempt: int, *, status: str,
+                     unfinished=None, analysis_ran=None) -> None:
+    """Stamp the outcome onto the record `open_run_record` returned.
+
+    BEST-EFFORT AND SILENT. A ledger write that sank a finished twelve-hour run would be
+    worse than the gap it closes; an unclosed record already reads as "never reported back".
+    """
+    try:
+        hist = read_run_history(base_dir)
+        for rec in hist:
+            if rec.get('attempt') == attempt:
+                rec['status'] = status
+                rec['ended'] = datetime.now().isoformat(timespec='seconds')
+                rec['unfinished'] = unfinished
+                rec['analysis_ran'] = analysis_ran
+                break
+        else:
+            return
+        _write_history(base_dir, hist)
+    except Exception:                                  # noqa: BLE001
+        pass
+
+
+def _write_history(base_dir: str, hist: list) -> None:
+    path = _run_history_path(base_dir)
+    tmp = f'{path}.tmp.{os.getpid()}'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(hist, f, indent=2)
+    os.replace(tmp, path)
+
+
+# ── the cross-run ledger ──────────────────────────────────────────────
+#
+# OUTSIDE every run root, and therefore outside the run-tree contract: no schema id moves,
+# no canary runs are needed to add it, and a run root that is archived or deleted leaves its
+# lines behind. One line per launch and one per completion, appended.
+#
+# This is what turns "which runs were phase 2, and did they finish?" from N file opens into
+# one read. The per-run history above is the authority; this is the index.
+
+RUN_INDEX_NAME = 'run_index.jsonl'
+
+
+def _run_index_path(base_dir: str) -> str:
+    """The ledger beside the run roots — the PARENT of this run's directory.
+
+    Derived from the run root rather than read from the environment, so a run written
+    somewhere other than the configured output directory indexes itself where it actually
+    landed instead of into a ledger that describes a different tree.
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(base_dir.rstrip(os.sep))),
+                        RUN_INDEX_NAME)
+
+
+def append_run_index(base_dir: str, event: str, payload: dict) -> None:
+    """Append one line to the cross-run ledger.  BEST-EFFORT: never raises, never blocks.
+
+    A failure to write an index entry must not sink a run -- the run's own history file is
+    the authority and this is a convenience over it.
+    """
+    try:
+        line = {'event': event,
+                'at': datetime.now().isoformat(timespec='seconds'),
+                'run': os.path.basename(os.path.abspath(base_dir.rstrip(os.sep))),
+                'root': os.path.abspath(base_dir.rstrip(os.sep)),
+                **payload}
+        with open(_run_index_path(base_dir), 'a', encoding='utf-8') as f:
+            f.write(json.dumps(line) + chr(10))
+    except Exception:                                  # noqa: BLE001
+        pass
+
+
+def read_run_index(out_dir: str) -> list:
+    """Every ledger line under one output directory, oldest first.
+
+    A malformed line is SKIPPED rather than fatal, for the reason the history reader gives:
+    a ledger that raises takes a campaign's worth of records with it.
+    """
+    path = os.path.join(os.path.abspath(out_dir), RUN_INDEX_NAME)
+    if not os.path.exists(path):
+        return []
+    out = []
+    with open(path, encoding='utf-8') as f:
+        for raw in f:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                out.append(json.loads(raw))
+            except Exception:                          # noqa: BLE001
+                continue
+    return out
 
 
 # ── run layout (run_layout.json) — the unified cell-tree descriptor ─────────────

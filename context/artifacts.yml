@@ -78,7 +78,29 @@ artifacts:
     fields: [argv, n_batches, max_skus, s_max_aisles, s_max_bins, s_min_bins, ff_max_aisles,
              ff_max_bins, ff_min_bins, s_composition, keyframe_interval, whatif, spec, profiles_dir,
              all_profiles, workers, max_tasks_per_child, max_retries, resume_granularity, pairs,
-             repo_commit, repo_dirty, staffing]
+             repo_commit, repo_dirty, staffing, pace_from]
+
+  run_history:
+    # EVERY LAUNCH of one run root, including each resume, and how each one ended.  The gap it
+    # closes: `run_spec.json` beside it is the INVOCATION -- written once, never rewritten, no
+    # timestamp and no status -- so nothing durable said a run had finished, and a resume left
+    # no structured trace anywhere.  Append-only; `open_run_record` derives `attempt` and
+    # `resume_of` from what is already on disk rather than taking them from a caller.
+    #
+    # A record whose `status` is null means that launch NEVER REPORTED BACK -- killed,
+    # crashed, power lost -- which is a different fact from one that failed, and the two are
+    # never merged.  Written after the preflight gate so a preflight that stops the run leaves
+    # no phantom record, and closed on BOTH paths out, including the refusal.
+    path_pattern: "comparison_<ts>/run_history.json"
+    format: json
+    writer: {function: open_run_record, file: Optimization/runschema/sim_manifest.py}
+    readers:
+      - {function: read_run_history, file: Optimization/runschema/sim_manifest.py}
+      - {function: rows, file: scripts/run_index.py}
+    match: "run_history.json"
+    fields: [attempt, resume_of, started, argv, spec, phase, pairs, workers, resume,
+             pace_from, n_batches, coupled, cells, no_analyze, repo_commit, repo_dirty,
+             status, ended, unfinished, analysis_ran]
 
   run_layout:
     # The unified cell-tree descriptor (cells/reference/configs/pairs), written at run start so any

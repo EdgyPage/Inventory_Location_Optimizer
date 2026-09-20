@@ -955,7 +955,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 
-def _refuse_incomplete(info: dict, base_dir: str, log) -> None:
+def _refuse_incomplete(info: dict, base_dir: str, log, attempt=None) -> None:
     """Exit 1, and run NO analysis, when the matrix left units unrecovered.
 
     THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  The pool driver (today
@@ -975,6 +975,16 @@ def _refuse_incomplete(info: dict, base_dir: str, log) -> None:
     if not left:
         return
     n = sum(len(v) for v in left.values())
+    # THE REFUSAL PATH RECORDS TOO, and it is the path that most needed to: a run that
+    # stopped here is exactly the one somebody will come back to days later asking what
+    # happened. It raises immediately after, so the stamp goes on first.
+    if attempt is not None:
+        from Optimization.runschema.sim_manifest import append_run_index, close_run_record
+        _by_cell = {c: len(u) for c, u in sorted(left.items())}
+        close_run_record(base_dir, attempt, status='incomplete', unfinished=_by_cell,
+                         analysis_ran=False)
+        append_run_index(base_dir, 'finished', {'attempt': attempt, 'status': 'incomplete',
+                                                'unfinished': n})
     bar = '!' * 72
     log.error(bar)
     log.error(f'  {n} unit(s) UNRECOVERED across {len(left)} cell(s); the run is INCOMPLETE and '
@@ -1332,6 +1342,46 @@ def main():
         f'config(s), swept independently per channel  |  flat pool workers={workers}'
     )
 
+    # THE LAUNCH RECORD, opened HERE: after the preflight gate (so a preflight that stops
+    # the run leaves no phantom record) and after the execution plan is resolved (so the
+    # record describes the run that is about to happen rather than the flags that asked for
+    # it). Both writes are best-effort inside the module -- a ledger must never sink a run.
+    _attempt = None
+    try:
+        from Optimization.runschema.sim_manifest import (
+            append_run_index, close_run_record, open_run_record)
+        # THE CELLS, from the same pure builder the driver uses, not from a `cells` key the
+        # spec does not have -- a spec declares AXES and the cells are their product. Read
+        # here rather than after the matrix so the record describes the run as CONSTRUCTED,
+        # which is what it is for; the driver builds the identical list moments later.
+        from Optimization.simdriver.cells import _build_cells as _bc
+        _cells = [c.name for c in _bc(spec_dict)]
+        _record = {
+            'argv': sys.argv[1:],
+            'spec': spec_name,
+            # DECLARED, never inferred from the spec name: the funnel's phases are a
+            # decision about what a run is FOR, and a name that happens to contain
+            # `inbound` says nothing about which phase ranks what.
+            'phase': spec_dict.get('phase'),
+            'pairs': [p[0] for p in pairs],
+            'workers': workers,
+            'resume': bool(args.resume),
+            'pace_from': args.pace_from,
+            'n_batches': CONFIG['global'].get('n_batches'),
+            'coupled': bool((spec_dict.get('run_defaults') or {}).get('couple_channels')),
+            'cells': _cells,
+            'no_analyze': bool(args.no_analyze),
+        }
+        _attempt = open_run_record(base_dir, _record)
+        append_run_index(base_dir, 'launched', {'attempt': _attempt,
+                                                'spec': spec_name,
+                                                'phase': _record['phase'],
+                                                'resume': _record['resume']})
+        log.info(f'  [history] launch {_attempt} recorded'
+                 + (f" (phase {_record['phase']})" if _record['phase'] else ''))
+    except Exception as exc:                           # noqa: BLE001 - never sink a run
+        log.warning(f'  [history] could not record this launch: {exc!r}')
+
     # EVERY run is a cell matrix (whatif_config.SPECS): a plain run is the single cell k1_off; a
     # sweep spec is >1 cell.  One driver, one tree — each cell is its own scenario subtree.
     log.info(f'Spec: {spec_name}')
@@ -1339,7 +1389,7 @@ def main():
                               max_retries=args.max_retries, resume_granularity=args.resume_granularity,
                               max_tasks_per_child=args.max_tasks_per_child,
                               pace_from=args.pace_from)
-    _refuse_incomplete(info, base_dir, log)
+    _refuse_incomplete(info, base_dir, log, attempt=_attempt)
 
     # ── one command: run the analysis in-process right after the sim (unless --no-analyze) ──
     if not args.no_analyze:
@@ -1353,6 +1403,16 @@ def main():
         analyze_run(base_dir, log, cells=info['cells'],
                     workers=_aw, reference=info['reference'],
                     granularity=('graph' if _aw > 1 else 'config'))
+
+    if _attempt is not None:
+        # Re-imported rather than reused from the block above: that block is inside a `try`
+        # whose failure leaves `_attempt` None, and a name bound only on the success path is
+        # a NameError waiting for the first machine that cannot write the ledger.
+        from Optimization.runschema.sim_manifest import append_run_index, close_run_record
+        close_run_record(base_dir, _attempt, status='complete', unfinished={},
+                         analysis_ran=not args.no_analyze)
+        append_run_index(base_dir, 'finished', {'attempt': _attempt, 'status': 'complete',
+                                                'analysis_ran': not args.no_analyze})
 
     log.info(f'\nAll simulations complete.  Root: {base_dir}'
              + ('' if not args.no_analyze else

@@ -504,6 +504,12 @@ SPECS = {
         'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
         'schedulers': ['lpt'], 'arms': 'all', 'reference': 'k1_off',
         'run_defaults': PHASE1_RUN_DEFAULTS,
+        # DECLARED, never inferred from the spec name.  Which phase a run belongs to is a
+        # decision about what it is FOR -- phase 1 ranks restocking rules on picking labour,
+        # phase 2 ranks unloading policies on the placement score -- and a name containing
+        # `inbound` says nothing about which.  Carried into the launch record and the
+        # cross-run ledger, which is what makes "which runs were phase 2?" one read.
+        'phase': 1,
     },
     # ── the funnel, phase 2: ten inbound policies over phase 1's chosen rule PAIRS ────
     # `rule_pairs` is PHASE2_PAIRS: None until the selection artifact is read, and refused
@@ -524,7 +530,41 @@ SPECS = {
         'inbound': phase2_inbound_axis(),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
+        'phase': 2,
     },
+    # ── phase 2 WITHOUT phase 1's answer: the same ten cells under the rider alone ────
+    #
+    # PHASES 1 AND 2 ARE SEQUENCING-INDEPENDENT, established 2026-09-19.  The geometry is
+    # shared by construction -- a multi-cell run freezes the inventory once per pair at run
+    # level before any cell scope opens, so all ten phase-2 cells including `inb_off` plan
+    # the identical warehouse, and phase 1 was deliberately moved to the same arrival regime.
+    # The only machine-enforced cross-phase dependency is the staffing pin, a DIGEST of the
+    # derivation keyed by inventory-pair label: it does not require phase 1 to have run, only
+    # that the warehouse be the one whose digest was copied, and either phase can produce it.
+    # The chosen rule pairs are not checked against phase 1 at all.
+    #
+    # So the ONLY thing forcing sequence is that `inbound_policies` names phase 1's winner
+    # through `PHASE2_PAIRS`.  This spec drops that: the same inbound axis under the `fifo`
+    # rider, which is pre-committed and needs no selection artifact.  Run it and phase 1
+    # together and they are "magic pick" and "magic unload", in parallel, with phase 3 the
+    # cross of the two winner sets.
+    #
+    # REGISTERED, NOT RECOMMENDED YET.  Under FIFO restock the unload policy is BIT-IDENTICAL
+    # by construction -- FIFO ignores rank when it places, so arrival order cannot change
+    # placement -- which makes the rider pair a guaranteed exact tie and this spec's own
+    # ranking uninformative about the policies. Its value is the parallel LICENCE and the
+    # yard/receiving evidence it produces, not a winner. Launching it is a decision to take
+    # deliberately, which is why it is a named spec rather than a flag on the other one.
+    'inbound_unload_rider': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': (('fifo', 'fifo'),),
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': phase2_inbound_axis(),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'phase': 2,
+    },
+
     # ── the funnel's PILOT GATE: one throwaway cell that decides whether the campaign runs ──
     # Deliberately NOT a phase-2 cell — the arm set is not known until phase 1 ends, so reuse
     # would be circular.  Its job is to answer 10's two acceptance criteria (yard contention
@@ -570,6 +610,7 @@ SPECS = {
         'inbound': phase2_inbound_axis(),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
+        'phase': 2,
     },
     # THE CAMPAIGN-SCALE BYTE-IDENTITY PROBE: `inbound_unload`'s reference cell and its first
     # priced cell, and nothing else, so a run of it can be digested CELL BY CELL against a

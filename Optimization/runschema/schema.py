@@ -226,6 +226,15 @@ ARTIFACTS = {
     'run_spec': {
         'path': 'run_spec.json', 'format': 'json', 'scope': 'run',
         'writer': '_write_run_spec@Optimization/runschema/sim_manifest.py'},
+    'run_history': {
+        'path': 'run_history.json', 'format': 'json', 'scope': 'run',
+        'writer': 'open_run_record@Optimization/runschema/sim_manifest.py',
+        'note': 'every LAUNCH of this run root, including each resume, and how each one '
+                'ended. `run_spec.json` beside it is the INVOCATION -- written once, never '
+                'rewritten, no timestamp and no status -- so before this nothing durable '
+                'said a run had finished, and a resume left no structured trace anywhere. '
+                'A record with a null `status` means that launch never reported back, '
+                'which is a different fact from one that failed.'},
     'run_log': {
         'path': 'run.log', 'format': 'text', 'scope': 'run',
         'writer': '_setup_logging@Optimization/config/sim_config.py'},
