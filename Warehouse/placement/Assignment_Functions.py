@@ -289,6 +289,28 @@ def _placed_union(aisle_idx_sets):
     return u() if u is not None else set().union(*aisle_idx_sets.values())
 
 
+def _seed_floats(src, keys) -> dict:
+    """`{k: float(src.get(k, 0.0)) for k in keys}` -- with ONE Python frame, not one per key.
+
+    A pool seeds two running per-aisle float books at open (`_load`, `_vol_load`), each over
+    every live aisle: ~1,400 keys at campaign scale, ~650,000 opens per arm.  Handed the
+    manager's own dict that is already all C-level and this is the comprehension it always
+    was.  Handed the gain evaluator's copy-on-write view (`Inbound.gain_cow._CowFloats`) it
+    was A PYTHON CALL PER KEY, because `_CowView.get` is a Python method -- about 900 million
+    of them per arm, for a dict the pool discards after seating ~12 units.
+
+    The view answers `seed_floats` itself instead, reading its two backing dicts at C level.
+    Duck-typed rather than imported: `Warehouse/placement/` may not import `Inbound/`
+    (`context/architecture.yml`'s boundaries), and the fallback is what a plain dict takes.
+    Same keys, same values, same order -- `dict` preserves insertion order and `keys` is
+    walked once either way.
+    """
+    seed = getattr(src, 'seed_floats', None)
+    if seed is not None:
+        return seed(keys)
+    return {k: float(src.get(k, 0.0)) for k in keys}
+
+
 def _co_by_aisle(row, idx_sets, partner_aisles, freq_by_idx) -> dict:
     """{aisle: Σ (lift - 1)·f_i over the SKU's partners i placed in that aisle}, for every
     aisle that holds at least one partner -- and NOTHING for the aisles that hold none.
@@ -1460,7 +1482,7 @@ class _TravelBalancedPool(_Pool):
     __slots__ = ('_ass', '_ais', '_ads', '_apl', '_splp', '_fbs', '_qbs', '_s2i',
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
-                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_rank', '_sel', '_led',
+                 '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_sel', '_led',
                  '_pp')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
@@ -1555,7 +1577,7 @@ class _TravelBalancedPool(_Pool):
                     heapq.heapify(lst)
                     groups[m] = HeapBucket(lst)
         self._by_aisle = by_aisle
-        # THE AISLE'S FIRST-APPEARANCE RANK, and it is what makes the selection heap in `take`
+        # THE AISLE'S FIRST-APPEARANCE RANK is what makes the selection heap in `take`
         # byte-identical rather than merely equivalent.  The scan it replaces was
         # `for aid in by_aisle: if score < best_score` -- a strict `<` over a dict in insertion
         # order, so among EQUAL scores the earliest-inserted aisle wins.  A heap is not stable
@@ -1563,12 +1585,18 @@ class _TravelBalancedPool(_Pool):
         # tied aisles.  Ordering by `(score, rank)` restores the scan's rule exactly: an equal
         # score falls through to the smaller rank, which is the earlier insertion, which is the
         # aisle the scan kept.  Ranks are unique, so the pair is a strict total order.
-        self._rank = {aid: i for i, aid in enumerate(by_aisle)}
+        #
+        # IT IS NO LONGER A DICT.  The rank was `{aid: i for i, aid in enumerate(by_aisle)}` --
+        # one ~1,400-entry dict built per pool open at campaign scale, to seat ~12 units.  It
+        # had exactly two readers and neither needs the mapping: the run-boundary loop already
+        # walks `by_aisle` in order, so `enumerate` hands it the same integer; and the winner
+        # refresh pushes back the rank it just POPPED off the heap, which came from the same
+        # enumeration for the same aisle.  Same integers, same tie-break, no dict.
+        #
         # running per-aisle total (handling+travel) labor, seeded from the maintained sum
-        self._load = {aid: float(aisle_pick_load_sum.get(aid, 0.0)) for aid in by_aisle}
+        self._load = _seed_floats(aisle_pick_load_sum, by_aisle)
         # running per-aisle expected picked-volume mass (raw f*q*vol), seeded likewise
-        self._vol_load = ({aid: float(self._avs.get(aid, 0.0)) for aid in by_aisle}
-                          if self._cart_on else None)
+        self._vol_load = (_seed_floats(self._avs, by_aisle) if self._cart_on else None)
 
         self._run_sku = _NO_RUN_SKU
         self._var = self._fq = self._m_s = 0.0
@@ -1644,7 +1672,6 @@ class _TravelBalancedPool(_Pool):
             self._fq = fq = self._fbs.get(sku, 0.0) * self._qbs.get(sku, 0.0)
             self._m_s = m_s = self._svp.get(sku, 0.0) if self._cart_on else 0.0
             self._ab_cache.clear()
-            rank = self._rank
             sel = []
             # THE HOT LOOP.  At campaign scale under the gain evaluator this ran 29 million
             # aisle evaluations on a six-day coupled unit (nearly every unit opens a SKU run,
@@ -1659,7 +1686,10 @@ class _TravelBalancedPool(_Pool):
             if cart_on:
                 ass, vol_load = self._ass, self._vol_load
                 cart_coef, cap_raw = self._cart_coef, self._cap_raw
-            for aid in by_aisle:
+            # `enumerate` IS the rank -- see `_rank` in `__init__`.  `by_aisle` is walked in
+            # its own insertion order here exactly as the retired dict comprehension walked
+            # it, so `i` is the integer that dict would have returned for `aid`.
+            for i, aid in enumerate(by_aisle):
                 # ONE `_aisle_best` CALL PER LIVE AISLE, deliberately not inlined: the call
                 # is what `test_placement_selection_is_not_a_scan.py` counts to tell this
                 # rebuild from a per-take scan, and the per-call cost is now the loop over
@@ -1671,7 +1701,7 @@ class _TravelBalancedPool(_Pool):
                     if cart_on:
                         add = 0.0 if sku in ass[aid] else m_s
                         sc += cart_coef * max(0.0, (vol_load[aid] + add) / cap_raw - 1.0)
-                    sel.append((sc, rank[aid], aid))
+                    sel.append((sc, i, aid))
             heapq.heapify(sel)                   # O(A) at C level, same as the old rebuild
             self._sel = sel
         else:
@@ -1730,7 +1760,10 @@ class _TravelBalancedPool(_Pool):
         # is why the scan needed the None check at all and the heap does not.
         if ab is not None:
             sc = self._score_of(best_aid, ab, sku, fq, m_s)
-            heapq.heappush(sel, (sc, self._rank[best_aid], best_aid))
+            # `_rk` is this aisle's rank, popped two dozen lines up from the entry this push
+            # replaces.  It is the same integer the retired `_rank` dict held for `best_aid`,
+            # because both come from one `enumerate(by_aisle)` and an aisle's rank never moves.
+            heapq.heappush(sel, (sc, _rk, best_aid))
         return chosen, marginal
 
 

@@ -132,6 +132,30 @@ class _CowView:
         o = self._over
         return o[k] if k in o else self._live.get(k, default)
 
+    def seed_floats(self, keys) -> dict:
+        """`{k: float(self.get(k, 0.0)) for k in keys}` in ONE Python frame.
+
+        The pools seed their running per-aisle float books from a view at every open, over
+        every live aisle -- ~1,400 keys at campaign scale, ~650,000 opens per arm.  Written
+        as a comprehension over `self.get`, that is a Python call per key, and it was the
+        single largest thing a view cost the pool prologue.  Reading the two backing dicts
+        directly makes the whole seed one frame.
+
+        `get`'s semantics, deliberately, not `__getitem__`'s: a float falls straight through
+        without materializing, which is the whole point of `_CowFloats`.  The read-only
+        contract on what `get` hands back is satisfied by construction here, because the
+        seed COPIES each value into the pool's own dict.
+
+        Overridden by no subclass -- the float shape is the only one a pool seeds this way,
+        and a set or an inner mapping would need a copy per key rather than a `float()`.
+        The caller (`Assignment_Functions._seed_floats`) duck-types it, because
+        `Warehouse/placement/` may not import this package.
+        """
+        over, live = self._over, self._live
+        if not over:
+            return {k: float(live.get(k, 0.0)) for k in keys}
+        return {k: float(over[k] if k in over else live.get(k, 0.0)) for k in keys}
+
     def __contains__(self, k):
         return k in self._over or k in self._live
 
