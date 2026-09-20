@@ -139,3 +139,6 @@
 - [Toy fixture cannot discriminate unload policies](toy-fixture-cannot-discriminate-unload-policies.md) — 1-trailer yard ties exactly; placement rules still separate 8.8%
 - [Phases one and two are sequencing-independent](phases-one-and-two-are-sequencing-independent.md) — PHASE2_STAFFING_PIN is a label digest, not a completion check
 - [A new column needs two more lists than the schema](a-new-column-needs-two-more-lists-than-the-schema.md) — frames._bdf and series.py are unseen by unit tests
+- [Meso ladder cannot size a pool open](meso-ladder-cannot-size-the-pool-prologue.md) — 74 buckets vs 4,200, T≈3 vs 25; a 1.4x win reads as a regression
+- [_aisle_best is what a pool open now costs](aisle-best-is-what-a-pool-open-now-costs.md) — 72% of the residue: live_aisles × SKU-run boundaries
+- [Phase 2 binds the reference catalogue](phase2-binds-the-reference-catalogue-not-the-default.md) — without --profiles-dir the staffing pin refuses 4 minutes in
