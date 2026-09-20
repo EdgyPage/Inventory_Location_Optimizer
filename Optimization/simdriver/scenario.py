@@ -26,8 +26,9 @@ from Optimization.config.sim_config import (
 from Optimization.runschema.sim_manifest import write_run_manifest
 from Optimization.config.strategies import STRATEGIES
 from Optimization.runschema.runlayout import iter_sim_dbs
+from Optimization.simdriver import pacing as _pacing
 from Optimization.simdriver.cells import (
-    Cell, _build_cells, _cell_complete, _tightest_split, cell_scope, reference_cell,
+    Cell, _build_cells, _tightest_split, cell_scope, reference_cell,
 )
 from Optimization.simdriver.strategy_runner import _peak_rss_mib
 from Optimization.simdriver.supervisor import SimBooks, _sim_executor, sim_jobs
@@ -96,7 +97,7 @@ def _build_assets(scenario_base: str, pairs, log: logging.Logger, frozen_by_pair
 
 
 def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False,
-               max_retries=2, resume_granularity='strategy') -> dict:
+               max_retries=2, resume_granularity='strategy', pace=None, cell_pos=None) -> dict:
     """Every cell's units through ONE pool.  Returns {cell: [unfinished uids]} for the cells
     that left units unrecovered (a cell whose SETUP raised reports `('setup',)`; a leaf whose
     prepare raised reports `('prepare', tag)`), empty on a clean matrix.
@@ -154,16 +155,50 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
             unfinished.setdefault(cell.name, []).extend(('prepare', tag) for tag in failed)
         return units, meta
 
+    def _pos(cell):
+        """This cell's position IN THE SPEC, which is what `cell_pos` is documented to mean.
+
+        It was the index into the todo list, so a resume that skipped two cells labelled the
+        third one `1/8` -- a progress line that disagrees with the descriptor, the log's own
+        CELL banner and every other reader of the cell's identity.
+        """
+        if cell_pos and cell.name in cell_pos:
+            return cell_pos[cell.name]
+        return cells.index(cell) + 1, n_cells
+
     def _rebuild(name):
         cell = by_name[name]
         units, meta = _units(cell, pool.log_queue, mid_flight=True)
         books.register(name, meta)
-        return sim_jobs(name, units, cell_index=cells.index(cell) + 1, cell_total=n_cells)
+        ci, ct = _pos(cell)
+        return sim_jobs(name, units, cell_index=ci, cell_total=ct, pace=pace)
+
+    def _settled(name):
+        """A cell's last unit landed: drop its shared assets NOW.
+
+        This used to happen only inside the setup loop below, so the assets of every cell
+        that settled during the DRAIN -- on a wide, shallow spec, most of them -- were held
+        until the run ended.  The peak the parent has to fit is what decides how wide a
+        matrix can go, and it was being set by bookkeeping rather than by the work.
+        Idempotent by construction: a rebuild after a broken pool re-submits the cell, and
+        `_units` rebuilds `kept[name]` from `assets_for` when it is missing.
+        """
+        if kept.pop(name, None) is not None:
+            _rss = _peak_rss_mib()
+            log.info(f'  [pool] {name} settled; parent now holds {len(kept)} cell(s) of '
+                     f'shared assets  '
+                     f'peak_rss={f"{_rss:,.0f}M" if _rss is not None else "n/a"}')
 
     hint = f'python -m Optimization.run_simulation --resume {base_dir}'
     with WorkPool(workers, log, run_root=base_dir, executor_factory=_sim_executor,
                   max_retries=max_retries, on_success=books.on_success,
-                  on_failure=books.on_failure, resume_hint=hint) as pool:
+                  on_failure=books.on_failure, on_settle=_settled,
+                  resume_hint=hint) as pool:
+        # WHAT THE RUN IS DOING, for the one line that repeats through a twelve-hour
+        # campaign. `cells_expected` is what makes the unit denominator finite: until every
+        # cell has submitted, the total is only what has been queued so far and the line
+        # marks it provisional.
+        pool.set_phase('simulate', cells_expected=n_cells)
         for ci, cell in enumerate(cells, start=1):
             try:
                 units, meta = _units(cell, pool.log_queue)
@@ -173,10 +208,13 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
                 kept.pop(cell.name, None)
                 continue
             books.register(cell.name, meta)
-            pool.submit(cell.name, sim_jobs(cell.name, units, cell_index=ci, cell_total=n_cells))
-            pool.absorb()                          # log + finalize what landed during this setup
-            for settled in pool.settled_cells():
-                kept.pop(settled, None)
+            _ci, _ct = _pos(cell)
+            pool.submit(cell.name, sim_jobs(cell.name, units, cell_index=_ci,
+                                            cell_total=_ct, pace=pace),
+                        pos=(_ci, _ct))
+            # log + finalize what landed during this setup; `on_settle` drops the assets
+            # of anything that finished, here AND later inside the drain.
+            pool.absorb()
             # THE PARENT'S SIDE OF THE TRADE, once a cell.  A cell's assets live until its last
             # unit lands (so a retry never rebuilds them), which on a wide, shallow spec can
             # mean several cells' inventories alive at once -- the one cost the flat pool adds
@@ -187,6 +225,10 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
             _rss = _peak_rss_mib()
             log.info(f'  [pool] parent holds {len(kept)} cell(s) of shared assets  '
                      f'peak_rss={f"{_rss:,.0f}M" if _rss is not None else "n/a"}')
+        # The drain is its own phase: every cell has submitted, so the unit total is final
+        # and the line stops marking it provisional -- which is exactly when a reader can
+        # start extrapolating a finish time from it.
+        pool.set_phase('drain')
         left = pool.finish(rebuild=_rebuild)
     books.sweep()                                  # safety sweep, per cell
     for name, uids in left.items():
@@ -194,8 +236,52 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
     return unfinished
 
 
+def _cells_to_run(base_dir, cells, pairs, resume, log):
+    """`(run_tree_or_None, cells_that_still_need_running)` — the resume skip decision.
+
+    A named function because it is the decision that can LOSE a cell, and because the only
+    honest test of it is one that drives the production path rather than a second copy of
+    the rule.
+
+    THE PREDICATE LIVES IN THE RESOLVER, the layer that owns tree enumeration — and it had
+    to move there, because the one it replaces let a resume exit 0 with a torn pair.
+    `cells._cell_complete` accepted ONE completeness marker per pair, so a cell with two
+    of eight leaves read complete; the skip then meant the cell was never set up, never
+    pooled and never reconciled, so nothing was left to report it.
+
+    GUARDED: a run root with no contract descriptor answers None, and the answer is DO NOT
+    SKIP. A resume that re-runs a finished cell wastes hours; one that skips an unfinished
+    cell loses it, and only one of those is recoverable.
+
+    The returned `RunTree` is handed back rather than rebuilt by the caller because the
+    contradiction guard after the pool asks the same question of the same tree.
+    """
+    rt = None
+    if resume:
+        try:
+            from Optimization import runschema as _runschema
+            rt = _runschema.resolver_for(base_dir)
+        except Exception as exc:                       # no descriptor, unreadable, older run
+            log.warning(f'  no run-tree contract at {base_dir} ({exc}); every cell will be '
+                        f'set up again rather than skipped on an unchecked guess')
+    labels = [label for label, _i, _a in pairs]
+    n_cells = len(cells)
+    todo = []
+    for ci, cell in enumerate(cells, start=1):
+        if rt is not None:
+            done, why = rt.cell_is_complete(cell.name, labels)
+            if done:
+                log.info(f'  SKIP cell {ci}/{n_cells} {cell.name} (complete: {why})')
+                continue
+            if os.path.isdir(_cell_dir(base_dir, cell)):
+                log.info(f'  cell {ci}/{n_cells} {cell.name} is NOT complete: {why}')
+        todo.append(cell)
+    return rt, todo
+
+
 def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
-                       resume_granularity='strategy', max_tasks_per_child=1):
+                       resume_granularity='strategy', max_tasks_per_child=1,
+                       pace_from=None):
     """Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a
     plain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once
     (tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze
@@ -299,12 +385,16 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
     # ── 2. Every cell: reshape the warehouse (from FROZEN inv when multi-cell) + simulate,
     #       through ONE pool.  A cell already complete on a resume is not set up at all. ──
     n_cells = len(cells)
-    todo = []
-    for ci, cell in enumerate(cells, start=1):
-        if resume and _cell_complete(_cell_dir(base_dir, cell), pairs):
-            log.info(f'  SKIP cell {ci}/{n_cells} {cell.name} (already complete)')
-            continue
-        todo.append(cell)
+    _rt, todo = _cells_to_run(base_dir, cells, pairs, resume, log)
+    labels = [label for label, _i, _a in pairs]
+
+    # PACING, opt-in and result-neutral.  A reference run's own measurements become the
+    # pool's dispatch order and the setup loop's cell order; with no reference the book is
+    # empty and both are exactly what they were.  `cell_pos` is captured from the SPEC order
+    # here, BEFORE the setup order is changed, because it is the position a reader looks for.
+    pace = _pacing.load_pace(pace_from, log) if pace_from else {}
+    cell_pos = {c.name: (i, n_cells) for i, c in enumerate(cells, start=1)}
+    todo = _pacing.cell_order(todo, {}, pace, log)
 
     def _assets(cell, scenario_base):
         zdesc = cell.zoning.get('mode', 'off') if cell.zoning.get('enabled') else 'off'
@@ -315,10 +405,41 @@ def _run_whatif_matrix(base_dir, pairs, log, spec, resume=False, max_retries=2,
 
     unfinished_by_cell = _run_cells(
         base_dir, pairs, todo, log, workers=g['workers'], assets_for=_assets,
-        skip_completed=resume, max_retries=max_retries, resume_granularity=resume_granularity)
+        skip_completed=resume, max_retries=max_retries, resume_granularity=resume_granularity,
+        pace=pace, cell_pos=cell_pos)
+
+    # THE CONTRADICTION GUARD.  A cell that entered `todo`, planned zero units and STILL
+    # fails the predicate has nothing left that could finish it: the pool reported no
+    # failures because it was given no work, so `unfinished` is empty and the run would
+    # exit 0 for ever, resume after resume, with the cell never completing.  Recording it
+    # under a reason nothing else uses turns an infinite quiet loop into one loud exit.
+    #
+    # Built HERE on a fresh run: `_rt` above is only made when resuming, because that is
+    # when a skip decision is taken, but the contradiction is worth catching on every run
+    # and the tree certainly exists by now.  A root with no descriptor answers None and the
+    # guard simply does not run, exactly as the skip does not.
+    if _rt is None:
+        try:
+            from Optimization import runschema as _runschema
+            _rt = _runschema.resolver_for(base_dir)
+        except Exception:
+            _rt = None
+    if _rt is not None:
+        for cell in todo:
+            if unfinished_by_cell.get(cell.name):
+                continue
+            done, why = _rt.cell_is_complete(cell.name, labels)
+            if not done:
+                log.error(f'  !! cell {cell.name} planned no units and is still not '
+                          f'complete ({why}). Nothing was left that could finish it.')
+                unfinished_by_cell.setdefault(cell.name, []).append(('unplanned',))
 
     # Loud blank-arm check, once per cell after the pool: surface any sim_*.db that completed
     # with ZERO recorded batches so a blank DB is discovered NOW, not halfway through analysis.
+    #
+    # ITERATES EVERY CELL, not just `todo`, and that is now the ONLY inspection a SKIPPED
+    # cell receives -- the completeness predicate above is a file-count question and cannot
+    # see a finalized arm that recorded zero batches.
     for cell in cells:
         cell_dir = _cell_dir(base_dir, cell)
         if os.path.isdir(cell_dir):

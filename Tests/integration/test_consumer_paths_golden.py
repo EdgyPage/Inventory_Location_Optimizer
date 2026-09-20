@@ -12,7 +12,11 @@ Covered consumers:
 
   * ``Visualization/db_reader.py``  — viz_cache_path, keyframe sidecar, _nearest_warehouse_db
   * ``Diagnostics/replay_run.py``   — discover_sim_dbs, _nearest_warehouse_db
-  * ``scripts/archive_cells.py``    — _in_flight (resume.pkl / _ckpt_*.pkl from the contract)
+  * ``runschema.RunTree.in_flight`` — resume.pkl / _ckpt_*.pkl from the contract. It lived
+                                    in ``scripts/archive_cells.py`` until 2026-09-19 and
+                                    moved into the resolver with the completeness
+                                    predicate that reads it; the golden is unchanged,
+                                    which is the point of keeping this test pointed at it.
   * ``docs/experiments/ingest.py``  — _leaf_file, _stage_whatif, _stage_inventory_assets,
                                       _repo_provenance_of, _cell_inventory_configs
   * ``docs/macros.py``              — _verify_manifest_schema (additive; silent w/o schema_id)
@@ -209,7 +213,7 @@ def test_replay_nearest_warehouse_db_positional_parts(mixed, store_only, legacy)
 # ── scripts/archive_cells.py ─────────────────────────────────────────────────────
 
 def _old_in_flight(cell_dir):
-    """The retired hardcoded walk, transcribed verbatim — the golden for _in_flight."""
+    """The retired hardcoded walk, transcribed verbatim — the golden for `in_flight`."""
     out = []
     for root, _dirs, files in os.walk(cell_dir):
         for fn in files:
@@ -225,7 +229,7 @@ def test_in_flight_contract_equals_hardcoded_walk(mixed, store_only):
     golden = sorted([os.path.join('pairA', 'ful_calibrated', 'fulfillment',
                                   '_ckpt_opt_map_norsl.pkl'),
                      os.path.join('pairA', 'store', 'store', 'resume.pkl')])
-    assert ac._in_flight(rt, 'k1_off') == golden
+    assert rt.in_flight('k1_off') == golden
     assert sorted(_old_in_flight(rt.cell_dir('k1_off'))) == golden    # both routes, same set
 
     bs, rts = store_only
@@ -233,13 +237,13 @@ def test_in_flight_contract_equals_hardcoded_walk(mixed, store_only):
     _touch(bs, 'k1_off', 'pairA', 'store', '_ckpt_uni_fifo_norsl.pkl')
     golden_s = sorted([os.path.join('pairA', 'store', '_ckpt_uni_fifo_norsl.pkl'),
                        os.path.join('pairA', 'store', 'resume.pkl')])
-    assert ac._in_flight(rts, 'k1_off') == golden_s
+    assert rts.in_flight('k1_off') == golden_s
     assert sorted(_old_in_flight(rts.cell_dir('k1_off'))) == golden_s
 
 
 def test_in_flight_is_empty_on_a_finalized_cell(mixed):
     b, rt = mixed
-    assert ac._in_flight(rt, 'k1_off') == []
+    assert rt.in_flight('k1_off') == []
 
 
 # ── docs/experiments/ingest.py ───────────────────────────────────────────────────

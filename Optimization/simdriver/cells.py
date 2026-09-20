@@ -286,10 +286,11 @@ def _tightest_split(cells):
     return max(splits, key=lambda s: s.get('capacity_loss', 0.0), default=None)
 
 
-def _cell_complete(scenario_base: str, pairs: list) -> bool:
-    """A cell is done when it has ≥1 sim_meta.json per pair (all its configs finalized)."""
-    import glob
-    if not os.path.isdir(scenario_base):
-        return False
-    return all(glob.glob(os.path.join(scenario_base, label, '**', 'sim_meta.json'), recursive=True)
-               for label, _i, _a in pairs)
+# `_cell_complete` LIVED HERE and was deleted on 2026-09-19.  It asked for one
+# `sim_meta.json` per pair, so a cell with two of eight leaves finalized answered True and a
+# resume skipped it -- and a skipped cell is never set up, never pooled and never reconciled,
+# so the run exited 0 with a torn pair and nothing said so.  The replacement is
+# `runschema.RunTree.cell_is_complete`, which counts a pair's leaves from its own config
+# records and refuses on an in-flight file; it lives in the resolver because that is the
+# layer that owns tree enumeration, and because `scripts/archive_cells.py` needed the same
+# predicate and had grown a second, stricter copy of it.

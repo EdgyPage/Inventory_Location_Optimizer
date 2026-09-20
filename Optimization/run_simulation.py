@@ -89,7 +89,7 @@ from Optimization.runschema.runlayout import discover_db_pairs, find_latest_db_p
 # them as rs.<name>.  CONFIG stays the SAME object (from sim_config above), never rebound —
 # `cells.cell_scope` / _run_whatif_matrix mutate it in place (and the scope restores it).
 from Optimization.simdriver.cells import (                # noqa: F401,E402
-    _SCHED_SHORT, _build_cells, _apply_cell, _tightest_split, _cell_complete, cell_scope,
+    _SCHED_SHORT, _build_cells, _apply_cell, _tightest_split, cell_scope,
     reference_cell,
 )
 from Optimization.simdriver.workunits import (            # noqa: F401,E402
@@ -281,7 +281,7 @@ def _apply_run_spec(args, spec, explicit):
               's_max_aisles', 's_max_bins', 's_min_bins',
               'ff_max_aisles', 'ff_max_bins', 'ff_min_bins',
               'whatif', 'spec', 'profiles_dir', 'all_profiles', 'profile_run',
-              'max_tasks_per_child', 'max_retries', 'resume_granularity',
+              'max_tasks_per_child', 'max_retries', 'resume_granularity', 'pace_from',
               # Per-CHANNEL rather than global, and skipped when None (the era derives the
               # fill headroom from the fragmentation instead).
               'store_fill', 'ff_fill',
@@ -935,6 +935,17 @@ def _build_parser() -> argparse.ArgumentParser:
                              '(default: CONFIG, 0.1). The interval is max(1, int(n_batches*F)), '
                              'so 0.5 on a 10-batch run checkpoints every 5 batches. Had no CLI '
                              'until 2026-08-15: a short run silently checkpointed every batch.')
+    parser.add_argument('--pace-from', metavar='RUN_ROOT', default=None,
+                        help='Dispatch units heaviest-first, and set the heavy cells up '
+                             "first, using a reference run's own runtime measurements. "
+                             'RESULT-NEUTRAL: the same jobs, the same workers, the same '
+                             'files, in a different order -- measured worth ~7%% of the '
+                             'matrix wall on a ten-cell shape. OPT-IN because a mismatched '
+                             'reference (different catalogue, different machine) makes the '
+                             'order worse than the spec order a reader is looking at. Point '
+                             'it at THIS run root to self-pace a resume off its own '
+                             'finished arms. Unreadable reference = a logged warning and '
+                             'submission order.')
     parser.add_argument('--resume-granularity', choices=('strategy', 'batch'), default='strategy',
                         help="On recovery, how to resume a partially-run strategy: 'strategy' "
                              '(default) restarts it from batch 0 (bit-identical to an uncrashed run, '
@@ -1239,6 +1250,10 @@ def main():
             'profile_run'  : args.profile_run,
             'max_tasks_per_child': args.max_tasks_per_child,
             'max_retries'  : args.max_retries, 'resume_granularity': args.resume_granularity,
+            # Recorded because it is part of HOW the run was constructed, and because a
+            # wall-clock comparison between two runs is only fair if both were dispatched
+            # the same way. It changes no result: same jobs, same workers, different order.
+            'pace_from'    : args.pace_from,
             'pairs'        : [list(p) for p in pairs],
             # WHICH catalogue version each pinned pair is (None = pre-contract catalogue).
             # `pairs` above answers WHERE and drives resume; this answers WHICH, so a catalogue
@@ -1322,7 +1337,8 @@ def main():
     log.info(f'Spec: {spec_name}')
     info = _run_whatif_matrix(base_dir, pairs, log, spec_dict, resume=bool(args.resume),
                               max_retries=args.max_retries, resume_granularity=args.resume_granularity,
-                              max_tasks_per_child=args.max_tasks_per_child)
+                              max_tasks_per_child=args.max_tasks_per_child,
+                              pace_from=args.pace_from)
     _refuse_incomplete(info, base_dir, log)
 
     # ── one command: run the analysis in-process right after the sim (unless --no-analyze) ──

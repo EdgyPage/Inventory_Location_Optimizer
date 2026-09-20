@@ -64,54 +64,52 @@ def cold_root() -> str | None:
 
 # ── completeness ────────────────────────────────────────────────────────────────────────────
 def cell_state(rt, cell: str, layout: dict, mixed: bool) -> tuple[bool, str]:
-    """(is_complete, why). Stricter than the driver's own resume probe.
+    """(is_complete, why) — now `RunTree.cell_is_complete`, which this function became.
 
-    The driver's `_cell_complete` accepts one sim_meta.json per pair, so a cell with two of eight
-    leaves finalized reports complete. Archiving on that would move a half-written cell.
+    It was the strict copy: the driver's own `_cell_complete` accepted one sim_meta.json per
+    pair and this one counted every leaf, so archiving was safe where resuming was not.  On
+    2026-09-19 the strict one moved into the resolver and the loose one was deleted, which
+    ends a real hazard — two predicates for one question, and the weaker one was the one
+    deciding what a resume could skip.
+
+    `mixed` is now IGNORED and kept only so callers need not change in the same commit.  It
+    was a RUN-WIDE flag, and mixedness is per pair: a run can carry a mixed catalogue for one
+    inventory pair and a store-only one for another, and this would then want the wrong leaf
+    count for at least one of them.  The resolver reads each pair's own config records
+    instead.
     """
     pairs = list(layout.get('pairs') or [])
-    cfgs = layout.get('configs') or {}
-    n_cfg = len(cfgs.get('store') or []) + (len(cfgs.get('fulfillment') or []) if mixed else 0)
-    want = len(pairs) * n_cfg
-    if not want:
-        return False, 'cannot derive the expected leaf count from run_layout.json'
-    leaves = [(c, cr) for c, cr in rt.channel_runs(cell)]
-    finalized = [cr for _c, cr in leaves if os.path.isfile(rt.sim_meta(cr))]
-    if len(finalized) < want:
-        return False, f'{len(finalized)}/{want} leaves finalized'
-    stray = _in_flight(rt, cell)
-    if stray:
-        return False, f'{len(stray)} in-flight file(s) still present (e.g. {stray[0]})'
-    return True, f'{len(finalized)}/{want} leaves finalized'
-
-
-def _in_flight(rt, cell: str) -> list:
-    """resume.pkl / _ckpt_*.pkl are removed at finalize; their presence means an arm is live.
-
-    The names come from the CONTRACT (`resume_pkl` / `checkpoint_pkl`), not from hardcoded
-    literals: preflight declared both transients, so renaming either in schema.py moves this
-    probe with it instead of silently blinding it.  Returned as sorted cell-relative paths, the
-    same shape the old cell walk produced.
-    """
-    cell_dir = rt.cell_dir(cell)
-    hits = rt.glob('resume_pkl', cell=cell) + rt.glob('checkpoint_pkl', cell=cell)
-    return sorted(os.path.relpath(p, cell_dir) for p in dict.fromkeys(hits))
+    return rt.cell_is_complete(cell, pairs)
 
 
 def archivable(rt, layout: dict, mixed: bool, include_last: bool) -> list:
     """Complete cells that are also safe to touch.
 
-    Cells run sequentially, so a cell is provably not the live one once a LATER cell has started.
-    The final cell only becomes safe when the run itself is over, which the caller asserts with
-    include_last.
+    ## The premise that stopped being true
+
+    This used to reason: cells run sequentially, so a cell is provably not the live one once a
+    LATER cell has started.  Since the flat work pool (2026-09-19) EVERY CELL'S UNITS SHARE
+    ONE POOL and cells overlap by design — a later cell's directory existing says nothing
+    about whether an earlier cell still has units in flight, so that test was reasoning from
+    a fact that had stopped being one.
+
+    It is replaced by DIRECT EVIDENCE rather than by a stricter proxy: `cell_is_complete`
+    refuses on any in-flight file, so a cell with a live arm has a `resume.pkl` or a
+    checkpoint under it and is not archivable, whatever else has started.  That is a better
+    test than the ordering one ever was, and it is the reason dropping the ordering test
+    does not loosen the tool.
+
+    `include_last` keeps its meaning and its job: the LAST cell in descriptor order is held
+    back unless the caller asserts the simulation has exited.  The in-flight probe sees the
+    simulator's transients, not the analysis stage that runs after them, and the last cell is
+    where that stage is still working when everything else looks finished.
     """
     names = [n for n, _d in rt.cells()]
     out = []
     for i, name in enumerate(names):
         if is_archived(rt.cell_dir(name)):
             continue
-        later_started = any(os.path.isdir(rt.cell_dir(n)) for n in names[i + 1:])
-        if not later_started and not include_last:
+        if i == len(names) - 1 and not include_last:
             continue
         ok, why = cell_state(rt, name, layout, mixed)
         if ok:

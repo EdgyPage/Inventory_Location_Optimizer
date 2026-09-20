@@ -418,6 +418,103 @@ class RunTree:
     def config_json(self, cell: str, pair: str, config: str) -> str:
         return self.path('config_json', cell=cell, pair=pair, config=config)
 
+    # ── completeness: what a resume is allowed to skip ───────────────────────
+    def cell_is_complete(self, cell: str, pairs=None) -> tuple[bool, str]:
+        """`(is_complete, why)` for one cell — the predicate a RESUME may skip it on.
+
+        ## The defect this replaces
+
+        `simdriver.cells._cell_complete` asked for at least ONE `sim_meta.json` per pair,
+        anywhere under it.  A cell with two of eight leaves finalized answered True.  A
+        skipped cell is never set up, never reaches the pool, and never reaches the coupled
+        reconciler, so `unfinished` stays empty and the run EXITS 0 WITH A TORN PAIR.  The
+        symptom is a leaf that is simply not there, weeks later, in an analysis that
+        reports a smaller matrix without saying so.
+
+        ## The count, and why it is a UNION
+
+        Store configs produce `<store_cfg>/store`; fulfillment configs produce
+        `<ff_cfg>/fulfillment`.  A pair's leaves are the SUM of the two, never their
+        product — a cross-product rule would make every mixed cell permanently incomplete,
+        which silently kills the skip and turns every resume into a full re-run.
+
+        ## Mixedness is PER PAIR, and it is read from disk
+
+        A run can carry a mixed catalogue for one inventory pair and a store-only one for
+        another, and the descriptor cannot say which: its channel list comes from CONFIG
+        before any catalogue is read.  So the wanted count comes from the `config_json`
+        records the setup pass wrote — one per (pair, config), written before any arm runs,
+        which makes them the declaration of what this cell intends to produce.
+
+        That count is then CHECKED against the layout: it must be either the store-only
+        shape or the mixed one.  Anything else means the setup pass itself was interrupted
+        part-way, and the honest answer there is "not complete" rather than a smaller
+        target that would be trivially satisfied.
+
+        ## In-flight files
+
+        A leaf killed inside its finalize window can have a `sim_meta.json` and still be
+        mid-write.  `resume_pkl` and `checkpoint_pkl` are removed at finalize, so their
+        presence anywhere in the cell means an arm was live.  Both are named through the
+        CONTRACT, so renaming either in `schema.py` moves this probe with it instead of
+        silently blinding it.
+
+        Generalises `scripts/archive_cells.py:cell_state`, which had the strict count but
+        one run-wide `mixed` flag; that function now delegates here.
+        """
+        cell_dir = self.cell_dir(cell)
+        if not os.path.isdir(cell_dir):
+            return False, 'the cell directory does not exist'
+        labels = [str(p) for p in (pairs if pairs is not None
+                                   else (self.layout.get('pairs') or []))]
+        if not labels:
+            return False, 'no inventory pairs to check (none passed, none in run_layout.json)'
+        cfgs = self.layout.get('configs') or {}
+        n_store = len(cfgs.get('store') or [])
+        n_ful = len(cfgs.get('fulfillment') or [])
+        if not (n_store or n_ful):
+            return False, 'run_layout.json declares no configs, so no leaf count is derivable'
+        shapes = {n_store, n_store + n_ful}
+        shapes.discard(0)
+
+        finalized_by_pair: dict = {}
+        for name, cr in self.channel_runs(cell):
+            if name != cell:
+                continue
+            if os.path.isfile(self.sim_meta(cr)):
+                finalized_by_pair[cr.pair] = finalized_by_pair.get(cr.pair, 0) + 1
+
+        total_want = total_have = 0
+        for label in labels:
+            want = len(self.glob('config_json', cell=cell, pair=label))
+            if want not in shapes:
+                return False, (
+                    f'{label}: {want} config record(s) on disk, which is neither the '
+                    f'store-only shape ({n_store}) nor the mixed one ({n_store + n_ful}); '
+                    f'the setup pass did not finish for this pair')
+            have = finalized_by_pair.get(label, 0)
+            total_want += want
+            total_have += have
+            if have < want:
+                return False, f'{label}: {have}/{want} leaves finalized'
+
+        stray = self.in_flight(cell)
+        if stray:
+            return False, (f'{len(stray)} in-flight file(s) still present '
+                           f'(e.g. {stray[0]}) — an arm was live when this stopped')
+        return True, f'{total_have}/{total_want} leaves finalized across {len(labels)} pair(s)'
+
+    def in_flight(self, cell: str) -> list:
+        """Transients a finalize removes — their presence means an arm was live.
+
+        Cell-relative, sorted, deduped.  Named through the contract (`resume_pkl`,
+        `checkpoint_pkl`) rather than as literals, so a rename in `schema.py` moves the
+        probe rather than blinding it.
+        """
+        cell_dir = self.cell_dir(cell)
+        hits = self.glob('resume_pkl', cell=cell) + self.glob('checkpoint_pkl', cell=cell)
+        return sorted(os.path.relpath(p, cell_dir) for p in dict.fromkeys(hits))
+
     # ── pair-level assets ──────────────────────────────────────────────────────
     def warehouse_db(self, cell: str, pair: str) -> str:
         return self.path('warehouse_db', cell=cell, pair=pair)
