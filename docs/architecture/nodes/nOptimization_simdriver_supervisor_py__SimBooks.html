@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SimBooks · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_supervisor_py__SimBooks" data-id="Optimization/simdriver/supervisor.py::SimBooks">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a> <span class="sep">›</span> <span class="here"><code>SimBooks</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>SimBooks</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a></p>
+
+<pre class="sig"><code>class SimBooks</code></pre>
+<section class="doc">The sim driver&#x27;s per-cell books behind `WorkPool`&#x27;s callbacks.
+
+Per cell, in the shape the old `_run_pool` kept: `meta[group_key] = {sim_skeleton,
+members}`, `done` uids, `finalized` group keys.  Per cell because uids and group keys
+repeat across cells.  `on_success` absorbs a unit and finalizes every group it
+completes; `on_failure` is the `strategy FAILED` line; `sweep` is the safety pass the
+old `_supervise` ran at the end (a group whose last member landed but whose finalize
+raised gets one more chance).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_cells.html"><code>_run_cells</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_supervisor_py__SimBooks">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/supervisor.py#:~:text=class%20SimBooks">Source ↗</a></p>
+</article>
+</main>
+</body></html>

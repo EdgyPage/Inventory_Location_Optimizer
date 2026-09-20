@@ -135,26 +135,26 @@ boundaries:
 #     `coverage: static-only` marks edges the empirical coverage test must NOT expect to run
 #     (e.g. the ProcessPool spawn, which coverage_e2e bypasses by design).
 backbone:
-  # simulation entry -> scenario -> shared assets -> warehouse sizing
-  - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
+  # simulation entry -> matrix -> ONE work pool over every cell -> shared assets -> warehouse sizing
+  # (since 2026-09-19: `_run_scenario`/`_run_workers_flat`/`_supervise`/`_run_pool` are gone --
+  # every cell of a run now shares one `workpool.WorkPool` instead of one executor per cell.)
+  - {src: {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function},
+     dst: {name: _run_cells, file: Optimization/simdriver/scenario.py, kind: function}, via: calls}
+  - {src: {name: _build_assets, file: Optimization/simdriver/scenario.py, kind: function},
      dst: {name: build_shared_assets, file: Optimization/simdriver/sim_assets.py, kind: function}, via: calls}
   - {src: {name: _plan, file: Optimization/simdriver/sim_assets.py, kind: function},
      dst: {name: plan_warehouse, file: Warehouse/inventory/inventory_planning.py, kind: function}, via: calls}
-  # scenario -> supervisor -> build units -> per-channel prep -> batches
-  - {src: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function},
-     dst: {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
-  - {src: {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function},
-     dst: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
-  - {src: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function},
-     dst: {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function}, via: calls}
+  # _run_cells -> the one work pool + jobs + build-units -> per-channel prep -> batches
+  - {src: {name: _run_cells, file: Optimization/simdriver/scenario.py, kind: function},
+     dst: {name: WorkPool, file: Optimization/simdriver/workpool.py, kind: class}, via: calls}
+  - {src: {name: _run_cells, file: Optimization/simdriver/scenario.py, kind: function},
+     dst: {name: sim_jobs, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
   - {src: {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function},
      dst: {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function}, via: calls}
   - {src: {name: _prepare_channel_run, file: Optimization/simdriver/workunits.py, kind: function},
      dst: {name: ensure_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}, via: calls}
-  # supervisor -> pool -> spawn boundary (worker passed as a value; never coverage-measured)
-  - {src: {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function},
-     dst: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}, via: calls}
-  - {src: {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function},
+  # sim_jobs -> spawn boundary (worker passed as a value; never coverage-measured)
+  - {src: {name: sim_jobs, file: Optimization/simdriver/supervisor.py, kind: function},
      dst: {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function},
      via: ref, coverage: static-only}
   # worker body -> batch load + pick simulation.  The two halves of a leaf are two
@@ -181,21 +181,24 @@ backbone:
   # capacity-reloader registry membership
   - {src: {name: RELOADERS, file: Warehouse/placement/Capacity_Reloader.py, kind: const},
      dst: {name: rebalance_reloader, file: Warehouse/placement/Capacity_Reloader.py, kind: function}, via: ref}
-  # what-if matrix reuses the scenario runner per cell
+  # what-if matrix entry
   - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
      dst: {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function}, via: calls}
-  - {src: {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function},
-     dst: {name: _run_scenario, file: Optimization/simdriver/scenario.py, kind: function}, via: calls}
   # sim entry -> post-sim analysis hub (in-process, unless --no-analyze)
   - {src: {name: main, file: Optimization/run_simulation.py, kind: function},
      dst: {name: analyze_run, file: Optimization/analyze_run.py, kind: function}, via: calls}
-  # analysis pipeline
+  # analysis pipeline: analyze_run drives every cell through ONE work pool (since 2026-09-19;
+  # `run_analysis` is now a one-cell wrapper over `analyze_cells`, not the entry `_drain` used).
+  - {src: {name: analyze_run, file: Optimization/analyze_run.py, kind: function},
+     dst: {name: analyze_cells, file: Optimization/run_analysis.py, kind: function}, via: calls}
   - {src: {name: main, file: Optimization/run_analysis.py, kind: function},
      dst: {name: run_analysis, file: Optimization/run_analysis.py, kind: function}, via: calls}
   - {src: {name: run_analysis, file: Optimization/run_analysis.py, kind: function},
+     dst: {name: analyze_cells, file: Optimization/run_analysis.py, kind: function}, via: calls}
+  - {src: {name: analyze_cells, file: Optimization/run_analysis.py, kind: function},
      dst: {name: _config_jobs, file: Optimization/run_analysis.py, kind: function}, via: calls}
-  - {src: {name: run_analysis, file: Optimization/run_analysis.py, kind: function},
-     dst: {name: _aggregate_jobs, file: Optimization/run_analysis.py, kind: function}, via: calls}
+  - {src: {name: analyze_cells, file: Optimization/run_analysis.py, kind: function},
+     dst: {name: WorkPool, file: Optimization/simdriver/workpool.py, kind: class}, via: calls}
 
 # --- Hotpaths: functions asserted to actually EXECUTE under the in-process end-to-end
 #     driver (Tests/bench/coverage_e2e.py :: main).  Checked empirically by

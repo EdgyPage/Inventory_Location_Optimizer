@@ -112,7 +112,7 @@ def _run_cells(base_dir, pairs, cells, log, *, workers, assets_for, skip_complet
     submitted: a rebuild after a broken pool re-runs `_build_work_units` over the SAME
     assets with `mid_flight=True` (the coupled reconciler's contract), exactly as the old
     per-cell supervisor did, and never `build_shared_assets` again -- on a single-cell run
-    that would RE-SAMPLE and rewrite `planned_inventory.db` under the units in flight.  The
+    that would RE-SAMPLE and rewrite the planned inventory under the units in flight.  The
     affinity CSR is dropped at submit (the unit builder reads only its path).  On a wide,
     shallow spec every cell's inventory can be alive at once; the parent's memory is the
     price of the retry path, and it is logged per cell.

@@ -1098,6 +1098,7 @@ files:
     purpose: "registry-driven graph generator for completed simulation runs."
     layer: "optimization"
     key_symbols:
+      - {name: "analyze_cells", file: "Optimization/run_analysis.py", kind: "function"}
       - {name: "run_analysis", file: "Optimization/run_analysis.py", kind: "function"}
       - {name: "main", file: "Optimization/run_analysis.py", kind: "function"}
     notes: ""
@@ -1441,6 +1442,7 @@ files:
     key_symbols:
       - {name: "Cell", file: "Optimization/simdriver/cells.py", kind: "class"}
       - {name: "reference_cell", file: "Optimization/simdriver/cells.py", kind: "function"}
+      - {name: "cell_scope", file: "Optimization/simdriver/cells.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/draw_probability.py":
     purpose: "the DRAW PROBABILITY `p_s` -- the chance the declared sampler puts a SKU in a batch -- characterised by a generator-only draw, as per-SKU counts so both the plug-in and the unbiased estimator are available."
@@ -1510,7 +1512,6 @@ files:
     purpose: "per-pair shared-asset construction for a run."
     layer: "opt_simdriver"
     key_symbols:
-      - {name: "load_run_inventory", file: "Optimization/simdriver/sim_assets.py", kind: "function"}
       - {name: "build_shared_assets", file: "Optimization/simdriver/sim_assets.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/strategy_runner.py":
@@ -1527,7 +1528,17 @@ files:
   "Optimization/simdriver/supervisor.py":
     purpose: "Crash-recovery pool driver + finalize gate \u2014 flat ProcessPoolExecutor lifetime, isolate per-unit failures, rebuild+resubmit on BrokenProcessPool up to max_retries, finalize a group only when every arm succeeded."
     layer: "opt_simdriver"
-    key_symbols: []
+    key_symbols:
+      - {name: "sim_jobs", file: "Optimization/simdriver/supervisor.py", kind: "function"}
+      - {name: "SimBooks", file: "Optimization/simdriver/supervisor.py", kind: "class"}
+    notes: ""
+  "Optimization/simdriver/workpool.py":
+    purpose: "ONE pool for every cell of a run, and for the analysis stage."
+    layer: "opt_simdriver"
+    key_symbols:
+      - {name: "Job", file: "Optimization/simdriver/workpool.py", kind: "class"}
+      - {name: "InlineExecutor", file: "Optimization/simdriver/workpool.py", kind: "class"}
+      - {name: "WorkPool", file: "Optimization/simdriver/workpool.py", kind: "class"}
     notes: ""
   "Optimization/simdriver/workunits.py":
     purpose: "Plan the per-strategy flat-pool work units \u2014 shared assets + batches + resume-aware start planning + the picklable strategy_args shipped to each worker (parent-process only)."
@@ -2816,17 +2827,16 @@ files:
     layer: "tests"
     key_symbols:
       - {name: "test_finalize_gate_skips_group_with_a_failed_arm", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
-      - {name: "test_supervise_rebuilds_pool_and_resubmits", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
-      - {name: "test_supervise_quarantines_persistent_failure", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_the_pool_rebuilds_and_resubmits_after_a_break", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_a_persistent_failure_is_quarantined", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_plan_strategy_start_all_branches", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_batch_resume_is_refused_while_the_carry_is_on", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_a_kill_inside_finalize_leaves_the_dir_resumable", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_fresh_branch_refuses_to_create_a_second_run", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_fresh_branch_is_unchanged_on_an_empty_or_absent_db", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
-      - {name: "test_supervise_returns_the_unrecovered_units", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
-      - {name: "test_supervise_returns_an_empty_list_on_a_clean_run", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
-      - {name: "test_run_workers_flat_forwards_what_supervise_returns", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
-      - {name: "test_run_scenario_forwards_what_the_pool_left", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_a_clean_run_comes_back_empty", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_a_cell_whose_setup_raises_is_reported_not_raised", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
+      - {name: "test_a_leaf_whose_prepare_failed_is_reported", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_run_whatif_matrix_reports_unfinished_per_cell", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_refuse_incomplete_exits_one_with_the_resume_command", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
       - {name: "test_refuse_incomplete_is_silent_on_a_clean_matrix", file: "Tests/integration/test_crash_recovery.py", kind: "function"}
@@ -3319,6 +3329,23 @@ files:
       - {name: "test_picks_are_negative_and_puts_positive_in_the_file", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
       - {name: "test_a_state_change_stores_NULL_not_zero", file: "Tests/integration/test_work_events_reconciliation.py", kind: "function"}
     notes: ""
+  "Tests/integration/test_work_pool.py":
+    purpose: "every cell of a run shares ONE pool (`simdriver.workpool.WorkPool`)."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_jobs_of_different_cells_run_side_by_side", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_the_barrier_is_not_vacuous", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_never_more_than_max_workers_in_flight_and_weight_first", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_continuation_fires_once_after_its_keys_including_an_errored_one", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_one_cells_continuation_does_not_wait_for_another_cell", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_broken_pool_rebuilds_only_the_cells_with_jobs_left", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_cell_with_nothing_left_is_not_rebuilt", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_retries_spent_reports_the_unrecovered_jobs_per_cell", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_an_ordinary_failure_is_quarantined_not_retried", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_raise_inside_on_success_is_that_jobs_failure", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_settled_cells_names_a_cell_only_once_every_job_resolved", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_a_raise_in_the_driver_books_what_landed_and_does_not_wait", file: "Tests/integration/test_work_pool.py", kind: "function"}
+    notes: ""
   "Tests/integration/test_writer_paths_golden.py":
     purpose: "the analysis writers' contract-rendered paths, pinned to the literals their old hand-joins produced."
     layer: "tests"
@@ -3452,6 +3479,20 @@ files:
       - {name: "test_config_granularity_emits_one_job_per_channel_run_carrying_every_key", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
       - {name: "test_graph_granularity_emits_one_job_per_channel_run_and_key", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
       - {name: "test_the_graph_count_grows_with_the_cell_and_the_config_count_grows_only_with_runs", file: "Tests/unit/test_analysis_granularity.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_analysis_stage_pool.py":
+    purpose: "every cell's analysis stages through ONE pool."
+    layer: "tests"
+    key_symbols:
+      - {name: "harness", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_every_cells_config_jobs_are_submitted_before_any_aggregate_job", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_aggregate_jobs_are_built_only_after_the_cells_config_jobs_resolved", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_one_cell_never_waits_for_another", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_a_rebuild_after_a_break_never_reruns_the_job_builders", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_the_cells_record_is_applied_while_its_jobs_are_built_and_undone_after", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_tallies_and_summaries_are_per_cell", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_run_analysis_is_the_one_cell_case", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
+      - {name: "test_one_worker_runs_inline_without_a_spawn_pool", file: "Tests/unit/test_analysis_stage_pool.py", kind: "function"}
     notes: ""
   "Tests/unit/test_arm_clock.py":
     purpose: "an arm's batches sit on one absolute axis."
@@ -3603,6 +3644,15 @@ files:
       - {name: "test_one_bin_per_sku_per_aisle_is_correct", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
       - {name: "test_the_runner_records_what_the_batch_asked_for", file: "Tests/unit/test_batch_shortfall.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_batch_sibling_cache.py":
+    purpose: "a cell reuses a sibling cell's batch file before computing."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_a_sibling_cells_file_is_copied_under_the_asking_cell", file: "Tests/unit/test_batch_sibling_cache.py", kind: "function"}
+      - {name: "test_a_reserved_sibling_and_the_cell_itself_are_never_consulted", file: "Tests/unit/test_batch_sibling_cache.py", kind: "function"}
+      - {name: "test_no_sibling_is_a_miss_not_an_error", file: "Tests/unit/test_batch_sibling_cache.py", kind: "function"}
+      - {name: "test_ensure_batches_asks_the_sibling_before_it_computes", file: "Tests/unit/test_batch_sibling_cache.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_batch_stat_invariance.py":
     purpose: "a batch statistic measures a SPAN, not a timestamp."
     layer: "tests"
@@ -3717,10 +3767,22 @@ files:
       - {name: "test_a_swept_inbound_axis_makes_one_cell_per_entry", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_an_unsuffixed_inbound_entry_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_a_duplicate_inbound_suffix_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
-      - {name: "test_an_entry_that_omits_a_key_another_sets_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
+      - {name: "test_an_entry_that_omits_a_key_another_sets_is_a_cell_with_the_run_level_value", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_an_unknown_inbound_key_is_refused", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_an_inbound_matrix_must_declare_its_reference", file: "Tests/unit/test_cell_record.py", kind: "function"}
       - {name: "test_a_single_inert_inbound_entry_changes_no_name_and_writes_nothing", file: "Tests/unit/test_cell_record.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_cell_scope.py":
+    purpose: "a cell is applied for a `with` block and undone on exit."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_inside_the_scope_every_axis_is_applied", file: "Tests/unit/test_cell_scope.py", kind: "function"}
+      - {name: "test_exit_restores_every_value_and_every_container", file: "Tests/unit/test_cell_scope.py", kind: "function"}
+      - {name: "test_a_dict_captured_inside_the_scope_is_untouched_by_the_exit", file: "Tests/unit/test_cell_scope.py", kind: "function"}
+      - {name: "test_an_inert_cell_after_an_inbound_cell_sees_the_run_level_keys", file: "Tests/unit/test_cell_scope.py", kind: "function"}
+      - {name: "test_scopes_nest_and_restore_in_order", file: "Tests/unit/test_cell_scope.py", kind: "function"}
+      - {name: "test_an_exception_inside_the_scope_still_restores", file: "Tests/unit/test_cell_scope.py", kind: "function"}
+      - {name: "test_a_partial_inbound_entry_is_no_longer_refused", file: "Tests/unit/test_cell_scope.py", kind: "function"}
     notes: ""
   "Tests/unit/test_census.py":
     purpose: "the count/span claim a page makes must be the one the data supports."
@@ -3919,6 +3981,8 @@ files:
       - {name: "test_the_probe_would_notice_a_leak", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_domain_packages_never_read_config", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_domain_guard_catches_all_three_import_spellings", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
+      - {name: "test_no_function_body_import_in_the_worker_reaches_sim_config", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
+      - {name: "test_the_function_body_walk_would_notice_a_leak", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_every_spec_accessor_is_either_in_the_payload_or_declared_parent_only", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_payload_check_reads_the_payload_and_not_the_whole_module", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
       - {name: "test_the_payload_check_refuses_a_module_with_no_payload", file: "Tests/unit/test_config_reaches_the_worker.py", kind: "function"}
@@ -6561,9 +6625,10 @@ files:
     purpose: "the recycling pin is a DECISION, so it gets a test."
     layer: "tests"
     key_symbols:
-      - {name: "test_supervise_hardcodes_recycle_at_one", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
-      - {name: "test_the_parameter_is_accepted_and_deliberately_shadowed", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_sim_executor_hardcodes_recycle_at_one", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
       - {name: "test_the_pool_is_built_with_the_pinned_value", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_analysis_executor_is_deliberately_unpinned", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
+      - {name: "test_the_pool_class_builds_no_executor_of_its_own", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
       - {name: "test_the_cli_refuses_a_larger_value_loudly", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
       - {name: "test_the_reason_survives_in_the_source", file: "Tests/unit/test_worker_recycling_pin.py", kind: "function"}
     notes: ""
@@ -6766,6 +6831,7 @@ files:
       - {name: "INVENTORY_DB_FAMILY", file: "Warehouse/generation/generate_inventory.py", kind: "const"}
       - {name: "save_inventory_to_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "load_inventory_from_db", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
+      - {name: "load_run_inventory", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "compute_stats", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_group_sizes", file: "Warehouse/generation/generate_inventory.py", kind: "function"}
       - {name: "plot_dimensions", file: "Warehouse/generation/generate_inventory.py", kind: "function"}

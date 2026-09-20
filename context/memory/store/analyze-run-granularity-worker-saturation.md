@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: c5c8daf5-483d-42e5-ab6b-5827d8d48e8f
-  modified: 2026-07-30T21:04:41.554Z
+  modified: 2026-09-19T23:55:59.138Z
 ---
 
 `Optimization/analyze_run.py` forwards `granularity='config'` by default, which emits only
@@ -23,3 +23,11 @@ than the worker count suggests it should. It cost a full re-analysis to notice.
 check the default `config` granularity is fine and starts faster. The flag is a passthrough to
 `run_analysis`; it changes only job *partitioning*, never the figures produced.
 Related: [[auc-degenerate-on-volume-curves]].
+
+**UPDATED 2026-09-19 — the per-cell pool is gone.** `run_analysis.analyze_cells` (see
+[[flat-work-pool-era]]) now runs every cell's jobs through ONE `WorkPool` with per-cell
+continuations replacing the old three stage barriers (config, aggregate, site), so a big
+`--workers` is no longer idled by cell boundaries or by waiting for a whole stage to finish
+before the next one starts. `--granularity graph` is still what makes one cell emit many jobs
+instead of few; the pool-per-run change only fixed how those jobs from DIFFERENT cells are
+scheduled against each other.

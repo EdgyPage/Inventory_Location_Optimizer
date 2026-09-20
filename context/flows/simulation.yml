@@ -139,25 +139,36 @@ steps:
 
   - id: run_workers
     summary: >
-      One flat spawn-mode ProcessPoolExecutor over every (pair, config, channel, strategy)
-      unit, wrapped by a crash-recovery supervisor: a hard worker death that breaks the pool
-      triggers a rebuild + resubmit of the unfinished units (each resuming from its on-disk
-      checkpoint) up to --max-retries, then quarantines any still-failing unit. Each worker
-      loads the planned inventory (regime-filtered), rebuilds the warehouse, stocks it via its
-      strategy, then runs the batch loop (reorders -> pick simulation -> stats -> checkpointed
-      saves).
+      ONE work pool for every cell of the run (2026-09-19; a per-cell executor + stage
+      barrier is gone). `_run_whatif_matrix` builds the cell matrix and streams each cell's
+      units into `_run_cells`, which per cell runs `_build_assets`/`build_shared_assets`
+      under `cells.cell_scope`, turns the units from `_build_work_units` into `sim_jobs`
+      (stamped Job objects), and hands them to a single `workpool.WorkPool` that owns one
+      spawn-mode ProcessPoolExecutor for the whole matrix and dispatches by weight across
+      every cell at once. A hard worker death that breaks the pool triggers
+      `_unblock_broken_pool` + a rebuild/resubmit of the unfinished units (each resuming
+      from its on-disk checkpoint) up to --max-retries via `WorkPool.finish`, then
+      quarantines any still-failing unit. Each worker (`_run_strategy_worker`) loads the
+      planned inventory (regime-filtered), rebuilds the warehouse, stocks it via its
+      strategy, then runs the batch loop (reorders -> pick simulation -> stats ->
+      checkpointed saves).
     functions:
-      - {name: _run_workers_flat, file: Optimization/simdriver/supervisor.py, kind: function}
-      - {name: _supervise, file: Optimization/simdriver/supervisor.py, kind: function}
+      - {name: _run_whatif_matrix, file: Optimization/simdriver/scenario.py, kind: function}
+      - {name: _run_cells, file: Optimization/simdriver/scenario.py, kind: function}
+      - {name: _build_assets, file: Optimization/simdriver/scenario.py, kind: function}
+      - {name: cell_scope, file: Optimization/simdriver/cells.py, kind: function}
       - {name: _build_work_units, file: Optimization/simdriver/workunits.py, kind: function}
-      - {name: _run_pool, file: Optimization/simdriver/supervisor.py, kind: function}
+      - {name: sim_jobs, file: Optimization/simdriver/supervisor.py, kind: function}
+      - {name: WorkPool, file: Optimization/simdriver/workpool.py, kind: class}
+      - {name: _unblock_broken_pool, file: Optimization/simdriver/workpool.py, kind: function}
+      - {name: _sim_executor, file: Optimization/simdriver/supervisor.py, kind: function}
       - {name: _run_strategy_worker, file: Optimization/simdriver/strategy_runner.py, kind: function}
       - {name: DeferredPickSimulation, file: Warehouse/picking/fast_pick.py, kind: class}
       - {name: per_pick, file: Warehouse/kernel/cost_model.py, kind: function}
       - {name: load_batches, file: Optimization/simdriver/batch_precompute.py, kind: function}
     reads: [planned_inventory_db, affinity_db, batches_cache]
     writes: [sim_db, keyframes_db, checkpoint_pkl]
-    guards: [Tests/unit/test_index_equivalence.py, Tests/unit/test_rng_determinism.py, Tests/e2e/test_batch_precompute_e2e.py, Tests/integration/test_crash_recovery.py]
+    guards: [Tests/unit/test_index_equivalence.py, Tests/unit/test_rng_determinism.py, Tests/e2e/test_batch_precompute_e2e.py, Tests/integration/test_crash_recovery.py, Tests/integration/test_work_pool.py, Tests/unit/test_cell_scope.py]
     next: [finalize]
 
   - id: finalize

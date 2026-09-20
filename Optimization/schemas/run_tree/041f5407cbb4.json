@@ -467,7 +467,7 @@
       "format": "json",
       "scope": "cell",
       "writer": "write_run_manifest@Optimization/runschema/sim_manifest.py",
-      "note": "written PER CELL (_run_scenario receives the cell dir), not at the run root."
+      "note": "written PER CELL (scenario._build_assets receives the cell dir), not at the run root."
     },
     "run_spec": {
       "path": "run_spec.json",

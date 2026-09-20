@@ -8813,7 +8813,7 @@
     },
     "Optimization/config/whatif_config.py::phase2_inbound_axis": {
       "decorators": [],
-      "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\n`keep` names the entries to KEEP by suffix (`('fifo', 'gmyopic', 'inb_off')`), for a\nspec that runs a pre-screened subset of the axis rather than all ten; None keeps every\nentry.  A name the axis does not build is refused -- a typo here would silently run a\nsmaller campaign than the one asked for, which is the `_inbound_axis` failure class.\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nThat is not verbosity: `_apply_cell` mutates a process-wide CONFIG that is never reset\nbetween cells, so a key one cell writes and the next omits leaves the second running the\nfirst's policy under its own name.  `_inbound_axis` refuses a partial entry for exactly\nthis reason, and stating the full record here is how that refusal is satisfied.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nTHE ANCHOR IS NOT A CROSS-PHASE VALIDITY CHECK, and saying so here was false (site-dock 06\nsection 3, which rewrote this paragraph rather than amending it \u2014 a stale comment claiming a\nguarantee the campaign does not have is worse than no comment).  EVERY cell of phase 2 runs\nthe COUPLED site model, `inb_off` included, because coupling is a property of the RUN and is\nDECLARED (`--couple-channels`, carried by `PHASE2_RUN_DEFAULTS`), never inferred from the\ninbound flag.  So `inb_off` is the inbound-OFF POLE INSIDE the coupled model \u2014 the control\nfor \"does running an inbound pipeline at all change the answer, versus which policy runs it\",\nand the only cell with no yard, which makes it the structural zero for every yard quantity.\n\nWhat that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1\nis UNCOUPLED and, since department-calibration decision 11, inbound-ON, so it ranks\nplacement arms under 2x the site put labour: an\nuncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the\nbreak).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded\nagainst its own nine siblings; coupling every cell inverts that, and the matrix's own deltas\nare what the campaign publishes, so that is the side kept whole.  The asymmetry is not a\nclean scaling either \u2014 what doubles is put and receiving CAPACITY, not labour seconds, and\nunder drain-or-cap a larger crew cuts less and completes more per day by an amount that\ndiffers per arm \u2014 so a RANK comparison across the boundary is no more invariant than an\nhours one.  The caveat is carried as a STAMP (`restock_selection.json`'s `put_regime:\n'per-leaf'`) and published with the campaign; there is no runtime gate because nothing in\nthe codebase reads two run roots, so there is no join to gate.  The one reachable mistake \u2014\npointing the selector at a coupled root \u2014 is refused by `run_restock_selection.select`.\n\nThe reference is `fifo`, so every delta reads \"versus FIFO\", which is the campaign's own\nquestion.  The anchor is present as a cell, never the reference.",
+      "doc": "The ten-entry inbound axis for phase 2, as [(name_suffix, overrides), \u2026].\n\n`keep` names the entries to KEEP by suffix (`('fifo', 'gmyopic', 'inb_off')`), for a\nspec that runs a pre-screened subset of the axis rather than all ten; None keeps every\nentry.  A name the axis does not build is refused -- a typo here would silently run a\nsmaller campaign than the one asked for, which is the `_inbound_axis` failure class.\n\nEvery entry states EVERY key the axis touches, including the ones it is not exercising.\nUntil 2026-09-19 that was load-bearing: `_apply_cell` wrote into a process-wide CONFIG\nthat was never reset between cells, so a key one cell wrote and the next omitted left the\nsecond running the first's policy under its own name, and `_inbound_axis` refused a\npartial entry.  The driver now applies each cell inside `cells.cell_scope`, which restores\nCONFIG on exit, so an omitted key would mean the run-level value.  The full record stays\nhere anyway: the spec is the whole experimental condition, readable without knowing what\nthe command line defaulted to.\n\nThe arrival regime rides the axis rather than the command line for the same reason: the\ninbound-OFF anchor must ALSO turn the lead spread off, because `inbound_spec()` refuses a\nspread without the standing yard \u2014 and it refuses it ABOVE the trailer-type early return,\nso an anchor inheriting a run-level `--inbound-lead-spread` would raise instead of running.\nCarrying the regime here makes the spec the whole experimental condition, reproducible\nwithout a remembered command line.\n\nTHE ANCHOR IS NOT A CROSS-PHASE VALIDITY CHECK, and saying so here was false (site-dock 06\nsection 3, which rewrote this paragraph rather than amending it \u2014 a stale comment claiming a\nguarantee the campaign does not have is worse than no comment).  EVERY cell of phase 2 runs\nthe COUPLED site model, `inb_off` included, because coupling is a property of the RUN and is\nDECLARED (`--couple-channels`, carried by `PHASE2_RUN_DEFAULTS`), never inferred from the\ninbound flag.  So `inb_off` is the inbound-OFF POLE INSIDE the coupled model \u2014 the control\nfor \"does running an inbound pipeline at all change the answer, versus which policy runs it\",\nand the only cell with no yard, which makes it the structural zero for every yard quantity.\n\nWhat that trades away is the comparison with phase 1, and the trade is deliberate.  Phase 1\nis UNCOUPLED and, since department-calibration decision 11, inbound-ON, so it ranks\nplacement arms under 2x the site put labour: an\nuncoupled leaf is handed the WHOLE derived site crew, twice over (site-dock 19 measured the\nbreak).  Under the old leaf model `inb_off` was comparable with phase 1 but confounded\nagainst its own nine siblings; coupling every cell inverts that, and the matrix's own deltas\nare what the campaign publishes, so that is the side kept whole.  The asymmetry is not a\nclean scaling either \u2014 what doubles is put and receiving CAPACITY, not labour seconds, and\nunder drain-or-cap a larger crew cuts less and completes more per day by an amount that\ndiffers per arm \u2014 so a RANK comparison across the boundary is no more invariant than an\nhours one.  The caveat is carried as a STAMP (`restock_selection.json`'s `put_regime:\n'per-leaf'`) and published with the campaign; there is no runtime gate because nothing in\nthe codebase reads two run roots, so there is no join to gate.  The one reachable mistake \u2014\npointing the selector at a coupled root \u2014 is refused by `run_restock_selection.select`.\n\nThe reference is `fifo`, so every delta reads \"versus FIFO\", which is the campaign's own\nquestion.  The anchor is present as a cell, never the reference.",
       "is_async": false,
       "kind": "function",
       "signature": "(*, threshold_days=PHASE2_THRESHOLD_DAYS, lead_minutes=PHASE2_LEAD_MINUTES, lead_spread=PHASE2_LEAD_SPREAD, doors=PHASE2_DOCK_DOORS, door_team=PHASE2_DOOR_TEAM, finite_w=PHASE2_FINITE_W, h_multiples=PHASE2_H_MULTIPLES, keep=None)"
@@ -10933,7 +10933,7 @@
     },
     "Optimization/run_analysis.py": {
       "decorators": [],
-      "doc": "run_analysis.py \u2014 registry-driven graph generator for completed simulation runs.\n\nReads the sim_meta docs written by run_simulation.py, rebuilds warehouse aisle maps via\nbuild_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations\n(selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by\nediting Performance_Evaluations/presets.py \u2014 not this file.\n\nPer-leaf filenames (sim_meta / series) and the cross-profile aggregate subtree render through the\nrun-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join \u2014 the resolver is\nrooted at the RUN root (this module receives a CELL dir from analyze_run), and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.\n\nParallelism is a single FLAT worker pool (mirrors run_simulation): one global job list across\nall pairs \u00d7 configs fed to one ProcessPoolExecutor, then a second flat pool for the\ncross-profile aggregate stage.  `--granularity config` (default) = one job per config (context\nloaded once, shared across its graphs); `--granularity graph` = one job per (config, graph)\nfor maximum core utilization on sparse runs.\n\nUsage:\n  python run_analysis.py <base_dir>                        # default preset BY_INITIAL\n  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)\n  python run_analysis.py <base_dir> --granularity graph --set labor.delta_topn.top_n=3\n\nThe default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum\n(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the\ndownstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older\nuniform-only view.",
+      "doc": "run_analysis.py \u2014 registry-driven graph generator for completed simulation runs.\n\nReads the sim_meta docs written by run_simulation.py, rebuilds warehouse aisle maps via\nbuild_shared_assets, then runs the graphs/analyses registered under Performance_Evaluations\n(selected by a preset).  Each graph is a self-registering module; add/remove/tune graphs by\nediting Performance_Evaluations/presets.py \u2014 not this file.\n\nPer-leaf filenames (sim_meta / series) and the cross-profile aggregate subtree render through the\nrun-tree contract (`rt.leaf_path` / `rt.aggregate_dir`), never a basename join \u2014 the resolver is\nrooted at the RUN root (this module receives a CELL dir from analyze_run), and\nTests/integration/test_writer_paths_golden.py pins the rendered strings to the old literals.\n\nParallelism is ONE work pool for the whole run (`simdriver.workpool.WorkPool`, the same class\nthe simulation drives): `analyze_cells` submits every cell's config jobs as it builds them,\nand each cell's aggregate and site jobs are built by a continuation once that cell's config\njobs have resolved -- no cell waits for another, and no stage barrier idles the pool.\n`--granularity config` (default) = one job per config (context loaded once, shared across\nits graphs); `--granularity graph` = one job per (config, graph) for maximum core\nutilization on sparse runs.\n\nUsage:\n  python run_analysis.py <base_dir>                        # default preset BY_INITIAL\n  python run_analysis.py <base_dir> --preset DEFAULT        # uni-only (drops opt_* arms)\n  python run_analysis.py <base_dir> --granularity graph --set labor.delta_topn.top_n=3\n\nThe default preset is BY_INITIAL (focus=all): it keeps BOTH the uniform (uni_*) and optimum\n(opt_*) initial-assignment arms, so the optimum-vs-uniform comparison is produced and the\ndownstream run_channel_rollup sees the full suite.  Pass --preset DEFAULT for the older\nuniform-only view.",
       "kind": "module",
       "signature": null
     },
@@ -10958,6 +10958,13 @@
       "kind": "function",
       "signature": "(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=())"
     },
+    "Optimization/run_analysis.py::_analysis_executor": {
+      "decorators": [],
+      "doc": "The analysis pool's executor: a spawn `ProcessPoolExecutor` WITHOUT the sim pool's\nrecycling pin (`supervisor._sim_executor`).  Analysis jobs are seconds long, and\n`'graph'` granularity co-schedules the graphs of one leaf on whatever worker gets them,\nreusing a loaded context (`_CFG_CTX` and its siblings) -- a fresh process per job would\nreload the context per graph.  The caches are evicted per CELL in `_run_job` instead, so\none pool over ten cells does not hold ten cells' contexts.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(max_workers: int)"
+    },
     "Optimization/run_analysis.py::_apply_run_shape": {
       "decorators": [],
       "doc": "Restore the RUN's own run-shaping params onto CONFIG before rebuilding its warehouse.\n\nA standalone re-analysis used to size the warehouse from whatever CONFIG this checkout\nhappens to hold \u2014 no max_skus, this build's fill \u2014 while the comment at the rebuild claimed\nit used \"the SAME per-regime sizing the run used\".  For any capped run that silently\nrebuilt a DIFFERENT warehouse than the sim ran on: wrong aisle count, wrong total_bins,\nand (per `regime_sizing_from_config`'s own docstring) misgrouped ff aisle stats and skewed\nchurn %.  The in-process analysis never had the bug because `run_simulation` had already\nmutated CONFIG in the same process; only the standalone path was affected.\n\nReturns the run's `max_skus` (None when unrecorded).  A run with no recorded spec \u2014 every\nrun before that file existed \u2014 warns loudly and keeps the old behaviour, which is the\nhonest answer: those runs never recorded what they were shaped with.",
@@ -10971,6 +10978,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(arm_key: str) -> str"
+    },
+    "Optimization/run_analysis.py::_cell_record": {
+      "decorators": [],
+      "doc": "The cell's own record from the run descriptor as a `Cell`, or None when the run has no\ndescriptor (a scratch tree) or the descriptor predates the record.\n\nAPPLIED BEFORE A CELL'S JOBS ARE BUILT (`cells.cell_scope`), because two things the\nconfig stage stamps on `sim_result` are CELL-axis values read off the RUN-level CONFIG\n`_apply_run_shape` restored: the inbound keys `_sim_result_from_meta` copies (phase 2's\naxis sets `dock_doors`, `door_team` and `fee_threshold_days` per cell, so `inb_off`\nreported a dock ceiling it did not have) and `sizing.aisle_split`, which\n`regime_sizing_from_config()` reads and `_apply_run_shape` never restores (a `ks` sweep\nwas analyzed under the LAST cell's split, every cell of it).  The descriptor records\nexactly what the driver applied (`Cell._asdict()`), so this is the same write, per cell,\nundone when the cell's jobs are built.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str)"
     },
     "Optimization/run_analysis.py::_coerce": {
       "decorators": [],
@@ -10993,12 +11007,19 @@
       "kind": "function",
       "signature": "(pair: str) -> dict | None"
     },
-    "Optimization/run_analysis.py::_drain": {
+    "Optimization/run_analysis.py::_job_key": {
       "decorators": [],
-      "doc": "Run jobs on the flat pool (or inline if no pool); log per-job errors.  Returns the\nmerged access tally {'granted': {eval: n}, 'denied': {eval: n}} across all jobs.",
+      "doc": "A job's identity within its cell: stage, the directory it renders into, its keys.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pool, jobs, log) -> dict"
+      "signature": "(job: dict) -> tuple"
+    },
+    "Optimization/run_analysis.py::_log_summaries": {
+      "decorators": [],
+      "doc": "The run-end summaries, per cell -- three claims that must stay separate.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(tally: dict, log: logging.Logger, cell: str) -> None"
     },
     "Optimization/run_analysis.py::_merge_tally": {
       "decorators": [],
@@ -11056,6 +11077,48 @@
       "kind": "function",
       "signature": "() -> logging.Logger"
     },
+    "Optimization/run_analysis.py::analyze_cells": {
+      "decorators": [],
+      "doc": "Every cell's three stages -- config, aggregate, site -- through ONE pool.\n\n`cell_items` is `[(cell_name, cell_dir), ...]`.  Until 2026-09-19 `analyze_run` ran the\ncells one after another and each opened its own pool with three barriers inside it\n(config, then aggregate, then site), so on a ten-cell run most of a big `--workers` sat\nidle for most of the stage.  Now the parent builds each cell's config jobs (the shape\nrebuild per pair, the output-dir pre-pass) and submits them; the cell's aggregate and\nsite jobs are built by a CONTINUATION once its config jobs have resolved -- they must\nbe, because `_aggregate_jobs` reads the series docs the config stage wrote -- and\nsubmitted behind whatever is already queued.  No cell waits for another.\n\nA rebuild after a hard worker death re-emits the job dicts already in hand.  It must\nnever re-run `_config_jobs` and its siblings: their pre-pass wipes the output dirs, and\na wipe with sibling jobs finished would delete what they rendered.\n\nReturns `{cell: tally}`; the per-cell summaries are logged here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell_items, log: logging.Logger, *, workers: int=1, preset: str='BY_INITIAL', granularity: str='config', cli_set: dict | None=None, only=()) -> dict"
+    },
+    "Optimization/run_analysis.py::analyze_cells._after_config": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell=cell, cell_dir=cell_dir, rt=rt, under=_under_the_cell)"
+    },
+    "Optimization/run_analysis.py::analyze_cells._as_jobs": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, jobs)"
+    },
+    "Optimization/run_analysis.py::analyze_cells._on_failure": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, key, job, exc)"
+    },
+    "Optimization/run_analysis.py::analyze_cells._on_success": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, key, job, res)"
+    },
+    "Optimization/run_analysis.py::analyze_cells._under_the_cell": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(build, rec=rec)"
+    },
     "Optimization/run_analysis.py::main": {
       "decorators": [],
       "doc": null,
@@ -11065,7 +11128,7 @@
     },
     "Optimization/run_analysis.py::run_analysis": {
       "decorators": [],
-      "doc": "Re-run analysis on all completed sims under *base_dir* via the registry.\n\nTwo sequential flat-pool stages (config, then cross-profile aggregate); each stage is a\nsingle ProcessPoolExecutor sized by `workers` (workers<=1 runs inline).",
+      "doc": "Re-run analysis on ONE cell -- `base_dir` is a CELL dir: the standalone CLI and the\nharness entry -- through the same pool `analyze_cells` drives a whole run with.",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, log: logging.Logger, workers: int=1, preset: str='BY_INITIAL', granularity: str='config', cli_set: dict | None=None, only=()) -> None"
@@ -11439,7 +11502,7 @@
     },
     "Optimization/run_simulation.py::_refuse_incomplete": {
       "decorators": [],
-      "doc": "Exit 1, and run NO analysis, when the matrix left units unrecovered.\n\nTHE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  `supervisor._supervise` has always\nlogged the unrecovered units at ERROR with a resume command, and every level above it\nreturned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run\nthe analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print \"All\nsimulations complete.\" and exit 0 (`pool-run-swallows-dead-arms`).  A scheduled or detached\ndriver has ONLY the exit status to read.\n\nAnalysis is refused rather than attempted because every downstream stage tolerates an\nempty leaf set: the what-if writers would compare against holes and say nothing.  The run\nroot and every finished arm's checkpoint are left exactly as they are, and the resume\ncommand reruns only what is missing -- after which the analysis runs as usual.",
+      "doc": "Exit 1, and run NO analysis, when the matrix left units unrecovered.\n\nTHE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  The pool driver (today\n`workpool.WorkPool.finish`, then `supervisor._supervise`) has always\nlogged the unrecovered units at ERROR with a resume command, and every level above it\nreturned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run\nthe analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print \"All\nsimulations complete.\" and exit 0 (`pool-run-swallows-dead-arms`).  A scheduled or detached\ndriver has ONLY the exit status to read.\n\nAnalysis is refused rather than attempted because every downstream stage tolerates an\nempty leaf set: the what-if writers would compare against holes and say nothing.  The run\nroot and every finished arm's checkpoint are left exactly as they are, and the resume\ncommand reruns only what is missing -- after which the analysis runs as usual.",
       "is_async": false,
       "kind": "function",
       "signature": "(info: dict, base_dir: str, log) -> None"
@@ -14420,6 +14483,13 @@
       "kind": "function",
       "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches, lo, hi, channel_regime=None)"
     },
+    "Optimization/simdriver/batch_precompute.py::_sibling_batches": {
+      "decorators": [],
+      "doc": "The same family's batch file under a SIBLING CELL's pair dir, copied into `out_dir`;\nthe copied path, or None when no sibling holds one.\n\n`out_dir` is `<run_root>/<cell>/<pair>`.  On a frozen matrix every cell samples the\nidentical script -- same inventory, same seed, same batch content whenever the cells\nshare a geometry (the whole `inbound_unload` matrix does) -- and until 2026-09-19 every\ncell recomputed it (~2 min a cell at campaign scale) because the cache path is per cell.\nNow the parent sets a cell up while the pool is running the previous cells' units, so\nthat recompute also stole the pool's cores.  A sibling's file is the same bytes: the\nname IS the fingerprint, and the worker re-verifies the full fingerprint on load.\n\nReserved (`_`-prefixed) siblings are skipped -- the frozen-inventory subtree holds no\nbatches -- and a copy that fails for any reason is a miss, never an error.  Copied rather\nthan referenced so the run tree's contract is unchanged: the artifact still exists per\ncell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(out_dir: str, name: str) -> str | None"
+    },
     "Optimization/simdriver/batch_precompute.py::batch_fingerprint": {
       "decorators": [],
       "doc": "Stable hash over EXACTLY the inputs that determine the batch sequence (order included).",
@@ -14429,7 +14499,7 @@
     },
     "Optimization/simdriver/batch_precompute.py::ensure_batches": {
       "decorators": [],
-      "doc": "Compute-or-reuse this family's batch file under out_dir.  Returns (path, fingerprint).\n\nThe file is named by the fingerprint so different families never collide and identical families\n(e.g. configs that don't change inventory) share one file.  Existence \u21d2 reuse (write is atomic);\nthe worker re-verifies the full fingerprint on load.\n\n``channel_regime`` (store/fulfillment) makes the precompute regime-pure so a mixed-catalog\nchannel shares ONE list across all its configs (store and fulfillment necessarily get distinct\nfiles: different regime SKUs, seed, and batch fraction all feed the fingerprint).",
+      "doc": "Compute-or-reuse this family's batch file under out_dir.  Returns (path, fingerprint).\n\nThe file is named by the fingerprint so different families never collide and identical families\n(e.g. configs that don't change inventory) share one file.  Existence \u21d2 reuse (write is atomic);\nthe worker re-verifies the full fingerprint on load.  A sibling cell's copy of the same file\nis reused before anything is computed (`_sibling_batches`).\n\n``channel_regime`` (store/fulfillment) makes the precompute regime-pure so a mixed-catalog\nchannel shares ONE list across all its configs (store and fulfillment necessarily get distinct\nfiles: different regime SKUs, seed, and batch fraction all feed the fingerprint).",
       "is_async": false,
       "kind": "function",
       "signature": "(out_dir: str, inv_db: str, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_batches: int, workers: int=1, log=None, channel_regime=None)"
@@ -14478,7 +14548,7 @@
     },
     "Optimization/simdriver/cells.py": {
       "decorators": [],
-      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler \u00d7 inbound policy over one frozen\ninventory.  _apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the\nchange is seen everywhere; _build_cells names cells\nk{k}[_l{loss}]_{zone}[_{inbound}][_{sched}].\n\nThe inbound suffix sits BEFORE the scheduler suffix on purpose: `run_whatif_labor._scheduler_of`\nrecovers the swept scheduler as the cell name's LAST underscore token, and appending a fifth\nsegment after it would silently relabel every row of that module's CSV.\n\nCONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to\nthe former only.  Cell.overrides() reports the same values without applying them.",
+      "doc": "simdriver.cells \u2014 the what-if cell matrix: build/apply/inspect cells.\n\nA cell = a fixed choice of aisle-split \u00d7 zoning \u00d7 scheduler \u00d7 inbound policy over one frozen\ninventory.  _apply_cell mutates the SAME sim_config.CONFIG object (never rebound) so the\nchange is seen everywhere; `cell_scope` is the form the driver uses -- the same write, undone\non exit, so no cell's state outlives its own setup (2026-09-19, the flat work pool: every\ncell's setup runs while other cells' units are in flight, and the order cells are set up in\nmust not be able to change a result).  _build_cells names cells\nk{k}[_l{loss}]_{zone}[_{inbound}][_{sched}].\n\nThe inbound suffix sits BEFORE the scheduler suffix on purpose: `run_whatif_labor._scheduler_of`\nrecovers the swept scheduler as the cell name's LAST underscore token, and appending a fifth\nsegment after it would silently relabel every row of that module's CSV.\n\nCONFIG is run STATE and the simconfig registry is the DECLARATION; _apply_cell writes to\nthe former only.  Cell.overrides() reports the same values without applying them.",
       "kind": "module",
       "signature": null
     },
@@ -14503,6 +14573,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> dict"
+    },
+    "Optimization/simdriver/cells.py::_ABSENT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "object()"
     },
     "Optimization/simdriver/cells.py::_SCHED_SHORT": {
       "decorators": [],
@@ -14534,10 +14611,17 @@
     },
     "Optimization/simdriver/cells.py::_inbound_axis": {
       "decorators": [],
-      "doc": "The spec's inbound axis as [(name_suffix, overrides|None)], validated.\n\nDefaults to the single inert entry `[('', None)]`, which is what every spec written before\nthe inbound axis existed resolves to: no suffix, no CONFIG write, byte-identical names and\nbehaviour.  A real axis is a list of `(suffix, {inbound_key: value})` pairs \u2014 keys are\n`CONFIG['global']` `inbound_*` names with the prefix dropped.\n\nFour refusals, each closing a failure with no error message:\n\n* **An unknown key.**  A misspelt name creates a new `CONFIG['global']` entry that\n  `inbound_spec()` never reads, so the cell runs the DEFAULT policy under the swept\n  policy's name.  Checked on every axis, inert or not.\n* **A missing suffix on a real axis.**  `_build_cells` dedupes by name, so inbound-on and\n  inbound-off collapse into ONE cell \u2014 the matrix comes out smaller than it was asked for\n  and nothing says so.\n* **Duplicate suffixes.**  The same collapse by another route.\n* **A key one entry sets and another does not.**  `_apply_cell` mutates a process-wide\n  CONFIG that is never reset between cells, so a key written by cell 3 and omitted by cell 4\n  leaves cell 4 running cell 3's policy under its own name.  Requiring every entry to cover\n  the union makes the carryover unreachable rather than merely unlikely.",
+      "doc": "The spec's inbound axis as [(name_suffix, overrides|None)], validated.\n\nDefaults to the single inert entry `[('', None)]`, which is what every spec written before\nthe inbound axis existed resolves to: no suffix, no CONFIG write, byte-identical names and\nbehaviour.  A real axis is a list of `(suffix, {inbound_key: value})` pairs \u2014 keys are\n`CONFIG['global']` `inbound_*` names with the prefix dropped.\n\nThree refusals, each closing a failure with no error message:\n\n* **An unknown key.**  A misspelt name creates a new `CONFIG['global']` entry that\n  `inbound_spec()` never reads, so the cell runs the DEFAULT policy under the swept\n  policy's name.  Checked on every axis, inert or not.\n* **A missing suffix on a real axis.**  `_build_cells` dedupes by name, so inbound-on and\n  inbound-off collapse into ONE cell \u2014 the matrix comes out smaller than it was asked for\n  and nothing says so.\n* **Duplicate suffixes.**  The same collapse by another route.\n\nThere used to be a fourth: every entry had to state every key ANY entry set, because\n`_apply_cell` wrote into a process-wide CONFIG that was never reset between cells, so a\nkey cell 3 wrote and cell 4 omitted left cell 4 running cell 3's policy under its own\nname.  The driver now applies each cell inside `cell_scope`, which restores CONFIG on\nexit, so an omitted key means the RUN-level value (the command line or the settings\ndefault) and nothing else -- well-defined, and the refusal's reason is gone with it.",
       "is_async": false,
       "kind": "function",
       "signature": "(spec)"
+    },
+    "Optimization/simdriver/cells.py::_rebind": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(container: dict, key, saved) -> None"
     },
     "Optimization/simdriver/cells.py::_tightest_split": {
       "decorators": [],
@@ -14545,6 +14629,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cells)"
+    },
+    "Optimization/simdriver/cells.py::cell_scope": {
+      "decorators": [
+        "contextmanager"
+      ],
+      "doc": "`_apply_cell` for the duration of a `with` block, undone on exit.\n\nTHE ONE WAY THE DRIVER APPLIES A CELL since the flat work pool (2026-09-19).  Every cell's\nsetup -- manifest, shared assets, work units -- runs inside its scope, and the units it\nbuilt carry their values in their payloads; when the block exits CONFIG is back to the\nRUN-level state, so the next cell starts from the command line's values and not from\nwhatever the previous cell wrote.  An `inbound=None` cell therefore runs the run-level\ninbound keys, and the order cells are set up in cannot change any result.\n\nRESTORE IS BY REBINDING, NEVER BY MUTATING THE LIVE CONTAINERS.  A payload built inside\nthe scope may hold a reference to a dict CONFIG held at the time (`velocity_zoning` did,\nuntil `workunits` copied it), and under the pool it is pickled only when a worker slot\nfrees -- hours later, from the pool's own queue.  A restore that refilled that dict in\nplace would rewrite the payload before it shipped, so the saved OBJECTS are put back at\ntheir keys and the cell's objects are simply dropped.  The dicts `run_simulation` holds\nby reference (`CONFIG['channels'][ch]['sizing']`, each pick-config dict) are the same\nobjects throughout: only their VALUES are rebound.\n\n`scheduler` is absent from every pick-config dict as written, and a key that was absent\nbefore the cell is deleted on exit (`_ABSENT`), not set to None -- `_apply_cell` never\nwrote a None there, and a reader that tests `'scheduler' in cfg` must see what it saw\nbefore.  Exceptions inside the block still restore.  Scopes nest: an inner scope saves\nthe outer's state and hands it back.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell: Cell)"
     },
     "Optimization/simdriver/cells.py::reference_cell": {
       "decorators": [],
@@ -15162,27 +15255,62 @@
     },
     "Optimization/simdriver/scenario.py": {
       "decorators": [],
-      "doc": "simdriver.scenario \u2014 one scenario + the cell-matrix driver.\n\n_run_scenario is the inner pipeline for a SINGLE warehouse cell (manifest + shared\nassets + flat pool + blank-arm check); _run_whatif_matrix loops _build_cells over one\nfrozen inventory so every run is a cell matrix (a plain run is the single cell k1_off).",
+      "doc": "simdriver.scenario \u2014 the cell-matrix driver over ONE work pool.\n\nEvery run is a cell matrix (a plain run is the single cell k1_off).  `_run_whatif_matrix`\nbuilds the cells from a spec, freezes the sampled inventory once when there is more than one\ncell, and then streams EVERY cell's units into one `workpool.WorkPool` (`_run_cells`): each\ncell's setup -- manifest, shared assets reshaped from the frozen inventory, work units -- runs\nin the parent, in spec order, INSIDE that cell's `cells.cell_scope`, and its units go into the\npool the moment they exist, while the previous cells' units are still running.  No worker\nwaits for a cell boundary, and there is no second path: a single cell is a one-cell matrix\nthrough the same code (2026-09-19; until then one executor was opened per cell and the matrix\nwall was the sum of the cells' slowest units).",
       "kind": "module",
       "signature": null
     },
-    "Optimization/simdriver/scenario.py::_run_scenario": {
+    "Optimization/simdriver/scenario.py::_build_assets": {
+      "decorators": [],
+      "doc": "ONE cell's shared assets, under the caller's `cell_scope`: the manifest and, per pair,\nthe warehouse reshaped from the frozen inventory when the run has one (multi-cell) or\nsampled fresh (a single cell).  Returns `{label: shared}`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(scenario_base: str, pairs, log: logging.Logger, frozen_by_pair) -> dict"
+    },
+    "Optimization/simdriver/scenario.py::_cell_dir": {
+      "decorators": [],
+      "doc": "`<run_root>/<cell>` -- or the run root itself for the unnamed cell a harness drives\n(`Tests/e2e/test_coupled_resume_e2e.py` runs one pair straight under its base dir).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, cell: Cell) -> str"
+    },
+    "Optimization/simdriver/scenario.py::_run_cells": {
+      "decorators": [],
+      "doc": "Every cell's units through ONE pool.  Returns {cell: [unfinished uids]} for the cells\nthat left units unrecovered (a cell whose SETUP raised reports `('setup',)`; a leaf whose\nprepare raised reports `('prepare', tag)`), empty on a clean matrix.\n\nTHE SHAPE.  For each cell in spec order: `cell_scope(cell)` -> `assets_for(cell,\ncell_dir)` (the shared assets; `_run_whatif_matrix` builds them, a harness may hand in\nones it built) -> `_build_work_units` -> `pool.submit` -> `pool.absorb()`.  The pool\nabsorbs and finalizes what landed between one cell's setup and the next, so a cell's\nunits are running while the next cell is being set up; only the WAIT between cells is\ngone.  At campaign scale setup is ~6 min a cell against units of 15 min to 3 h, so the\npool is fed continuously after the first cell.\n\nA CELL'S SHARED ASSETS LIVE UNTIL ITS LAST UNIT LANDS (`kept`), not until its units are\nsubmitted: a rebuild after a broken pool re-runs `_build_work_units` over the SAME\nassets with `mid_flight=True` (the coupled reconciler's contract), exactly as the old\nper-cell supervisor did, and never `build_shared_assets` again -- on a single-cell run\nthat would RE-SAMPLE and rewrite the planned inventory under the units in flight.  The\naffinity CSR is dropped at submit (the unit builder reads only its path).  On a wide,\nshallow spec every cell's inventory can be alive at once; the parent's memory is the\nprice of the retry path, and it is logged per cell.\n\nA cell whose setup RAISES (a campaign pin that does not match, a derivation that\ndisagrees with the record) is reported and skipped, and the pool keeps running the\nothers: an exception must never unwind into the pool with units in flight.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir, pairs, cells, log, *, workers, assets_for, skip_completed=False, max_retries=2, resume_granularity='strategy') -> dict"
+    },
+    "Optimization/simdriver/scenario.py::_run_cells._rebuild": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir, pairs, regime_sizing, workers, log, *, cell='', cell_index=1, cell_total=1, frozen_by_pair=None, skip_completed=False, max_tasks_per_child=1, max_retries=2, resume_granularity='strategy')"
+      "signature": "(name)"
+    },
+    "Optimization/simdriver/scenario.py::_run_cells._units": {
+      "decorators": [],
+      "doc": "This cell's `(units, meta)`, under its scope, over its kept assets.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, log_queue, *, mid_flight=False)"
     },
     "Optimization/simdriver/scenario.py::_run_whatif_matrix": {
       "decorators": [],
-      "doc": "Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a\nplain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once\n(tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze\nand samples fresh \u2014 bit-identical to the old flat run, just nested under its cell dir.  Returns\n{'cells': [names], 'reference': name, 'unfinished': {cell: [unit ids]}} -- `unfinished` holds\nonly cells that left units unrecovered, so an empty dict is a clean matrix.",
+      "doc": "Drive a cell-matrix run from a spec (see whatif_config.SPECS): every run is a matrix, so a\nplain run is the single cell ``k1_off``.  A MULTI-cell matrix freezes the sampled inventory once\n(tightest cell) and reshapes it per cell (apples-to-apples); a SINGLE-cell run skips the freeze\nand samples fresh \u2014 the flat run as it always was, nested under its cell dir.  Returns\n{'cells': [names], 'reference': name, 'unfinished': {cell: [unit ids]}} -- `unfinished` holds\nonly cells that left units unrecovered, so an empty dict is a clean matrix.\n\n`max_tasks_per_child` is accepted for the saved run specs that pass it and IGNORED: the\nexecutor is built with recycling pinned at 1 (`supervisor._sim_executor`).",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir, pairs, log, spec, resume=False, max_retries=2, resume_granularity='strategy', max_tasks_per_child=1)"
     },
+    "Optimization/simdriver/scenario.py::_run_whatif_matrix._assets": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(cell, scenario_base)"
+    },
     "Optimization/simdriver/scenario.py::_warn_blank_arms": {
       "decorators": [],
-      "doc": "Scan every sim_*.db under base_dir and log a prominent WARNING for any that\nrecorded zero batches (blank result DB).  Returns the list of blank db paths.\n\nA blank arm means the whole strategy produced no metrics \u2014 almost always a\nplacement/stocking failure (units never binned \u2192 no pick tasks \u2192 all batches\nskipped).  Downstream analysis silently omits such arms, so we flag them here.",
+      "doc": "Scan every sim_*.db under ONE CELL dir and log a prominent WARNING for any that\nrecorded zero batches (blank result DB).  Returns the list of blank db paths.\n\nA blank arm means the whole strategy produced no metrics \u2014 almost always a\nplacement/stocking failure (units never binned \u2192 no pick tasks \u2192 all batches\nskipped).  Downstream analysis silently omits such arms, so we flag them here.\n\nA CELL dir, never the run root: `iter_sim_dbs` walks `<pair>/<config>[/<channel>]/`\nfrom the directory it is handed, so from a run root it would take the cell level for the\npair level and, on a mixed catalogue, find nothing at all -- a vacuous \"no blanks\".",
       "is_async": false,
       "kind": "function",
       "signature": "(base_dir: str, log: logging.Logger) -> list"
@@ -15393,10 +15521,10 @@
     },
     "Optimization/simdriver/sim_assets.py::build_shared_assets": {
       "decorators": [],
-      "doc": "Load inventory + affinity from DB and build warehouse A.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).\n\ncoverage_record (the REBUILD path): one finished run's own\n`staffing.calibration[<pair>].coverage` block.  A rebuild loads that run's CATALOGUE, which\nsince ADR-0002 carries no stock level, and the warehouse is sized from levels on every path\n-- so a rebuild must re-declare before it plans, and must declare what the RUN declared.\nPassing the record re-declares from it exactly (`era_coverage.declare_from_record`); passing\nNone on a path that samples is normal (the run derives its own), and on a path that does not\nmeans \"the orders already carry a declaration\", which is true of a frozen inventory.",
+      "doc": "Load inventory + affinity from DB and build warehouse A.\n\n`keyframe_interval` None means the declared default, read at CALL time: the default\nused to be `CONFIG['global']['keyframe_interval']` in the signature, a snapshot taken at\nimport that no CLI override could reach -- the `_INITIAL_FILL` shape `sim_config`'s own\ndocstring forbids.  Every caller passes the value explicitly, which is why it never bit.\n\nWarehouse is sized so total bins \u2265 N_SKUS \u00d7 1.1 (minimum replicas of the\n60-type layout satisfying that constraint).\n\nfrozen_inventory_db (what-if harness): when set, load THIS already-planned inventory and\nDO NOT re-sample \u2014 every scenario/cell shares one frozen sampled inventory, so the batch\nfingerprint (which depends on the sampled SKUs' freq/qty) is identical across layout cells.\nThe warehouse SHAPE still comes from regime_sizing (the cell's aisle_split/zoning), only the\nsampled inventory is held fixed.  None \u21d2 current behavior (byte-identical).\n\ncoverage_record (the REBUILD path): one finished run's own\n`staffing.calibration[<pair>].coverage` block.  A rebuild loads that run's CATALOGUE, which\nsince ADR-0002 carries no stock level, and the warehouse is sized from levels on every path\n-- so a rebuild must re-declare before it plans, and must declare what the RUN declared.\nPassing the record re-declares from it exactly (`era_coverage.declare_from_record`); passing\nNone on a path that samples is normal (the run derives its own), and on a path that does not\nmeans \"the orders already carry a declaration\", which is true of a frozen inventory.",
       "is_async": false,
       "kind": "function",
-      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int=CONFIG['global']['keyframe_interval'], warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None, coverage_record: dict | None=None) -> dict"
+      "signature": "(inventory_db: str, affinity_db: str, log: logging.Logger, max_skus: int | None=None, max_aisles: int | None=None, max_bins: int | None=None, min_bins: int | None=None, composition: dict | None=None, regime_sizing: dict | None=None, keyframe_interval: int | None=None, warehouse_db_path: str | None=None, frozen_inventory_db: str | None=None, coverage_record: dict | None=None) -> dict"
     },
     "Optimization/simdriver/sim_assets.py::build_shared_assets._agg_cap": {
       "decorators": [],
@@ -15419,16 +15547,9 @@
       "kind": "function",
       "signature": "(bucket_hold: dict | None=None)"
     },
-    "Optimization/simdriver/sim_assets.py::load_run_inventory": {
-      "decorators": [],
-      "doc": "The ONE loader both the parent (`build_shared_assets`) and the workers\n(`strategy_runner`) use for a run's inventory.\n\nIt is a thin pass-through today, and the reason it survives as a named seam is the reason\nit stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the\nmanager's `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed\nin.  That guard existed because the era was the only regime that declared its own levels;\nflag-off inherited the catalogue's authored ones and had to stay byte-identical with the\narchive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at\nsetup, in days, and stamps the lead pipeline that goes with them (\"Field the floor\",\ndecision 6).  Honouring the stamp in one mode and discarding it in the other would field a\nlevel whose reorder point encodes a LINE while pricing its pipeline by a heuristic that\nassumes the reorder point encodes lead-time demand -- the exact defect the stamp was\nintroduced to fix.  The era flag now decides only whether the clock cuts and caps.",
-      "is_async": false,
-      "kind": "function",
-      "signature": "(path: str, limit: int | None=None)"
-    },
     "Optimization/simdriver/strategy_runner.py": {
       "decorators": [],
-      "doc": "strategy_runner.py \u2014 concurrent strategy worker for run_simulation.py.\n\nSeparates all parallel/CPU machinery from the configuration, analysis, and\nplotting logic in run_simulation.py.\n\nPublic API\n----------\n_run_strategy_worker(args) -> dict\n    Simulate one assignment strategy end-to-end (one process in the flat pool\n    owned by run_simulation._run_workers_flat).\n\nsave_worker_checkpoint(run_dir, strategy, next_batch_id)\nload_worker_checkpoint(run_dir, strategy) -> int\n    Per-strategy crash-recovery checkpoints written inside each worker.\n\nImplementation notes\n--------------------\n_run_strategy_worker must be a module-level function so ProcessPoolExecutor\ncan pickle it by reference in Windows spawn mode.  The child resolves it by\nqualified name (Optimization.simdriver.strategy_runner._run_strategy_worker): spawn's\nprepare() propagates the parent's sys.path \u2014 which the entry script seeded\nwith the repo root \u2014 before anything is unpickled, so this module needs no\nsys.path bootstrap of its own.",
+      "doc": "strategy_runner.py \u2014 concurrent strategy worker for run_simulation.py.\n\nSeparates all parallel/CPU machinery from the configuration, analysis, and\nplotting logic in run_simulation.py.\n\nPublic API\n----------\n_run_strategy_worker(args) -> dict\n    Simulate one assignment strategy end-to-end (one process in the flat pool\n    owned by simdriver.workpool.WorkPool, driven from scenario._run_cells).\n\nsave_worker_checkpoint(run_dir, strategy, next_batch_id)\nload_worker_checkpoint(run_dir, strategy) -> int\n    Per-strategy crash-recovery checkpoints written inside each worker.\n\nImplementation notes\n--------------------\n_run_strategy_worker must be a module-level function so ProcessPoolExecutor\ncan pickle it by reference in Windows spawn mode.  The child resolves it by\nqualified name (Optimization.simdriver.strategy_runner._run_strategy_worker): spawn's\nprepare() propagates the parent's sys.path \u2014 which the entry script seeded\nwith the repo root \u2014 before anything is unpickled, so this module needs no\nsys.path bootstrap of its own.",
       "kind": "module",
       "signature": null
     },
@@ -15838,16 +15959,71 @@
     },
     "Optimization/simdriver/supervisor.py": {
       "decorators": [],
-      "doc": "simdriver.supervisor \u2014 the crash-recovery pool driver + finalize gate.\n\nOwns the flat ProcessPoolExecutor lifetime: submit every work unit, isolate ordinary\nper-unit failures, rebuild + resubmit on a BrokenProcessPool (hard worker death) up to\nmax_retries, and finalize a group ONLY when every arm succeeded (so a crashed group\nstays resumable).  _run_strategy_worker is the only pickled callable (imported from\nstrategy_runner, unchanged).",
+      "doc": "simdriver.supervisor \u2014 the sim driver's books behind the work pool, and the finalize gate.\n\nThe pool itself is `simdriver.workpool.WorkPool` (one executor for every cell of a run, its\nown dispatch queue, the broken-pool recovery policy).  This module is what the SIM driver\nhangs on it: `_sim_executor` builds the spawn pool with worker recycling pinned at 1;\n`sim_jobs` turns a cell's `(uid, args)` work units into the pool's `Job`s, stamped the way the\nworker's log line expects; `SimBooks` is the per-cell bookkeeping the pool's `on_success` /\n`on_failure` callbacks land in -- the per-leaf `done` line, the runtime-metrics row, the\nexpected-pick attach, and the FINALIZE GATE: a group's `sim_meta.json` is written ONLY when\nevery one of its member units succeeded, so a crashed arm keeps its resume state and stays\nresumable.  `_run_strategy_worker` is the only pickled callable (imported from\nstrategy_runner, unchanged) and is looked up here at submit time, which is how the\nreal-spawn fixture (`Tests/integration/_broken_pool_driver.py`) swaps it for a worker that\ndies.\n\nUntil 2026-09-19 this module also owned the executor, one per cell (`_run_workers_flat` ->\n`_supervise` -> `_run_pool`), and the driver waited for a cell's last unit before the next\ncell's setup.  Those three are gone; their bookkeeping is `_absorb_success` and\n`_finalize_unit_groups` below, and their recovery policy is the pool's `finish`.",
       "kind": "module",
       "signature": null
     },
-    "Optimization/simdriver/supervisor.py::_explain_worker_death": {
+    "Optimization/simdriver/supervisor.py::SimBooks": {
       "decorators": [],
-      "doc": "Say WHY the workers died, in the parent's log, the first time a pool breaks.\n\nA child that dies at import writes its traceback to a stderr nobody has under a\nscheduled task (memory `launch-long-drivers-detached`); the parent knows only \"hard\ndeath\".  So: one fresh interpreter, no multiprocessing, that does what a spawned child\ndoes first -- re-run the main module as `__mp_main__` (by name under `-m`, by path\notherwise, mirroring `multiprocessing.spawn.get_preparation_data`), then import the\nworker target's module -- with its stderr CAPTURED.  A failure prints the traceback's\ntail here, naming the exception a broken working tree raises; a success says the death\nis not an import failure (out of memory, a hard crash inside a worker, a kill).\n\nReturns 'import-failure', 'clean' or None (probe timed out), for a caller that wants the\nverdict; the log lines are the point.",
+      "doc": "The sim driver's per-cell books behind `WorkPool`'s callbacks.\n\nPer cell, in the shape the old `_run_pool` kept: `meta[group_key] = {sim_skeleton,\nmembers}`, `done` uids, `finalized` group keys.  Per cell because uids and group keys\nrepeat across cells.  `on_success` absorbs a unit and finalizes every group it\ncompletes; `on_failure` is the `strategy FAILED` line; `sweep` is the safety pass the\nold `_supervise` ran at the end (a group whose last member landed but whose finalize\nraised gets one more chance).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks.__init__": {
+      "decorators": [],
+      "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(log, *, timeout_s: float=300.0) -> str | None"
+      "signature": "(self, log: logging.Logger, run_root: str | None)"
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks._state": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell) -> dict"
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks.done": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell) -> set"
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks.on_failure": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell, uid, sa, exc) -> None"
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks.on_success": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell, uid, sa, res) -> None"
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks.register": {
+      "decorators": [],
+      "doc": "A cell's group meta from `_build_work_units` (merged: a rebuild re-registers).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell, meta: dict) -> None"
+    },
+    "Optimization/simdriver/supervisor.py::SimBooks.sweep": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/supervisor.py::_absorb_success": {
+      "decorators": [],
+      "doc": "A unit's SUCCESS absorbed into the parent's books: the per-leaf `done` line (with its\nledger breaks), `done_uids`, the arm's expected pick onto its group's skeleton, and the\nruntime-metrics row.  Raises (a leaf-count mismatch) into the pool's success handling,\nwhich books the unit as a `strategy FAILED`, as before.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(res, uid, sa, meta, done_uids, log, cell, run_root)"
     },
     "Optimization/simdriver/supervisor.py::_finalize_config_run": {
       "decorators": [],
@@ -15863,37 +16039,239 @@
       "kind": "function",
       "signature": "(meta, done_uids, finalized, log, cell='')"
     },
-    "Optimization/simdriver/supervisor.py::_run_pool": {
+    "Optimization/simdriver/supervisor.py::_finalize_unit_groups": {
       "decorators": [],
-      "doc": "One ProcessPoolExecutor lifetime over `remaining` [(uid, args)].  Returns\n(failed_uids, broke).  A genuine success adds uid to done_uids and finalizes its group once\nALL members succeeded; a hard worker death (BrokenProcessPool) sets broke and abandons the\nrest so the driver can rebuild + resubmit; an ordinary worker Exception is isolated.  `cell`\nis prefixed on every per-arm tag so interleaved multi-cell output is attributable.",
+      "doc": "Finalize every group this unit completes, from `group_keys`.",
       "is_async": false,
       "kind": "function",
-      "signature": "(remaining, meta, max_workers, recycle, log, done_uids, finalized, cell='', run_root=None)"
+      "signature": "(sa, meta, done_uids, finalized, log, cell)"
     },
-    "Optimization/simdriver/supervisor.py::_run_workers_flat": {
+    "Optimization/simdriver/supervisor.py::_sim_executor": {
       "decorators": [],
-      "doc": "Flat ProcessPoolExecutor pool with automatic crash-recovery.\n\nReturns `_supervise`'s list of unrecovered unit ids (empty on a clean run) -- see there for\nwhy the list is returned and not only logged.\n\nAll (pair, config, channel, strategy) units share one pool.  A worker that raises is\nisolated; a hard worker death that BREAKS the pool triggers a rebuild + resubmit of the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  A group's\nsim_meta.json is written only when ALL its strategies genuinely succeed, so a crashed arm\nkeeps its resume.pkl and stays resumable.  The Manager/QueueListener live out here so worker\ndeaths + pool rebuilds don't touch shared logging.\n\nGraph generation is decoupled: run run_analysis.py <base_dir> afterwards.",
+      "doc": "The sim pool's executor: a spawn `ProcessPoolExecutor` with WORKER RECYCLING PINNED\nAT 1 -- one fresh process per unit.\n\nThe value is fixed HERE, in the one place the executor is built, rather than plumbed\nfrom the CLI (`--max-tasks-per-child` is accepted and warned about, never honoured).\nThe flag was NOT forwarded for months (`_run_whatif_matrix` dropped it, and every run is\na matrix), so every run in this repo's history has in fact recycled at 1.  The first run\nthat actually honoured a larger value DEADLOCKED at the cell boundary: cell 1 finished\nall 244 arms, then the pool sat at zero CPU with one live worker of eighteen and never\nshut down (comparison_whatif_20260815_234253, recycle=6).  The identical profile at\nrecycle=1 the day before completed both cells (comparison_whatif_20260814_083723).  A\nworker holding a queue of jobs is a bad trade in multi-hour code regardless: the\nmeasured saving is ~10 s of spawn per job against a job that runs for minutes, and\nworkers reload their assets per job anyway (the per-arm startup term is catalogue\nLOADING, not spawn -- memory `per-arm-startup-is-catalogue-loading`).  The analysis\nstage builds its own executor WITHOUT this pin (`run_analysis._analysis_executor`): its\njobs are seconds long and reuse a loaded context across co-scheduled jobs.\n`Tests/unit/test_worker_recycling_pin.py` pins the literal below by source.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs: list, base_dir: str, shared_by_pair: dict, max_workers: int, log: logging.Logger, cell: str='', cell_index: int=1, cell_total: int=1, max_tasks_per_child: int | None=1, skip_completed: bool=False, max_retries: int=2, resume_granularity: str='strategy') -> list"
+      "signature": "(max_workers: int)"
     },
-    "Optimization/simdriver/supervisor.py::_supervise": {
+    "Optimization/simdriver/supervisor.py::sim_jobs": {
       "decorators": [],
-      "doc": "Bounded retry driver: on a hard worker death, rebuild the pool and resubmit the\nunfinished units (each resumes from its on-disk checkpoint), up to max_retries.  Ordinary\nper-unit exceptions are NOT auto-retried (near-always deterministic bad-config).  Quarantine\n+ continue: never abort the run, never infinite-loop; unrecovered units keep their resume\nstate and are reported with a resume command.\n\nRETURNS THE UNRECOVERED UNIT IDS, sorted; empty on a clean run.  Until 2026-09-18 the list\nwas logged at ERROR here and returned to nobody, so a run whose EVERY worker died still\nran the analysis stage over an empty leaf set and exited 0 (`pool-run-swallows-dead-arms`:\n68 arms dead on a KeyError, \"All simulations complete\", exit 0).  The detection was never\nthe missing piece; the propagation was.  `_run_workers_flat` -> `_run_scenario` ->\n`_run_whatif_matrix` carry this list up, and `run_simulation._refuse_incomplete` turns it\ninto exit status 1 with no analysis.\n\nWORKER RECYCLING IS PINNED AT 1 \u2014 one fresh process per job.  `max_tasks_per_child` was\naccepted but never forwarded (`_run_whatif_matrix` dropped it, and every run is a matrix),\nso every run in this repo's history has in fact recycled at 1.  The first run that actually\nhonoured a larger value DEADLOCKED at the cell boundary: cell 1 finished all 244 arms, then\nthe pool sat at zero CPU with one live worker of eighteen and never shut down\n(comparison_whatif_20260815_234253, recycle=6).  The identical profile at recycle=1 the day\nbefore completed both cells (comparison_whatif_20260814_083723).  A worker holding a queue\nof jobs is a bad trade in multi-hour code regardless: the measured saving is ~10 s of spawn\nper job against a job that runs for minutes, and workers reload their assets per job anyway.\nSo the value is fixed here rather than plumbed, and the CLI flag warns if asked for more.",
+      "doc": "One cell's `(uid, args)` work units as the pool's `Job`s, stamped with what the\nworker's log line reads: `cell` (the logger name and every per-arm line), `job_tag`,\nthe per-cell `job_index/job_total`, and `cell_pos` (this cell's position in the spec).\nThere is no whole-run job counter any more: the old `gjob` assumed every cell had the\nsame unit count and was wrong on resume and after a retry; matrix progress is now the\npool's own `[pool] N unit(s) done` line.\n\n`_run_strategy_worker` is read from THIS module at call time so a fixture can rebind it\nbefore the driver runs (`_broken_pool_driver.py` does, for a worker that cannot import).",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, max_workers, log, *, log_queue, max_tasks_per_child, skip_completed, max_retries, resume_granularity, cell='', cell_index=1, cell_total=1)"
+      "signature": "(cell, units, *, cell_index=1, cell_total=1)"
     },
-    "Optimization/simdriver/supervisor.py::_tag_of": {
+    "Optimization/simdriver/workpool.py": {
+      "decorators": [],
+      "doc": "simdriver.workpool \u2014 ONE pool for every cell of a run, and for the analysis stage.\n\nWHY.  Until 2026-09-19 the driver opened one ProcessPoolExecutor PER CELL and waited for the\ncell's last unit before the next cell's setup began.  Phase 2's `inbound_unload` spec has four\ncoupled units a cell on a twelve-worker pool, so eight workers idled for the life of every cell\nand the matrix wall was the SUM of the cells' slowest units (~24 h) rather than the\nworker-hours over the pool (~4 h, bounded below by the single slowest unit).  The pick side had\nthe same shape from the start, hidden by two cells of many short units; the analysis stage had\nit again one level up (a fresh pool per cell with three stage barriers inside).  User decision\n2026-09-19: ONE pool architecture for every run, with the cell carried on the unit.\n\nWHAT.  A `WorkPool` owns one executor for the life of a run and takes jobs tagged with the CELL\nthat owns them.  It keeps its OWN pending queue and hands a job to the executor only while\nfewer than `max_workers` are in flight, so dispatch order is the pool's (weight, then\nsubmission order) and never the executor's FIFO.  Between cell setups the driver calls\n`absorb()` (non-blocking) so finished units are booked as they land; `drain()` waits for the\nrest.  `when_done(cell, keys, callback)` fires a parent-thread continuation once every named\njob of that cell has RESOLVED (an errored job counts), which is how the analysis stage builds\na cell's aggregate jobs only after that cell's config jobs wrote their series docs -- without\nwaiting for any other cell.\n\nRECOVERY, the old `_supervise` policy over all cells at once.  A hard worker death breaks the\none pool: it is unblocked (`_unblock_broken_pool`, the gh-107219 feeder hang) and shut down, a\nfresh executor built, and every cell with jobs not done is asked to REBUILD its jobs through\nthe caller's `rebuild(cell)` (the driver re-derives from what it kept, with `mid_flight=True`\n-- the coupled reconciler's contract) and resubmitted, up to `max_retries` times.  An ordinary\nper-job exception is quarantined and never retried.  Jobs still not done at the end are\nreturned per cell, the shape `run_simulation._refuse_incomplete` reads.\n\nWHAT THIS MODULE DOES NOT KNOW.  Nothing about units, leaves, groups, sim_meta or the run\ntree: the driver passes `on_success` / `on_failure` callbacks and the worker callable rides on\neach `Job`.  It imports neither `strategy_runner` nor `sim_config`\n(`Tests/unit/test_config_reaches_the_worker.py`), and it names no contract path (the run-tree\nratchet in `Tests/architecture/test_runtree_consumption.py` counts them per file).\n\nThe Manager + QueueListener that carry worker log records live here for the whole run: one\nlistener, not one per cell, and the queue proxy survives a pool rebuild.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simdriver/workpool.py::InlineExecutor": {
+      "decorators": [],
+      "doc": "An executor that runs each submit at once, in this process -- the one-worker case of\na driver (`workers <= 1`) and the executor tests hand a pool.  Same `submit` /\n`shutdown` surface as `ProcessPoolExecutor`, no processes, no threads.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/workpool.py::InlineExecutor.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *a, **kw)"
+    },
+    "Optimization/simdriver/workpool.py::InlineExecutor.shutdown": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, wait=True, *, cancel_futures=False)"
+    },
+    "Optimization/simdriver/workpool.py::InlineExecutor.submit": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, fn, *args, **kwargs)"
+    },
+    "Optimization/simdriver/workpool.py::Job": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "One unit of work the pool dispatches: `fn(payload)` in a worker.\n\n`key` is hashable and unique WITHIN its cell (a work-unit uid, an analysis job name);\n`fn` is module-level and picklable (spawn); `payload` is the single argument; `weight`\nis the dispatch priority (higher first, ties by submission order -- 0 everywhere today,\nthe seam for a duration estimate from a reference run).",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/workpool.py::WorkPool": {
+      "decorators": [],
+      "doc": "ONE executor across every cell; see the module docstring.\n\n`on_success(cell, key, payload, result)` and `on_failure(cell, key, payload, exc)` are the\ndriver's bookkeeping.  A raise inside `on_success` is a FAILURE of that job (a malformed\nresult is the driver's `strategy FAILED`, as before), never a raise out of the pool.\n`executor_factory(max_workers)` builds the executor; the sim driver passes the spawn pool\nwith recycling pinned (`supervisor._sim_executor`), the analysis driver one without, and\ntests a thread pool.  `resume_hint` is the command the UNRECOVERED block names.\n`worker_logging` False skips the Manager and the QueueListener (`log_queue` stays None):\nthe analysis workers log to their own stdout logger and never take the queue, and a\nManager is a process nobody should start for nothing.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.__enter__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.__exit__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, exc_type, exc, tb)"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, max_workers, log, *, executor_factory, run_root=None, max_retries=2, on_success=None, on_failure=None, resume_hint=None, worker_logging=True)"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._absorb_future": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, fut) -> None"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._after_absorb": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._book": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell) -> _CellBook"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._fire_continuations": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._pump": {
+      "decorators": [],
+      "doc": "Hand pending jobs to the executor while a worker slot is free.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool._teardown_broken": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.absorb": {
+      "decorators": [],
+      "doc": "Absorb every job that has completed WITHOUT waiting, refill the executor, fire\nany continuation that became ready.  Returns True while the pool is healthy.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.drain": {
+      "decorators": [],
+      "doc": "Absorb until nothing is pending or in flight, or the pool breaks.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.finish": {
+      "decorators": [],
+      "doc": "Drain; on a break, rebuild + resubmit through `rebuild(cell) -> [Job]` up to\n`max_retries` times; return the jobs still not done, per cell (empty when clean).\n\nThe order is the old `_supervise`'s: drain, and only on a break tear down, explain\nthe death ONCE, build a fresh executor, and ask every cell with jobs left for its\njobs again -- the driver's `rebuild` is where `mid_flight=True` is passed to the\nwork-unit builder, so a torn coupled pair seen during a live retry is reported and\nnot repaired (`workunits._reconcile_coupled_unit`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, rebuild) -> dict"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.job_index": {
+      "decorators": [],
+      "doc": "`(index, total)` of a key within its cell's submission order -- the per-cell\nprogress the worker's log line shows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell, key) -> tuple"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.remaining": {
+      "decorators": [],
+      "doc": "{cell: sorted keys not done} for the cells that have any.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.settled_cells": {
+      "decorators": [],
+      "doc": "Cells whose EVERY submitted job has resolved and nothing is queued -- the\ndriver drops a cell's shared assets on this (the assets a retry rebuilds from).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.submit": {
+      "decorators": [],
+      "doc": "Queue one cell's jobs (any iterable of `Job`), dispatch as far as the pool allows,\nand return how many were queued.  A key already DONE for this cell is skipped -- a\nrebuild after a break hands back every job of the cell, finished ones included.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell, jobs) -> int"
+    },
+    "Optimization/simdriver/workpool.py::WorkPool.when_done": {
+      "decorators": [],
+      "doc": "Run `callback()` on the parent thread once every `(cell, key)` in `keys` has\nRESOLVED -- succeeded OR failed, because \"the config stage is over\" is true either\nway and the aggregate stage must not wait forever on one errored leaf.  Fires at\nmost once, from inside `absorb`/`drain` (or immediately if already satisfied).  The\ncallback may submit more jobs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell, keys, callback) -> None"
+    },
+    "Optimization/simdriver/workpool.py::_CellBook": {
+      "decorators": [],
+      "doc": "The pool's books for ONE cell: what was submitted, what resolved, and how.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/workpool.py::_CellBook.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Optimization/simdriver/workpool.py::_CellBook.remaining": {
+      "decorators": [],
+      "doc": "Keys not DONE -- a quarantined failure is not done and is reported (and, after a\nbreak, resubmitted) exactly as `_supervise` did.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
+    },
+    "Optimization/simdriver/workpool.py::_CellBook.resolved": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> set"
+    },
+    "Optimization/simdriver/workpool.py::_explain_worker_death": {
+      "decorators": [],
+      "doc": "Say WHY the workers died, in the parent's log, the first time a pool breaks.\n\nA child that dies at import writes its traceback to a stderr nobody has under a\nscheduled task (memory `launch-long-drivers-detached`); the parent knows only \"hard\ndeath\".  So: one fresh interpreter, no multiprocessing, that does what a spawned child\ndoes first -- re-run the main module as `__mp_main__` (by name under `-m`, by path\notherwise, mirroring `multiprocessing.spawn.get_preparation_data`), then import\n`worker_module` (the module of the job function that was in flight) -- with its stderr\nCAPTURED.  A failure prints the traceback's tail here, naming the exception a broken\nworking tree raises; a success says the death is not an import failure (out of memory, a\nhard crash inside a worker, a kill).\n\nReturns 'import-failure', 'clean' or None (probe timed out), for a caller that wants the\nverdict; the log lines are the point.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(log, worker_module: str, *, timeout_s: float=300.0) -> str | None"
+    },
+    "Optimization/simdriver/workpool.py::_tag_of": {
       "decorators": [],
       "doc": "Standardized per-arm/per-group log tag: [cell/pair/config[/channel][/strategy]].",
       "is_async": false,
       "kind": "function",
       "signature": "(cell, key)"
     },
-    "Optimization/simdriver/supervisor.py::_unblock_broken_pool": {
+    "Optimization/simdriver/workpool.py::_unblock_broken_pool": {
       "decorators": [],
-      "doc": "Make the `with ProcessPoolExecutor` exit RETURN after a hard worker death, by reading\nthe unit payloads the dead workers never took off the call queue.  Returns the count.\n\nTHE HANG (2026-09-18, the phase-2 launch; `.scratch/phase-2-campaign/issues/01`): every\nchild died at import, `_run_pool` logged BROKEN and `break`-ed, and the driver sat at\n0.00 s CPU for 37 minutes.  Thread dump, taken on the reproduction: the `with` exit is\n`shutdown(wait=True)`, joining the executor's manager thread; that thread, in\n`terminate_broken -> join_executor_internals -> call_queue.join_thread()`, is joining the\ncall queue's FEEDER thread; and the feeder is inside `PipeConnection._send_bytes`,\nwaiting on an overlapped WriteFile that no live worker will ever read.  A Windows pipe\nbuffer is 8 KiB; one 16 KiB unit argument with TWO workers is enough\n(`Tests/integration/_broken_pool_driver.py`), and the real payload -- the CONFIG snapshot\nand the shared paths, times twelve queued units -- is well past it.  With small arguments\nthe writes fit the buffer and nothing hangs, which is why `test_crash_recovery.py` (which\nfakes `_run_pool` anyway) and every earlier fixture were blind to it.\n\nThis is CPython gh-107219, fixed in 3.11.5 / 3.12 by closing the queue's connections from\n`Queue._terminate_broken`; the machine that hung runs 3.11.4.  That fix is NOT what this\ndoes, because it was measured not to work here: closing the WRITER from another thread\nleaves the overlapped write pending (probe, 2026-09-18: feeder still alive after 5 s), and\nclosing the READER ends the pipe in isolation (`BrokenPipeError` at once) but not under\nthe pool -- a child that dies at bootstrap never steals the handle duplicates\n`reduction.DupHandle` made for it in THIS process, so the parent still holds a live\nreader and the pipe is not ended.  What always works is the third thing the probe tried:\nREAD the parent's end.  Each `recv_bytes` completes one blocked write, the feeder moves\nto the next item, the manager thread's `close()` appends the sentinel, the feeder exits,\n`join_thread` returns, `shutdown(wait=True)` returns, and `_supervise`'s retry runs.\nBounded by `timeout_s` so this can never be the thing that hangs.  Private attributes,\ndeliberately: there is no public surface for this, and the alternative was a driver that\nholds the machine.",
+      "doc": "Make the `with ProcessPoolExecutor` exit RETURN after a hard worker death, by reading\nthe unit payloads the dead workers never took off the call queue.  Returns the count.\n\nTHE HANG (2026-09-18, the phase-2 launch; `.scratch/phase-2-campaign/issues/01`): every\nchild died at import, the driver logged BROKEN and abandoned the pool, and then sat at\n0.00 s CPU for 37 minutes.  Thread dump, taken on the reproduction: the `with` exit is\n`shutdown(wait=True)`, joining the executor's manager thread; that thread, in\n`terminate_broken -> join_executor_internals -> call_queue.join_thread()`, is joining the\ncall queue's FEEDER thread; and the feeder is inside `PipeConnection._send_bytes`,\nwaiting on an overlapped WriteFile that no live worker will ever read.  A Windows pipe\nbuffer is 8 KiB; one 16 KiB unit argument with TWO workers is enough\n(`Tests/integration/_broken_pool_driver.py`), and the real payload -- the CONFIG snapshot\nand the shared paths, times twelve queued units -- is well past it.  With small arguments\nthe writes fit the buffer and nothing hangs, which is why `test_crash_recovery.py` (which\nfakes the executor anyway) and every earlier fixture were blind to it.\n\nThis is CPython gh-107219, fixed in 3.11.5 / 3.12 by closing the queue's connections from\n`Queue._terminate_broken`; the machine that hung runs 3.11.4.  That fix is NOT what this\ndoes, because it was measured not to work here: closing the WRITER from another thread\nleaves the overlapped write pending (probe, 2026-09-18: feeder still alive after 5 s), and\nclosing the READER ends the pipe in isolation (`BrokenPipeError` at once) but not under\nthe pool -- a child that dies at bootstrap never steals the handle duplicates\n`reduction.DupHandle` made for it in THIS process, so the parent still holds a live\nreader and the pipe is not ended.  What always works is the third thing the probe tried:\nREAD the parent's end.  Each `recv_bytes` completes one blocked write, the feeder moves\nto the next item, the manager thread's `close()` appends the sentinel, the feeder exits,\n`join_thread` returns, `shutdown(wait=True)` returns, and the retry runs.  Bounded by\n`timeout_s` so this can never be the thing that hangs.  Private attributes, deliberately:\nthere is no public surface for this, and the alternative was a driver that holds the\nmachine.",
       "is_async": false,
       "kind": "function",
       "signature": "(pool, log, *, timeout_s: float=60.0) -> int"
@@ -15927,10 +16305,10 @@
     },
     "Optimization/simdriver/workunits.py::_build_work_units": {
       "decorators": [],
-      "doc": "(Re-)prepare all work units from on-disk state.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and\n               args carries its own `group_keys` + `arm_key` (the parent reads those, not\n               uid slices \u2014 the uid's slots are not stable across unit kinds).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.\n\n`mid_flight` says the POOL IS STILL UP and this is the supervisor's rebuild-and-resubmit\nafter a hard worker death, not a `--resume` of a dead run.  Only the coupled reconciler\nreads it, and only to decline a repair whose outputs nothing would rebuild \u2014 see\n`_reconcile_coupled_unit`.  Default False, so an uncoupled run never reaches it.",
+      "doc": "(Re-)prepare all work units from on-disk state.\n\n`failed`, when a list is handed in, collects the tag of every leaf or coupled pair whose\nPREPARE raised: such a leaf becomes no unit at all, so nothing downstream could report it\n-- the run finished, exited 0 and simply lacked an arm.  The driver reports them as\nunfinished (`scenario._run_cells`), which is what turns the silence into exit 1.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and\n               args carries its own `group_keys` + `arm_key` (the parent reads those, not\n               uid slices \u2014 the uid's slots are not stable across unit kinds).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.\n\n`mid_flight` says the POOL IS STILL UP and this is the supervisor's rebuild-and-resubmit\nafter a hard worker death, not a `--resume` of a dead run.  Only the coupled reconciler\nreads it, and only to decline a repair whose outputs nothing would rebuild \u2014 see\n`_reconcile_coupled_unit`.  Default False, so an uncoupled run never reaches it.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity, mid_flight=False)"
+      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity, mid_flight=False, failed=None)"
     },
     "Optimization/simdriver/workunits.py::_channel_batch_plan": {
       "decorators": [],
@@ -19907,6 +20285,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(db_path: str, limit: int | None=None) -> Inventory"
+    },
+    "Warehouse/generation/generate_inventory.py::load_run_inventory": {
+      "decorators": [],
+      "doc": "The ONE loader both the parent (`sim_assets.build_shared_assets`) and the workers\n(`strategy_runner._build_arm`) use for a run's inventory.\n\nIt is a thin pass-through today, and the reason it survives as a named seam is the reason\nit stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the\nmanager's `rp x lead / (lead + 1)` heuristic stood byte for byte whatever file was handed\nin.  That guard existed because the era was the only regime that declared its own levels;\nflag-off inherited the catalogue's authored ones and had to stay byte-identical with the\narchive.  Since ADR-0002 there is ONE planner contract: every run declares its levels at\nsetup, in days, and stamps the lead pipeline that goes with them (\"Field the floor\",\ndecision 6).  Honouring the stamp in one mode and discarding it in the other would field a\nlevel whose reorder point encodes a LINE while pricing its pipeline by a heuristic that\nassumes the reorder point encodes lead-time demand -- the exact defect the stamp was\nintroduced to fix.  The era flag now decides only whether the clock cuts and caps.\n\nIt lives HERE, beside the loader it wraps, and not in `sim_assets` where it was written:\nthat module imports CONFIG at module level, and the worker importing this function from\nit inside `_build_arm` dragged CONFIG into every spawned process -- past an import-time\nguard that could not see a function-body import (`Tests/unit/test_config_reaches_the_worker.py`\nnow walks those too).  `sim_assets` re-exports the name for its parent-side callers.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, limit: int | None=None) -> Inventory"
     },
     "Warehouse/generation/generate_inventory.py::main": {
       "decorators": [],

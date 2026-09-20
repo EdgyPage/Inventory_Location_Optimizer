@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>finish · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workpool_py__WorkPool_finish" data-id="Optimization/simdriver/workpool.py::WorkPool.finish">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_workpool_py__WorkPool.html"><code>WorkPool</code></a> <span class="sep">›</span> <span class="here"><code>finish</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>finish</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def finish(self, rebuild) -&gt; dict</code></pre>
+<section class="doc">Drain; on a break, rebuild + resubmit through `rebuild(cell) -&gt; [Job]` up to
+`max_retries` times; return the jobs still not done, per cell (empty when clean).
+
+The order is the old `_supervise`&#x27;s: drain, and only on a break tear down, explain
+the death ONCE, build a fresh executor, and ask every cell with jobs left for its
+jobs again -- the driver&#x27;s `rebuild` is where `mid_flight=True` is passed to the
+work-unit builder, so a torn coupled pair seen during a live retry is reported and
+not repaired (`workunits._reconcile_coupled_unit`).</section>
+<section class="rel"><h2>Callees <span class="count">(6)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool__teardown_broken.html"><code>_teardown_broken</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_drain.html"><code>drain</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_remaining.html"><code>remaining</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_submit.html"><code>submit</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___explain_worker_death.html"><code>_explain_worker_death</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___tag_of.html"><code>_tag_of</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workpool_py__WorkPool_finish">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workpool.py#:~:text=def%20finish">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -22,7 +22,7 @@ the inbound axis existed resolves to: no suffix, no CONFIG write, byte-identical
 behaviour.  A real axis is a list of `(suffix, {inbound_key: value})` pairs — keys are
 `CONFIG[&#x27;global&#x27;]` `inbound_*` names with the prefix dropped.
 
-Four refusals, each closing a failure with no error message:
+Three refusals, each closing a failure with no error message:
 
 * **An unknown key.**  A misspelt name creates a new `CONFIG[&#x27;global&#x27;]` entry that
   `inbound_spec()` never reads, so the cell runs the DEFAULT policy under the swept
@@ -31,10 +31,13 @@ Four refusals, each closing a failure with no error message:
   inbound-off collapse into ONE cell — the matrix comes out smaller than it was asked for
   and nothing says so.
 * **Duplicate suffixes.**  The same collapse by another route.
-* **A key one entry sets and another does not.**  `_apply_cell` mutates a process-wide
-  CONFIG that is never reset between cells, so a key written by cell 3 and omitted by cell 4
-  leaves cell 4 running cell 3&#x27;s policy under its own name.  Requiring every entry to cover
-  the union makes the carryover unreachable rather than merely unlikely.</section>
+
+There used to be a fourth: every entry had to state every key ANY entry set, because
+`_apply_cell` wrote into a process-wide CONFIG that was never reset between cells, so a
+key cell 3 wrote and cell 4 omitted left cell 4 running cell 3&#x27;s policy under its own
+name.  The driver now applies each cell inside `cell_scope`, which restores CONFIG on
+exit, so an omitted key means the RUN-level value (the command line or the settings
+default) and nothing else -- well-defined, and the refusal&#x27;s reason is gone with it.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_cells_py___build_cells.html"><code>_build_cells</code></a> <span class="dim">Optimization/simdriver/cells.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_cells_py___inbound_axis">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/cells.py#:~:text=def%20_inbound_axis">Source ↗</a></p>
 </article>

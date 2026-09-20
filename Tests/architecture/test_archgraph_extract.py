@@ -56,12 +56,14 @@ def test_key_backbone_edges_present():
                    for (s, d, k) in edges)
 
     # the ProcessPool spawn edge (function passed as a value) — resolved as `ref`.
-    # The submit lives in _run_pool (the crash-recovery supervisor's inner pool lifetime),
-    # now in the extracted Optimization/simdriver/supervisor.py.
-    assert has('simdriver/supervisor.py::_run_pool',
+    # The submit lives in sim_jobs (units -> Jobs for the one cell-aware WorkPool, since
+    # 2026-09-19's workpool.py refactor retired supervisor._run_pool).
+    assert has('simdriver/supervisor.py::sim_jobs',
                'strategy_runner.py::_run_strategy_worker', 'ref')
-    # a mixin method call resolved via the Inventory_Manager MRO / class-qualified call
-    assert has('sim_assets.py::build_shared_assets',
+    # a mixin method call resolved via the Inventory_Manager MRO / class-qualified call.
+    # The call sits in the nested `_plan` closure (since 99982d90 stopped snapshotting
+    # CONFIG at import), not in `build_shared_assets` itself.
+    assert has('sim_assets.py::build_shared_assets._plan',
                'inventory_planning.py::PlanningMixin.plan_warehouse', 'calls')
     # the placement-closure dispatch supplied by resolver_hints.yml — the closures are
     # nested `def place_one` in the build_* factories, so the qualname ends in `.place_one`

@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: feedback
   originSessionId: 5eb3d052-8ad3-4cf3-b0d4-c2ec1fa4ece2
-  modified: 2026-08-16T06:32:46.604Z
+  modified: 2026-09-19T23:55:54.188Z
 ---
 
 `ProcessPoolExecutor`'s `max_tasks_per_child` is **pinned at 1** in `simdriver/supervisor.py`.
@@ -27,3 +27,12 @@ a multi-hour run that can hang silently.
 **How to apply:** do not re-plumb this flag, and do not propose per-worker task batching as a
 performance idea here. If pool throughput needs work, look at job granularity instead — see
 [[analyze-run-granularity-worker-saturation]].
+
+**UPDATED 2026-09-19 — the pin moved, and it is no longer universal.** Since the flat work pool
+([[flat-work-pool-era]]) the pin lives in `Optimization/simdriver/supervisor.py:_sim_executor`,
+the ONE place the sim-side executor is built (`WorkPool` itself requires an executor factory and
+builds none of its own). The analysis-side executor,
+`Optimization/run_analysis.py:_analysis_executor`, is DELIBERATELY left unpinned: its per-worker
+context caches are evicted per cell inside the worker instead of relying on process recycling to
+clear them, and analysis jobs are seconds long, not minutes. `Tests/unit/test_worker_recycling_pin.py`
+pins both — the sim executor at 1, the analysis executor unpinned.

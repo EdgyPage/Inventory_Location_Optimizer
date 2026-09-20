@@ -6876,7 +6876,7 @@
       "src": "Optimization/analyze_run.py::analyze_run"
     },
     {
-      "dst": "Optimization/run_analysis.py::run_analysis",
+      "dst": "Optimization/run_analysis.py::analyze_cells",
       "kind": "calls",
       "src": "Optimization/analyze_run.py::analyze_run"
     },
@@ -9161,7 +9161,17 @@
       "src": "Optimization/run_analysis.py"
     },
     {
+      "dst": "Optimization/simdriver/cells.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
       "dst": "Optimization/simdriver/sim_assets.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
     },
@@ -9184,6 +9194,11 @@
       "dst": "Optimization/runschema/sim_manifest.py::_load_run_spec",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_apply_run_shape"
+    },
+    {
+      "dst": "Optimization/simdriver/cells.py::Cell",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_cell_record"
     },
     {
       "dst": "Optimization/Performance_Evaluations/driver.py::config_keys",
@@ -9219,21 +9234,6 @@
       "dst": "Optimization/simdriver/sim_assets.py::build_shared_assets",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_config_jobs"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_merge_tally",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::_drain"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_run_job",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::_drain"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_run_job",
-      "kind": "ref",
-      "src": "Optimization/run_analysis.py::_drain"
     },
     {
       "dst": "Optimization/run_analysis.py::_coerce",
@@ -9336,6 +9336,81 @@
       "src": "Optimization/run_analysis.py::_tree_for"
     },
     {
+      "dst": "Optimization/run_analysis.py::_apply_run_shape",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_cell_record",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_config_jobs",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_log_summaries",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_run_job",
+      "kind": "ref",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_tree_for",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::Job",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_aggregate_jobs",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells._after_config"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_site_jobs",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells._after_config"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_job_key",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells._as_jobs"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_run_job",
+      "kind": "ref",
+      "src": "Optimization/run_analysis.py::analyze_cells._as_jobs"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::Job",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells._as_jobs"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::_merge_tally",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells._on_success"
+    },
+    {
+      "dst": "Optimization/simdriver/cells.py::cell_scope",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::analyze_cells._under_the_cell"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::_setup_logging",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::main"
@@ -9356,37 +9431,12 @@
       "src": "Optimization/run_analysis.py::main"
     },
     {
-      "dst": "Optimization/run_analysis.py::_aggregate_jobs",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::run_analysis"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_apply_run_shape",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::run_analysis"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_config_jobs",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::run_analysis"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_drain",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::run_analysis"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_merge_tally",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::run_analysis"
-    },
-    {
-      "dst": "Optimization/run_analysis.py::_site_jobs",
-      "kind": "calls",
-      "src": "Optimization/run_analysis.py::run_analysis"
-    },
-    {
       "dst": "Optimization/run_analysis.py::_tree_for",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::run_analysis"
+    },
+    {
+      "dst": "Optimization/run_analysis.py::analyze_cells",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::run_analysis"
     },
@@ -9862,6 +9912,11 @@
     },
     {
       "dst": "Optimization/simdriver/supervisor.py",
+      "kind": "imports",
+      "src": "Optimization/run_simulation.py"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py",
       "kind": "imports",
       "src": "Optimization/run_simulation.py"
     },
@@ -12821,6 +12876,11 @@
       "src": "Optimization/simdriver/batch_precompute.py::ensure_batches"
     },
     {
+      "dst": "Optimization/simdriver/batch_precompute.py::_sibling_batches",
+      "kind": "calls",
+      "src": "Optimization/simdriver/batch_precompute.py::ensure_batches"
+    },
+    {
       "dst": "Optimization/simdriver/batch_precompute.py::batch_fingerprint",
       "kind": "calls",
       "src": "Optimization/simdriver/batch_precompute.py::ensure_batches"
@@ -12864,6 +12924,16 @@
       "dst": "Optimization/simdriver/cells.py::_inbound_axis",
       "kind": "calls",
       "src": "Optimization/simdriver/cells.py::_build_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/cells.py::_apply_cell",
+      "kind": "calls",
+      "src": "Optimization/simdriver/cells.py::cell_scope"
+    },
+    {
+      "dst": "Optimization/simdriver/cells.py::_rebind",
+      "kind": "calls",
+      "src": "Optimization/simdriver/cells.py::cell_scope"
     },
     {
       "dst": "Optimization/config/channels.py",
@@ -13421,29 +13491,69 @@
       "src": "Optimization/simdriver/scenario.py"
     },
     {
+      "dst": "Optimization/simdriver/workpool.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/scenario.py"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py",
       "kind": "imports",
       "src": "Optimization/simdriver/scenario.py"
     },
     {
-      "dst": "Optimization/runschema/sim_manifest.py::write_run_manifest",
+      "dst": "Optimization/config/sim_config.py::regime_sizing_from_config",
       "kind": "calls",
-      "src": "Optimization/simdriver/scenario.py::_run_scenario"
+      "src": "Optimization/simdriver/scenario.py::_build_assets"
     },
     {
-      "dst": "Optimization/simdriver/scenario.py::_warn_blank_arms",
+      "dst": "Optimization/runschema/sim_manifest.py::write_run_manifest",
       "kind": "calls",
-      "src": "Optimization/simdriver/scenario.py::_run_scenario"
+      "src": "Optimization/simdriver/scenario.py::_build_assets"
     },
     {
       "dst": "Optimization/simdriver/sim_assets.py::build_shared_assets",
       "kind": "calls",
-      "src": "Optimization/simdriver/scenario.py::_run_scenario"
+      "src": "Optimization/simdriver/scenario.py::_build_assets"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_run_workers_flat",
+      "dst": "Optimization/simdriver/supervisor.py::SimBooks",
       "kind": "calls",
-      "src": "Optimization/simdriver/scenario.py::_run_scenario"
+      "src": "Optimization/simdriver/scenario.py::_run_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_sim_executor",
+      "kind": "ref",
+      "src": "Optimization/simdriver/scenario.py::_run_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::sim_jobs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::sim_jobs",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells._rebuild"
+    },
+    {
+      "dst": "Optimization/simdriver/cells.py::cell_scope",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells._units"
+    },
+    {
+      "dst": "Optimization/simdriver/scenario.py::_cell_dir",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells._units"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_build_work_units",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_cells._units"
     },
     {
       "dst": "Optimization/config/sim_config.py::regime_sizing_from_config",
@@ -13476,7 +13586,7 @@
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
-      "dst": "Optimization/simdriver/cells.py::_apply_cell",
+      "dst": "Optimization/simdriver/cells.py::Cell",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
@@ -13496,12 +13606,27 @@
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
+      "dst": "Optimization/simdriver/cells.py::cell_scope",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
       "dst": "Optimization/simdriver/cells.py::reference_cell",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
     {
-      "dst": "Optimization/simdriver/scenario.py::_run_scenario",
+      "dst": "Optimization/simdriver/scenario.py::_cell_dir",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/simdriver/scenario.py::_run_cells",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/simdriver/scenario.py::_warn_blank_arms",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
     },
@@ -13514,6 +13639,11 @@
       "dst": "Optimization/simdriver/workunits.py::_record_coverage",
       "kind": "calls",
       "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix"
+    },
+    {
+      "dst": "Optimization/simdriver/scenario.py::_build_assets",
+      "kind": "calls",
+      "src": "Optimization/simdriver/scenario.py::_run_whatif_matrix._assets"
     },
     {
       "dst": "Optimization/runschema/runlayout.py::iter_sim_dbs",
@@ -13671,12 +13801,12 @@
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
-      "dst": "Optimization/simdriver/sim_assets.py::load_run_inventory",
+      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
     {
-      "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
+      "dst": "Warehouse/generation/generate_inventory.py::load_run_inventory",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets"
     },
@@ -13729,11 +13859,6 @@
       "dst": "Warehouse/inventory/inventory_planning.py::PlanningMixin.plan_warehouse",
       "kind": "calls",
       "src": "Optimization/simdriver/sim_assets.py::build_shared_assets._plan"
-    },
-    {
-      "dst": "Warehouse/generation/generate_inventory.py::load_inventory_from_db",
-      "kind": "calls",
-      "src": "Optimization/simdriver/sim_assets.py::load_run_inventory"
     },
     {
       "dst": "Inbound/dock.py",
@@ -13857,11 +13982,6 @@
     },
     {
       "dst": "Optimization/simdriver/shift_ledger.py",
-      "kind": "imports",
-      "src": "Optimization/simdriver/strategy_runner.py"
-    },
-    {
-      "dst": "Optimization/simdriver/sim_assets.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
     },
@@ -14121,11 +14241,6 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
-      "dst": "Optimization/simdriver/sim_assets.py::load_run_inventory",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
-    },
-    {
       "dst": "Optimization/simdriver/strategy_runner.py::ArmAssembly",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
@@ -14182,6 +14297,11 @@
     },
     {
       "dst": "Warehouse/catalog/Affinity_Store.py::AffinityStore",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::load_run_inventory",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
@@ -14686,9 +14806,54 @@
       "src": "Optimization/simdriver/supervisor.py"
     },
     {
-      "dst": "Optimization/simdriver/workunits.py",
+      "dst": "Optimization/simdriver/workpool.py",
       "kind": "imports",
       "src": "Optimization/simdriver/supervisor.py"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::SimBooks._state",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.done"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::_tag_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.on_failure"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::SimBooks._state",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.on_success"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_absorb_success",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.on_success"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_finalize_unit_groups",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.on_success"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::SimBooks._state",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.register"
+    },
+    {
+      "dst": "Optimization/simdriver/supervisor.py::_finalize_ready_groups",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::SimBooks.sweep"
+    },
+    {
+      "dst": "Optimization/persistence/runtime_metrics.py::record_arm",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_absorb_success"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::_tag_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_absorb_success"
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_resume_path",
@@ -14706,64 +14871,144 @@
       "src": "Optimization/simdriver/supervisor.py::_finalize_ready_groups"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_tag_of",
+      "dst": "Optimization/simdriver/workpool.py::_tag_of",
       "kind": "calls",
       "src": "Optimization/simdriver/supervisor.py::_finalize_ready_groups"
     },
     {
-      "dst": "Optimization/persistence/runtime_metrics.py::record_arm",
+      "dst": "Optimization/simdriver/supervisor.py::_finalize_config_run",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+      "src": "Optimization/simdriver/supervisor.py::_finalize_unit_groups"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::_tag_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/supervisor.py::_finalize_unit_groups"
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker",
       "kind": "ref",
-      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+      "src": "Optimization/simdriver/supervisor.py::sim_jobs"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_finalize_config_run",
+      "dst": "Optimization/simdriver/workpool.py::Job",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+      "src": "Optimization/simdriver/supervisor.py::sim_jobs"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_tag_of",
+      "dst": "Optimization/simdriver/workpool.py::_tag_of",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+      "src": "Optimization/simdriver/supervisor.py::sim_jobs"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_unblock_broken_pool",
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.absorb",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_run_pool"
+      "src": "Optimization/simdriver/workpool.py::WorkPool.__exit__"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_supervise",
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_run_workers_flat"
+      "src": "Optimization/simdriver/workpool.py::WorkPool._after_absorb"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_explain_worker_death",
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._pump",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_supervise"
+      "src": "Optimization/simdriver/workpool.py::WorkPool._after_absorb"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_finalize_ready_groups",
+      "dst": "Optimization/simdriver/workpool.py::_CellBook",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_supervise"
+      "src": "Optimization/simdriver/workpool.py::WorkPool._book"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_run_pool",
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._book",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_supervise"
+      "src": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations"
     },
     {
-      "dst": "Optimization/simdriver/supervisor.py::_tag_of",
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._pump",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_supervise"
+      "src": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations"
     },
     {
-      "dst": "Optimization/simdriver/workunits.py::_build_work_units",
+      "dst": "Optimization/simdriver/workpool.py::_unblock_broken_pool",
       "kind": "calls",
-      "src": "Optimization/simdriver/supervisor.py::_supervise"
+      "src": "Optimization/simdriver/workpool.py::WorkPool._teardown_broken"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._absorb_future",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.absorb"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._after_absorb",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.absorb"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._absorb_future",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.drain"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._after_absorb",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.drain"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._pump",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.drain"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._teardown_broken",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.finish"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.drain",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.finish"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.remaining",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.finish"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.submit",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.finish"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::_explain_worker_death",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.finish"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::_tag_of",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.finish"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._book",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.job_index"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._book",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.submit"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._pump",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.submit"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.when_done"
     },
     {
       "dst": "Optimization/config/channels.py",
@@ -18109,6 +18354,11 @@
       "dst": "Warehouse/catalog/Order.py::Order.build",
       "kind": "calls",
       "src": "Warehouse/generation/generate_inventory.py::load_inventory_from_db"
+    },
+    {
+      "dst": "Warehouse/generation/generate_inventory.py::load_inventory_from_db",
+      "kind": "calls",
+      "src": "Warehouse/generation/generate_inventory.py::load_run_inventory"
     },
     {
       "dst": "Warehouse/generation/generate_inventory.py::generate_run",
@@ -34144,6 +34394,14 @@
     },
     {
       "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_analysis_executor",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_analysis_executor",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
       "id": "Optimization/run_analysis.py::_apply_run_shape",
       "kind": "function",
       "module": "Optimization/run_analysis.py",
@@ -34156,6 +34414,14 @@
       "kind": "function",
       "module": "Optimization/run_analysis.py",
       "name": "_assignment_of",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_cell_record",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_cell_record",
       "public": false
     },
     {
@@ -34184,10 +34450,18 @@
     },
     {
       "file": "Optimization/run_analysis.py",
-      "id": "Optimization/run_analysis.py::_drain",
+      "id": "Optimization/run_analysis.py::_job_key",
       "kind": "function",
       "module": "Optimization/run_analysis.py",
-      "name": "_drain",
+      "name": "_job_key",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_log_summaries",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_log_summaries",
       "public": false
     },
     {
@@ -34252,6 +34526,54 @@
       "kind": "function",
       "module": "Optimization/run_analysis.py",
       "name": "_worker_log",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::analyze_cells",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "analyze_cells",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::analyze_cells._after_config",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_after_config",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::analyze_cells._as_jobs",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_as_jobs",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::analyze_cells._on_failure",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_on_failure",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::analyze_cells._on_success",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_on_success",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::analyze_cells._under_the_cell",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_under_the_cell",
       "public": false
     },
     {
@@ -38096,6 +38418,14 @@
     },
     {
       "file": "Optimization/simdriver/batch_precompute.py",
+      "id": "Optimization/simdriver/batch_precompute.py::_sibling_batches",
+      "kind": "function",
+      "module": "Optimization/simdriver/batch_precompute.py",
+      "name": "_sibling_batches",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/batch_precompute.py",
       "id": "Optimization/simdriver/batch_precompute.py::batch_fingerprint",
       "kind": "function",
       "module": "Optimization/simdriver/batch_precompute.py",
@@ -38192,6 +38522,14 @@
     },
     {
       "file": "Optimization/simdriver/cells.py",
+      "id": "Optimization/simdriver/cells.py::_ABSENT",
+      "kind": "const",
+      "module": "Optimization/simdriver/cells.py",
+      "name": "_ABSENT",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/cells.py",
       "id": "Optimization/simdriver/cells.py::_SCHED_SHORT",
       "kind": "const",
       "module": "Optimization/simdriver/cells.py",
@@ -38232,11 +38570,27 @@
     },
     {
       "file": "Optimization/simdriver/cells.py",
+      "id": "Optimization/simdriver/cells.py::_rebind",
+      "kind": "function",
+      "module": "Optimization/simdriver/cells.py",
+      "name": "_rebind",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/cells.py",
       "id": "Optimization/simdriver/cells.py::_tightest_split",
       "kind": "function",
       "module": "Optimization/simdriver/cells.py",
       "name": "_tightest_split",
       "public": false
+    },
+    {
+      "file": "Optimization/simdriver/cells.py",
+      "id": "Optimization/simdriver/cells.py::cell_scope",
+      "kind": "function",
+      "module": "Optimization/simdriver/cells.py",
+      "name": "cell_scope",
+      "public": true
     },
     {
       "file": "Optimization/simdriver/cells.py",
@@ -38944,10 +39298,42 @@
     },
     {
       "file": "Optimization/simdriver/scenario.py",
-      "id": "Optimization/simdriver/scenario.py::_run_scenario",
+      "id": "Optimization/simdriver/scenario.py::_build_assets",
       "kind": "function",
       "module": "Optimization/simdriver/scenario.py",
-      "name": "_run_scenario",
+      "name": "_build_assets",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_cell_dir",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_cell_dir",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_run_cells",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_run_cells",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_run_cells._rebuild",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_rebuild",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_run_cells._units",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_units",
       "public": false
     },
     {
@@ -38956,6 +39342,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/scenario.py",
       "name": "_run_whatif_matrix",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/scenario.py",
+      "id": "Optimization/simdriver/scenario.py::_run_whatif_matrix._assets",
+      "kind": "function",
+      "module": "Optimization/simdriver/scenario.py",
+      "name": "_assets",
       "public": false
     },
     {
@@ -39237,14 +39631,6 @@
       "module": "Optimization/simdriver/sim_assets.py",
       "name": "_plan",
       "public": false
-    },
-    {
-      "file": "Optimization/simdriver/sim_assets.py",
-      "id": "Optimization/simdriver/sim_assets.py::load_run_inventory",
-      "kind": "function",
-      "module": "Optimization/simdriver/sim_assets.py",
-      "name": "load_run_inventory",
-      "public": true
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
@@ -39728,10 +40114,74 @@
     },
     {
       "file": "Optimization/simdriver/supervisor.py",
-      "id": "Optimization/simdriver/supervisor.py::_explain_worker_death",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks",
+      "kind": "class",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "SimBooks",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks.__init__",
       "kind": "function",
       "module": "Optimization/simdriver/supervisor.py",
-      "name": "_explain_worker_death",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks._state",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "_state",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks.done",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "done",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks.on_failure",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "on_failure",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks.on_success",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "on_success",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks.register",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "register",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::SimBooks.sweep",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "sweep",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/supervisor.py",
+      "id": "Optimization/simdriver/supervisor.py::_absorb_success",
+      "kind": "function",
+      "module": "Optimization/simdriver/supervisor.py",
+      "name": "_absorb_success",
       "public": false
     },
     {
@@ -39752,41 +40202,273 @@
     },
     {
       "file": "Optimization/simdriver/supervisor.py",
-      "id": "Optimization/simdriver/supervisor.py::_run_pool",
+      "id": "Optimization/simdriver/supervisor.py::_finalize_unit_groups",
       "kind": "function",
       "module": "Optimization/simdriver/supervisor.py",
-      "name": "_run_pool",
+      "name": "_finalize_unit_groups",
       "public": false
     },
     {
       "file": "Optimization/simdriver/supervisor.py",
-      "id": "Optimization/simdriver/supervisor.py::_run_workers_flat",
+      "id": "Optimization/simdriver/supervisor.py::_sim_executor",
       "kind": "function",
       "module": "Optimization/simdriver/supervisor.py",
-      "name": "_run_workers_flat",
+      "name": "_sim_executor",
       "public": false
     },
     {
       "file": "Optimization/simdriver/supervisor.py",
-      "id": "Optimization/simdriver/supervisor.py::_supervise",
+      "id": "Optimization/simdriver/supervisor.py::sim_jobs",
       "kind": "function",
       "module": "Optimization/simdriver/supervisor.py",
-      "name": "_supervise",
+      "name": "sim_jobs",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py",
+      "kind": "module",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "Optimization.simdriver.workpool",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::InlineExecutor",
+      "kind": "class",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "InlineExecutor",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::InlineExecutor.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "__init__",
       "public": false
     },
     {
-      "file": "Optimization/simdriver/supervisor.py",
-      "id": "Optimization/simdriver/supervisor.py::_tag_of",
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::InlineExecutor.shutdown",
       "kind": "function",
-      "module": "Optimization/simdriver/supervisor.py",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "shutdown",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::InlineExecutor.submit",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "submit",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::Job",
+      "kind": "class",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "Job",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool",
+      "kind": "class",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "WorkPool",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.__enter__",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "__enter__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.__exit__",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "__exit__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._absorb_future",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_absorb_future",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._after_absorb",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_after_absorb",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._book",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_book",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._fire_continuations",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_fire_continuations",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._pump",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_pump",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool._teardown_broken",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_teardown_broken",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.absorb",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "absorb",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.drain",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "drain",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.finish",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "finish",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.job_index",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "job_index",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.remaining",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "remaining",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.settled_cells",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "settled_cells",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.submit",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "submit",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.when_done",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "when_done",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_CellBook",
+      "kind": "class",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_CellBook",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_CellBook.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_CellBook.remaining",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "remaining",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_CellBook.resolved",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "resolved",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_explain_worker_death",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "_explain_worker_death",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_tag_of",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
       "name": "_tag_of",
       "public": false
     },
     {
-      "file": "Optimization/simdriver/supervisor.py",
-      "id": "Optimization/simdriver/supervisor.py::_unblock_broken_pool",
+      "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::_unblock_broken_pool",
       "kind": "function",
-      "module": "Optimization/simdriver/supervisor.py",
+      "module": "Optimization/simdriver/workpool.py",
       "name": "_unblock_broken_pool",
       "public": false
     },
@@ -44356,6 +45038,14 @@
       "kind": "function",
       "module": "Warehouse/generation/generate_inventory.py",
       "name": "load_inventory_from_db",
+      "public": true
+    },
+    {
+      "file": "Warehouse/generation/generate_inventory.py",
+      "id": "Warehouse/generation/generate_inventory.py::load_run_inventory",
+      "kind": "function",
+      "module": "Warehouse/generation/generate_inventory.py",
+      "name": "load_run_inventory",
       "public": true
     },
     {

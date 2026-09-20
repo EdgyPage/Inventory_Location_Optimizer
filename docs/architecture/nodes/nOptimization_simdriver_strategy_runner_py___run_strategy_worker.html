@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_run_strategy_worker</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>_run_strategy_worker</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
-<div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span><span class="badge cycle">in import cycle</span></div>
+<div class="badges"><span class="badge backbone">backbone</span><span class="badge hotpath">hot path</span></div>
 <pre class="sig"><code>def _run_strategy_worker(args: dict) -&gt; dict</code></pre>
 <section class="doc">Simulate one assignment strategy in its own process.
 
@@ -24,7 +24,7 @@ their process either way; the guarantee exists for in-process callers (the callt
 fullfid tier, e2e tests) where a mid-arm raise would otherwise leave the HOST process
 with a permanently frozen heap and a leaked gc callback.  Both cleanups are no-ops on
 the happy path (the impl already thawed and removed).</section>
-<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___gc_cb.html"><code>_gc_cb</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py___run_pool.html"><code>_run_pool</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___gc_cb.html"><code>_gc_cb</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___run_strategy_worker_impl.html"><code>_run_strategy_worker_impl</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_supervisor_py__sim_jobs.html"><code>sim_jobs</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___run_strategy_worker">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20_run_strategy_worker">Source ↗</a></p>
 </article>
 </main>

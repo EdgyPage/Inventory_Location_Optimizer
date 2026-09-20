@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_sim_executor · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_supervisor_py___sim_executor" data-id="Optimization/simdriver/supervisor.py::_sim_executor">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a> <span class="sep">›</span> <span class="here"><code>_sim_executor</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_sim_executor</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_supervisor_py.html"><code>Optimization/simdriver/supervisor.py</code></a></p>
+
+<pre class="sig"><code>def _sim_executor(max_workers: int)</code></pre>
+<section class="doc">The sim pool&#x27;s executor: a spawn `ProcessPoolExecutor` with WORKER RECYCLING PINNED
+AT 1 -- one fresh process per unit.
+
+The value is fixed HERE, in the one place the executor is built, rather than plumbed
+from the CLI (`--max-tasks-per-child` is accepted and warned about, never honoured).
+The flag was NOT forwarded for months (`_run_whatif_matrix` dropped it, and every run is
+a matrix), so every run in this repo&#x27;s history has in fact recycled at 1.  The first run
+that actually honoured a larger value DEADLOCKED at the cell boundary: cell 1 finished
+all 244 arms, then the pool sat at zero CPU with one live worker of eighteen and never
+shut down (comparison_whatif_20260815_234253, recycle=6).  The identical profile at
+recycle=1 the day before completed both cells (comparison_whatif_20260814_083723).  A
+worker holding a queue of jobs is a bad trade in multi-hour code regardless: the
+measured saving is ~10 s of spawn per job against a job that runs for minutes, and
+workers reload their assets per job anyway (the per-arm startup term is catalogue
+LOADING, not spawn -- memory `per-arm-startup-is-catalogue-loading`).  The analysis
+stage builds its own executor WITHOUT this pin (`run_analysis._analysis_executor`): its
+jobs are seconds long and reuse a loaded context across co-scheduled jobs.
+`Tests/unit/test_worker_recycling_pin.py` pins the literal below by source.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_scenario_py___run_cells.html"><code>_run_cells</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_supervisor_py___sim_executor">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/supervisor.py#:~:text=def%20_sim_executor">Source ↗</a></p>
+</article>
+</main>
+</body></html>

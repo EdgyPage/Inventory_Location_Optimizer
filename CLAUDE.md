@@ -38,6 +38,7 @@ python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/integration/test_supervisor_broken_pool.py \
                 Tests/unit/test_placed_union.py \
                 Tests/unit/test_frozen_tier.py \
+                Tests/integration/test_work_pool.py \
                 Tests/architecture/test_digest_surface.py -q   # the instruments still measure
 ```
 
@@ -88,6 +89,14 @@ rebuilding the tier at every open, and the three pools' aisle and bracket ORDERS
 tie-breaks recomputed per open from the filtered first appearance. A cursor that skipped one
 bin too few, or an order taken from the unfiltered list, would move a placement on a D tie
 with nothing raising; the test drives every pool eager-vs-sliced to float equality.
+
+`test_work_pool.py` joined on 2026-09-19 with the flat work pool. Every cell of a run now
+goes through ONE `workpool.WorkPool` (the sim driver and the analysis stage both); until
+then one executor was opened per cell and the matrix wall was the SUM of the cells' slowest
+units (~24 h on the phase-2 `inbound_unload` shape against ~4 h of worker-hours). A
+regression there is silent in the healthy direction -- a driver that quietly drained each
+cell before submitting the next finishes every run, byte-identical, six times slower -- so
+the file's first test is a barrier only a flat pool can pass, with a non-vacuity twin.
 
 It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a

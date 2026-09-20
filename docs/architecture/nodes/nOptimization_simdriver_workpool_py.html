@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simdriver.workpool · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workpool_py" data-id="Optimization/simdriver/workpool.py">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <span class="here"><code>Optimization/simdriver/workpool.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simdriver.workpool</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a></p>
+
+<pre class="sig"><code>Optimization.simdriver.workpool</code></pre>
+<section class="doc">simdriver.workpool — ONE pool for every cell of a run, and for the analysis stage.
+
+WHY.  Until 2026-09-19 the driver opened one ProcessPoolExecutor PER CELL and waited for the
+cell&#x27;s last unit before the next cell&#x27;s setup began.  Phase 2&#x27;s `inbound_unload` spec has four
+coupled units a cell on a twelve-worker pool, so eight workers idled for the life of every cell
+and the matrix wall was the SUM of the cells&#x27; slowest units (~24 h) rather than the
+worker-hours over the pool (~4 h, bounded below by the single slowest unit).  The pick side had
+the same shape from the start, hidden by two cells of many short units; the analysis stage had
+it again one level up (a fresh pool per cell with three stage barriers inside).  User decision
+2026-09-19: ONE pool architecture for every run, with the cell carried on the unit.
+
+WHAT.  A `WorkPool` owns one executor for the life of a run and takes jobs tagged with the CELL
+that owns them.  It keeps its OWN pending queue and hands a job to the executor only while
+fewer than `max_workers` are in flight, so dispatch order is the pool&#x27;s (weight, then
+submission order) and never the executor&#x27;s FIFO.  Between cell setups the driver calls
+`absorb()` (non-blocking) so finished units are booked as they land; `drain()` waits for the
+rest.  `when_done(cell, keys, callback)` fires a parent-thread continuation once every named
+job of that cell has RESOLVED (an errored job counts), which is how the analysis stage builds
+a cell&#x27;s aggregate jobs only after that cell&#x27;s config jobs wrote their series docs -- without
+waiting for any other cell.
+
+RECOVERY, the old `_supervise` policy over all cells at once.  A hard worker death breaks the
+one pool: it is unblocked (`_unblock_broken_pool`, the gh-107219 feeder hang) and shut down, a
+fresh executor built, and every cell with jobs not done is asked to REBUILD its jobs through
+the caller&#x27;s `rebuild(cell)` (the driver re-derives from what it kept, with `mid_flight=True`
+-- the coupled reconciler&#x27;s contract) and resubmitted, up to `max_retries` times.  An ordinary
+per-job exception is quarantined and never retried.  Jobs still not done at the end are
+returned per cell, the shape `run_simulation._refuse_incomplete` reads.
+
+WHAT THIS MODULE DOES NOT KNOW.  Nothing about units, leaves, groups, sim_meta or the run
+tree: the driver passes `on_success` / `on_failure` callbacks and the worker callable rides on
+each `Job`.  It imports neither `strategy_runner` nor `sim_config`
+(`Tests/unit/test_config_reaches_the_worker.py`), and it names no contract path (the run-tree
+ratchet in `Tests/architecture/test_runtree_consumption.py` counts them per file).
+
+The Manager + QueueListener that carry worker log records live here for the whole run: one
+listener, not one per cell, and the queue proxy survives a pool rebuild.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(4)</span></h2><ul><li><a href="nOptimization_run_analysis_py.html"><code>Optimization.run_analysis</code></a> <span class="dim">Optimization/run_analysis.py</span></li><li><a href="nOptimization_run_simulation_py.html"><code>Optimization.run_simulation</code></a> <span class="dim">Optimization/run_simulation.py</span></li><li><a href="nOptimization_simdriver_scenario_py.html"><code>Optimization.simdriver.scenario</code></a> <span class="dim">Optimization/simdriver/scenario.py</span></li><li><a href="nOptimization_simdriver_supervisor_py.html"><code>Optimization.simdriver.supervisor</code></a> <span class="dim">Optimization/simdriver/supervisor.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(30)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__InlineExecutor.html"><code>InlineExecutor</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__Job.html"><code>Job</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool.html"><code>WorkPool</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___CellBook.html"><code>_CellBook</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool___enter__.html"><code>__enter__</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool___exit__.html"><code>__exit__</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__InlineExecutor___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___CellBook___init__.html"><code>__init__</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__absorb_future.html"><code>_absorb_future</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__after_absorb.html"><code>_after_absorb</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__book.html"><code>_book</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___explain_worker_death.html"><code>_explain_worker_death</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__fire_continuations.html"><code>_fire_continuations</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__pump.html"><code>_pump</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___tag_of.html"><code>_tag_of</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool__teardown_broken.html"><code>_teardown_broken</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___unblock_broken_pool.html"><code>_unblock_broken_pool</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_absorb.html"><code>absorb</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_drain.html"><code>drain</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_finish.html"><code>finish</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_job_index.html"><code>job_index</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_remaining.html"><code>remaining</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___CellBook_remaining.html"><code>remaining</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py___CellBook_resolved.html"><code>resolved</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_settled_cells.html"><code>settled_cells</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__InlineExecutor_shutdown.html"><code>shutdown</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__InlineExecutor_submit.html"><code>submit</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_submit.html"><code>submit</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li><li><a href="nOptimization_simdriver_workpool_py__WorkPool_when_done.html"><code>when_done</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workpool_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workpool.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

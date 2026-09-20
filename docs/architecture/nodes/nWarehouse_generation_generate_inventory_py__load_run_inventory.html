@@ -9,14 +9,14 @@
   <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
 </header>
 <main>
-<article class="node" id="nOptimization_simdriver_sim_assets_py__load_run_inventory" data-id="Optimization/simdriver/sim_assets.py::load_run_inventory">
-<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_sim_assets_py.html"><code>Optimization/simdriver/sim_assets.py</code></a> <span class="sep">›</span> <span class="here"><code>load_run_inventory</code></span></nav>
+<article class="node" id="nWarehouse_generation_generate_inventory_py__load_run_inventory" data-id="Warehouse/generation/generate_inventory.py::load_run_inventory">
+<nav class="crumbs"><a href="../layers.html">generation</a> <span class="sep">›</span> <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a> <span class="sep">›</span> <span class="here"><code>load_run_inventory</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>load_run_inventory</code></h1>
-<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_sim_assets_py.html"><code>Optimization/simdriver/sim_assets.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def load_run_inventory(path: str, limit: int | None=None)</code></pre>
-<section class="doc">The ONE loader both the parent (`build_shared_assets`) and the workers
-(`strategy_runner`) use for a run&#x27;s inventory.
+<p class="meta">layer <span class="chip">generation</span> · file <a href="../files/nWarehouse_generation_generate_inventory_py.html"><code>Warehouse/generation/generate_inventory.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def load_run_inventory(path: str, limit: int | None=None) -&gt; Inventory</code></pre>
+<section class="doc">The ONE loader both the parent (`sim_assets.build_shared_assets`) and the workers
+(`strategy_runner._build_arm`) use for a run&#x27;s inventory.
 
 It is a thin pass-through today, and the reason it survives as a named seam is the reason
 it stopped branching.  It used to CLEAR the `pipeline_qty` stamp on a flag-off load, so the
@@ -28,9 +28,15 @@ setup, in days, and stamps the lead pipeline that goes with them (&quot;Field th
 decision 6).  Honouring the stamp in one mode and discarding it in the other would field a
 level whose reorder point encodes a LINE while pricing its pipeline by a heuristic that
 assumes the reorder point encodes lead-time demand -- the exact defect the stamp was
-introduced to fix.  The era flag now decides only whether the clock cuts and caps.</section>
+introduced to fix.  The era flag now decides only whether the clock cuts and caps.
+
+It lives HERE, beside the loader it wraps, and not in `sim_assets` where it was written:
+that module imports CONFIG at module level, and the worker importing this function from
+it inside `_build_arm` dragged CONFIG into every spawned process -- past an import-time
+guard that could not see a function-body import (`Tests/unit/test_config_reaches_the_worker.py`
+now walks those too).  `sim_assets` re-exports the name for its parent-side callers.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_generation_generate_inventory_py__load_inventory_from_db.html"><code>load_inventory_from_db</code></a> <span class="dim">Warehouse/generation/generate_inventory.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_sim_assets_py__build_shared_assets.html"><code>build_shared_assets</code></a> <span class="dim">Optimization/simdriver/sim_assets.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___build_arm.html"><code>_build_arm</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
-<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_sim_assets_py__load_run_inventory">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/sim_assets.py#:~:text=def%20load_run_inventory">Source ↗</a></p>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_generation_generate_inventory_py__load_run_inventory">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/generation/generate_inventory.py#:~:text=def%20load_run_inventory">Source ↗</a></p>
 </article>
 </main>
 </body></html>

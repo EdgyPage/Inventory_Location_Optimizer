@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 9a479cc3-4b40-44e6-b896-c76f39c2a58d
-  modified: 2026-09-06T02:52:50.680Z
+  modified: 2026-09-19T23:56:03.647Z
 ---
 
 `python -m Optimization.run_simulation` finished with exit code 0 on 2026-09-05 while all 68
@@ -40,3 +40,12 @@ outcome from the status. Pinned hop by hop in `Tests/integration/test_crash_reco
 `_warn_blank_arms` WARNING, not an unrecovered unit -- that class is still exit 0). For a run
 after that date, a non-zero exit IS the signal; a zero exit still does not prove the data, it
 proves the pool recovered every unit.
+
+**UPDATED 2026-09-19 — the propagation chain changed shape under the flat work pool**
+([[flat-work-pool-era]]): it is now `WorkPool.finish` -> `scenario._run_cells` ->
+`scenario._run_whatif_matrix` -> `run_simulation._refuse_incomplete`. A cell whose SETUP raised
+(manifest/shared-assets/work-unit build) is reported as the tuple `('setup',)`; a leaf whose
+prepare step raised is reported as `('prepare', tag)`. Both still reach `_refuse_incomplete` and
+both still exit 1 before the analysis stage. `supervisor._supervise`/`_run_workers_flat`/
+`_run_scenario` named above no longer exist under those names -- the single-pool driver replaced
+the per-cell supervisor loop they described.

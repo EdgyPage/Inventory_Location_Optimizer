@@ -480,8 +480,12 @@ def _run_shape(rt) -> dict:
 #                   run never has one; a --reuse-run pointed at a funnel root legitimately
 #                   does. Same trap as analysis_log above: must_absent would look right
 #                   here and then fire on a correct tree.
+#   unload_ranking_json - the phase-2 twin of restock_selection_json: written only by
+#                   `run_unload_ranking`, which a PERSON invokes on a coupled phase-2 funnel
+#                   root after its analysis (schema.py's own `condition`).  Same argument.
 _EITHER_WAY = ('batches_cache', 'analysis_log', 'cell_analysis_log', 'viz_cache_db',
-               'figures_significance_pngs', 'vs_baseline_csv', 'restock_selection_json')
+               'figures_significance_pngs', 'vs_baseline_csv', 'restock_selection_json',
+               'unload_ranking_json')
 
 
 def _stage_verify_tree(ctx: _Ctx) -> StageResult:

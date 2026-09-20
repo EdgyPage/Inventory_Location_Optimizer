@@ -17,7 +17,8 @@
 <pre class="sig"><code>def _refuse_incomplete(info: dict, base_dir: str, log) -&gt; None</code></pre>
 <section class="doc">Exit 1, and run NO analysis, when the matrix left units unrecovered.
 
-THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  `supervisor._supervise` has always
+THE DETECTION WAS NEVER MISSING; THE EXIT STATUS WAS.  The pool driver (today
+`workpool.WorkPool.finish`, then `supervisor._supervise`) has always
 logged the unrecovered units at ERROR with a resume command, and every level above it
 returned None, so on 2026-09-05 a run whose all 68 arms died on a KeyError went on to run
 the analysis stage over nothing (`Config stage: 0 job(s)`), write a dossier, print &quot;All

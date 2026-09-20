@@ -1,129 +1,136 @@
-- [Commit on develop](commit-on-develop.md) — why day-to-day commits live on develop and main is curated (the rule itself is CLAUDE.md §5)
-- [nbstripout filter](nbstripout-filter.md) — the filter is silently inactive in a fresh clone, and stripped notebooks show no outputs on GitHub (not broken — re-run locally)
-- [GPU broker dormant](gpu-broker-dormant-not-for-placement.md) — GPU broker is validated infra with no consumer; don't GPU-accelerate placement (calc already reduced away, greedy stays CPU)
-- [Channels = independent warehouses](channel-experiment-independent-warehouses.md) — store/fulfillment run independently (both full 34-arm suite as of 2026-07-08
-- [_build_inventory tests fire no reorders](build-inventory-tests-no-reorders.md) — perf_simulation._build_inventory orders lack reorder_point; set it to 0 to actually exercise reorder-time placement
-- [Results drive location](results-drive-location.md) — resolve run/catalogue paths through the .env keys and VERIFY: drive letters have moved, the 2026-08-15 COLD_DRIVE archive claim has inverted
-- [Fulfillment travel rework plan](fulfillment-travel-rework-plan.md) — approved multi-phase plan, all four deliverables landed 2026-08-14; fast_pick.py is the production sim (four-way lockstep
-- [No \uXXXX in heredoc Python](no-unicode-escapes-in-heredoc-python.md) — escapes land as literal text in files.yml and break catalog idempotency; paste the real char or use Edit
-- [No triple single quotes or backslashes in Bash heredocs](no-triple-single-quotes-in-bash-heredocs.md) — a heredoc body holding a Python triple-single-quote, an escaped double quote or ANY backslash dies at the shell (or lands mangled) before anything runs; Write patch scripts to a file and run them
-- [No machine-local paths](no-machine-local-paths.md) — never write a drive-letter, home-directory or username path into a memory or tracked file
-- [AUC is degenerate on volume curves](auc-degenerate-on-volume-curves.md) — cumulative pick-volume curves are straight (shape index 0.987–1.025), so raw AUC restates items×hours/2
-- [Batch-95 flat spot is shared demand](batch-95-flat-spot-is-shared-demand.md) — the 4-item store batch is identical in all 34 arms (shared _batches_*.pkl), so it biases no comparison
-- [analyze_run granularity starves workers](analyze-run-granularity-worker-saturation.md) — the default emits 4 jobs/cell so --workers 24 idles ~20
-- [Real test coverage was 317, not 374](real-test-coverage-is-317.md) — 57 "passing" tests contained no raising assertion; don't take a pass count as proof without checking it can fail
-- [753d01e shifted throughput ~1.4%](determinism-fix-shifted-throughput.md) — the determinism fix raised absolute throughput and left labor alone, so everything published before it reads low
-- [Reloader cap floors to zero](reloader-cap-floors-to-zero.md) — per_aisle_cap floors to 0 TWO ways (move_limit_pct and a ref_size absent from the fixture)
-- [WAL sidecars come from readers](wal-sidecars-come-from-readers.md) — a mode=ro open creates -wal/-shm and can't remove them; unclean writer closes are not the cause
-- [Worker recycling pinned at 1](worker-recycling-pinned-at-one.md) — max_tasks_per_child > 1 deadlocked the pool at a cell boundary; pinned by decision
-- [Resume architecture verified sound](resume-architecture-verified-sound.md) — CORRECTED: that was COMPLETENESS not identity; testing identity found two real defects (now fixed)
-- [Per-arm startup is catalogue loading](per-arm-startup-is-catalogue-loading.md) — ~30% of deep wall and GROWING (k=0.56); precompute is only ~3%, so cache the load; this retires worker recycling
-- [Affinity CSR is 41 MB in RAM](affinity-csr-is-41mb-in-ram.md) — not the 291 MB its file suggests, so RAM is never the argument for fewer workers
-- [verify_tree uses the run's own contract](verify-tree-uses-the-runs-own-contract.md) — fixing a contract never rescues a finished run; validate the fix against preflight's canaries or a fresh run
-- [Fingerprint chain verified end to end](fingerprint-chain-verified-end-to-end.md) — proven working 2026-08-16; always check ingest's BY-NAME resolve lines
+- [Commit on develop](commit-on-develop.md) — day-to-day commits on develop; main is curated (CLAUDE.md §5)
+- [nbstripout filter](nbstripout-filter.md) — inactive in a fresh clone; stripped notebooks show no outputs on GitHub
+- [GPU broker dormant](gpu-broker-dormant-not-for-placement.md) — validated, no consumer; don't GPU-accelerate placement
+- [Channels = independent warehouses](channel-experiment-independent-warehouses.md) — store/fulfillment run independently (34-arm suite)
+- [_build_inventory tests fire no reorders](build-inventory-tests-no-reorders.md) — orders lack reorder_point; set to 0 to exercise reorder-time placement
+- [Results drive location](results-drive-location.md) — resolve via .env keys and VERIFY: drive letters have moved
+- [Fulfillment travel rework plan](fulfillment-travel-rework-plan.md) — landed 2026-08-14; fast_pick.py is the production sim
+- [No \uXXXX in heredoc Python](no-unicode-escapes-in-heredoc-python.md) — escapes land literal and break catalog idempotency; use Edit
+- [No triple quotes/backslashes in Bash heredocs](no-triple-single-quotes-in-bash-heredocs.md) — dies or mangles at the shell; write patch scripts to a file
+- [No machine-local paths](no-machine-local-paths.md) — no drive-letter, home-dir or username path in a memory or tracked file
+- [AUC is degenerate on volume curves](auc-degenerate-on-volume-curves.md) — pick-volume curves are straight; raw AUC restates items×hours/2
+- [Batch-95 flat spot is shared demand](batch-95-flat-spot-is-shared-demand.md) — identical batch in all 34 arms; biases nothing
+- [analyze_run granularity starves workers](analyze-run-granularity-worker-saturation.md) — default 4 jobs/cell idles most of a big pool
+- [Real test coverage was 317, not 374](real-test-coverage-is-317.md) — 57 "passing" tests had no assertion
+- [753d01e shifted throughput ~1.4%](determinism-fix-shifted-throughput.md) — raised throughput, left labor alone
+- [Reloader cap floors to zero](reloader-cap-floors-to-zero.md) — per_aisle_cap floors to 0 TWO ways
+- [WAL sidecars come from readers](wal-sidecars-come-from-readers.md) — mode=ro open creates -wal/-shm sidecars
+- [Worker recycling pinned at 1](worker-recycling-pinned-at-one.md) — max_tasks_per_child>1 deadlocked at a cell boundary; pin in supervisor._sim_executor
+- [Resume architecture verified sound](resume-architecture-verified-sound.md) — CORRECTED: was completeness not identity; two defects found, fixed
+- [Per-arm startup is catalogue loading](per-arm-startup-is-catalogue-loading.md) — ~30% of deep wall, growing; cache the load
+- [Affinity CSR is 41 MB in RAM](affinity-csr-is-41mb-in-ram.md) — not 291 MB; not an argument for fewer workers
+- [verify_tree uses the run's own contract](verify-tree-uses-the-runs-own-contract.md) — a contract fix never rescues a finished run
+- [Fingerprint chain verified end to end](fingerprint-chain-verified-end-to-end.md) — check ingest's BY-NAME resolve lines
 - [Stakeholder site pilot frame](stakeholder-site-pilot-frame.md) — the pitch frame that converged with non-technical readers
-- [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers are NOT on the hot path; _aisle_best k=1.66 is the top refactor candidate; traced seconds are never baselines
-- [v2 sampler era](v2-sampler-era.md) — CLOSED 2026-09-12 (superseded by v3); still the guide to reading an archived v2 run, and its baselines are v2-only
-- [v3 sampler era](v3-sampler-era.md) — the declared sampler since 2026-09-12; the SIXTH comparability break and the widest, but it moved no geometry (ADR-0006)
+- [Calltree framework + first findings](calltree-framework-first-findings.md) — brokers NOT on hot path; _aisle_best k=1.66 top candidate
+- [v2 sampler era](v2-sampler-era.md) — CLOSED (superseded by v3); guide to reading an archived v2 run
+- [v3 sampler era](v3-sampler-era.md) — declared sampler since 2026-09-12; sixth comparability break, no geometry moved
 - [Crew denomination decides sampler sensitivity](crew-denomination-decides-sampler-sensitivity.md) — a crew sized on declared UNITS is sampler-invariant
-- [v2 defect manufactured the fill-law evidence](v2-defect-manufactured-the-fill-law-evidence.md) — CONFIRMED on a run 2026-09-12: 12 arms, 0 failed, the gap +0.0793 → +0.0033
-- [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo and uni_fifo are byte-identical runs, not a near-tie
-- [Per-batch series are autocorrelated](per-batch-series-are-autocorrelated.md) — lag-1..3 all outside the white-noise band, so an iid bootstrap under-reports every CI
-- [Put-away break-even is ~9 min per trip](putaway-break-even-is-nine-minutes-per-trip.md) — ~14 s/unit, NOT the old 0.5 s: that figure was the 1000x unit bug and its "margin is razor thin" conclusion inverted
-- [Ingest must prefer the HEAD contract](ingest-must-prefer-head-contract.md) — hit at three call sites before being hoisted into runschema.reader_for/analysis_path
-- [Heredoc Python breaks the spawn pool](heredoc-python-breaks-the-spawn-pool.md) — a pool launched from `python - <<EOF` hangs silently (workers die re-importing `<stdin>`)
-- [Map exact solver rarely fires](map-exact-solver-rarely-fires.md) — the exact-LAP gate admits 320/1,632 BinKey classes but only 0.09% of assigned units
-- [Run dossier map precompute](run-dossier-map-precompute.md) — ~18-19s per inventory pair (not per channel); inline vs backfill precomp_src don't form a ratio
-- [Run-scope dossier](run-scope-dossier.md) — RunContext adds a 4th evaluation scope that sees the whole run tree across cells, rendering into `<run_root>/_dossier/` (contract 6c44b3ce7341)
-- [A grant is not an output](a-grant-is-not-an-output.md) — the [access] summary reports INPUTS; read the [render] run summary line to learn whether anything was actually written
-- [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep legitimately renders no cross-profile by-initial suite; the per-leaf one still works
-- [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set; delta_travel_vs_baseline.png was a percent and is now percent_travel_per_arm.png
-- [Put-away seams for inbound](putaway-seams-for-inbound.md) — the seams built for a trailer/dock feature (incl. the 2026-08-25 arrival seam, inbound.receive + inbound_split)
-- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24; correcting a pre-fix number goes OPPOSITE ways: durations x1000, rates /1000
-- [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — an UPPER→lower symbol rename makes render_html --build delete the page it just wrote; run --build twice
-- [One clock, one speed, one config](one-clock-one-speed-one-config.md) — the 2026-08-24 refactor: absolute clock, role x mode actors, timed put-away, derived CONFIG; and what stays provisional
+- [v2 defect manufactured the fill-law evidence](v2-defect-manufactured-the-fill-law-evidence.md) — CONFIRMED 2026-09-12: gap +0.0793 → +0.0033
+- [FIFO restock ignores initial placement](fifo-restock-ignores-initial-placement.md) — opt_fifo/uni_fifo are byte-identical
+- [Per-batch series are autocorrelated](per-batch-series-are-autocorrelated.md) — lag-1..3 outside white-noise band; iid bootstrap under-reports
+- [Put-away break-even is ~9 min per trip](putaway-break-even-is-nine-minutes-per-trip.md) — ~14 s/unit, not the old 0.5 s (1000x unit bug)
+- [Ingest must prefer the HEAD contract](ingest-must-prefer-head-contract.md) — hoisted into runschema.reader_for
+- [Heredoc Python breaks the spawn pool](heredoc-python-breaks-the-spawn-pool.md) — `python - <<EOF` hangs (workers die re-importing stdin)
+- [Map exact solver rarely fires](map-exact-solver-rarely-fires.md) — gate admits 320/1,632 BinKey classes, 0.09% of units
+- [Run dossier map precompute](run-dossier-map-precompute.md) — ~18-19s per pair, not per channel
+- [Run-scope dossier](run-scope-dossier.md) — RunContext's 4th eval scope renders into `<run_root>/_dossier/`
+- [A grant is not an output](a-grant-is-not-an-output.md) — [access] reports inputs; read [render] for what was written
+- [By-initial aggregate needs 3 profiles](by-initial-aggregate-needs-three-profiles.md) — a two-inventory sweep renders no cross-profile suite
+- [Figure views are derived](figure-views-are-derived.md) — since 2026-08-23 shape+quantities decide the view set
+- [Put-away seams for inbound](putaway-seams-for-inbound.md) — seams built for the trailer/dock feature
+- [Sim time is seconds, not ms](sim-time-unit-is-seconds-not-ms.md) — FIXED 2026-08-24; pre-fix correction goes opposite ways
+- [Case-only rename deletes its own page](case-only-rename-deletes-its-own-page.md) — render_html --build deletes its own page; run twice
+- [One clock, one speed, one config](one-clock-one-speed-one-config.md) — absolute clock, timed put-away, derived CONFIG
 - [Pickers over-picked until `planned`](pickers-over-picked-until-planned.md) — every bin on a path took the whole aisle demand
-- [coverage_e2e swallows worker logs](coverage-e2e-swallows-worker-logs.md) — the harness queues worker logs and never drains them; a silent conservation ledger through it proves nothing
-- [Placement pools + the audit point](placement-pools-and-the-audit-point.md) — ranked functions no longer choose put-away order; a033aff is the LAST byte-identical commit
-- [K-oldest bounds lookahead, not staleness](k-oldest-bounds-lookahead-not-staleness.md) — the head unit can be overtaken indefinitely
-- [Working-day plan corrections](working-day-clock-plan-corrections.md) — the approved 4-commit plan did not compose; the corrected sequence is in docs/design/WORKING_DAY_CLOCK.md
-- [Empty-batch clock stall is a contract](empty-batch-clock-stall-is-a-contract.md) — not a deadlock and not a bug; a test asserts it by source index, and the put-away drain leaks on the same guard
-- [Lockstep tests compare aggregates only](lockstep-tests-compare-aggregates-only.md) — all three could pass on differently-shaped event streams
-- [stock_plan overrides packing](stock-plan-overrides-packing.md) — 200/200 planned orders bypass the pallet/singleton rule, so tier mix is a generation-time knob
-- [Empty-bin preference is structural](empty-bin-preference-is-structural.md) — AMENDED by ADR-0003: put-away now fills an empty bin FIRST and the SKU’s own bin when none fits
-- [Receiving is its own crew](receiving-is-its-own-crew.md) — the dock intercepts inside _admit (so the reorder ledger needed zero edits); arrivals are still batch-quantized
-- [A config knob has five seams](config-knob-has-five-seams.md) — settings.py names four; the fifth is workunits._shared
-- [cut is a level, not a flow](cut-is-a-level-not-a-flow.md) — cut resets every batch but re-counts the standing queue, so summing it inflated a shipped report 101x; count non-zero batches instead
-- [Growth ladder: use the skus knob](growth-ladder-use-the-skus-knob.md) — the batches knob saturates every backlog level, so put-away/receiving growth only shows on skus; decompose before attributing
-- [Hand-run test tiers rot silently](hand-run-test-tiers-rot-silently.md) — Tests/calltree and Tests/bench are in no gate; three dead oracles and a never-executed feature came from there
-- [Carryover: two producers, one key](carryover-two-producers-one-key.md) — a level and a flow shared reason='unplaced' under INSERT OR REPLACE and 500 units vanished; the table now raises
-- [_admit_held was quadratic](admit-held-was-quadratic.md) — two failed attempts then a fix; an exit counting EVERY queue is unreachable when one is idle, partitioning _held took k 1.84 to 0.94
-- [Conservation ledger is bin-only](conservation-ledger-is-bin-only.md) — cons_breaks==0 proves nothing about units lost before a bin; three defects have hidden in that gap
-- [A count is not a claim](a-count-is-not-a-claim.md) — divide by a denominator before concluding; a raw exponent cannot tell "work per unit rose" from "more units"
-- [Knees hide from r-squared](knees-hide-from-r-squared.md) — an r2 gate drops step changes; the deep ladder's biggest jump scored 0.77 and was reported as nothing
-- [runtime_metrics is the deep instrument](runtime-metrics-is-the-deep-instrument.md) — the deep tier's t_* are MEAN seconds per batch per arm, never a share of the wall
-- [Run-end writers miss the final flush](run-end-writers-miss-the-final-flush.md) — strategy_runner's `if pb:` tail flush does not fire when n_batches divides the checkpoint cadence
-- [Inbound pipeline wayfinder decisions](inbound-pipeline-wayfinder-decisions.md) — inbound-groundwork map CLOSED 2026-08-27, all fifteen tickets on develop
-- [CONFIG is not a channel to an evaluation](config-is-not-a-channel-to-an-evaluation.md) — an analysis worker is spawned, so a run-level value an evaluation needs must be stamped onto sim_result in _sim_result_from_meta; CONFIG stops at the parent
-- [Per-item charge hard break](per-item-charge-hard-break.md) — fc7a46a5 (2026-09-05) ends comparability for every pick/put/labor/W* number; pre-break put-away was priced at a literal 1.0
-- [Pool run swallows dead arms](pool-run-swallows-dead-arms.md) — every worker can die and run_simulation still exits 0
-- [Equilibrium check: two traps](equilibrium-check-two-traps.md) — released_late belongs to the CAPPED day before it (behind a drained day it RAISES); the receiving self-check must re-price rows
-- [Launch long drivers detached](launch-long-drivers-detached.md) — a long driver needs NO CONSOLE (a scheduled task running python.exe directly) AND a keep-awake; Modern Standby logs 506/507
-- [No calibration simulations](no-calibration-simulations.md) — user decision 2026-09-06: staffing constants are closed-form expectations over the inventory distribution and runtime geometry
-- [FIFO restock drifts to class-uniform](fifo-restock-drifts-to-class-uniform.md) — a churning section migrates to the class-uniform smear
-- [Coverage in days floors the store section](coverage-in-days-floors-the-store-section.md) — the store's implied coverage is ~1,785 days
-- [Windows console is cp1252](windows-console-is-cp1252.md) — a patch script that prints λ/·/— dies mid-run under cp1252 and half-applies
-- [Immutable readers see only the checkpointed file](immutable-readers-see-only-the-checkpointed-file.md) — a test that fakes a vintage in place must checkpoint + close + assert the bound id first
-- [Warehouse size comes from the levels](warehouse-size-comes-from-the-levels.md) — bin count is demand-derived from the stock levels on every planning path (sample=False included)
-- [One planner contract](field-the-requirement-one-planner-contract.md) — the planner fields the declaration exactly; Singleton/FulfillmentBin SUBCLASS Pallet
-- [A bin cap is self-defeating](a-bin-cap-is-self-defeating.md) — a max-bins cap now refuses when it binds, and cannot shrink a run anyway (a smaller warehouse raises lines/day
-- [Drain order is smallest-first](drain-order-is-smallest-first.md) — ADR-0003 retired the forward-pick drain preference and is NOT gated on a dry free index
-- [A right site total hides two wrong shares](a-right-site-total-hides-two-wrong-shares.md) — put-away's site load was 0.9% exact while both per-channel bands failed in opposite directions
-- [Nothing is lost under the era](nothing-is-lost-under-the-era.md) — missed/cut picks are re-offered, so crews size on DEMANDED units, never demand x fill
-- [Window mix before model error](window-mix-before-model-error.md) — a uniform 1-2% residual on every per-unit term (receiving included) is the finite window's SKU mix
-- [free_bins counts the whole geometry](free-bins-counts-the-whole-geometry.md) — a leaf's free_bins includes the other channel's section (57% was 15-18%)
-- [Optional fill only answers through an override](optional-fill-only-answers-through-an-override.md) — a pure column addition still needs a per-vintage override that OMITS it
-- [Sampler affinity flattens the fulfillment line rate](sampler-affinity-flattens-the-fulfillment-line-rate.md) — the flattening is real (7.1x predicted spread delivered as 1.6x)
-- [Inbound lead is not in the coverage record](inbound-lead-is-not-in-the-coverage-record.md) — era stamped lead 0 until 2026-09-10, under-covering fulfillment ~1.8 days; dept-cal 37 built the fix
-- [Derived fill is the fourth comparability break](derived-fill-is-the-fourth-comparability-break.md) — since 2026-09-10 each bucket is sized from the stationary fragmentation
-- [Lead-aware record is the fifth comparability break](lead-aware-record-is-the-fifth-comparability-break.md) — since 2026-09-10 the record declares AT the order-to-shelf lead
-- [Site dock is shared across channels](site-dock-is-shared-across-channels.md) — user decision 2026-09-10: one dock, mixed trailers, one crew
-- [HEAD copy via git archive](head-copy-via-git-archive.md) — `git worktree add` dies on long generated filenames, use `git archive HEAD | tar -x`
-- [Calendar span is not work days](calendar-span-is-not-work-days.md) — the clock only runs in working hours, so a crew share over _arm_span_days over-reads ~3x (it printed 184%)
-- [Architecture tier is red on HEAD](arch-tier-is-red-on-head.md) — the failure COUNT moves with tree state and arch-layer staleness (16 vs 13 vs 5, all measured)
-- [Coupled runs are byte-identical until the pool](coupled-runs-are-byte-identical-until-the-pool.md) — WINDOW CLOSED 2026-09-11: a coupled run now fields ONE site put crew
-- [Catalog-merge seeds a docstring fragment](catalog-merge-seeds-a-docstring-fragment.md) — a new file's `purpose` arrives auto-filled instead of `TODO`, so the fill step never sees it
-- [Fulfillment fill law over-predicts](fulfillment-fill-law-overpredicts.md) — the 0.104 vs 0.025 supply gap is NOT the lead (both leaves realize the stamp)
-- [Figures are not byte-reproducible](figures-are-not-byte-reproducible.md) — a HEAD-vs-HEAD control differed on 51/51 PNGs, so prove neutrality on DB rows and strip the wall-clock columns
-- [Fill gap is not the line rate](fill-gap-is-not-the-line-rate.md) — substituting realized per-SKU rates moves it the WRONG way (it zeroes every SKU the window never touched)
-- [Fill gap is the line-count shape](fill-gap-is-the-line-count-shape.md) — REFUTED 2026-09-12: the 3.74x and the 71%/52% multiplier were the v2 defect; the METHOD survives, the finding does not
-- [Draw probability vs line share](draw-probability-replaces-line-share.md) — a WEIGHT is not an inclusion probability (now two CONTEXT.md terms)
-- [v2 sampler re-draws selected SKUs](v2-sampler-redraws-selected-skus.md) — FIXED 2026-09-12 as v3; the cause is catastrophic cancellation under a ~1e26 weight range
-- [Two days: site and calendar](two-days-site-and-calendar.md) — "days" is ambiguous by 3x (site 28,800 s vs calendar 86,400 s); the yard fee is calendar days
-- [Inbound-optimization map closed](inbound-optimization-map-closed.md) — CLOSED 2026-09-13 at "the campaign can run"; the phase-2 launch is the SUCCESSOR effort
-- [Symbol table relationships aren't verified by symbols](symbol-table-relationship-not-verified-by-symbols.md) — a gate that resolves NAMES can't catch a wrong RELATIONSHIP
-- [Inbound yard is a stable queue under the era](inbound-yard-is-a-stable-queue-under-the-era.md) — rho=0.819 projected is stable, not N or batch count
-- [Inbound pool-adapter multiplier is not 13x](inbound-pool-adapter-multiplier-is-not-13x.md) — RUN multiplier ~3.15x post-heap (was 3.24x) at campaign scale; campaign now ~13h at 4 workers
-- [Pool candidate slice was built, not landed](pool-candidate-slice-was-built-not-landed.md) — REFUTED 2026-09-14; follow-on take() scan target also retracted, drain has no dominant term
-- [Pool tier-loop cost class before count](pool-tier-loop-cost-class-before-count.md) — _make_pool's cost is the TIER loop weighted by ns/element, not the candidate loop's raw count
-- [Growth ladder saturates silently](growth-ladder-saturates-silently.md) — a ladder whose rungs exceed its fixture's declared size runs the SAME catalogue and prints three different ratios with no warning (fixed 2026-09-16)
-- [C-keyed scans are invisible](c-keyed-scans-are-invisible-to-the-offender-table.md) — calltree drops C leaves, so an O(A) scan keyed on `dict.__getitem__` never reaches the offender table while an identical lambda-keyed one is convicted; fit the scan WIDTH
-- [The suite restores CONFIG](the-suite-restores-config-after-every-test.md) — an autouse conftest fixture; without it one e2e test poisons unit tests twenty minutes later and every tier still passes alone
-- [A fitted exponent hides its shape](a-fitted-exponent-cannot-see-its-own-shape.md) — saturating/settling/accelerating all fit r2>0.99; read LOCAL exponents, find the denominator's ceiling
-- [The instrument is what is wrong](the-instrument-is-what-is-wrong.md) — 7 errors in one round, all in the measurement; build the cross-check before believing an agreeable number
-- [Deep-tier save knee + fixed arm cost](deep-tier-save-knee-and-fixed-arm-cost.md) — the KNEE IS WITHDRAWN (did not reproduce); save_s is ~46% of the run at k=1.29, and each arm pays ~48s first
-- [save_s is index maintenance](save-s-is-index-maintenance.md) — scattered-key indexes made each checkpoint rewrite the whole index; deferring + dropping three unread ones cut save_s 26%, and a big page cache HURTS afterwards
-- [Toy run is the byte-identity instrument](toy-run-is-the-byte-identity-instrument.md) — smoketest --profile tiny + run_digest is the only check that can actually FAIL a placement refactor; take the baseline BEFORE the change
-- [Toy-run noise floor is 3.1%](toy-run-noise-floor-is-three-percent.md) — three resolutions (wall 3.1%, save_s/arm 2.65%, total_s/arm 1.25%); A/B against runtime_metrics per-arm, never the wall
-- [Placement oracles pin agreement, not truth](placement-oracles-pin-agreement-not-truth.md) — they compare a family's pool half to its wave half against a FROZEN hand-copy, so a shared-state fix is invisible and a signature change re-freezes them
-- [A DDL change moves two tables](a-ddl-change-moves-two-tables.md) — the table AND simulation_runs (it carries sim_schema_id); verify column-by-column, and the only test that catches a dropped column is an integration roundtrip
-- [Renaming a local needs AST positions](renaming-a-local-needs-ast-positions.md) — a word-boundary regex rename still rewrote two English comments and nothing failed; rewrite identifier tokens at their AST (lineno, col_offset)
-- [Two instruments named t_save](two-instruments-named-t-save.md) — runtime_metrics' stopwatch is alive; the calltree's SECTION_MAP attribution read 0.000000 for a month; say which one before quoting a saving number
-- [A test can be taught the damage](a-test-can-be-taught-the-damage.md) — a test written after a defect can assert its result as expected; 6adf378e deleted two immutable schema documents and a test said the store should hold exactly one
-- [A cache needs a scope object](a-cache-needs-a-scope-object.md) — cluster_map's run cache is valid because a POOL owns it; cmin has no wave, so the same cache there is the persistent dict that reintroduces the one-ulp drift
-- [Detached runs import the working tree](detached-runs-import-the-working-tree.md) — a spawn-per-job run re-imports the tree for EVERY unit; an edit mid-run killed all 12 campaign workers at import; launch from a git-archive copy of HEAD
-- [Unload key does not rank like gain](unload-key-does-not-rank-like-gain.md) — REFUTED: no per-trailer sum reproduces gain_forecast's yard order (tau ~0 at depths 3-7); the unload-value table was not built; contention needs >=100k SKUs
-- [Inbound campaign is a three-phase funnel](inbound-campaign-is-a-three-phase-funnel.md) — user decision 2026-09-18: phase 2 ranks UNLOADING under phase 1's one winner on total site labour (pick labour was flat to 0.01%), phase 3 crosses best 3 x best 3; never rebuild the 120-unit factorial
-- [Priced rank_random cost was the CoW union](priced-rank-random-cost-was-the-cow-union.md) — 70% of a priced pool open at 200k SKUs was materializing every aisle for the placed-index union; lazy union cut the drain 5.2x; rank_popularity never built it (unmeasured); `_toy_priced` is the digest gate for the evaluator path
-- [Pool open was a tier rebuild](pool-open-was-a-tier-rebuild.md) — ticket 03 CLOSED 2026-09-19: four cuts, priced unit 2.1x faster at campaign scale, IDENTICAL on 8 arms vs the stopped campaign; but the open was the STORE-ONLY profile's term -- profile the coupled unit; the live aisle index cannot be reused (insertion-time ties)
-- [A Python read path is a regression against a C dict](a-python-read-path-is-a-regression-against-a-c-dict.md) — a lazy view whose items() was a generator made the centroid 3.4x dearer while saving a 71 s copy; return the live dict's own views when unwritten, merge once per new key otherwise
+- [coverage_e2e swallows worker logs](coverage-e2e-swallows-worker-logs.md) — queues logs, never drains; a silent ledger proves nothing
+- [Placement pools + the audit point](placement-pools-and-the-audit-point.md) — ranked functions no longer choose put-away order
+- [K-oldest bounds lookahead, not staleness](k-oldest-bounds-lookahead-not-staleness.md) — the head unit can be overtaken forever
+- [Working-day plan corrections](working-day-clock-plan-corrections.md) — the 4-commit plan didn't compose; see WORKING_DAY_CLOCK.md
+- [Empty-batch clock stall is a contract](empty-batch-clock-stall-is-a-contract.md) — not a bug; asserted by index
+- [Lockstep tests compare aggregates only](lockstep-tests-compare-aggregates-only.md) — all three can pass on differently-shaped event streams
+- [stock_plan overrides packing](stock-plan-overrides-packing.md) — planned orders bypass the pallet/singleton rule
+- [Empty-bin preference is structural](empty-bin-preference-is-structural.md) — ADR-0003: fills empty bin first
+- [Receiving is its own crew](receiving-is-its-own-crew.md) — dock intercepts inside _admit
+- [A config knob has five seams](config-knob-has-five-seams.md) — settings.py names four; fifth is workunits._shared
+- [cut is a level, not a flow](cut-is-a-level-not-a-flow.md) — summing it inflated a report 101x
+- [Growth ladder: use the skus knob](growth-ladder-use-the-skus-knob.md) — batches knob saturates all backlog levels
+- [Hand-run test tiers rot silently](hand-run-test-tiers-rot-silently.md) — Tests/calltree, Tests/bench in no gate
+- [Carryover: two producers, one key](carryover-two-producers-one-key.md) — 500 units vanished under INSERT OR REPLACE; now raises
+- [_admit_held was quadratic](admit-held-was-quadratic.md) — partitioning _held moved k 1.84 to 0.94
+- [Conservation ledger is bin-only](conservation-ledger-is-bin-only.md) — cons_breaks==0 proves nothing lost before a bin
+- [A count is not a claim](a-count-is-not-a-claim.md) — divide by a denominator first
+- [Knees hide from r-squared](knees-hide-from-r-squared.md) — an r2 gate drops the step change
+- [runtime_metrics is the deep instrument](runtime-metrics-is-the-deep-instrument.md) — t_* is MEAN s per batch per arm
+- [Run-end writers miss the final flush](run-end-writers-miss-the-final-flush.md) — tail flush skips when n_batches divides the cadence
+- [Inbound pipeline wayfinder decisions](inbound-pipeline-wayfinder-decisions.md) — CLOSED, all fifteen tickets on develop
+- [CONFIG is not a channel to an evaluation](config-is-not-a-channel-to-an-evaluation.md) — stamp onto sim_result via _sim_result_from_meta
+- [Per-item charge hard break](per-item-charge-hard-break.md) — fc7a46a5 ends comparability for pick/put/labor/W*
+- [Pool run swallows dead arms](pool-run-swallows-dead-arms.md) — every worker can die and run_simulation exits 0 pre-2026-09-18; now WorkPool.finish -> _run_cells -> _refuse_incomplete
+- [Equilibrium check: two traps](equilibrium-check-two-traps.md) — released_late belongs to the capped prior day
+- [Launch long drivers detached](launch-long-drivers-detached.md) — needs NO CONSOLE + keep-awake; Standby logs 506/507
+- [No calibration simulations](no-calibration-simulations.md) — staffing constants are closed-form (decision 2026-09-06)
+- [FIFO restock drifts to class-uniform](fifo-restock-drifts-to-class-uniform.md) — a churning section migrates to class-uniform
+- [Coverage in days floors the store section](coverage-in-days-floors-the-store-section.md) — implied coverage ~1,785 d
+- [Windows console is cp1252](windows-console-is-cp1252.md) — a script printing λ/·/— dies mid-run, half-applies
+- [Immutable readers see only the checkpointed file](immutable-readers-see-only-the-checkpointed-file.md) — must checkpoint+close+assert bound id first
+- [Warehouse size comes from the levels](warehouse-size-comes-from-the-levels.md) — bin count is demand-derived, every planning path
+- [One planner contract](field-the-requirement-one-planner-contract.md) — Singleton/FulfillmentBin subclass Pallet
+- [A bin cap is self-defeating](a-bin-cap-is-self-defeating.md) — refuses when it binds; cannot shrink a run
+- [Drain order is smallest-first](drain-order-is-smallest-first.md) — ADR-0003 retired the forward-pick preference
+- [A right site total hides two wrong shares](a-right-site-total-hides-two-wrong-shares.md) — 0.9% exact, per-channel bands failed both ways
+- [Nothing is lost under the era](nothing-is-lost-under-the-era.md) — missed/cut picks re-offered; size on DEMANDED units
+- [Window mix before model error](window-mix-before-model-error.md) — a uniform 1-2% residual is the window's SKU mix
+- [free_bins counts the whole geometry](free-bins-counts-the-whole-geometry.md) — includes the OTHER channel's section
+- [Optional fill only answers through an override](optional-fill-only-answers-through-an-override.md) — a column addition still needs a vintage override
+- [Sampler affinity flattens the fulfillment rate](sampler-affinity-flattens-the-fulfillment-line-rate.md) — 7.1x predicted, 1.6x delivered
+- [Inbound lead is not in the coverage record](inbound-lead-is-not-in-the-coverage-record.md) — era stamped lead 0 until fixed
+- [Derived fill is the fourth comparability break](derived-fill-is-the-fourth-comparability-break.md) — each bucket sized from fragmentation
+- [Lead-aware record is the fifth comparability break](lead-aware-record-is-the-fifth-comparability-break.md) — declares AT the order-to-shelf lead
+- [Site dock is shared across channels](site-dock-is-shared-across-channels.md) — one dock, one crew (decision 2026-09-10)
+- [HEAD copy via git archive](head-copy-via-git-archive.md) — `git worktree add` dies on long filenames; use `git archive`
+- [Calendar span is not work days](calendar-span-is-not-work-days.md) — a share over _arm_span_days over-reads ~3x
+- [Architecture tier is red on HEAD](arch-tier-is-red-on-head.md) — count moves with tree state (16 vs 13 vs 5)
+- [Coupled runs byte-identical until the pool](coupled-runs-are-byte-identical-until-the-pool.md) — CLOSED 2026-09-11: one site put crew
+- [Catalog-merge seeds a docstring fragment](catalog-merge-seeds-a-docstring-fragment.md) — a new file's purpose arrives pre-filled, not TODO
+- [Fulfillment fill law over-predicts](fulfillment-fill-law-overpredicts.md) — 0.104 vs 0.025 gap is not the lead
+- [Figures are not byte-reproducible](figures-are-not-byte-reproducible.md) — HEAD-vs-HEAD differed on 51/51 PNGs; use DB rows
+- [Fill gap is not the line rate](fill-gap-is-not-the-line-rate.md) — realized per-SKU rates move it wrong
+- [Fill gap is the line-count shape](fill-gap-is-the-line-count-shape.md) — REFUTED: the 3.74x was the v2 defect
+- [Draw probability vs line share](draw-probability-replaces-line-share.md) — a WEIGHT is not an inclusion probability
+- [v2 sampler re-draws selected SKUs](v2-sampler-redraws-selected-skus.md) — FIXED as v3; catastrophic cancellation
+- [Two days: site and calendar](two-days-site-and-calendar.md) — ambiguous 3x; yard fee is calendar days
+- [Inbound-optimization map closed](inbound-optimization-map-closed.md) — CLOSED; phase-2 launch is the successor
+- [Symbol table relationships aren't verified](symbol-table-relationship-not-verified-by-symbols.md) — a NAME gate can't catch a wrong RELATIONSHIP
+- [Inbound yard is a stable queue](inbound-yard-is-a-stable-queue-under-the-era.md) — rho=0.819 projected, stable
+- [Inbound pool-adapter multiplier not 13x](inbound-pool-adapter-multiplier-is-not-13x.md) — ~3.15x post-heap; campaign ~13h at 4 workers
+- [Pool candidate slice was built, not landed](pool-candidate-slice-was-built-not-landed.md) — REFUTED 2026-09-14
+- [Pool tier-loop cost class before count](pool-tier-loop-cost-class-before-count.md) — cost is the tier loop, not candidate count
+- [Growth ladder saturates silently](growth-ladder-saturates-silently.md) — rungs past the fixture size run the same catalogue (fixed 2026-09-16)
+- [C-keyed scans are invisible](c-keyed-scans-are-invisible-to-the-offender-table.md) — calltree drops C leaves; fit scan WIDTH
+- [The suite restores CONFIG](the-suite-restores-config-after-every-test.md) — autouse fixture; without it one e2e test poisons later tests
+- [A fitted exponent hides its shape](a-fitted-exponent-cannot-see-its-own-shape.md) — all three shapes fit r2>0.99
+- [The instrument is what is wrong](the-instrument-is-what-is-wrong.md) — 7 errors, all in the measurement
+- [Deep-tier save knee + fixed arm cost](deep-tier-save-knee-and-fixed-arm-cost.md) — knee WITHDRAWN; save_s ~46% of run
+- [save_s is index maintenance](save-s-is-index-maintenance.md) — dropping unread indexes cut save_s 26%
+- [Toy run is the byte-identity instrument](toy-run-is-the-byte-identity-instrument.md) — smoketest tiny + run_digest; baseline first
+- [Toy-run noise floor is 3.1%](toy-run-noise-floor-is-three-percent.md) — A/B on runtime_metrics per-arm, never the wall
+- [Placement oracles pin agreement, not truth](placement-oracles-pin-agreement-not-truth.md) — pool half vs wave half vs a frozen hand-copy
+- [A DDL change moves two tables](a-ddl-change-moves-two-tables.md) — the table AND simulation_runs
+- [Renaming a local needs AST positions](renaming-a-local-needs-ast-positions.md) — a regex rename hit comments too
+- [Two instruments named t_save](two-instruments-named-t-save.md) — runtime_metrics alive; calltree's read 0 for a month
+- [A test can be taught the damage](a-test-can-be-taught-the-damage.md) — 6adf378e deleted two schema docs; a test asserted it
+- [A cache needs a scope object](a-cache-needs-a-scope-object.md) — valid for cluster_map (a POOL owns it); cmin has no wave
+- [Detached runs import the working tree](detached-runs-import-the-working-tree.md) — re-imports for EVERY unit; use a git-archive copy
+- [Unload key does not rank like gain](unload-key-does-not-rank-like-gain.md) — REFUTED: no per-trailer sum reproduces gain_forecast
+- [Inbound campaign is a three-phase funnel](inbound-campaign-is-a-three-phase-funnel.md) — phase 2 ranks unloading
+- [Priced rank_random cost was the CoW union](priced-rank-random-cost-was-the-cow-union.md) — lazy union cut drain 5.2x
+- [Pool open was a tier rebuild](pool-open-was-a-tier-rebuild.md) — ticket 03 CLOSED: priced unit 2.1x faster
+- [A Python read path regresses a C dict](a-python-read-path-is-a-regression-against-a-c-dict.md) — a generator view made centroid 3.4x dearer
+- [Flat work pool era](flat-work-pool-era.md) — since 2026-09-19 every cell goes through ONE WorkPool; wall is worker-hours
+- [Cell scope restores by rebinding](cell-scope-restores-by-rebinding.md) — restores CONFIG by rebinding, never refills live dicts in place
+- [A retry never rebuilds shared assets](a-retry-never-rebuilds-shared-assets.md) — retry is cell_scope + _build_work_units(kept)
+- [iter_sim_dbs from a run root is vacuous](iter-sim-dbs-from-a-run-root-is-vacuous.md) — pass a CELL dir, never a run root
+- [Worker imported CONFIG via a function-body import](worker-imported-config-through-a-function-body-import.md) — fixed 2026-09-19; guard now walks AST
+- [Cell-complete skips a torn pair](cell-complete-skips-a-torn-pair.md) — OPEN: _cell_complete answers complete on one sim_meta.json per pair
+- [Cell record overlay at job-build time](cell-record-overlay-at-job-build-time.md) — cell's record applied while building its jobs

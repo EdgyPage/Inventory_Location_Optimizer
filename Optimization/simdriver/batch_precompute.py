@@ -178,9 +178,10 @@ def _sibling_batches(out_dir: str, name: str) -> str | None:
     that recompute also stole the pool's cores.  A sibling's file is the same bytes: the
     name IS the fingerprint, and the worker re-verifies the full fingerprint on load.
 
-    Reserved (`_`-prefixed) siblings are skipped -- `_frozen/<pair>/` holds no batches --
-    and a copy that fails for any reason is a miss, never an error.  Copied rather than
-    referenced so the run tree's contract is unchanged: the artifact still exists per cell."""
+    Reserved (`_`-prefixed) siblings are skipped -- the frozen-inventory subtree holds no
+    batches -- and a copy that fails for any reason is a miss, never an error.  Copied rather
+    than referenced so the run tree's contract is unchanged: the artifact still exists per
+    cell."""
     pair = os.path.basename(os.path.normpath(out_dir))
     cell_dir = os.path.dirname(os.path.normpath(out_dir))
     run_root = os.path.dirname(cell_dir)
