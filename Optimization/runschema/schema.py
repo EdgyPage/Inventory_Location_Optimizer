@@ -133,7 +133,7 @@ _FIGURE_FAMILY_EVALUATIONS: dict = {
                      'labor.production_legs'],
     'throughput':   ['throughput.audit', 'throughput.missed', 'throughput.volume'],
     'task_time':    ['task_time.breakdown', 'task_time.duration'],
-    'layout':       ['layout.churn', 'layout.travel'],
+    'layout':       ['layout.churn', 'layout.pick_owed', 'layout.travel'],
     'significance': ['sig.by_initial', 'sig.suite'],
     'yard':         ['yard.binding', 'yard.detention', 'yard.fee', 'yard.scorecard'],
     'diagnostics':  ['diagnostics.metric_grids', 'diagnostics.scorecards'],
