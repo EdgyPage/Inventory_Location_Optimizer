@@ -59,7 +59,8 @@ DEFAULT_RUNGS = (5_000, 10_000, 20_000, 40_000)
 PRICED, UNPRICED = 'gain_forecast', 'fifo'
 
 
-def _configure(policy: str, coverage: float, recv_crew: int) -> None:
+def _configure(policy: str, coverage: float, recv_crew: int,
+               doors: int | None = None, door_team: int | None = None) -> None:
     from Optimization.config.sim_config import CONFIG
     g = CONFIG['global']
     g.update(coverage_days=coverage,
@@ -103,6 +104,24 @@ def _configure(policy: str, coverage: float, recv_crew: int) -> None:
     g.update({k: v for k, v in PHASE2_RUN_DEFAULTS.items()
               if k.startswith('inbound_')
               and k not in ('inbound_yard_policy', 'inbound_dock_policy')})
+    # THE DEPTH LEVERS, applied AFTER the campaign regime so they deliberately override it.
+    #
+    # Setting the regime above is necessary and not sufficient: the top rung still reaches
+    # T = 1.30 against the campaign's 16.55, because depth needs the receiving crew
+    # saturated ACROSS drains and this ladder's catalogue caps at 40,000 SKUs where it
+    # never is.  Growing the catalogue to 400k would reach it and would cost what the
+    # campaign costs, which is the thing this tool exists not to pay.
+    #
+    # So reach the depth from the other side: throttle door throughput.  What the gain
+    # evaluator costs is a function of (T, tier size, live aisles) -- `plan_order` does
+    # T(T+1) `place_load` calls whatever made the yard deep -- so a T reached by starving
+    # the doors prices the same work as a T reached by flooding the arrivals.  It is NOT
+    # the campaign's mechanism and a reader must not read these rungs as the campaign's
+    # OPERATING POINT; they are a cost measurement at a matched T.
+    if doors is not None:
+        g['inbound_dock_doors'] = int(doors)
+    if door_team is not None:
+        g['inbound_door_team'] = int(door_team)
 
 
 def _live_candidates(cands):
@@ -133,7 +152,9 @@ def _live_candidates(cands):
 
 def _one(skus: int, batches: int, arm: str, policy: str,
          coverage: float, recv_crew: int, coupled: bool = False,
-         min_catalogue: int | None = None, slice_probe: bool = False) -> dict:
+         min_catalogue: int | None = None, slice_probe: bool = False,
+         doors: int | None = None, door_team: int | None = None,
+         recv_deadline: float | None = None) -> dict:
     """One rung, one pole, IN THIS PROCESS. Returns the drain wall plus the evaluator's counts.
 
     Callers should prefer `_one_isolated`.  This body mutates process-global `CONFIG` and
@@ -143,7 +164,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
     `CONFIG['global']['sampler']` with no restore, and one e2e test then broke a unit test
     twelve minutes later.
     """
-    _configure(policy, coverage, recv_crew)
+    _configure(policy, coverage, recv_crew, doors, door_team)
 
     import Inbound.gain as gain
     import Inbound.receiving as rc
@@ -261,6 +282,29 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         return _p
 
     def recv(self, leaves, deadline=None, *a, **k):
+        # A DEPTH LEVER THAT HELPS AND DOES NOT SUFFICE.  Measured 2026-09-20 at 40,000 SKUs:
+        #
+        #     doors 4 team 10 -> doors 1 team 1 ...... T 1.25 -> 1.12   (no effect)
+        #     recv budget uncapped -> 600 s .......... T 1.25 -> 2.34
+        #     600 s -> 200 s -> 80 s ................. T 2.34, 2.34, 2.34 (saturated)
+        #
+        # against the campaign's T = 16.55.  NO THROUGHPUT LEVER CAN REACH IT, and the reason
+        # is not tuning: yard depth cannot exceed the trailers that have ARRIVED, arrivals
+        # scale with reorder volume, and volume scales with the catalogue.  Starving the doors
+        # or the receiving budget makes the few trailers present wait longer; it cannot
+        # conjure a sixteen-deep yard out of four.
+        #
+        # So this caps a real quantity and is worth having -- it doubles T and is the only
+        # lever that moves it -- but the ladder reaches T ~ 2.3 and the campaign runs at 16.55,
+        # which is 7.8 against 290 `place_load` calls per entry.  Anything read here is a
+        # measurement of a regime the campaign never enters, and the honest instrument for the
+        # campaign's regime is this ladder bound to the 400k reference catalogue.
+        #
+        # It is also an INTERVENTION rather than the campaign's mechanism: trailers stand
+        # because receiving stopped, not because the crew was saturated.
+        if recv_deadline is not None:
+            deadline = (float(recv_deadline) if deadline is None
+                        else min(float(deadline), float(recv_deadline)))
         stats['deadline'] = deadline
         t = time.perf_counter()
         try:
@@ -325,7 +369,8 @@ def _one(skus: int, batches: int, arm: str, policy: str,
 
 
 def _one_isolated(skus, batches, arm, policy, coverage, recv_crew, coupled,
-                  min_catalogue, slice_probe=False):
+                  min_catalogue, slice_probe=False, doors=None, door_team=None,
+                  recv_deadline=None):
     """One rung, one pole, in a FRESH INTERPRETER.
 
     RUNGS MUST NOT SHARE A PROCESS.  `_configure` writes process-global `CONFIG`, and
@@ -343,6 +388,8 @@ def _one_isolated(skus, batches, arm, policy, coverage, recv_crew, coupled,
     import subprocess
     payload = json.dumps(dict(skus=skus, batches=batches, arm=arm, policy=policy,
                               coverage=coverage, recv_crew=recv_crew, coupled=coupled,
+                              doors=doors, door_team=door_team,
+                              recv_deadline=recv_deadline,
                               min_catalogue=min_catalogue, slice_probe=slice_probe))
     out = subprocess.run(
         [sys.executable, os.path.abspath(__file__), '--worker', payload],
@@ -390,6 +437,19 @@ def main() -> None:
                     help='run the SITE model (both leaves). The default takes '
                          '_channel_runs[0], always the STORE -- the quieter half of the '
                          'site: it binds 14-17 of 75 drains against fulfillment 46-60.')
+    ap.add_argument('--doors', type=int, default=None,
+                    help='override the dock door count. With --door-team, the lever that '
+                         'reaches campaign yard depth on a small catalogue: T is what the '
+                         'evaluator costs, and starving the doors reaches a given T without '
+                         'the 400k catalogue that reaching it by arrivals would need.')
+    ap.add_argument('--door-team', type=int, default=None,
+                    help='override the per-door unload team. Smaller team, slower door, '
+                         'deeper yard at a fixed catalogue.')
+    ap.add_argument('--recv-deadline', type=float, default=None,
+                    help='cap the receiving budget per drain, in seconds. The only lever '
+                         'that moves T on a small catalogue (doors and team do not), and '
+                         'it saturates at T~2.3 against the campaign 16.55. See the '
+                         'clamp in `_one` for why no throughput lever can close that.')
     ap.add_argument('--worker', default=None, help=argparse.SUPPRESS)
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
@@ -398,7 +458,9 @@ def main() -> None:
         kw = json.loads(a.worker)
         r = _one(kw['skus'], kw['batches'], kw['arm'], kw['policy'],
                  kw['coverage'], kw['recv_crew'], kw['coupled'],
-                 kw.get('min_catalogue'), kw.get('slice_probe', False))
+                 kw.get('min_catalogue'), kw.get('slice_probe', False),
+                 doors=kw.get('doors'), door_team=kw.get('door_team'),
+                 recv_deadline=kw.get('recv_deadline'))
         r.pop('depths', None)        # keep the handoff small
         print('__RUNG__' + json.dumps(r))
         return
@@ -428,7 +490,8 @@ def main() -> None:
         rung = {}
         for pole, policy in (('unpriced', UNPRICED), ('priced', PRICED)):
             s = _one_isolated(n, a.batches, a.arm, policy, a.coverage,
-                              a.recv_crew, a.coupled, floor, a.slice_probe)
+                              a.recv_crew, a.coupled, floor, a.slice_probe,
+                              a.doors, a.door_team, a.recv_deadline)
             rung[pole] = s
             if not _announced and s.get('catalogue'):
                 print(f'catalogue: {s["catalogue"]} declares '
