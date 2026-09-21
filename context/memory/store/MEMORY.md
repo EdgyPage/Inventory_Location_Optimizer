@@ -143,3 +143,4 @@
 - [_aisle_best is what a pool open now costs](aisle-best-is-what-a-pool-open-now-costs.md) — 72% of the residue: live_aisles × SKU-run boundaries
 - [Phase 2 binds the reference catalogue](phase2-binds-the-reference-catalogue-not-the-default.md) — without --profiles-dir the staffing pin refuses 4 minutes in
 - [The gain sweep cannot be made incremental](the-gain-sweep-cannot-be-made-incremental.md) — every commit invalidates EVERY candidate; reuse potential is zero
+- [Trailer bound buys wall with discrimination](the-trailer-bound-buys-wall-with-discrimination.md) — REFUTED: 2.1x faster, keeps 12% of the gap to fifo

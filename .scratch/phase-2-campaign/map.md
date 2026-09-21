@@ -249,6 +249,43 @@ launches on the full ten cells.
   dies at the pin with every unit unrecovered. Memory
   `phase2-binds-the-reference-catalogue-not-the-default`.
 
+## The trailer bound, asked and refuted -- 2026-09-20 evening
+
+- **Why it was asked at all.** The relaunched campaign (`comparison_whatif_20260920_150203`,
+  11 cells, snapshot `8f993a33`) projected **14.9 h** from its own drain rate: 21.4 min per
+  unit across 12 workers, ~188 worker-hours. The seven-commit performance round that landed
+  that afternoon netted **parity** at campaign scale, so no constant-factor work was going to
+  move it. The only lever with the right exponent was `INBOUND_TRAILER_BOUND` -- T(T+1) ->
+  k(k+1), which at the measured yard depth of ~17 is 306 -> 72 `place_load` calls.
+- **So the campaign was stopped and the question asked first**, as `_probe_trailer_bound`
+  (`6badb591`): fifo / gmyopic / gmyopic_k8, 12 units, 2 h 43 m. Carrying the bound as one
+  cell of the matrix would have delivered the answer at the END of the 14.9 h run it would
+  have shortened.
+- **Cost: delivered.** Gain evaluation isolated as (priced cell - fifo cell) on the `fifo`
+  rider: 473.7 s -> 112.6 s, **4.21x** against a predicted 4.25x. Ranked units: reorder
+  7,566 -> 2,938 s (2.58x), unit wall 8,182 -> 3,599 s (2.27x).
+- **Discrimination: refuted.** Yard overage, trailer-days past the free threshold:
+
+  | cell | overage | vs fifo |
+  |---|---|---|
+  | `k1_off_fifo` | 34.63 | reference |
+  | `k1_off_gmyopic` | 69.92 | +101.9% |
+  | `k1_off_gmyopic_k8` | 38.71 | +11.8% |
+
+  **12% of the gap retained.** Bounding buys the wall by making `gmyopic` behave like `fifo`,
+  and that is mechanical rather than unlucky: restricting the plan to the k longest-waiting
+  trailers IS a step toward arrival order. The bound is not usable, and that is itself a
+  phase-2 result -- what distinguishes a gain policy is its willingness to deviate from
+  arrival order.
+- **What the probe surfaced that matters more.** On `ss_pick_owed`, the ranking's PRIMARY
+  metric, `gmyopic` and `fifo` differ by **0.034%** -- inside the 0.1% noise floor
+  `run_unload_ranking` declares, so they are a TIE and the rank is decided by the yard-overage
+  tie-break. One cell of ten, so not phase 2's answer; but any reading of this campaign has to
+  begin with which quantity actually separated the cells.
+- **Resumed unbounded at 16 workers** on the same root and the same snapshot, so the 9 units
+  that finished before the stop are kept. The resume reuses the frozen inventory
+  (`planned_inventory.db (frozen)`, 5.65 s) instead of repeating the 21-minute freeze.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.
