@@ -82,6 +82,32 @@ def _configure(policy: str, coverage: float, recv_crew: int) -> None:
     g.update(ERA_RUN_DEFAULTS)
 
 
+def _live_candidates(cands):
+    """`(count, list)` of the bins one pool open actually chooses from.
+
+    A pool used to be handed a LIST, and `_make_pool` did `pool_factory(list(cands), ...)`,
+    so `len(cands)` was both the candidate count and a fair proxy for what the open cost.
+    Since the per-drain overlay (`Warehouse/placement/frozen_tier.py`) the gain evaluator
+    hands a `TierSlice` -- the frozen tier plus one exclusion set -- and a sliced open builds
+    cursors instead of copying every element.  `TierSlice` has no `__len__`, so this tool
+    died with `object of type 'TierSlice' has no len()` the moment that landed, and nothing
+    noticed because no tier of `Tests/calltree/` is in a gate (memory
+    `hand-run-test-tiers-rot-silently`).
+
+    TWO THINGS CHANGED, not one.  The count is now the SURVIVING candidates -- the eager
+    path's `len(live)` -- and it is no longer a proxy for the open's COST, because a sliced
+    open is O(aisles) plus the skips rather than O(candidates).  So `cnd/open` still answers
+    "how much tier is this pool choosing from", which is what it is read for, and no longer
+    answers "what did the open cost".  Anything fitted against that column has to say which
+    of the two it means.
+    """
+    if hasattr(cands, '__len__'):
+        return len(cands), cands
+    tier, excl = cands.tier, cands.excluded
+    live = [b for b, i in zip(tier.bins, tier.ids) if i not in excl]
+    return len(live), live
+
+
 def _one(skus: int, batches: int, arm: str, policy: str,
          coverage: float, recv_crew: int, coupled: bool = False,
          min_catalogue: int | None = None, slice_probe: bool = False) -> dict:
@@ -147,13 +173,11 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         if not wp_of and a:
             wp_of.append(a[0])            # _make_pool(self, cands, wp)
         stats['pools'] += 1
-        # What a pool open COSTS is what its candidate list costs: `_make_pool` hands
-        # `cands` straight to `pool_factory(list(cands), ...)`, which copies, buckets and
-        # heapifies every element. The fitted seconds-per-open ~ T^1.46 has to live here
-        # or in the view construction, and the views are O(touched aisles) since the
-        # copy-on-write change. So this counter prices the candidate slice (ticket 10) at
-        # any scale without rebuilding it.
-        stats['cands'] += len(cands)
+        # HOW MUCH TIER this pool is choosing from -- and since the overlay, NOT what the
+        # open costs.  `_live_candidates` says what changed and why the distinction matters
+        # to anything fitted against this column.
+        _n_cands, _live = _live_candidates(cands)
+        stats['cands'] += _n_cands
         # THE SLICE PROBE, and it is OFF by default for a reason: bucketing every candidate
         # here is the same work the pool's own `__init__` does, so it roughly DOUBLES pool
         # construction and inflates the drain. Leaving it always-on would hand the next
@@ -167,7 +191,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
                 from Warehouse.kernel.cost_model import height_multiplier as _hm
                 _br = getattr(wp_of[0], 'height_brackets', ()) if wp_of else ()
                 _bk = {}
-                for _b in cands:
+                for _b in _live:
                     _key = (_b.location[0], _hm(_br, _b.y_phys))
                     _bk[_key] = _bk.get(_key, 0) + 1
                 stats['buckets'] += len(_bk)
