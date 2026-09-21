@@ -80,6 +80,29 @@ def _configure(policy: str, coverage: float, recv_crew: int) -> None:
     # disagree about what "the era" means.
     from Optimization.config.whatif_config import ERA_RUN_DEFAULTS
     g.update(ERA_RUN_DEFAULTS)
+    # THE ARRIVAL REGIME, from the campaign's own constant for exactly the reason the era is.
+    #
+    # Without a lead every trailer arrives the instant it is dispatched, takes one of the four
+    # doors at once, and THE YARD NEVER STANDS.  Measured 2026-09-20, after the `TierSlice`
+    # repair made this tool run again:
+    #
+    #     this ladder, 40,000 SKUs   rho = 0.803   T =  1.14   max yard depth  2
+    #     the campaign, 400,000      rho = 0.819   T = 16.55   max yard depth 24
+    #
+    # The same utilization and a FOURTEEN-FOLD difference in T -- the quantity every number
+    # below is a function of, since `plan_order` costs T(T+1) `place_load` calls.  So the
+    # header's premise, that T is a queueing quantity in rho and rho is therefore the honest
+    # x axis, is only half true: rho does not determine depth.  Depth is arrivals against door
+    # throughput, and the LEAD LAW is what spreads the arrivals -- probed the same day, the
+    # lead moved a fixed catalogue's yard from 32 trailers to 4 while rho sat still.
+    #
+    # Taken from `PHASE2_RUN_DEFAULTS` rather than restated, so the ladder and the campaign
+    # cannot disagree about what the arrival regime is.  The two policy knobs are excluded
+    # because choosing them per pole is this tool's whole job.
+    from Optimization.config.whatif_config import PHASE2_RUN_DEFAULTS
+    g.update({k: v for k, v in PHASE2_RUN_DEFAULTS.items()
+              if k.startswith('inbound_')
+              and k not in ('inbound_yard_policy', 'inbound_dock_policy')})
 
 
 def _live_candidates(cands):
