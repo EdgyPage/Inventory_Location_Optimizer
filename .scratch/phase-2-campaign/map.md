@@ -286,6 +286,73 @@ launches on the full ten cells.
   that finished before the stop are kept. The resume reuses the frozen inventory
   (`planned_inventory.db (frozen)`, 5.65 s) instead of repeating the 21-minute freeze.
 
+## The result -- 2026-09-22
+
+**The campaign finished 2026-09-21 06:55** (`comparison_whatif_20260920_150203`, 11 cells, 44
+units, resumed twice, the last stretch at 16 workers; analysis and `run_unload_ranking` run
+the same morning). **Its answer is a finding, not a ranking: at this site's demand, the
+unloading order cannot move placement.** Decided with the user 2026-09-22
+(`.scratch/inbound-throughput/` Q13/Q14): the result stands on the record with the caveats
+below, phase 3 confirms phase 1's pairs alone, and the placement question is re-asked as a
+**fill trial** (CONTEXT.md) under that map.
+
+**Why the score cannot separate the cells**, all from the run's own tables (agent
+measurement 2026-09-22, since recorded by `run_unload_ranking` itself as `inbound_repick`
+in the ranking artifact -- 9.3% / 23.8% of put-away units picked again, 8.7% / 22.8% of
+picks from a dock-filled bin, reference cell, winner pair; memory
+`pick-owed-cannot-see-inbound-at-this-demand`):
+
+- `ss_pick_owed` is a mean over each SKU's bins BY BIN COUNT, weighted by the planned batches
+  that ask for the SKU -- ~1 line for 92% of touched store SKUs and 67% of fulfillment. One
+  inbound pack lands among N = 4-8 existing bins and moves its term by 1/(N+1) of one line.
+- Picked units served from inbound bins: store 8.7%, fulfillment 23.9%. Inbound units placed
+  and never picked inside the window: 91% / 75%. Implied coverage 477 d / 83 d; 90.6% of the
+  store catalogue is never asked in 40 days; the fulfillment top decile carries 13% of lines
+  where the law says 21% (the sampler flattening on record).
+- The 0.143% fifo-vs-gforecast cell gap is entirely the fulfillment leaf (the store leaf flips
+  sign at +-0.05%, its noise), and ~35% of it was AVAILABILITY priced at zero: gforecast
+  strands 170-250 more fulfillment lines per batch unservable.
+
+**The ranking tool was corrected before the write-up** (`inbound-throughput` 01, Q27): the
+census is now priced at the leaf's mean priced line (`adjusted_owed`, W rebuilt from the
+pair's batch pickle: 24,725 store / 119,223 fulfillment lines), the floor is MEASURED per rule
+pair from the paired per-batch series (moving-block bootstrap; 0.080% on the winner pair,
+0.017% on the rider, against the 0.1% that was declared), the rider is read as a control, and
+the metric is declared on the spec. Re-run on the finished root:
+
+| rule pair | floor | tie groups | order (overage decides inside a group) |
+|---|---|---|---|
+| `rank_cartlabor/rank_minlabor` | 0.080% measured | 2 | ggated_h050, ggated_h025, gforecast, fsight_wall, fsight_w5 \| fifo, ggated_h100, gmyopic_k8, gmyopic, lifo |
+| `fifo/fifo` (control) | 0.017% measured | 2 | ggated_h050, gforecast, lifo \| fifo = ggated_h100 = gmyopic = gmyopic_k8 (inert), ggated_h025, fsight_w5, fsight_wall |
+
+- Every futuresight/forecast cell is cheaper than `fifo` on the adjusted score by 0.04-0.12%
+  -- outside the measured floor, so `discriminating` is TRUE on the winner pair -- and every
+  one of them pays for it in overage (49-97 trailer-days against 19). The five cheapest sit
+  inside one tie group and the OVERAGE orders them: `chosen` is `ggated_h050, ggated_h025,
+  gforecast` (it was `ggated_h025, gforecast, fsight_wall` under the declared floor and the
+  unpriced census -- the reason Q27 held the publish until this landed).
+- Under the rider, `ggated_h100`, `gmyopic` and `gmyopic_k8` are BYTE-IDENTICAL to `fifo`:
+  a placement-gain policy degenerates to arrival order under FIFO restock, as recorded.
+  `rank_agreement` no longer reads the rider as a replication, so it answers `None` (one
+  replicating pair) instead of the veto it printed on 2026-09-21.
+- The closed form (`exact_check`) orders the cells differently from the score on both pairs
+  at the measured floors (it agreed on the rider at 0.1%). Disagreement is the informative
+  direction on record; at gaps this size it says the two models do not share a signal, which
+  is the finding restated.
+
+**The three caveats ride with it**: fulfillment-weighted; `gain_gated`'s H grid is
+fulfillment-only; the rule pairing is one of several defensible draws. And a fourth from this
+run: the effect sizes are a few hundredths of a percent of pick work against tens of
+trailer-days of overage, so any reading of the ranking is a reading of the tie-break.
+
+**Runtime** (the reason `inbound-throughput` exists): 81 unit-hours over 16 workers, sim wall
+8.1 h against a 5.1 h floor; the queue emptied at 01:30 and the last five hours ran 14 -> 2
+workers; slowest unit 7.9 h (`k1_off_fsight_w5` uni pair), 97% of it `reord_s`.
+
+Published 2026-09-22 as Experiment 9 (`docs/experiments/experiment-9/`), through the
+four-persona loop; the artifact at the root is the corrected one (`version: 2`, with the
+re-pick block and per-cell thresholds), the 2026-09-21 artifact is superseded.
+
 ## Fog
 
 - Whether the futuresight cells' wall is the lower bound ticket 16 warned about.

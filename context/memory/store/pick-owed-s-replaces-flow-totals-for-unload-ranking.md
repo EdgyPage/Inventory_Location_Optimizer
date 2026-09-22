@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 54a9e9be-5880-4d00-9c09-172dafbe4eb1
-  modified: 2026-09-20T04:24:41.399Z
+  modified: 2026-09-22T21:50:51.314Z
 ---
 
 **The old metric asked a question ordering cannot answer.** `ss_prod_total`'s steady-state
@@ -57,4 +57,5 @@ with placement even when the flow total cannot.
 **How to apply:** never cite `ss_prod_total` (or any full-window steady-state total) to rank an
 inbound unloading/ordering policy — cite `pick_owed_s` instead, and only within one run's arms
 and cells. Related: [[expected-travel-closed-form-is-an-asymmetric-check]],
-[[toy-fixture-cannot-discriminate-unload-policies]].
+[[toy-fixture-cannot-discriminate-unload-policies]],
+[[pick-owed-cannot-see-inbound-at-this-demand]].

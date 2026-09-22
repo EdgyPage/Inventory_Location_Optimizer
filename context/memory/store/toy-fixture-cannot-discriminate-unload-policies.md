@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 54a9e9be-5880-4d00-9c09-172dafbe4eb1
-  modified: 2026-09-20T04:24:54.297Z
+  modified: 2026-09-22T21:50:54.479Z
 ---
 
 The toy fixture used for byte-identity checks ([[toy-run-is-the-byte-identity-instrument]]) has
@@ -27,4 +27,7 @@ need a contended yard to differ.
 rank unloading" — check yard depth first. Use a campaign-scale (>=100k SKU) probe, per
 [[unload-key-does-not-rank-like-gain]]'s finding that contention only exists at that scale, to
 test unload-policy discrimination. The toy fixture remains the right instrument for placement
-rules and for byte-identity, just not for unload-policy ranking.
+rules and for byte-identity, just not for unload-policy ranking. Related:
+[[pick-owed-cannot-see-inbound-at-this-demand]] — the campaign-scale probe still ties within
+0.1-0.14%, for a different reason (the window is under-demanded, not that the yard never
+contends).

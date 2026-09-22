@@ -521,6 +521,21 @@ rate the coverage rescaling stamped at the planned levels. Recorded with the run
 authoritative on resume; never edited by hand.
 _Avoid_: crew config, headcount
 
+**Fill trial**:
+A run that starts with an empty warehouse, receives its whole stock declaration through the yard
+under an unloading policy, and then picks against the placement it produced. It asks which policy
+places stock best when everything must land; an era run asks how a policy sustains placement under
+replenishment, and the two answers are not read across each other.
+_Avoid_: cold start (a placement tie-break), initial fill (a recorded defect), empty-warehouse run,
+stocking run
+
+**Rider**:
+The pre-committed restocking pair (fifo/fifo) every phase-2 cell carries beside the winner pair. It is a
+control, not a replication: under FIFO restock a gain policy degenerates to arrival order, so the rider
+answers only whether an unloading policy does anything at all, and its ranking never vetoes the winner
+pair's.
+_Avoid_: replication, second pair, control pair
+
 **Pilot gate**:
 One inbound-on cell, run before a campaign launches, that verifies the derived receiving crew lands
 the yard in band under arrivals — read through the equilibrium report, never published. It checks a
