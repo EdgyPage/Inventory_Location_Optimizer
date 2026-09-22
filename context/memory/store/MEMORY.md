@@ -145,3 +145,4 @@
 - [The gain sweep cannot be made incremental](the-gain-sweep-cannot-be-made-incremental.md) — every commit invalidates EVERY candidate; reuse potential is zero
 - [Trailer bound buys wall with discrimination](the-trailer-bound-buys-wall-with-discrimination.md) — REFUTED: 2.1x faster, keeps 12% of the gap to fifo
 - [pick_owed cannot see inbound at this demand](pick-owed-cannot-see-inbound-at-this-demand.md) — score arithmetic x an under-demanded window; era run cannot rank unload policies; fill trial re-asks it
+- [Gain evaluator to be replaced, approximate](gain-evaluator-to-be-replaced-approximate.md) — decided 2026-09-22: gated on tau>=0.9 median, top-1>=0.8 vs the exact plan

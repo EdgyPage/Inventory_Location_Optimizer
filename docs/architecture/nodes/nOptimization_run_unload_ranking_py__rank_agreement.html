@@ -14,19 +14,24 @@
 <h1><span class="kind kind-function">function</span> <code>rank_agreement</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
 
-<pre class="sig"><code>def rank_agreement(rankings: dict) -&gt; dict</code></pre>
+<pre class="sig"><code>def rank_agreement(rankings: dict, control: str | None=None) -&gt; dict</code></pre>
 <section class="doc">Do the rule pairs that ran order the cells the same way?
 
-Each rule pair is an INDEPENDENT replication of the same question — same cells, same
-geometry, same planned demand, a different restocking rule underneath.  If the unloading
-policy is what the score is measuring, the orders agree; if they disagree, the order is
-a property of the rule pair and not of the policy, and neither ranking should be handed
-to phase 3 as though it were.
+Each NON-CONTROL rule pair is an INDEPENDENT replication of the same question — same
+cells, same geometry, same planned demand, a different restocking rule underneath.  If
+the unloading policy is what the score is measuring, the orders agree; if they
+disagree, the order is a property of the rule pair and not of the policy, and neither
+ranking should be handed to phase 3 as though it were.
+
+`control` names the rider (CONTEXT.md: Rider), which is EXCLUDED: its degeneracy under
+FIFO restock is on the record, so its disagreeing with the winner pair says nothing
+about the policies, and until 2026-09-22 it vetoed every ranking it disagreed with.  It
+is read through `control_verdict` instead.
 
 Returns `{&#x27;pairs&#x27;: [...], &#x27;orders&#x27;: {pair: [cells]}, &#x27;agree&#x27;: bool, &#x27;common&#x27;: [cells],
 &#x27;note&#x27;: str}`.  Compared over the cells EVERY pair ranked, because a pair that poisoned
 a cell has no opinion about it and must not be read as disagreeing.  Fewer than two
-pairs with an opinion answers `agree: None` — unknown, not true.</section>
+replications with an opinion answers `agree: None` — unknown, not true.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py__rank_agreement">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20rank_agreement">Source ↗</a></p>
 </article>

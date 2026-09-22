@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>planned_lines · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_batch_precompute_py__planned_lines" data-id="Optimization/simdriver/batch_precompute.py::planned_lines">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_batch_precompute_py.html"><code>Optimization/simdriver/batch_precompute.py</code></a> <span class="sep">›</span> <span class="here"><code>planned_lines</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>planned_lines</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_batch_precompute_py.html"><code>Optimization/simdriver/batch_precompute.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def planned_lines(batches: list, n_batches: int | None=None) -&gt; dict</code></pre>
+<section class="doc">{sku: planned lines} over the first `n_batches` batches -- the SCRIPT&#x27;s weight.
+
+ONE construction, because two things read it and must agree to the line: the worker
+hands it to `Inventory_Manager.enable_pick_owed` as the weight `pick_owed_s` prices the
+placement against (`strategy_runner._build_arm`), and `run_unload_ranking` rebuilds its
+TOTAL to price the lines that score declined to price (`unservable_weight`) at the leaf&#x27;s
+mean line.  A second spelling would not fail; it would adjust the score by a weight the
+score was never measured on, silently.
+
+A batch&#x27;s `items` is keyed by SKU, one key per line, so a SKU&#x27;s weight is the number of
+batches that ask for it -- not the units, which is what makes the score a count of
+walks rather than of pieces.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py___PlannedWeights_total.html"><code>total</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_simdriver_strategy_runner_py___build_arm.html"><code>_build_arm</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_batch_precompute_py__planned_lines">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/batch_precompute.py#:~:text=def%20planned_lines">Source ↗</a></p>
+</article>
+</main>
+</body></html>

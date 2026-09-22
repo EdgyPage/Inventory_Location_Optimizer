@@ -997,7 +997,7 @@
       "decorators": [
         "property"
       ],
-      "doc": "The arm machinery owning the group being priced (class docstring).",
+      "doc": "The arm machinery owning the group being priced (class docstring).\n\nResolved ONCE per group rather than per read.  `for_key` is a pure function of\n`_key` -- that is the whole protocol -- so the only thing that can invalidate this\nis `_params` moving the cursor, which is where it is cleared.",
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> GainBundle"
@@ -8840,6 +8840,13 @@
       "signature": null,
       "value_preview": "[('rank_cartlabor', 'rank_minlabor'), ('rank_minlabor', 'tmin'), ('rank_labor', 'rank_labor'), ('tmin', 'rank_cartlabor'), ('rank_random', 'rank_popularity'), ('fifo', 'fifo')]"
     },
+    "Optimization/config/whatif_config.py::PHASE2_RANKING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'quantity': 'pick_owed_s', 'field': 'ss_pick_owed', 'column': 'pick_owed_s', 'census_quantity': 'unservable_weight', 'census_field': 'ss_unservable', 'census_column': 'unservable_weight', 'exact_f..."
+    },
     "Optimization/config/whatif_config.py::PHASE2_RECV_CREW_SIZE": {
       "decorators": [],
       "doc": null,
@@ -10584,6 +10591,13 @@
       "kind": "function",
       "signature": "(path: str, run_id: int) -> list"
     },
+    "Optimization/persistence/Picking_Data.py::load_pick_bins": {
+      "decorators": [],
+      "doc": "Units picked per (sku, bin, batch), the `pick_bins` named query; `[]` on an\nunservable vintage.  Read-only and immutable, like every loader beside it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str, run_id: int) -> list"
+    },
     "Optimization/persistence/Picking_Data.py::load_picker_events": {
       "decorators": [],
       "doc": "Load PickerEventRecord rows for *run_id*, optionally filtered to one batch.\n\nReturns records ordered by (batch_id, picker_id, time) for sequential replay.\nVersion-adaptive; see `load_batch_stats`.",
@@ -11699,7 +11713,7 @@
     },
     "Optimization/run_unload_ranking.py": {
       "decorators": [],
-      "doc": "run_unload_ranking.py \u2014 phase 2's hand-off: rank the UNLOADING policies of a finished\nphase-2 run and write the contract's `unload_ranking_json` artifact at the run root.\n\nThe twin of `run_restock_selection` (phase 1's hand-off), one level up the funnel:\n\n  * phase 1 ranked restocking RULES on picking labour, in one cell;\n  * phase 2 runs phase 1's winning rule pair (plus the `fifo` rider) under every unloading\n    policy, one CELL per policy (`whatif_config.phase2_inbound_axis`), and this ranks the\n    CELLS;\n  * phase 3 crosses the best few of each in one confirmation run.\n\nTHE SCORE \u2014 and the correction of 2026-09-19 that is the reason this module changed.\n\nIt ranked on **total site labour** (`ss_prod_total`: unload + put + pick, meaned over the\nsteady-state window).  That was wrong, and wrong in a way that produced an answer rather\nthan an error: every term in it is a FLOW, and over a window long enough to unload\neverything a flow total is INVARIANT to the ORDER the unloading happened in.  Same\ntrailers, same packs, same seconds.  The first phase-2 ranking came back an exact tie\nacross ten cells and that was the honest reply to a question the metric could not be asked.\n\nThe score now, set with the user on 2026-09-19: **the pick work the PLANNED demand owes the\nplacement** \u2014 `ss_pick_owed`, the steady-state mean of `batch_stats.pick_owed_s`, summed\nover a unit's two leaves and the inventory pairs, in seconds, lower is better.  Dock labour\nis the same whichever order the trailers come apart in; where the stock LANDS is not, and\nthat is what the whole warehouse pays for afterwards.  It is a STATE read, so it can see an\nordering policy: what the run's own planned batches would cost served from where the stock\ncurrently stands, priced with the same `cost_model.per_pick` arithmetic as `optimal_work`.\n\nTwo cells whose score differs by less than the NOISE FLOOR are a tie, and the tie is broken\nby **yard overage** (`yard_overage_days`, the whole run's trailer-days past the free\nthreshold, from the SITE yard through `frames._ydf`), lower first.  The floor is declared,\nnot measured \u2014 0.1% \u2014 and the artifact records it beside every rank so a reader can\nre-draw the line.\n\nTHE CENSUS, and the refusal it can trigger.  A planned line whose SKU has nothing on any\nshelf costs the score NOTHING, because there is no bin to walk to \u2014 so a score read alone\nwould rank \"leave it all in the yard\" first.  `ss_unservable` is the census of that demand.\nWhen it is materially non-zero the run was decided by AVAILABILITY rather than by\nplacement, and this tool writes the record, names no cells for phase 3, and exits non-zero.\nA fabricated penalty would make the score rankable again at the price of making it partly\nfiction, with no way to recover which force moved it.\n\nTWO VERDICTS the document carries beside the ranks, because a rank list cannot state\neither: `discriminating` is false when every cell lands in ONE tie group (the metric did\nnot separate the policies, which is a result and not a ranking), and `rank_agreement`\nreports whether the rule pairs that ran ordered the cells the same way \u2014 they are\nindependent replications of the same question, so disagreement is the honest signal that\nneither ordering is a property of the unloading policy.\n\nWHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard's DB is\nnamed after the ARM PAIR it served (the contract's `site_inbound_db` template).  So the\nunits are enumerated from the site DBs through the run-tree contract (`rt.site_inbound_dbs`,\n`rt.arm_pair_of`, `rt.arm_pair_halves`), never from a directory name, and each unit maps to\na RULE PAIR and a stock mode through the strategy grid (`STRATEGY_BY_KEY`), never by parsing\nthe key.  A cell's score for a rule pair sums that pair's units (both stock modes), so the\nrider's ranking is reported beside the winner's and neither is read as the other.\n\nRefusals, each closing a way to hand phase 3 a plausible answer instead of an error:\n\n  * a MATERIAL census \u2014 the ranking would be about availability, not placement;\n  * an UNCOUPLED root (no site DB anywhere) \u2014 phase 2 is coupled by definition and the\n    tie-break lives in the site yard;\n  * an unanalyzed root (no series documents) \u2014 says what to run, like phase 1's selector;\n  * a single cell \u2014 nothing to rank, and a ranking of one would still print a rank 1.\n\nThe output is a DECISION RECORD.  Copy the chosen cell set into `whatif_config` by hand for\nphase 3 (`PHASE3_UNLOAD`, beside `PHASE2_PAIRS`), for the same reason phase 1's pairs are\ncopied: a spec that read a JSON file at import would make the decision invisible.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n    python -m Optimization.analyze_run <phase-2 run root>\n    python -m Optimization.run_unload_ranking <phase-2 run root> [--pair store_rule,ful_rule]",
+      "doc": "run_unload_ranking.py \u2014 phase 2's hand-off: rank the UNLOADING policies of a finished\nphase-2 run and write the contract's `unload_ranking_json` artifact at the run root.\n\nThe twin of `run_restock_selection` (phase 1's hand-off), one level up the funnel:\n\n  * phase 1 ranked restocking RULES on picking labour, in one cell;\n  * phase 2 runs phase 1's winning rule pair (plus the `fifo` rider) under every unloading\n    policy, one CELL per policy (`whatif_config.phase2_inbound_axis`), and this ranks the\n    CELLS;\n  * phase 3 crosses the best few of each in one confirmation run.\n\nTHE SCORE \u2014 and the correction of 2026-09-19 that is the reason this module changed.\n\nIt ranked on **total site labour** (`ss_prod_total`: unload + put + pick, meaned over the\nsteady-state window).  That was wrong, and wrong in a way that produced an answer rather\nthan an error: every term in it is a FLOW, and over a window long enough to unload\neverything a flow total is INVARIANT to the ORDER the unloading happened in.  Same\ntrailers, same packs, same seconds.  The first phase-2 ranking came back an exact tie\nacross ten cells and that was the honest reply to a question the metric could not be asked.\n\nThe score now, set with the user on 2026-09-19: **the pick work the PLANNED demand owes the\nplacement** \u2014 `ss_pick_owed`, the steady-state mean of `batch_stats.pick_owed_s`, summed\nover a unit's two leaves and the inventory pairs, in seconds, lower is better.  Dock labour\nis the same whichever order the trailers come apart in; where the stock LANDS is not, and\nthat is what the whole warehouse pays for afterwards.  It is a STATE read, so it can see an\nordering policy: what the run's own planned batches would cost served from where the stock\ncurrently stands, priced with the same `cost_model.per_pick` arithmetic as `optimal_work`.\n\nTwo cells whose score differs by less than the NOISE FLOOR are a tie, and the tie is broken\nby **yard overage** (`yard_overage_days`, the whole run's trailer-days past the free\nthreshold, from the SITE yard through `frames._ydf`), lower first.  The floor was declared\n(0.1%) until 2026-09-22; it is now MEASURED per rule pair from the paired per-batch series\n(`measured_floor`: every cell draws the same script, so the per-batch gap to the reference\ncell is paired, and its moving-block bootstrap interval is the cell's own uncertainty), and\nthe declared value is the fallback for a run whose batches cannot be read.  The artifact\nrecords which applied and every cell's gap with its interval, so a reader can re-draw the\nline.\n\nTHE CENSUS, the adjustment, and the refusal it can still trigger.  A planned line whose SKU\nhas nothing on any shelf costs the score NOTHING, because there is no bin to walk to \u2014 so a\nscore read alone would rank \"leave it all in the yard\" first.  `ss_unservable` is the\ncensus of that demand.  Since 2026-09-22 the score that RANKS prices those lines at the\nleaf's own MEAN priced line (`adjusted_owed`: `owed * W / (W - unservable)` per batch, W\nthe script's planned lines rebuilt from the pair's batch pickle) \u2014 nothing invented, the\none price the leaf itself measured \u2014 because on the 2026-09-20 campaign the unpriced\nlines were ~35% of the gap between the two ends of the ranking.  A MATERIAL census still\nrefuses: when availability rather than placement decided the run, no pricing rule makes\nthe ranking about placement, and this tool writes the record, names no cells, and exits\nnon-zero.\n\nTWO VERDICTS AND A CONTROL the document carries beside the ranks, because a rank list\ncannot state them: `discriminating` is false when every cell lands in ONE tie group (the\nmetric did not separate the policies, which is a result and not a ranking);\n`rank_agreement` reports whether the REPLICATING rule pairs ordered the cells the same way\n\u2014 independent replications of the same question, so disagreement is the honest signal\nthat neither ordering is a property of the unloading policy; and `rider_control` reads the\nmandatory `fifo` rider as what it is (CONTEXT.md: Rider): a CONTROL under which a\nplacement-gain policy degenerates to arrival order, so it names the policies that did\nnothing at all under it and never vetoes the winner pair's order.  Until 2026-09-22 the\nrider was counted as a replication and vetoed every ranking it disagreed with.\n\nWHICH METRIC.  The placement score by default; a spec may declare another through\n`whatif_config.SPECS[name]['ranking']` (the fill trial ranks on pick labour), and the\nartifact names what it used.\n\nWHAT A UNIT IS HERE.  Phase 2 is COUPLED: one site, two leaves, and the site yard's DB is\nnamed after the ARM PAIR it served (the contract's `site_inbound_db` template).  So the\nunits are enumerated from the site DBs through the run-tree contract (`rt.site_inbound_dbs`,\n`rt.arm_pair_of`, `rt.arm_pair_halves`), never from a directory name, and each unit maps to\na RULE PAIR and a stock mode through the strategy grid (`STRATEGY_BY_KEY`), never by parsing\nthe key.  A cell's score for a rule pair sums that pair's units (both stock modes), so the\nrider's ranking is reported beside the winner's and neither is read as the other.\n\nRefusals, each closing a way to hand phase 3 a plausible answer instead of an error:\n\n  * a MATERIAL census \u2014 the ranking would be about availability, not placement;\n  * an UNCOUPLED root (no site DB anywhere) \u2014 phase 2 is coupled by definition and the\n    tie-break lives in the site yard;\n  * an unanalyzed root (no series documents) \u2014 says what to run, like phase 1's selector;\n  * a single cell \u2014 nothing to rank, and a ranking of one would still print a rank 1.\n\nThe output is a DECISION RECORD.  Copy the chosen cell set into `whatif_config` by hand for\nphase 3 (`PHASE3_UNLOAD`, beside `PHASE2_PAIRS`), for the same reason phase 1's pairs are\ncopied: a spec that read a JSON file at import would make the decision invisible.\n\nRun AFTER `analyze_run` (which writes the series JSONs):\n    python -m Optimization.analyze_run <phase-2 run root>\n    python -m Optimization.run_unload_ranking <phase-2 run root> [--pair store_rule,ful_rule]",
       "kind": "module",
       "signature": null
     },
@@ -11730,6 +11744,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "3"
+    },
+    "Optimization/run_unload_ranking.py::DEFAULT_METRIC": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'quantity': METRIC_QUANTITY, 'field': METRIC_FIELD, 'column': 'pick_owed_s', 'census_quantity': CENSUS_QUANTITY, 'census_field': CENSUS_FIELD, 'census_column': 'unservable_weight', 'exact_field': ..."
     },
     "Optimization/run_unload_ranking.py::DEFAULT_NOISE_FLOOR_PCT": {
       "decorators": [],
@@ -11766,6 +11787,47 @@
       "signature": null,
       "value_preview": "'yard_overage_days'"
     },
+    "Optimization/run_unload_ranking.py::_PlannedWeights": {
+      "decorators": [],
+      "doc": "The script's planned-line TOTAL per leaf, from the pair directory's batch pickles.\n\n`pick_owed_s` prices `W - unservable_weight` lines, where W is the sum of\n`batch_precompute.planned_lines` over the batches the worker fielded; the adjustment\nneeds W and nothing records it, so this rebuilds it from the same pickle by the same\nfunction.  Which pickle: the leaf's `batches_fingerprint` (in its meta record since\n2026-09-22) when it has one, else the pickle whose SKUs are the leaf's -- a mixed run\nkeeps one list per channel side by side, and the channels' catalogues are disjoint by\nregime, so the match is all-or-nothing.  Cached per pickle, because a campaign list is\nforty batches of ~120k lines and every arm of a leaf shares it.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/run_unload_ranking.py::_PlannedWeights.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, rt, log)"
+    },
+    "Optimization/run_unload_ranking.py::_PlannedWeights._blob": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, path)"
+    },
+    "Optimization/run_unload_ranking.py::_PlannedWeights._blob_skus": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, path) -> set"
+    },
+    "Optimization/run_unload_ranking.py::_PlannedWeights._leaf_skus": {
+      "decorators": [],
+      "doc": "The leaf's catalogue, from one arm's `sku_scores` -- every arm of a leaf fields\nthe same inventory, so it is read once per leaf directory, not once per arm.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, run, arm) -> set"
+    },
+    "Optimization/run_unload_ranking.py::_PlannedWeights.total": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, cell: str, run, meta: dict, arm: str, n_batches: int) -> float | None"
+    },
     "Optimization/run_unload_ranking.py::_REPO_ROOT": {
       "decorators": [],
       "doc": null,
@@ -11773,12 +11835,54 @@
       "signature": null,
       "value_preview": "os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))"
     },
+    "Optimization/run_unload_ranking.py::_adjusted_leaf": {
+      "decorators": [],
+      "doc": "`(steady-state mean, {batch: adjusted})` for one arm from its raw batch rows, or None\nwhen the rows carry no reading.  Adjusted per batch by `adjusted_owed` when the metric\nhas a census AND the weight is known; otherwise the raw column, so a metric with no\ncensus (pick labour) still gets its per-batch form for the floor.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, metric: dict, planned_weight) -> tuple | None"
+    },
+    "Optimization/run_unload_ranking.py::_basis_is_script": {
+      "decorators": [],
+      "doc": "Whether the census was weighted in LINES (the script's planned lines) rather than in\ncatalogue FREQUENCY (a worker that could not load its batch list samples inline and\nweights by `freq_by_sku`, which sums to ~1 -- `strategy_runner._build_arm`).  The\npickle's fingerprint records what the parent handed the worker, not what the worker\nused, so the tool checks the census's own units: a line-weighted census is a count and\nis never strictly between 0 and 1.  A frequency-weighted one must not be priced by a\nline total -- the adjustment would be numerically negligible and the `adjusted: True`\nit printed would be false.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, census_column: str | None) -> bool"
+    },
     "Optimization/run_unload_ranking.py::_label": {
       "decorators": [],
       "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(rule_pair) -> str"
+    },
+    "Optimization/run_unload_ranking.py::_leaf_batch_rows": {
+      "decorators": [],
+      "doc": "`(rows, n_batches)` for one arm of one leaf, or None when the leaf DB is absent or\nholds no run: its `batch_stats` rows sorted by batch -- the per-batch form of the\nscore, which the series document carries only SMOOTHED (`series._series` rolls it\nover `_SMOOTH` batches) and which the floor and the adjustment both need raw -- and\nthe batch count the ARM itself recorded (`simulation_runs.n_batches`, on the\nguaranteed surface), which is the prefix the worker weighted the script over\n(`batches[:n_batches]`).  The row count is the fallback when an older vintage did not\nstamp it, and a leaf that finalized short of its plan is not the rows' business.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, run, arm: str) -> tuple | None"
+    },
+    "Optimization/run_unload_ranking.py::_leaf_repick": {
+      "decorators": [],
+      "doc": "`inbound_repick` for one arm of one leaf, or None when the leaf DB is absent, holds\nno run, or its vintage cannot serve the `pick_bins` query.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, run, arm: str) -> dict | None"
+    },
+    "Optimization/run_unload_ranking.py::_metric_for": {
+      "decorators": [],
+      "doc": "The ranking metric the run's SPEC declares, else the default, as one dict.\n\nRead off the run layout's recorded spec name through `whatif_config.SPECS`; a spec\nwith no `ranking` key ranks on the default.  A run whose spec is no longer registered\n(renamed, retired) ranks on the default OUT LOUD rather than refusing: the artifact\nnames what it used, and a reader who wanted the other metric can see it did not get it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(layout: dict, log=print) -> dict"
+    },
+    "Optimization/run_unload_ranking.py::_site_crews": {
+      "decorators": [],
+      "doc": "{pair: {'receiving_crew', 'put_crew', 'day_seconds', 'receiving_expected_utilization'}}\nfrom the run spec's derived staffing record, or {} on a run that derived none.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec: dict) -> dict"
     },
     "Optimization/run_unload_ranking.py::_site_units": {
       "decorators": [],
@@ -11801,12 +11905,33 @@
       "kind": "function",
       "signature": "(rt, runs_by_channel: dict, halves: dict, site_db: str, threshold_days: float, log) -> float"
     },
-    "Optimization/run_unload_ranking.py::_units_of_cell": {
+    "Optimization/run_unload_ranking.py::_unit_trailers": {
       "decorators": [],
-      "doc": "One row per unit of the cell: its rule pair, stock mode, score, census and overage.\n\nThe score and the census are read from the SAME series document in the same pass, and\nboth are summed over the unit's two leaves.  They must travel together: a score is only\na placement result to the extent its census is zero.",
+      "doc": "How many trailers this unit's site yard handled over the run, or None when the site\nDB is absent or holds no run -- the count a reader scales a yard bill by.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rt, cell: str, cell_dir: str, threshold_days: float, log) -> list"
+      "signature": "(site_db: str) -> int | None"
+    },
+    "Optimization/run_unload_ranking.py::_units_of_cell": {
+      "decorators": [],
+      "doc": "One row per unit of the cell: its rule pair, stock mode, score, census and overage.\n\nThe score and the census are read from the SAME series document in the same pass, and\nboth are summed over the unit's two leaves.  They must travel together: a score is only\na placement result to the extent its census is zero.\n\nSince 2026-09-22 the score that RANKS is the census-ADJUSTED one (`adjusted_owed`), read\nper batch from the leaf DBs and meaned over the same window the series used; the series\nscalar is kept beside it as `owed_unadjusted`.  A unit whose every leaf could be\nadjusted says `adjusted: True`; one that could not -- no DB, no batch list, a vintage\nwithout the column -- ranks on the series scalar and says so, because a half-adjusted\nunit would be a cheaper unit for the wrong reason.  `by_batch` is the unit's adjusted\nper-batch score summed over its leaves (None unless every leaf answered), the input\nto `measured_floor`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cell: str, cell_dir: str, threshold_days: float, log, metric: dict | None=None, weights=None, repick_on: bool=True) -> list"
+    },
+    "Optimization/run_unload_ranking.py::adjusted_owed": {
+      "decorators": [],
+      "doc": "The score with its unpriced lines priced at the leaf's MEAN priced line.\n\n`owed` prices `planned_weight - unservable` lines and charges the rest nothing, so a\ncell that leaves more stock in the yard reads CHEAPER for it.  On the 2026-09-20\ncampaign that was ~35% of the fifo-vs-gforecast gap: gforecast stranded 170-250 more\nfulfillment lines a batch and was credited zero for each.  Scaling by the priced share\ncharges each unpriced line what the priced ones cost on average -- the one price the\nleaf itself measured, so nothing is invented -- and leaves a leaf with no census exactly\nas it was.  NaN when the weight cannot price anything (all lines unservable).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(owed: float, unservable: float, planned_weight: float) -> float"
+    },
+    "Optimization/run_unload_ranking.py::control_verdict": {
+      "decorators": [],
+      "doc": "What the RIDER says, read as a control rather than a replication.\n\nUnder FIFO restock a placement-gain policy degenerates to arrival order (memory\n`pick-owed-s-replaces-flow-totals-for-unload-ranking`), so the rider's cells that read\nBYTE-IDENTICAL to the reference on score and overage are the policies that did nothing\nat all under it -- a fact about the pairing, reported as one -- and the cells that\nmoved are the policies that reorder on a rule independent of placement.  Neither is a\nranking of unloading policies, which is why this never vetoes the winner pair's order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ranked: list, reference: str) -> dict"
     },
     "Optimization/run_unload_ranking.py::discriminating": {
       "decorators": [],
@@ -11815,6 +11940,13 @@
       "kind": "function",
       "signature": "(ranked: list) -> bool"
     },
+    "Optimization/run_unload_ranking.py::inbound_repick": {
+      "decorators": [],
+      "doc": "How much of what inbound put away inside the window was picked again inside it.\n\nTHE QUESTION a reader of the ranking asks first once the score barely moves: could an\nunloading rule have mattered here at all?  It can only change which empty bin an\narriving pack takes, so it has leverage only over stock that is PICKED FROM those bins\nbefore the window ends.  Two shares, both unit-level, both from the run's own tables:\n\n  served_share   = units picked from bins that received a reorder placement earlier in\n                   the window (same (sku, bin), placement batch <= pick batch)\n                   / all units picked in the window;\n  repicked_share = of the units reorder placed in the window, the share picked again\n                   before it ended -- per bin, min(units picked after the placement,\n                   units placed), summed / units placed.\n\n\"Picked again\" is ANY pick from the bin after the placement, at unit grain; a bin that\nwas already stocked when the placement topped it up counts its later picks against the\nplaced units first (a floor, since the earlier stock may have served some of them).\n`pick_rows` is the `pick_bins` named query (sku, batch_id, aisle_id, bayX, bayY, units);\n`placement_rows` is `load_bin_placements` (the `cause` column selects the reorders).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pick_rows, placement_rows) -> dict"
+    },
     "Optimization/run_unload_ranking.py::main": {
       "decorators": [],
       "doc": null,
@@ -11822,19 +11954,26 @@
       "kind": "function",
       "signature": "() -> None"
     },
-    "Optimization/run_unload_ranking.py::rank": {
+    "Optimization/run_unload_ranking.py::measured_floor": {
       "decorators": [],
-      "doc": "Rank the cells of a finished, analyzed, coupled phase-2 run and write the artifact.",
+      "doc": "The noise floor MEASURED from paired per-batch scores, per cell against the reference.\n\n`by_cell` is `{cell: {batch_id: score}}` for one rule pair (the pair's units summed).\nEvery cell of a run draws the same script from the same seed, so the per-batch\ndifference between two cells is PAIRED, and its serial correlation is the sim's\n(memory `per-batch-series-are-autocorrelated`): the interval is `_boot_ci`'s\nmoving-block bootstrap of the mean relative difference over the batches both cells\ncarry, never an iid resample.  The floor is the LARGEST 95% half-width among the cells,\nso two cells closer than any cell's own uncertainty are a tie.\n\nReturns `{'floor_pct', 'reference', 'cells': {cell: {'gap_pct', 'ci_pct': [lo, hi],\n'n_batches'}}, 'source'}`; `floor_pct` is None (and `source` says why) when no cell\nhas at least three shared batches with the reference, so the caller falls back to the\ndeclared value.",
       "is_async": false,
       "kind": "function",
-      "signature": "(base_dir: str, *, k: int=DEFAULT_K, noise_floor_pct: float=DEFAULT_NOISE_FLOOR_PCT, census_material_pct: float=DEFAULT_CENSUS_MATERIAL_PCT, primary_pair: tuple | None=None, log=print) -> dict"
+      "signature": "(by_cell: dict, reference: str, *, batch_ids: list | None=None) -> dict"
+    },
+    "Optimization/run_unload_ranking.py::rank": {
+      "decorators": [],
+      "doc": "Rank the cells of a finished, analyzed, coupled phase-2 run and write the artifact.\n\n`noise_floor_pct` is the DECLARED floor, used when the paired per-batch series cannot be\nread for a rule pair or when `declared_floor` forces it; otherwise the floor is\n`measured_floor`'s, per rule pair, and the artifact says which applied.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(base_dir: str, *, k: int=DEFAULT_K, noise_floor_pct: float=DEFAULT_NOISE_FLOOR_PCT, census_material_pct: float=DEFAULT_CENSUS_MATERIAL_PCT, primary_pair: tuple | None=None, declared_floor: bool=False, log=print) -> dict"
     },
     "Optimization/run_unload_ranking.py::rank_agreement": {
       "decorators": [],
-      "doc": "Do the rule pairs that ran order the cells the same way?\n\nEach rule pair is an INDEPENDENT replication of the same question \u2014 same cells, same\ngeometry, same planned demand, a different restocking rule underneath.  If the unloading\npolicy is what the score is measuring, the orders agree; if they disagree, the order is\na property of the rule pair and not of the policy, and neither ranking should be handed\nto phase 3 as though it were.\n\nReturns `{'pairs': [...], 'orders': {pair: [cells]}, 'agree': bool, 'common': [cells],\n'note': str}`.  Compared over the cells EVERY pair ranked, because a pair that poisoned\na cell has no opinion about it and must not be read as disagreeing.  Fewer than two\npairs with an opinion answers `agree: None` \u2014 unknown, not true.",
+      "doc": "Do the rule pairs that ran order the cells the same way?\n\nEach NON-CONTROL rule pair is an INDEPENDENT replication of the same question \u2014 same\ncells, same geometry, same planned demand, a different restocking rule underneath.  If\nthe unloading policy is what the score is measuring, the orders agree; if they\ndisagree, the order is a property of the rule pair and not of the policy, and neither\nranking should be handed to phase 3 as though it were.\n\n`control` names the rider (CONTEXT.md: Rider), which is EXCLUDED: its degeneracy under\nFIFO restock is on the record, so its disagreeing with the winner pair says nothing\nabout the policies, and until 2026-09-22 it vetoed every ranking it disagreed with.  It\nis read through `control_verdict` instead.\n\nReturns `{'pairs': [...], 'orders': {pair: [cells]}, 'agree': bool, 'common': [cells],\n'note': str}`.  Compared over the cells EVERY pair ranked, because a pair that poisoned\na cell has no opinion about it and must not be read as disagreeing.  Fewer than two\nreplications with an opinion answers `agree: None` \u2014 unknown, not true.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rankings: dict) -> dict"
+      "signature": "(rankings: dict, control: str | None=None) -> dict"
     },
     "Optimization/run_unload_ranking.py::rank_cells": {
       "decorators": [],
@@ -14794,10 +14933,17 @@
     },
     "Optimization/simdriver/batch_precompute.py::load_batches": {
       "decorators": [],
-      "doc": "Return the stored batch list IFF the stored fingerprint matches expected; else None so the\ncaller falls back to inline sampling (never the wrong family's list).\n\nImportError/AttributeError guard: a cache written before a module rename/move (e.g. the\nflat->package conversion) embeds the OLD class paths \u2014 unpicklable now.  Treat it exactly\nlike a corrupt file (fall back inline; delete stale _batches_*.pkl to regain the dedup).",
+      "doc": "Return the stored batch list IFF the stored fingerprint matches expected; else None so the\ncaller falls back to inline sampling (never the wrong family's list).",
       "is_async": false,
       "kind": "function",
       "signature": "(path: str, expected_fingerprint: str) -> list | None"
+    },
+    "Optimization/simdriver/batch_precompute.py::planned_lines": {
+      "decorators": [],
+      "doc": "{sku: planned lines} over the first `n_batches` batches -- the SCRIPT's weight.\n\nONE construction, because two things read it and must agree to the line: the worker\nhands it to `Inventory_Manager.enable_pick_owed` as the weight `pick_owed_s` prices the\nplacement against (`strategy_runner._build_arm`), and `run_unload_ranking` rebuilds its\nTOTAL to price the lines that score declined to price (`unservable_weight`) at the leaf's\nmean line.  A second spelling would not fail; it would adjust the score by a weight the\nscore was never measured on, silently.\n\nA batch's `items` is keyed by SKU, one key per line, so a SKU's weight is the number of\nbatches that ask for it -- not the units, which is what makes the score a count of\nwalks rather than of pieces.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(batches: list, n_batches: int | None=None) -> dict"
     },
     "Optimization/simdriver/batch_precompute.py::precompute_batches": {
       "decorators": [],
@@ -14805,6 +14951,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(inv_db, max_skus, sku_allowlist, aff_db, batch_cfg, seed_batches: int, n_batches: int, workers: int=1, channel_regime=None) -> list"
+    },
+    "Optimization/simdriver/batch_precompute.py::read_batches_blob": {
+      "decorators": [],
+      "doc": "`(fingerprint, batches)` as stored, or None for a file that cannot be read.\n\nThe reader for a consumer that does NOT know the fingerprint in advance -- a ranking tool\nwalking a finished run's pair directory, where a leaf written before 2026-09-22 recorded\nno `batches_fingerprint` in its meta record and the two channels' lists sit side by\nside.  Such a caller matches the list to the channel by its SKUs; a worker never does,\nbecause `load_batches` below already knows what it expects.\n\nImportError/AttributeError guard: a cache written before a module rename/move (e.g. the\nflat->package conversion) embeds the OLD class paths -- unpicklable now.  Treat it exactly\nlike a corrupt file.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(path: str) -> tuple[str, list] | None"
     },
     "Optimization/simdriver/batch_precompute.py::write_batches": {
       "decorators": [],
@@ -15684,7 +15837,7 @@
       "doc": "This cell's `(units, meta)`, under its scope, over its kept assets.",
       "is_async": false,
       "kind": "function",
-      "signature": "(cell, log_queue, *, mid_flight=False)"
+      "signature": "(cell, log_queue, *, mid_flight=False, pump=None)"
     },
     "Optimization/simdriver/scenario.py::_run_whatif_matrix": {
       "decorators": [],
@@ -16636,6 +16789,13 @@
       "kind": "function",
       "signature": "(self, note: str='') -> str"
     },
+    "Optimization/simdriver/workpool.py::WorkPool.pump": {
+      "decorators": [],
+      "doc": "Book what has finished and REFILL -- for a caller about to go away for minutes.\n\n`_futures` only shrinks in `absorb`, and `_pump`'s gate is\n`len(self._futures) < max_workers`, so a worker that FINISHED still holds its slot\nuntil someone absorbs.  The driver absorbs once a cell, after building that cell's\nunits, so every unit that landed during a multi-minute cell setup left its worker\nidle WITH UNITS QUEUED.  Measured on the phase-2 campaign 2026-09-20: 18.1 minutes\nat `10 running, 12 queued`, ~1.4 idle worker-hours across the setup phase, on top of\nthe 4.2 the pre-unit freeze costs structurally.\n\nSo the long parent-side steps call this.  It is `absorb` under a name that says why\nthe caller is calling it, and it is deliberately NOT a timer thread: the pool is\nparent-thread-only by design and a thread would need a lock around every mutation,\nwhich is a poor trade for a few worker-hours on a twelve-hour run.\n\nSafe from inside a cell's setup: the cell being built has submitted nothing, so\nnothing it owns can settle underneath it, and the settle handler is idempotent.\nReturns False once the pool is broken -- the supervisor already handles that, and a\ncaller deep in setup ignores it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
     "Optimization/simdriver/workpool.py::WorkPool.remaining": {
       "decorators": [],
       "doc": "{cell: sorted keys not done} for the cells that have any.",
@@ -16753,7 +16913,7 @@
       "doc": "(Re-)prepare all work units from on-disk state.\n\n`failed`, when a list is handed in, collects the tag of every leaf or coupled pair whose\nPREPARE raised: such a leaf becomes no unit at all, so nothing downstream could report it\n-- the run finished, exited 0 and simply lacked an arm.  The driver reports them as\nunfinished (`scenario._run_cells`), which is what turns the silence into exit 1.\n\nReturns (work_units, meta):\n  work_units : list of (uid, args) where uid = (label, cfg_name, channel, strategy) and\n               args carries its own `group_keys` + `arm_key` (the parent reads those, not\n               uid slices \u2014 the uid's slots are not stable across unit kinds).\n  meta       : {group_key: {'sim_skeleton', 'members'}}; group_key = uid[:3].  A group is\n               finalized only when EVERY member uid succeeds (see _run_pool) \u2014 so a crashed\n               arm never finalizes its group, keeping resume.pkl and staying resumable.\nRe-derives each arm's start from its ADVANCED _ckpt_*.pkl, so resubmit/resume is idempotent.\n\n`mid_flight` says the POOL IS STILL UP and this is the supervisor's rebuild-and-resubmit\nafter a hard worker death, not a `--resume` of a dead run.  Only the coupled reconciler\nreads it, and only to decline a repair whose outputs nothing would rebuild \u2014 see\n`_reconcile_coupled_unit`.  Default False, so an uncoupled run never reaches it.",
       "is_async": false,
       "kind": "function",
-      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity, mid_flight=False, failed=None)"
+      "signature": "(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity, mid_flight=False, failed=None, pump=None)"
     },
     "Optimization/simdriver/workunits.py::_channel_batch_plan": {
       "decorators": [],
@@ -16837,7 +16997,7 @@
       "doc": "Pre-initialise ONE pair's COUPLED runs: two channel leaves per work unit.\n\n`_prepare_channel_run` survives unforked and is called once per channel (site-dock 02\nsection 3) -- each leaf genuinely needs its own run dir, batch stream, pick config, wp,\nyardsticks and DB, and every one of those stays per channel under coupling.  What this\nadds is only the pairing: the two channels' ordered arm lists zipped into arm PAIRS, the\nsite crews lifted out of both leaf payloads to unit scope, and the two group keys carried\non the unit so no parent-side reader has to slice a uid for them.\n\nReturns (unit_args_list, sim_skeletons) in the same shape `_prepare_channel_run` returns,\nso `_build_work_units` composes them identically.",
       "is_async": false,
       "kind": "function",
-      "signature": "(channel_runs, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str='strategy') -> tuple[list, list]"
+      "signature": "(channel_runs, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str='strategy', pump=None) -> tuple[list, list]"
     },
     "Optimization/simdriver/workunits.py::_reconcile_coupled_unit": {
       "decorators": [],
@@ -17991,9 +18151,16 @@
     },
     "Schema/provenance.py": {
       "decorators": [],
-      "doc": "provenance.py \u2014 which CODE produced an artifact, derived without raising, git binary optional.\n\nMOVED here from ``Optimization/runschema/sim_manifest.py`` (which re-exports for its existing\ncallers): the profiles-tree descriptor is written by ``Warehouse/generation`` \u2014 a layer that must\nnot import the run harness \u2014 and provenance stamping is not a run-tree concern to begin with.\n``Schema/`` is the stdlib-only leaf every layer may import, and \"what code wrote this file\" is a\nsibling question to \"what shape is this file\".\n\nWHY THIS MUST NOT RAISE: it runs at the front of every simulation and every catalogue generation,\nand a producer that dies because provenance could not be derived is strictly worse than one that\nrecords ``unknown``.  A shallow clone, a source export with no ``.git``, a machine with no git on\nPATH and a wedged index lock all resolve to a recorded value rather than an exception.",
+      "doc": "provenance.py \u2014 which CODE produced an artifact, derived without raising, git binary optional.\n\nMOVED here from ``Optimization/runschema/sim_manifest.py`` (which re-exports for its existing\ncallers): the profiles-tree descriptor is written by ``Warehouse/generation`` \u2014 a layer that must\nnot import the run harness \u2014 and provenance stamping is not a run-tree concern to begin with.\n``Schema/`` is the stdlib-only leaf every layer may import, and \"what code wrote this file\" is a\nsibling question to \"what shape is this file\".\n\nWHY THIS MUST NOT RAISE: it runs at the front of every simulation and every catalogue generation,\nand a producer that dies because provenance could not be derived is strictly worse than one that\nrecords ``unknown``.  A shallow clone, a source export with no ``.git``, a machine with no git on\nPATH and a wedged index lock all resolve to a recorded value rather than an exception.\n\nTHE EXPORT STAMP, and why it is not a nicety.  Every campaign in this repo runs from a\n``git archive`` copy, because a spawn-per-job run re-imports the tree for every unit and must not\nsee the working tree move under it (memory ``detached-runs-import-the-working-tree``).  An archive\ncarries no ``.git``, so the runs whose provenance matters MOST -- the multi-day ones nobody will\nremember the details of -- were exactly the ones recording ``repo_commit: unknown``.  Caught\n2026-09-20, on a phase-2 campaign launch.  So an export may carry ``.source_commit`` at its root\nand this reads it when git metadata is absent; ``write_source_stamp`` is what puts it there.",
       "kind": "module",
       "signature": null
+    },
+    "Schema/provenance.py::SOURCE_STAMP": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'.source_commit'"
     },
     "Schema/provenance.py::_GIT_TIMEOUT": {
       "decorators": [],
@@ -18023,12 +18190,26 @@
       "kind": "function",
       "signature": "(git_dir: str) -> str | None"
     },
+    "Schema/provenance.py::_stamped": {
+      "decorators": [],
+      "doc": "`repo_provenance`'s answer from an export stamp, or None when there is no stamp.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(repo_root: str) -> dict | None"
+    },
     "Schema/provenance.py::repo_provenance": {
       "decorators": [],
       "doc": "{'repo_commit': <short sha> | 'unknown', 'repo_dirty': True | False | None}.\n\n`repo_dirty` is deliberately THREE-valued: True/False are answers, `None` means \"not\nestablished\" \u2014 which is what an export or a missing git binary honestly is, and reading it as\n\"clean\" would be the one wrong inference.",
       "is_async": false,
       "kind": "function",
       "signature": "(repo_root: str=_REPO_ROOT) -> dict"
+    },
+    "Schema/provenance.py::write_source_stamp": {
+      "decorators": [],
+      "doc": "Write `dest_root/.source_commit` so an export can say what it came from.\n\nCalled by whatever cuts the export: `git archive` has no hook for this, and an exporter\nthat forgets is exactly how a campaign ends up recording `unknown`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(dest_root: str, sha: str, *, dirty: bool=False) -> str"
     },
     "Schema/semantics.py": {
       "decorators": [],
@@ -26423,6 +26604,13 @@
       "kind": "function",
       "signature": "(flag: str)"
     },
+    "docs/experiments/ingest.py::_registry_section": {
+      "decorators": [],
+      "doc": "Figure names in one registry `section`, optionally only those carrying `flag`;\n[] without pyyaml.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(section: str, flag: str | None=None) -> list"
+    },
     "docs/experiments/ingest.py::_repo_provenance_of": {
       "decorators": [],
       "doc": "(commit, dirty) for a run root \u2014 the simulator CODE that produced it.\n\nRead from the run root's ``run_spec.json`` (``_write_run_spec`` stamps it there), which is the\nonly file on a run that distinguishes two runs of the same tree and the same tables from\ndifferent code.  Runs made before the stamp existed have no such keys and yield\n``('unknown', None)``; that is a fact about the run, so it is recorded and rendered rather than\nquietly dropped.  With a resolver the location comes from the contract (`run_spec`); the\nliteral join stays for pre-descriptor sources.",
@@ -26451,12 +26639,26 @@
       "kind": "function",
       "signature": "(exp_dir, dry, log, rt=None, cells=())"
     },
+    "docs/experiments/ingest.py::_stage_ranking": {
+      "decorators": [],
+      "doc": "The unload ranking (phase 2's decision record) into `run_data`, when the run has\none.  Named one artifact at a time like the rollups, because it carries no contract\ngroup tag -- and a tag would mint a new run-tree schema id for a metadata change.\nResolved HEAD-contract-first (`analysis_path`): a finished run's own contract may\npredate the artifact.  Absent on every run but a ranked coupled phase-2 root, which is\nnot an error.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(exp_dir, dry, log, rt=None)"
+    },
     "docs/experiments/ingest.py::_stage_rollups": {
       "decorators": [],
       "doc": "Per-cell channel-rollup CSVs into data/<cell>/ \u2014 the per-arm labor rows and the\nper-channel best/saving summary the labor page's headline quotes.\n\nAdded for Experiment 8 after a reviewer traced the labor headline to the rollup\nsummary and found the site had never staged it: every quoted number must have a\ncommitted, diffable source.  Resolver-only (the artifacts are\ncell-scope contract members reached by NAME via `rt.rollup_csv` / `rt.path` \u2014 no\nfilename literals here, per the run-tree consumption ratchet); a pre-descriptor\ntree logs a NOTE and stages nothing, matching the other resolver-gated stages.",
       "is_async": false,
       "kind": "function",
       "signature": "(exp_dir, dry, log, rt=None, cells=())"
+    },
+    "docs/experiments/ingest.py::_stage_site_figures": {
+      "decorators": [],
+      "doc": "The SITE-scope figures a coupled run rendered for one (cell, pair), by name, into\n`site_figure_png`.  Nothing without a resolver (site scope postdates the descriptor\nroute) and nothing on an uncoupled run, where no site tree exists -- both silent,\nbecause an experiment that curates no site figures asks for none.\n\nThe candidates come from the contract's `figures_site_<family>_pngs` globs, every\nfamily that renders into a site tree, so a new site family stages with no edit here;\nwhat is staged is the curated NAME list, like the leaf figures, so a page cites only\nfigures the manifest declares.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(exp_dir, cell, inv, names, dry, log, rt=None)"
     },
     "docs/experiments/ingest.py::_stage_whatif": {
       "decorators": [],
@@ -26497,7 +26699,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'config_json': 'images/{run}/{inv}/{cfg}/config.json', 'figure_png': 'images/{run}/{inv}/{cfg}/{figure}', 'pair_params': 'data/{inv}/params.json', 'run_data': 'data/{fname}', 'run_png': 'images/{f..."
+      "value_preview": "{'config_json': 'images/{run}/{inv}/{cfg}/config.json', 'figure_png': 'images/{run}/{inv}/{cfg}/{figure}', 'site_figure_png': 'images/{run}/{inv}/_site/{figure}', 'pair_params': 'data/{inv}/params...."
     },
     "docs/experiments/site_tree.py::_REPO_ROOT": {
       "decorators": [],
@@ -26915,6 +27117,24 @@
       "is_async": false,
       "kind": "function",
       "signature": "(*args)"
+    },
+    "docs/macros.py::define_env.site_suite_section": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "The SITE-scope figure blocks for one run/inventory variant \u2014 the figures a\nCOUPLED run renders once for the site (its site-scope figure folder), not once per\nchannel leaf.\n\n`full_suite_section` composes `images/{run}/{inv}/{cfg}/{fname}`; a site figure has\nno config, so it gets its own path, tied to site_tree's `site_figure_png` template by\n`Tests/architecture/test_site_tree.py` and to the `site` evaluation scope by the\nfigure-registry test.  Empty on an uncoupled experiment, whose manifest curates no\n`site_suite`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*args)"
+    },
+    "docs/macros.py::define_env.unload_ranking": {
+      "decorators": [
+        "env.macro"
+      ],
+      "doc": "The unloading-policy ranking of a phase-2 experiment, from the committed\nranking artifact under `data/` \u2014 one row per cell, in rank order, for one rule pair.\n\n`pair` is the rule-pair label (`store_rule/ful_rule`); the artifact's primary pair by\ndefault, its rider (the control) with `control=True`.  Numbers live in the JSON, so\nthe page holds only prose; the caption names the floor that applied and how it was\nobtained, because a rank inside a tie group is the tie-break's, not the score's.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pair=None, control=False)"
     },
     "docs/macros.py::define_env.whatif_matrix": {
       "decorators": [

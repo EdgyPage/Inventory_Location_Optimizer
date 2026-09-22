@@ -8686,6 +8686,11 @@
       "src": "Optimization/persistence/Picking_Data.py::load_free_index"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::_query_rows",
+      "kind": "calls",
+      "src": "Optimization/persistence/Picking_Data.py::load_pick_bins"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::PickerEventRecord",
       "kind": "calls",
       "src": "Optimization/persistence/Picking_Data.py::load_picker_events"
@@ -10276,12 +10281,27 @@
       "src": "Optimization/run_unload_ranking.py"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py",
+      "kind": "imports",
+      "src": "Optimization/run_unload_ranking.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/style.py",
+      "kind": "imports",
+      "src": "Optimization/run_unload_ranking.py"
+    },
+    {
       "dst": "Optimization/config/settings.py",
       "kind": "imports",
       "src": "Optimization/run_unload_ranking.py"
     },
     {
       "dst": "Optimization/config/strategies.py",
+      "kind": "imports",
+      "src": "Optimization/run_unload_ranking.py"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py",
       "kind": "imports",
       "src": "Optimization/run_unload_ranking.py"
     },
@@ -10309,6 +10329,101 @@
       "dst": "Optimization/runschema/sim_manifest.py",
       "kind": "imports",
       "src": "Optimization/run_unload_ranking.py"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py",
+      "kind": "imports",
+      "src": "Optimization/run_unload_ranking.py"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py::read_batches_blob",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights._blob"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_PlannedWeights._blob",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights._blob_skus"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::find_run",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights._leaf_skus"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_sku_scores",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights._leaf_skus"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_PlannedWeights._blob",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights.total"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_PlannedWeights._blob_skus",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights.total"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_PlannedWeights._leaf_skus",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights.total"
+    },
+    {
+      "dst": "Optimization/simdriver/batch_precompute.py::planned_lines",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_PlannedWeights.total"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_finite",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_adjusted_leaf"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::adjusted_owed",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_adjusted_leaf"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_finite",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_basis_is_script"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::find_run",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_batch_rows"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_batch_stats",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_batch_rows"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::run_identity",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_batch_rows"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::find_run",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_repick"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_bin_placements",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_repick"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_pick_bins",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_repick"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::inbound_repick",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_leaf_repick"
     },
     {
       "dst": "Optimization/config/settings.py::INBOUND_FEE_THRESHOLD_DAYS",
@@ -10341,6 +10456,16 @@
       "src": "Optimization/run_unload_ranking.py::_unit_overage"
     },
     {
+      "dst": "Optimization/persistence/Picking_Data.py::find_run",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_unit_trailers"
+    },
+    {
+      "dst": "Optimization/persistence/Picking_Data.py::load_yard_trailers",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_unit_trailers"
+    },
+    {
       "dst": "Optimization/run_restock_selection.py::_finite",
       "kind": "calls",
       "src": "Optimization/run_unload_ranking.py::_units_of_cell"
@@ -10356,6 +10481,26 @@
       "src": "Optimization/run_unload_ranking.py::_units_of_cell"
     },
     {
+      "dst": "Optimization/run_unload_ranking.py::_adjusted_leaf",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_units_of_cell"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_basis_is_script",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_units_of_cell"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_leaf_batch_rows",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_units_of_cell"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_leaf_repick",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_units_of_cell"
+    },
+    {
       "dst": "Optimization/run_unload_ranking.py::_site_units",
       "kind": "calls",
       "src": "Optimization/run_unload_ranking.py::_units_of_cell"
@@ -10366,9 +10511,29 @@
       "src": "Optimization/run_unload_ranking.py::_units_of_cell"
     },
     {
+      "dst": "Optimization/run_unload_ranking.py::_unit_trailers",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::_units_of_cell"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_finite",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::adjusted_owed"
+    },
+    {
       "dst": "Optimization/run_unload_ranking.py::rank",
       "kind": "calls",
       "src": "Optimization/run_unload_ranking.py::main"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/stats_core.py::_boot_ci",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::measured_floor"
+    },
+    {
+      "dst": "Optimization/run_restock_selection.py::_finite",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::measured_floor"
     },
     {
       "dst": "Optimization/run_restock_selection.py::_finite",
@@ -10386,7 +10551,22 @@
       "src": "Optimization/run_unload_ranking.py::rank"
     },
     {
+      "dst": "Optimization/run_unload_ranking.py::_PlannedWeights",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
       "dst": "Optimization/run_unload_ranking.py::_label",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_metric_for",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::_site_crews",
       "kind": "calls",
       "src": "Optimization/run_unload_ranking.py::rank"
     },
@@ -10401,7 +10581,17 @@
       "src": "Optimization/run_unload_ranking.py::rank"
     },
     {
+      "dst": "Optimization/run_unload_ranking.py::control_verdict",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
       "dst": "Optimization/run_unload_ranking.py::discriminating",
+      "kind": "calls",
+      "src": "Optimization/run_unload_ranking.py::rank"
+    },
+    {
+      "dst": "Optimization/run_unload_ranking.py::measured_floor",
       "kind": "calls",
       "src": "Optimization/run_unload_ranking.py::rank"
     },
@@ -13111,6 +13301,11 @@
       "src": "Optimization/simdriver/batch_precompute.py::ensure_batches"
     },
     {
+      "dst": "Optimization/simdriver/batch_precompute.py::read_batches_blob",
+      "kind": "calls",
+      "src": "Optimization/simdriver/batch_precompute.py::load_batches"
+    },
+    {
       "dst": "Optimization/simdriver/batch_precompute.py::_sample_range",
       "kind": "calls",
       "src": "Optimization/simdriver/batch_precompute.py::precompute_batches"
@@ -14516,6 +14711,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
+      "dst": "Optimization/simdriver/batch_precompute.py::planned_lines",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
       "dst": "Optimization/simdriver/leaf_scope.py::scope_for",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
@@ -15344,6 +15544,11 @@
       "dst": "Optimization/simdriver/workpool.py::WorkPool._book",
       "kind": "calls",
       "src": "Optimization/simdriver/workpool.py::WorkPool.job_index"
+    },
+    {
+      "dst": "Optimization/simdriver/workpool.py::WorkPool.absorb",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workpool.py::WorkPool.pump"
     },
     {
       "dst": "Optimization/simdriver/workpool.py::WorkPool._book",
@@ -16752,6 +16957,11 @@
     },
     {
       "dst": "Schema/provenance.py::_head_commit",
+      "kind": "calls",
+      "src": "Schema/provenance.py::repo_provenance"
+    },
+    {
+      "dst": "Schema/provenance.py::_stamped",
       "kind": "calls",
       "src": "Schema/provenance.py::repo_provenance"
     },
@@ -21831,9 +22041,24 @@
       "src": "docs/experiments/ingest.py::_stage_leaf_tables"
     },
     {
+      "dst": "Optimization/runschema/__init__.py::analysis_path",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_ranking"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_copy",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_ranking"
+    },
+    {
       "dst": "docs/experiments/ingest.py::_copy",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::_stage_rollups"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_copy",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::_stage_site_figures"
     },
     {
       "dst": "docs/experiments/ingest.py::_copy",
@@ -21876,6 +22101,11 @@
       "src": "docs/experiments/ingest.py::main"
     },
     {
+      "dst": "docs/experiments/ingest.py::_registry_section",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
       "dst": "docs/experiments/ingest.py::_repo_provenance_of",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
@@ -21891,7 +22121,17 @@
       "src": "docs/experiments/ingest.py::main"
     },
     {
+      "dst": "docs/experiments/ingest.py::_stage_ranking",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
       "dst": "docs/experiments/ingest.py::_stage_rollups",
+      "kind": "calls",
+      "src": "docs/experiments/ingest.py::main"
+    },
+    {
+      "dst": "docs/experiments/ingest.py::_stage_site_figures",
       "kind": "calls",
       "src": "docs/experiments/ingest.py::main"
     },
@@ -32437,6 +32677,14 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_RANKING",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_RANKING",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::PHASE2_RECV_CREW_SIZE",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
@@ -34429,6 +34677,14 @@
     },
     {
       "file": "Optimization/persistence/Picking_Data.py",
+      "id": "Optimization/persistence/Picking_Data.py::load_pick_bins",
+      "kind": "function",
+      "module": "Optimization/persistence/Picking_Data.py",
+      "name": "load_pick_bins",
+      "public": true
+    },
+    {
+      "file": "Optimization/persistence/Picking_Data.py",
       "id": "Optimization/persistence/Picking_Data.py::load_picker_events",
       "kind": "function",
       "module": "Optimization/persistence/Picking_Data.py",
@@ -35757,6 +36013,14 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::DEFAULT_METRIC",
+      "kind": "const",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "DEFAULT_METRIC",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::DEFAULT_NOISE_FLOOR_PCT",
       "kind": "const",
       "module": "Optimization/run_unload_ranking.py",
@@ -35797,6 +36061,54 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_PlannedWeights",
+      "kind": "class",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_PlannedWeights",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_PlannedWeights.__init__",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_PlannedWeights._blob",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_blob",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_PlannedWeights._blob_skus",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_blob_skus",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_PlannedWeights._leaf_skus",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_leaf_skus",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_PlannedWeights.total",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "total",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::_REPO_ROOT",
       "kind": "const",
       "module": "Optimization/run_unload_ranking.py",
@@ -35805,10 +36117,58 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_adjusted_leaf",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_adjusted_leaf",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_basis_is_script",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_basis_is_script",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::_label",
       "kind": "function",
       "module": "Optimization/run_unload_ranking.py",
       "name": "_label",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_leaf_batch_rows",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_leaf_batch_rows",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_leaf_repick",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_leaf_repick",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_metric_for",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_metric_for",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_site_crews",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_site_crews",
       "public": false
     },
     {
@@ -35837,11 +36197,35 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::_unit_trailers",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "_unit_trailers",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::_units_of_cell",
       "kind": "function",
       "module": "Optimization/run_unload_ranking.py",
       "name": "_units_of_cell",
       "public": false
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::adjusted_owed",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "adjusted_owed",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::control_verdict",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "control_verdict",
+      "public": true
     },
     {
       "file": "Optimization/run_unload_ranking.py",
@@ -35853,10 +36237,26 @@
     },
     {
       "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::inbound_repick",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "inbound_repick",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
       "id": "Optimization/run_unload_ranking.py::main",
       "kind": "function",
       "module": "Optimization/run_unload_ranking.py",
       "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/run_unload_ranking.py",
+      "id": "Optimization/run_unload_ranking.py::measured_floor",
+      "kind": "function",
+      "module": "Optimization/run_unload_ranking.py",
+      "name": "measured_floor",
       "public": true
     },
     {
@@ -39253,10 +39653,26 @@
     },
     {
       "file": "Optimization/simdriver/batch_precompute.py",
+      "id": "Optimization/simdriver/batch_precompute.py::planned_lines",
+      "kind": "function",
+      "module": "Optimization/simdriver/batch_precompute.py",
+      "name": "planned_lines",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/batch_precompute.py",
       "id": "Optimization/simdriver/batch_precompute.py::precompute_batches",
       "kind": "function",
       "module": "Optimization/simdriver/batch_precompute.py",
       "name": "precompute_batches",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/batch_precompute.py",
+      "id": "Optimization/simdriver/batch_precompute.py::read_batches_blob",
+      "kind": "function",
+      "module": "Optimization/simdriver/batch_precompute.py",
+      "name": "read_batches_blob",
       "public": true
     },
     {
@@ -41357,6 +41773,14 @@
     },
     {
       "file": "Optimization/simdriver/workpool.py",
+      "id": "Optimization/simdriver/workpool.py::WorkPool.pump",
+      "kind": "function",
+      "module": "Optimization/simdriver/workpool.py",
+      "name": "pump",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/workpool.py",
       "id": "Optimization/simdriver/workpool.py::WorkPool.remaining",
       "kind": "function",
       "module": "Optimization/simdriver/workpool.py",
@@ -42933,6 +43357,14 @@
     },
     {
       "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::SOURCE_STAMP",
+      "kind": "const",
+      "module": "Schema/provenance.py",
+      "name": "SOURCE_STAMP",
+      "public": true
+    },
+    {
+      "file": "Schema/provenance.py",
       "id": "Schema/provenance.py::_GIT_TIMEOUT",
       "kind": "const",
       "module": "Schema/provenance.py",
@@ -42965,10 +43397,26 @@
     },
     {
       "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::_stamped",
+      "kind": "function",
+      "module": "Schema/provenance.py",
+      "name": "_stamped",
+      "public": false
+    },
+    {
+      "file": "Schema/provenance.py",
       "id": "Schema/provenance.py::repo_provenance",
       "kind": "function",
       "module": "Schema/provenance.py",
       "name": "repo_provenance",
+      "public": true
+    },
+    {
+      "file": "Schema/provenance.py",
+      "id": "Schema/provenance.py::write_source_stamp",
+      "kind": "function",
+      "module": "Schema/provenance.py",
+      "name": "write_source_stamp",
       "public": true
     },
     {
@@ -52517,6 +52965,14 @@
     },
     {
       "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_registry_section",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_registry_section",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::_repo_provenance_of",
       "kind": "function",
       "module": "docs/experiments/ingest.py",
@@ -52549,10 +53005,26 @@
     },
     {
       "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_stage_ranking",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_stage_ranking",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
       "id": "docs/experiments/ingest.py::_stage_rollups",
       "kind": "function",
       "module": "docs/experiments/ingest.py",
       "name": "_stage_rollups",
+      "public": false
+    },
+    {
+      "file": "docs/experiments/ingest.py",
+      "id": "docs/experiments/ingest.py::_stage_site_figures",
+      "kind": "function",
+      "module": "docs/experiments/ingest.py",
+      "name": "_stage_site_figures",
       "public": false
     },
     {
@@ -53033,6 +53505,22 @@
       "kind": "function",
       "module": "docs/macros.py",
       "name": "setup_table",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.site_suite_section",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "site_suite_section",
+      "public": true
+    },
+    {
+      "file": "docs/macros.py",
+      "id": "docs/macros.py::define_env.unload_ranking",
+      "kind": "function",
+      "module": "docs/macros.py",
+      "name": "unload_ranking",
       "public": true
     },
     {

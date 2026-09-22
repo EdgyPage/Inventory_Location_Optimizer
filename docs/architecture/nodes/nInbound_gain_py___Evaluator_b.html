@@ -16,7 +16,11 @@
 <div class="badges"><span class="badge orphan">orphan</span></div>
 <pre class="sig"><code>@property
 def b(self) -&gt; GainBundle</code></pre>
-<section class="doc">The arm machinery owning the group being priced (class docstring).</section>
+<section class="doc">The arm machinery owning the group being priced (class docstring).
+
+Resolved ONCE per group rather than per read.  `for_key` is a pure function of
+`_key` -- that is the whole protocol -- so the only thing that can invalidate this
+is `_params` moving the cursor, which is where it is cleared.</section>
 <section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator_b">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20b">Source ↗</a></p>
 </article>

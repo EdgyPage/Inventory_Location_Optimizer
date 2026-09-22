@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_build_work_units</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
 <div class="badges"><span class="badge backbone">backbone</span><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity, mid_flight=False, failed=None)</code></pre>
+<pre class="sig"><code>def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_workers, skip_completed, resume_granularity, mid_flight=False, failed=None, pump=None)</code></pre>
 <section class="doc">(Re-)prepare all work units from on-disk state.
 
 `failed`, when a list is handed in, collects the tag of every leaf or coupled pair whose

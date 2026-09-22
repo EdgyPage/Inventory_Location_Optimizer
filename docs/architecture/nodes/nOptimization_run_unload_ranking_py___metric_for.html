@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_metric_for · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_unload_ranking_py___metric_for" data-id="Optimization/run_unload_ranking.py::_metric_for">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a> <span class="sep">›</span> <span class="here"><code>_metric_for</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_metric_for</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
+
+<pre class="sig"><code>def _metric_for(layout: dict, log=print) -&gt; dict</code></pre>
+<section class="doc">The ranking metric the run&#x27;s SPEC declares, else the default, as one dict.
+
+Read off the run layout&#x27;s recorded spec name through `whatif_config.SPECS`; a spec
+with no `ranking` key ranks on the default.  A run whose spec is no longer registered
+(renamed, retired) ranks on the default OUT LOUD rather than refusing: the artifact
+names what it used, and a reader who wanted the other metric can see it did not get it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py___metric_for">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20_metric_for">Source ↗</a></p>
+</article>
+</main>
+</body></html>

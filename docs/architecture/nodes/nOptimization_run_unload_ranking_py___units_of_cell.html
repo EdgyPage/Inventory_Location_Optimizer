@@ -14,13 +14,22 @@
 <h1><span class="kind kind-function">function</span> <code>_units_of_cell</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
 
-<pre class="sig"><code>def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log) -&gt; list</code></pre>
+<pre class="sig"><code>def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log, metric: dict | None=None, weights=None, repick_on: bool=True) -&gt; list</code></pre>
 <section class="doc">One row per unit of the cell: its rule pair, stock mode, score, census and overage.
 
 The score and the census are read from the SAME series document in the same pass, and
 both are summed over the unit&#x27;s two leaves.  They must travel together: a score is only
-a placement result to the extent its census is zero.</section>
-<section class="rel"><h2>Callees <span class="count">(5)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___read_leaves.html"><code>_read_leaves</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___rule_of.html"><code>_rule_of</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_unload_ranking_py___site_units.html"><code>_site_units</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_overage.html"><code>_unit_overage</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+a placement result to the extent its census is zero.
+
+Since 2026-09-22 the score that RANKS is the census-ADJUSTED one (`adjusted_owed`), read
+per batch from the leaf DBs and meaned over the same window the series used; the series
+scalar is kept beside it as `owed_unadjusted`.  A unit whose every leaf could be
+adjusted says `adjusted: True`; one that could not -- no DB, no batch list, a vintage
+without the column -- ranks on the series scalar and says so, because a half-adjusted
+unit would be a cheaper unit for the wrong reason.  `by_batch` is the unit&#x27;s adjusted
+per-batch score summed over its leaves (None unless every leaf answered), the input
+to `measured_floor`.</section>
+<section class="rel"><h2>Callees <span class="count">(10)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___read_leaves.html"><code>_read_leaves</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_restock_selection_py___rule_of.html"><code>_rule_of</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li><li><a href="nOptimization_run_unload_ranking_py___adjusted_leaf.html"><code>_adjusted_leaf</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___basis_is_script.html"><code>_basis_is_script</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___leaf_batch_rows.html"><code>_leaf_batch_rows</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___leaf_repick.html"><code>_leaf_repick</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___site_units.html"><code>_site_units</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_overage.html"><code>_unit_overage</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li><li><a href="nOptimization_run_unload_ranking_py___unit_trailers.html"><code>_unit_trailers</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py__rank.html"><code>rank</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py___units_of_cell">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20_units_of_cell">Source ↗</a></p>
 </article>
 </main>

@@ -891,6 +891,7 @@ files:
       - {name: "INBOUND_ARRIVAL_REGIME", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PILOT_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE1_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_RANKING", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_BOUND_PROBE_K", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -1030,6 +1031,7 @@ files:
       - {name: "PRE_FREE_INDEX_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_PICK_OWED_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "PRE_EXACT_CHECK_SIM_SCHEMA_ID", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
+      - {name: "load_pick_bins", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "KEYFRAME_DB_FAMILY", file: "Optimization/persistence/Picking_Data.py", kind: "const"}
       - {name: "create_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
       - {name: "find_run", file: "Optimization/persistence/Picking_Data.py", kind: "function"}
@@ -1170,9 +1172,14 @@ files:
       - {name: "TIE_QUANTITY", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "DEFAULT_NOISE_FLOOR_PCT", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "DEFAULT_K", file: "Optimization/run_unload_ranking.py", kind: "const"}
+      - {name: "DEFAULT_METRIC", file: "Optimization/run_unload_ranking.py", kind: "const"}
       - {name: "rank_cells", file: "Optimization/run_unload_ranking.py", kind: "function"}
       - {name: "discriminating", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "adjusted_owed", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "measured_floor", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "control_verdict", file: "Optimization/run_unload_ranking.py", kind: "function"}
       - {name: "rank_agreement", file: "Optimization/run_unload_ranking.py", kind: "function"}
+      - {name: "inbound_repick", file: "Optimization/run_unload_ranking.py", kind: "function"}
       - {name: "rank", file: "Optimization/run_unload_ranking.py", kind: "function"}
       - {name: "main", file: "Optimization/run_unload_ranking.py", kind: "function"}
     notes: ""
@@ -1455,7 +1462,9 @@ files:
       - {name: "batch_fingerprint", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
       - {name: "precompute_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
       - {name: "write_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+      - {name: "read_batches_blob", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
       - {name: "load_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
+      - {name: "planned_lines", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
       - {name: "ensure_batches", file: "Optimization/simdriver/batch_precompute.py", kind: "function"}
     notes: ""
   "Optimization/simdriver/batch_state.py":
@@ -1727,6 +1736,8 @@ files:
     purpose: "which CODE produced an artifact, derived without raising, git binary optional."
     layer: "schema"
     key_symbols:
+      - {name: "SOURCE_STAMP", file: "Schema/provenance.py", kind: "const"}
+      - {name: "write_source_stamp", file: "Schema/provenance.py", kind: "function"}
       - {name: "repo_provenance", file: "Schema/provenance.py", kind: "function"}
     notes: ""
   "Schema/semantics.py":
@@ -1943,6 +1954,8 @@ files:
       - {name: "test_a_run_scope_figure_is_in_the_run_section_and_only_a_run_scope_one_is", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_the_run_section_is_not_empty", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
       - {name: "test_the_run_section_has_its_own_macro", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_a_site_scope_figure_is_in_the_site_section_and_only_a_site_scope_one_is", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
+      - {name: "test_the_site_section_is_not_empty_and_has_its_own_macro", file: "Tests/architecture/test_figure_registry.py", kind: "function"}
     notes: ""
   "Tests/architecture/test_files_catalog_sync.py":
     purpose: "test_files_catalog_sync.py"
@@ -3371,6 +3384,8 @@ files:
     purpose: "every cell of a run shares ONE pool (`simdriver.workpool.WorkPool`)."
     layer: "tests"
     key_symbols:
+      - {name: "test_a_finished_job_frees_its_slot_only_when_the_pool_is_pumped", file: "Tests/integration/test_work_pool.py", kind: "function"}
+      - {name: "test_the_setup_loop_hands_the_pool_its_own_pump", file: "Tests/integration/test_work_pool.py", kind: "function"}
       - {name: "test_jobs_of_different_cells_run_side_by_side", file: "Tests/integration/test_work_pool.py", kind: "function"}
       - {name: "test_the_barrier_is_not_vacuous", file: "Tests/integration/test_work_pool.py", kind: "function"}
       - {name: "test_never_more_than_max_workers_in_flight_and_weight_first", file: "Tests/integration/test_work_pool.py", kind: "function"}
@@ -4427,6 +4442,17 @@ files:
       - {name: "test_solve_n_balances_the_capacity_and_clamps_when_saturated", file: "Tests/unit/test_expected_travel.py", kind: "function"}
       - {name: "test_a_put_priced_at_one_known_bin_is_put_cost_exactly", file: "Tests/unit/test_expected_travel.py", kind: "function"}
       - {name: "test_an_unbuilt_class_raises_instead_of_pricing_at_zero", file: "Tests/unit/test_expected_travel.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_export_provenance.py":
+    purpose: "an exported tree can still say what commit it is."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_an_unstamped_export_degrades_to_unknown", file: "Tests/unit/test_export_provenance.py", kind: "function"}
+      - {name: "test_a_stamped_export_reports_its_commit_and_is_clean", file: "Tests/unit/test_export_provenance.py", kind: "function"}
+      - {name: "test_a_stamp_may_declare_the_export_dirty", file: "Tests/unit/test_export_provenance.py", kind: "function"}
+      - {name: "test_an_empty_or_junk_stamp_does_not_masquerade_as_an_answer", file: "Tests/unit/test_export_provenance.py", kind: "function"}
+      - {name: "test_git_metadata_wins_over_a_stamp", file: "Tests/unit/test_export_provenance.py", kind: "function"}
+      - {name: "test_the_repo_itself_still_answers_from_git", file: "Tests/unit/test_export_provenance.py", kind: "function"}
     notes: ""
   "Tests/unit/test_fill_headroom.py":
     purpose: "the planner's fill headroom is DERIVED under the calibrated era."
@@ -6624,6 +6650,20 @@ files:
       - {name: "test_an_unanalyzed_root_says_what_to_run", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_an_explicit_pair_the_run_never_carried_is_refused", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
       - {name: "test_the_artifact_is_declared_by_the_run_tree_contract", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_adjusted_owed_prices_unpriced_lines_at_the_leafs_mean_line", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_planned_lines_counts_batches_per_sku_not_units", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_measured_floor_is_the_widest_paired_interval_against_the_reference", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_rider_is_a_control_and_never_a_replication", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_without_batch_rows_the_declared_floor_applies_and_units_say_unadjusted", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_metric_is_declared_by_the_spec_or_falls_back_out_loud", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_batch_rows_adjust_the_score_and_measure_the_floor", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_measured_floor_is_the_one_applied_and_it_groups_the_cells", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_half_adjustable_unit_ranks_raw_and_poisons_its_cells_floor", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_frequency_weighted_census_is_never_priced_by_a_line_total", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_planned_weights_resolve_by_fingerprint_then_by_sku_overlap_over_the_planned_prefix", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_a_spec_declared_metric_replaces_the_default_fields", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_inbound_repick_counts_units_picked_from_bins_a_reorder_placed_earlier", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
+      - {name: "test_the_ranking_records_each_cells_threshold_and_the_repick_shares", file: "Tests/unit/test_unload_ranking.py", kind: "function"}
     notes: ""
   "Tests/unit/test_velocity_zoning.py":
     purpose: "Velocity zoning (C): a per-regime candidate-layer toggle that restricts a unit's viable bins"

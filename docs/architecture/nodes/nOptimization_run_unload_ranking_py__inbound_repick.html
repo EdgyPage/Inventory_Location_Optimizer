@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>inbound_repick · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_unload_ranking_py__inbound_repick" data-id="Optimization/run_unload_ranking.py::inbound_repick">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a> <span class="sep">›</span> <span class="here"><code>inbound_repick</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>inbound_repick</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
+
+<pre class="sig"><code>def inbound_repick(pick_rows, placement_rows) -&gt; dict</code></pre>
+<section class="doc">How much of what inbound put away inside the window was picked again inside it.
+
+THE QUESTION a reader of the ranking asks first once the score barely moves: could an
+unloading rule have mattered here at all?  It can only change which empty bin an
+arriving pack takes, so it has leverage only over stock that is PICKED FROM those bins
+before the window ends.  Two shares, both unit-level, both from the run&#x27;s own tables:
+
+  served_share   = units picked from bins that received a reorder placement earlier in
+                   the window (same (sku, bin), placement batch &lt;= pick batch)
+                   / all units picked in the window;
+  repicked_share = of the units reorder placed in the window, the share picked again
+                   before it ended -- per bin, min(units picked after the placement,
+                   units placed), summed / units placed.
+
+&quot;Picked again&quot; is ANY pick from the bin after the placement, at unit grain; a bin that
+was already stocked when the placement topped it up counts its later picks against the
+placed units first (a floor, since the earlier stock may have served some of them).
+`pick_rows` is the `pick_bins` named query (sku, batch_id, aisle_id, bayX, bayY, units);
+`placement_rows` is `load_bin_placements` (the `cause` column selects the reorders).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py___leaf_repick.html"><code>_leaf_repick</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py__inbound_repick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20inbound_repick">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>adjusted_owed · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_run_unload_ranking_py__adjusted_owed" data-id="Optimization/run_unload_ranking.py::adjusted_owed">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a> <span class="sep">›</span> <span class="here"><code>adjusted_owed</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>adjusted_owed</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
+
+<pre class="sig"><code>def adjusted_owed(owed: float, unservable: float, planned_weight: float) -&gt; float</code></pre>
+<section class="doc">The score with its unpriced lines priced at the leaf&#x27;s MEAN priced line.
+
+`owed` prices `planned_weight - unservable` lines and charges the rest nothing, so a
+cell that leaves more stock in the yard reads CHEAPER for it.  On the 2026-09-20
+campaign that was ~35% of the fifo-vs-gforecast gap: gforecast stranded 170-250 more
+fulfillment lines a batch and was credited zero for each.  Scaling by the priced share
+charges each unpriced line what the priced ones cost on average -- the one price the
+leaf itself measured, so nothing is invented -- and leaves a leaf with no census exactly
+as it was.  NaN when the weight cannot price anything (all lines unservable).</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_restock_selection_py___finite.html"><code>_finite</code></a> <span class="dim">Optimization/run_restock_selection.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py___adjusted_leaf.html"><code>_adjusted_leaf</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py__adjusted_owed">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20adjusted_owed">Source ↗</a></p>
+</article>
+</main>
+</body></html>

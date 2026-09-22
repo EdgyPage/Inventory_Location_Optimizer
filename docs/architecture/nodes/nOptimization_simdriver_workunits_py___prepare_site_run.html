@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_prepare_site_run</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str=&#x27;strategy&#x27;) -&gt; tuple[list, list]</code></pre>
+<pre class="sig"><code>def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str, log: logging.Logger, workers: int=1, resume_granularity: str=&#x27;strategy&#x27;, pump=None) -&gt; tuple[list, list]</code></pre>
 <section class="doc">Pre-initialise ONE pair&#x27;s COUPLED runs: two channel leaves per work unit.
 
 `_prepare_channel_run` survives unforked and is called once per channel (site-dock 02

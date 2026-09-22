@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pump · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workpool_py__WorkPool_pump" data-id="Optimization/simdriver/workpool.py::WorkPool.pump">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_workpool_py__WorkPool.html"><code>WorkPool</code></a> <span class="sep">›</span> <span class="here"><code>pump</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>pump</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workpool_py.html"><code>Optimization/simdriver/workpool.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def pump(self) -&gt; bool</code></pre>
+<section class="doc">Book what has finished and REFILL -- for a caller about to go away for minutes.
+
+`_futures` only shrinks in `absorb`, and `_pump`&#x27;s gate is
+`len(self._futures) &lt; max_workers`, so a worker that FINISHED still holds its slot
+until someone absorbs.  The driver absorbs once a cell, after building that cell&#x27;s
+units, so every unit that landed during a multi-minute cell setup left its worker
+idle WITH UNITS QUEUED.  Measured on the phase-2 campaign 2026-09-20: 18.1 minutes
+at `10 running, 12 queued`, ~1.4 idle worker-hours across the setup phase, on top of
+the 4.2 the pre-unit freeze costs structurally.
+
+So the long parent-side steps call this.  It is `absorb` under a name that says why
+the caller is calling it, and it is deliberately NOT a timer thread: the pool is
+parent-thread-only by design and a thread would need a lock around every mutation,
+which is a poor trade for a few worker-hours on a twelve-hour run.
+
+Safe from inside a cell&#x27;s setup: the cell being built has submitted nothing, so
+nothing it owns can settle underneath it, and the settle handler is idempotent.
+Returns False once the pool is broken -- the supervisor already handles that, and a
+caller deep in setup ignores it.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workpool_py__WorkPool_absorb.html"><code>absorb</code></a> <span class="dim">Optimization/simdriver/workpool.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workpool_py__WorkPool_pump">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workpool.py#:~:text=def%20pump">Source ↗</a></p>
+</article>
+</main>
+</body></html>
