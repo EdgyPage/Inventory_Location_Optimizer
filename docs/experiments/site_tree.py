@@ -36,6 +36,13 @@ TEMPLATES = {
     # per (cell, pair, config) leaf: the run's config snapshot + the curated figures
     'config_json':   'images/{run}/{inv}/{cfg}/config.json',
     'figure_png':    'images/{run}/{inv}/{cfg}/{figure}',
+    # per (cell, pair) SITE scope: the figures a COUPLED run renders once for the site
+    # rather than once per channel leaf (`<cell>/<pair>/_site/figures/<family>/`, the
+    # contract's `figures_site_<family>_pngs`).  Added for Experiment 9, the first coupled
+    # publish: its story is the site yard, which no channel leaf renders on a coupled run.
+    # `_site` is the contract's reserved-prefix name, kept verbatim so the staged tree
+    # reads like the run tree.
+    'site_figure_png': 'images/{run}/{inv}/_site/{figure}',
     # per pair: the catalogue's generation parameters
     'pair_params':   'data/{inv}/params.json',
     # run-root outputs — the what-if writers and the run dossier alike: data files flat

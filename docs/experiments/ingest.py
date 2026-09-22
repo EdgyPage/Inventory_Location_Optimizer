@@ -122,11 +122,27 @@ def _registry_lists(flag: str):
     # once per leaf.  They are staged flat (`run_png`) and rendered by
     # `macros.run_suite_section`, so they must not join the per-leaf `full_suite` list —
     # that list is composed into `images/{run}/{inv}/{cfg}/{fname}`.
-    by = {'top3': [], 'full_suite': [], 'run_suite': [], 'inventory': []}
+    # `site_suite` is the SITE-scope section: figures a coupled run renders once per
+    # (cell, pair) under `_site/`, staged through `site_figure_png` and rendered by
+    # `macros.site_suite_section`.  Listed here so the registry parses; read through
+    # `_registry_section` because this tuple's three slots are spelled at every caller.
+    by = {'top3': [], 'full_suite': [], 'run_suite': [], 'site_suite': [], 'inventory': []}
     for f in figs:
         if f.get(flag):
             by[f['section']].append(f['name'])
     return by['top3'], by['full_suite'], by['inventory']
+
+
+def _registry_section(section: str, flag: str | None = None) -> list:
+    """Figure names in one registry `section`, optionally only those carrying `flag`;
+    [] without pyyaml."""
+    if yaml is None:
+        return []
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'figures.yml')
+    with open(path, encoding='utf-8') as fh:
+        figs = (yaml.safe_load(fh) or {}).get('figures', [])
+    return [f['name'] for f in figs
+            if f.get('section') == section and (flag is None or f.get(flag))]
 
 
 #: A staged PNG matching this is a what-if artifact, not a registry figure — it has a
@@ -319,6 +335,9 @@ def main(argv=None):
         top3, full_suite, inv_plots = (DEFAULT_TOP3, DEFAULT_FULL_SUITE,
                                        DEFAULT_INVENTORY_PLOTS)   # stages what that
                                                                   # manifest will name
+    # Site-scope figures: the registry's defaults (none today -- only a coupled experiment
+    # curates them in), overridden by the manifest's `figures.site_suite` below.
+    site_suite = _registry_section('site_suite', 'default')
     ymldoc = {}
     if yaml and os.path.isfile(yml):
         with open(yml, encoding="utf-8") as fh:
@@ -326,6 +345,7 @@ def main(argv=None):
         figs = ymldoc.get("figures", {})
         top3 = figs.get("top3", top3)
         full_suite = figs.get("full_suite", full_suite)
+        site_suite = figs.get("site_suite", site_suite)
         inv_plots = ymldoc.get("inventory_plots", inv_plots)
         args.catalogue = ymldoc.get("catalogue", args.catalogue)
         # schema_id is stamped only by a REAL re-ingest (--gen-manifest); a plain ingest never
@@ -374,8 +394,11 @@ def main(argv=None):
                                args.dry_run, log)
             n += _stage_inventory_assets(inv_src, inv, exp_dir, args, inv_plots, log,
                                          rt=rt, cell=cell_name)
+            n += _stage_site_figures(exp_dir, cell_name, inv, site_suite, args.dry_run,
+                                     log, rt=rt)
 
     n += _stage_whatif(source, exp_dir, args.dry_run, log, rt=rt)
+    n += _stage_ranking(exp_dir, args.dry_run, log, rt=rt)
     n += _stage_rollups(exp_dir, args.dry_run, log, rt=rt, cells=[c for c, _d in cells])
     n += _stage_leaf_tables(exp_dir, args.dry_run, log, rt=rt,
                             cells=[c for c, _d in cells])
@@ -603,6 +626,58 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
     return n
 
 
+def _stage_site_figures(exp_dir, cell, inv, names, dry, log, rt=None):
+    """The SITE-scope figures a coupled run rendered for one (cell, pair), by name, into
+    `site_figure_png`.  Nothing without a resolver (site scope postdates the descriptor
+    route) and nothing on an uncoupled run, where no `_site` tree exists -- both silent,
+    because an experiment that curates no site figures asks for none.
+
+    The candidates come from the contract's `figures_site_<family>_pngs` globs, every
+    family that renders into a site tree, so a new site family stages with no edit here;
+    what is staged is the curated NAME list, like the leaf figures, so a page cites only
+    figures the manifest declares."""
+    if rt is None or not names:
+        return 0
+    want = set(names)
+    found = {}
+    for art in sorted(a for a in rt.artifacts if a.startswith('figures_site_')):
+        try:
+            for src in rt.glob(art, cell=cell, pair=inv):
+                found.setdefault(os.path.basename(src), src)
+        except KeyError:
+            continue
+    n = 0
+    for fname in names:
+        src = found.get(fname)
+        if src is None:
+            if found:                     # a site tree exists but not this figure: say so
+                log.append(f'  MISSING  site figure {cell}/{inv}/_site: {fname}')
+            continue
+        n += _copy(src, site_tree.path('site_figure_png', exp_dir, run=cell, inv=inv,
+                                       figure=fname), dry, log)
+    if not found and want:
+        log.append(f'  NOTE     cell {cell}/{inv}: no site figures (an uncoupled run renders '
+                   f'none), {len(want)} curated name(s) skipped')
+    return n
+
+
+def _stage_ranking(exp_dir, dry, log, rt=None):
+    """The unload ranking (phase 2's decision record) into `run_data`, when the run has
+    one.  Named one artifact at a time like the rollups, because it carries no contract
+    group tag -- and a tag would mint a new run-tree schema id for a metadata change.
+    Resolved HEAD-contract-first (`analysis_path`): a finished run's own contract may
+    predate the artifact.  Absent on every run but a ranked coupled phase-2 root, which is
+    not an error."""
+    if rt is None:
+        return 0
+    from Optimization.runschema import analysis_path
+    src = analysis_path(rt, 'unload_ranking_json')
+    if not src or not os.path.isfile(src):
+        return 0
+    return _copy(src, site_tree.path('run_data', exp_dir, fname=os.path.basename(src)),
+                 dry, log)
+
+
 def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
     """Per-cell channel-rollup CSVs into data/<cell>/ — the per-arm labor rows and the
     per-channel best/saving summary the labor page's headline quotes.
@@ -617,6 +692,14 @@ def _stage_rollups(exp_dir, dry, log, rt=None, cells=()):
     if rt is None:
         log.append('  NOTE     no run-tree descriptor: channel rollups not staged '
                    '(labor-headline citations will dangle)')
+        return 0
+    # A COUPLED run has no rollup by construction: the rollup sums per-channel savings, and
+    # under one dock serving both channels the sum is not defined (`run_channel_rollup`
+    # refuses it; `analyze_run` skips it).  Not MISSING -- nothing could have produced it.
+    if (getattr(rt, 'layout', None) or {}).get('coupled'):
+        log.append('  NOTE     coupled run: no channel rollup exists (the rollup sums '
+                   'per-channel savings, undefined under one shared dock); the labour '
+                   'pages quote the what-if and ranking documents instead')
         return 0
     n = 0
     for cell in cells:

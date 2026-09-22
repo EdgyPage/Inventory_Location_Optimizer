@@ -806,6 +806,10 @@ def define_env(env):
         out = ["| factor | levels in this run |", "|---|---|"]
         for r in doc["varied"]:
             vals = ", ".join(f"`{v}`" for v in r["levels"][:6])
+            # Say when the list is cut, or a row reading "11 — six names" looks like five
+            # levels went missing from the run (an Experiment 9 reviewer read it that way).
+            if len(r["levels"]) > 6:
+                vals += f", … and {len(r['levels']) - 6} more"
             out.append(f"| **{r['label']}** (varied) | {r['n_levels']} — {vals} |")
         for r in doc["fixed"]:
             out.append(f"| {r['label']} | held at `{r['levels'][0]}` |")
@@ -990,6 +994,75 @@ def define_env(env):
             out.append(f"*{caption}*")
             out.append("")
         return "\n".join(out).rstrip()
+
+    @env.macro
+    def site_suite_section(*args):
+        """The SITE-scope figure blocks for one run/inventory variant — the figures a
+        COUPLED run renders once for the site (`_site/figures/<family>/`), not once per
+        channel leaf.
+
+        `full_suite_section` composes `images/{run}/{inv}/{cfg}/{fname}`; a site figure has
+        no config, so it gets its own path, tied to site_tree's `site_figure_png` template by
+        `Tests/architecture/test_site_tree.py` and to the `site` evaluation scope by the
+        figure-registry test.  Empty on an uncoupled experiment, whose manifest curates no
+        `site_suite`."""
+        run, inv = _ri(args)
+        out = []
+        for fname, caption, width in _figs("site_suite"):
+            path = f"images/{run}/{inv}/_site/{fname}"
+            out.append(f"![{caption}]({path}){{ width={width} }}")
+            out.append("")
+            out.append(f"*{caption}*")
+            out.append("")
+        return "\n".join(out).rstrip()
+
+    @env.macro
+    def unload_ranking(pair=None, control=False):
+        """The unloading-policy ranking of a phase-2 experiment, from the committed
+        `data/unload_ranking.json` — one row per cell, in rank order, for one rule pair.
+
+        `pair` is the rule-pair label (`store_rule/ful_rule`); the artifact's primary pair by
+        default, its rider (the control) with `control=True`.  Numbers live in the JSON, so
+        the page holds only prose; the caption names the floor that applied and how it was
+        obtained, because a rank inside a tie group is the tie-break's, not the score's."""
+        d = _load_json(f"{_exp_dir()}/data/unload_ranking.json")
+        lbl = pair or (d.get("rider") if control else d.get("primary_pair"))
+        ranked = d["rankings"][lbl]
+        nf = (d.get("noise_floor") or {}).get(lbl) or {}
+        lines = [
+            "| Rank | Cell (unloading policy) | Score, s owed | vs reference | Tie group | Decided by | Overage, trailer-days |",
+            "|-----:|------|--------------:|------------:|:---------:|:----------:|---------------------:|",
+        ]
+        for e in ranked:
+            gap = e.get("gap_pct")
+            ci = e.get("gap_ci_pct")
+            if gap is None:
+                vs = "reference" if e["cell"] == d.get("run", {}).get("reference") else "—"
+            else:
+                vs = f"{gap:+.3f} %" + (f" [{ci[0]:+.3f}, {ci[1]:+.3f}]" if ci else "")
+            sc = "—" if e.get("owed_seconds") is None else f"{e['owed_seconds']:,.0f}"
+            lines.append(
+                f"| {e['rank'] if e['rank'] is not None else '—'} | `{e['cell']}` | {sc} | {vs} "
+                f"| {e.get('tie_group') if e.get('tie_group') is not None else '—'} "
+                f"| {e.get('decided_by') or '—'} | {e.get('overage_days', float('nan')):.1f} |"
+            )
+        floor = nf.get("applied_pct")
+        src = nf.get("source", "")
+        cap = (
+            f"\n<small>Rule pair `{lbl}`; score = `{d['metric']['series_field']}` summed over "
+            f"the pair's units (both stock modes), census-adjusted where the record says so -- "
+            f"in plain words: less walking owed is a lower score, and a rule cannot score better "
+            f"by leaving product in a trailer, the ranking checks for that; "
+            f"floor {floor:.3f} % ({src}); the bracket beside each gap is the range the gap "
+            f"could really be in once day-to-day noise is allowed for (a moving-block "
+            f"bootstrap of the paired per-batch gap to the reference); inside a tie group the "
+            f"overage orders the cells. All numbers from the committed "
+            f"[`data/unload_ranking.json`](data/unload_ranking.json).</small>"
+            if floor is not None else
+            f"\n<small>Rule pair `{lbl}`. All numbers from the committed "
+            f"[`data/unload_ranking.json`](data/unload_ranking.json).</small>"
+        )
+        return "\n".join(lines) + "\n" + cap
 
     @env.macro
     def inv_lead_time(*args):

@@ -78,6 +78,9 @@ def test_macros_fstring_joins_equal_the_templates():
     assert 'images/{run}/{inv}/{cfg}/{fname}' in src
     assert st.TEMPLATES['pair_params'] == 'data/{inv}/params.json'
     assert 'data/{inv}/params.json' in src
+    # the SITE-scope figures a coupled run renders once per (cell, pair) — Experiment 9
+    assert st.TEMPLATES['site_figure_png'] == 'images/{run}/{inv}/_site/{figure}'
+    assert 'images/{run}/{inv}/_site/{fname}' in src
     assert st.TEMPLATES['run_data'] == 'data/{fname}'
     assert 'data/whatif_delta.json' in src                        # the concrete whatif read
 

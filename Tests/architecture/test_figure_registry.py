@@ -40,7 +40,7 @@ def test_registry_parses_names_unique_sections_valid_captions_present():
     names = [f['name'] for f in figs]
     assert len(names) == len(set(names)), 'duplicate figure names'
     assert {f['section'] for f in figs} <= {'top3', 'full_suite', 'run_suite',
-                                            'inventory'}
+                                            'site_suite', 'inventory'}
     for f in figs:
         if f['section'] != 'inventory':
             assert (f.get('caption') or '').strip(), f"{f['name']}: reader-facing figures " \
@@ -304,3 +304,38 @@ def test_the_run_section_has_its_own_macro():
     assert 'def run_suite_section(' in src
     assert '_figs("run_suite")' in src
     assert 'images/{fname}' in src, 'the run-scope path must be flat, not per-leaf'
+
+
+# ── the site section is tied to the site scope, both directions (Experiment 9) ────
+
+def test_a_site_scope_figure_is_in_the_site_section_and_only_a_site_scope_one_is():
+    """`site_suite_section` composes `images/{run}/{inv}/_site/{fname}`, the tree a COUPLED
+    run renders once per (cell, pair).  The same two-way tie as the run section: a
+    site-scope evaluation's figures must sit in `site_suite`, and nothing else may, or a
+    manifest that curates one in gets a broken image and no error anywhere."""
+    from Optimization import Performance_Evaluations  # noqa: F401
+    from Optimization.Performance_Evaluations.core.registry import EVAL_BY_KEY
+    wrong = []
+    for f in _registry():
+        if f.get('retired'):
+            continue
+        ev = EVAL_BY_KEY.get(f.get('eval'))
+        if ev is None:
+            continue
+        site_scope = ev.scope == 'site'
+        in_site_section = f['section'] == 'site_suite'
+        if site_scope != in_site_section:
+            wrong.append(f"{f['name']}: eval {ev.key} is {ev.scope}-scope but section is "
+                         f"{f['section']!r}")
+    assert not wrong, chr(10).join(wrong)
+
+
+def test_the_site_section_is_not_empty_and_has_its_own_macro():
+    """The tie above passes vacuously if nothing is site-scope; and a section with no
+    renderer is a declaration nothing reads."""
+    sites = [f for f in _registry() if f['section'] == 'site_suite']
+    assert sites, 'no site_suite figures registered'
+    src = _src(os.path.join('docs', 'macros.py'))
+    assert 'def site_suite_section(' in src
+    assert '_figs("site_suite")' in src
+    assert 'images/{run}/{inv}/_site/{fname}' in src, 'the site path has no config level'

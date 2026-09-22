@@ -344,3 +344,137 @@ figures:
     section: inventory
     default: false
     caption: null
+  # ── site_suite: the SITE yard on a coupled run ────────────────────────────────
+  # Rendered once per (cell, pair) into `_site/figures/yard/` by the `yard.site_*`
+  # evaluations, never per channel leaf (on a coupled run the leaf-scope yard views are
+  # skipped by design: one dock, one yard, two channels).  Staged through the
+  # `site_figure_png` template and drawn by `macros.site_suite_section`, which composes
+  # `images/{run}/{inv}/_site/{fname}`.  A registry test ties this section to the `site`
+  # scope in both directions, as `run_suite` is tied to `run`.  `default: false`: only a
+  # coupled experiment curates them in.  Added for Experiment 9 (the phase-2 unloading
+  # campaign), whose whole story is which policy left what standing in the yard.
+  - name: absolute_yard_overage_days.png
+    eval: yard.site_fee
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Trailer-days past the free threshold, accrued over the whole run, per arm pair — the
+      detention fee's physical basis and the ranking's tie-break. Lower is cheaper; a policy
+      that defers trailers to place their stock better pays here.
+  - name: percent_yard_overage_days.png
+    eval: yard.site_fee
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      The same overage as a percent change against the baseline arm pair, so the deferring
+      policies' cost reads as a multiple rather than a count.
+  - name: absolute_yard_over_threshold_trailers.png
+    eval: yard.site_fee
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      How many trailers crossed the free threshold at all, per arm pair. The overage above
+      is how far they went past it; this is how many did.
+  - name: percent_yard_over_threshold_trailers.png
+    eval: yard.site_fee
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Over-threshold trailers as a percent change against the baseline arm pair.
+  - name: absolute_detention_mean.png
+    eval: yard.site_detention
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Mean days a trailer waited from arrival to being emptied, per arm pair, with its
+      interval. Detention is what a carrier bills; the free threshold is where the bill
+      starts.
+  - name: percent_detention_mean.png
+    eval: yard.site_detention
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Mean detention as a percent change against the baseline arm pair.
+  - name: absolute_detention_distribution.png
+    eval: yard.site_detention
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      The whole distribution of per-trailer detention, per arm pair — the tail is where a
+      deferring policy shows, since it lengthens a few waits rather than every wait.
+  - name: absolute_yard_depth.png
+    eval: yard.site_binding
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Trailers standing in the yard at the start of each drain, over the run, per arm pair.
+      Depth is what an ordering policy chooses among; a yard of one has no order to choose.
+  - name: delta_yard_depth.png
+    eval: yard.site_binding
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Yard depth as a difference from the baseline arm pair, drain by drain.
+  - name: percent_yard_depth.png
+    eval: yard.site_binding
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Yard depth as a percent change against the baseline arm pair.
+  - name: absolute_binding_cuts.png
+    eval: yard.site_binding
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Drains cut short by the receiving crew's day rather than by the yard emptying, per arm
+      pair — whether the dock, not the arrivals, was what bound.
+  - name: percent_binding_cuts.png
+    eval: yard.site_binding
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      Binding cuts as a percent change against the baseline arm pair.
+  - name: absolute_yard_scorecard.png
+    eval: yard.site_scorecard
+    section: site_suite
+    default: false
+    width: 920
+    caption: >-
+      The yard's read-outs with no direction — trailers handled, doors, door utilisation,
+      receiver busy share — one row per arm pair. A read-out, not a ranking: a policy that
+      moves these is describing its regime, not winning.
+  # ── the placement score, per channel leaf ────────────────────────────────────
+  # `layout.pick_owed`: what the run's planned demand owes the placement, a STATE read the
+  # unload ranking scores on.  Leaf-scope, so it joins `full_suite`; `default: false`
+  # because the score is meaningful only where placements differ by more than one pack
+  # among many (Experiment 9's pages say where that is).
+  - name: absolute_pick_owed_per_arm.png
+    eval: layout.pick_owed
+    section: full_suite
+    default: false
+    width: 920
+    caption: >-
+      Pick work the run's own planned demand would cost served from where the stock stands,
+      per arm, steady-state mean. Comparable across the arms of this run only — the weight
+      basis is this run's script — so there is no floor line.
+  - name: percent_pick_owed_per_arm.png
+    eval: layout.pick_owed
+    section: full_suite
+    default: false
+    width: 920
+    caption: >-
+      The placement score as a percent improvement against the baseline arm, with the
+      interval of the paired per-batch improvements; a gap that crosses zero is not shown as
+      small, it is shown as not shown.
