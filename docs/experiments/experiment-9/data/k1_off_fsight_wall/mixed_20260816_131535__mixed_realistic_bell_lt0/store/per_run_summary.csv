@@ -1,0 +1,5 @@
+strategy,label,color,total_production_time,production_time_per_item,mean_completion_rate,mean_queue_depth_units,max_queue_depth_units,mean_recv_depth_units,max_recv_depth_units,total_recv_seconds,mean_in_transit_pieces,mean_reorder_placements,mean_batch_prod_hours
+uni_rank_cartlabor_norsl,Uni|Rank_cartlabor|noRSL,#d9b45b,26218438.67885734,101.21073576656582,0.29955344235929754,0.0,0.0,0.0,0.0,16217002.537008716,10833.975,1793.3,182.0724908253982
+uni_fifo_norsl,Uni|FIFO|noRSL,#d95b5b,26325399.521843173,101.65110365298663,0.29699047464202544,0.0,0.0,0.0,0.0,16102344.259350823,11758.425,1780.625,182.81527445724424
+opt_rank_cartlabor_norsl,Opt|Rank_cartlabor|noRSL,#5b80d9,25698097.9870499,99.22888425677046,0.30934114989868117,4.625,185.0,0.0,0.0,16112580.838495165,11331.625,1778.925,178.45901379895764
+opt_fifo_norsl,Opt|FIFO|noRSL,#5bd9d9,26325399.521843173,101.65110365298663,0.29699047464202544,0.0,0.0,0.0,0.0,16102344.259350823,11758.425,1780.625,182.81527445724424

@@ -1,0 +1,5 @@
+pair,quantity,n,mean,median,p5,p25,p75,p95,min,max
+mixed_20260816_131535__mixed_realistic_bell_lt0,equilibrium_qty,400000,14.2051375,14.0,3.0,7.0,21.0,27.0,2.0,30.0
+mixed_20260816_131535__mixed_realistic_bell_lt0,reorder_point,400000,13.2051375,13.0,2.0,6.0,20.0,26.0,1.0,29.0
+mixed_20260816_131535__mixed_realistic_bell_lt0,pipeline_qty,400000,0.085065,0.0,0.0,0.0,0.0,1.0,0.0,2.0
+mixed_20260816_131535__mixed_realistic_bell_lt0,lead_time_mean,400000,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0

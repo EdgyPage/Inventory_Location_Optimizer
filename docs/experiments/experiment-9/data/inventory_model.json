@@ -1,0 +1,68 @@
+{
+  "note": "Measured from the run's own planned inventory \u2014 the levels this run DECLARED at setup and its workers reloaded, not a generator parameter, not a config average, and not a closed form. Since ADR-0002 the catalogue authors no level: every run derives its own from a coverage in DAYS, so these distributions are the whole of the model.",
+  "source": "planned_inventory@run tree (contract alias)",
+  "declared_by": "run_spec staffing.calibration[<pair>].coverage \u2014 the declared coverage_days / safety_days / floor_lines, the fixed point's rounds, and the share of SKUs sitting on the line floor. The three knobs are repeated per pair below; the loop's own record is the place to read the rest.",
+  "pairs": {
+    "mixed_20260816_131535__mixed_realistic_bell_lt0": {
+      "n_skus": 400000,
+      "n_declared": 400000,
+      "n_stock_plans": 400000,
+      "distributions": {
+        "equilibrium_qty": {
+          "n": 400000,
+          "mean": 14.2051375,
+          "median": 14.0,
+          "p5": 3.0,
+          "p25": 7.0,
+          "p75": 21.0,
+          "p95": 27.0,
+          "min": 2.0,
+          "max": 30.0
+        },
+        "reorder_point": {
+          "n": 400000,
+          "mean": 13.2051375,
+          "median": 13.0,
+          "p5": 2.0,
+          "p25": 6.0,
+          "p75": 20.0,
+          "p95": 26.0,
+          "min": 1.0,
+          "max": 29.0
+        },
+        "pipeline_qty": {
+          "n": 400000,
+          "mean": 0.085065,
+          "median": 0.0,
+          "p5": 0.0,
+          "p25": 0.0,
+          "p75": 0.0,
+          "p95": 1.0,
+          "min": 0.0,
+          "max": 2.0
+        },
+        "lead_time_mean": {
+          "n": 400000,
+          "mean": 0.0,
+          "median": 0.0,
+          "p5": 0.0,
+          "p25": 0.0,
+          "p75": 0.0,
+          "p95": 0.0,
+          "min": 0.0,
+          "max": 0.0
+        }
+      },
+      "declaration": {
+        "coverage_days": 10.0,
+        "safety_days": 2.0,
+        "floor_lines": null,
+        "floor_lines_by_channel": {
+          "store": 1.3078,
+          "fulfillment": 1.4994
+        },
+        "floor_text": "1.308 (store) / 1.499 (fulfillment) line(s), solved"
+      }
+    }
+  }
+}

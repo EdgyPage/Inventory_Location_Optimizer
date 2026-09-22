@@ -86,32 +86,40 @@ simulation is used at all.
 Each experiment is self-contained — its own definitions, inventory, strategy catalogue, results,
 and glossary — so a later sweep can change the setup without disturbing earlier ones.
 
-**[Experiment 8 — Results](experiments/experiment-8/index.md)** is the current sweep and the place
-to start. It runs the two-lever design at **full production scale** — the complete catalogue, 272
-simulated warehouse-days — and sharpens the story: handing pickers the longest jobs first
-(**LPT**) instead of dealing tasks out in turn lifts throughput by a median **+45 % (store)** and
-**+5 % (fulfillment)** — while the hands-on work itself changes by less than a tenth of a
-percent, the proof that the speed-up is free. The placement lever now comes with a condition
-worth knowing: where replenishment is **predictable**, the **Rank_labor** family (put restock
-where it least burdens the busiest aisle) cuts store pick-hours by **~2.6 %**; where lead times
-are erratic, the winner flips to **Map**-based placement and the prize shrinks to **~0.8 %** —
-placement optimization and supply reliability are complements. Two levers, two outcomes, one run
-— and they stack.
+**[Experiment 9 — Results](experiments/experiment-9/index.md)** is the current sweep and the place
+to start. It asks the next question after the two pick-side levers: when several trailers are
+waiting in the yard, **which one does the dock unload first?** Eleven dock rules — first come
+first served, newest first, six "gain" rules that unload the trailer whose stock would land best,
+two oracles allowed to read the future, and the no-yard pole — run the same forty site days over
+the full catalogue on one **coupled** site (one dock, four doors, one receiving crew serving both
+channels), with Experiment 8's winning placement rules putting the stock away. The answer is a
+result rather than a ranking: **at this site's demand the unloading order does not move the pick
+work** — the placement score shifts by at most **0.12 %** and total labour by at most
+**±0.15 %** — and **what separates the rules is the yard bill**, from **19 trailer-days** past
+the free threshold for first-come-first-served to **97** for the rules that defer trailers to
+place fractionally better. The page states the mechanism in one paragraph (the forty-day script
+asks for far fewer lines than the catalogue has SKUs, so a pack put away now is rarely picked
+inside the window) and says which kind of site *could* see a difference.
 
-One housekeeping note, told plainly: before this sweep the simulator's synthetic **demand stream
-was upgraded** (a faster, deterministic order-draw engine — "v2"). Experiment 8 is the first sweep
-on that stream and is the baseline future sweeps will be compared against; older pages carry a
-dated note instead of silently edited numbers. Determinism is also why tiny deltas are
-meaningful: a comparison replays the *identical* day under two rules and differs only by the
-decision under test — a ±0.07 % labor spread is an exact recomputation, not a statistical
-estimate fighting a noise floor.
+Two housekeeping notes, told plainly. The ranking behind that finding was corrected before
+publishing: unpriced demand is now charged at the leaf's own mean line, the tie floor is
+**measured** from the run's paired batch-to-batch noise (0.080 %) instead of declared, and the
+FIFO restock rider is read as a control rather than a replication. And Experiment 9 is a **new
+era** — coupled channels, a standing yard with derived crews, the v3 demand stream — so its
+numbers are compared within itself; Experiment 8 stays the reference for placement and
+scheduling, which this run held fixed.
 
 ## Earlier experiments (reference)
 
-These are **superseded** by Experiment 8 and kept for reference. Each was a different run with
-different settings, so their headline numbers are not directly comparable with Experiment 8's or
+These are **superseded** by Experiment 9 and kept for reference. Each was a different run with
+different settings, so their headline numbers are not directly comparable with Experiment 9's or
 with each other — but each one is the only place a particular lever was measured.
 
+- **[Experiment 8](experiments/experiment-8/index.md)** — the two-lever design at full production
+  scale on the v2 demand stream: LPT **+45 % (store)** / **+5 % (fulfillment)** throughput at
+  ±0.07 % labor, and a split placement podium — the `Rank_labor` family (**~2.6 %**) where
+  replenishment is predictable, the `Map` family (**~0.8 %**) where lead times are erratic.
+  The reference for both pick-side levers, which Experiment 9 holds fixed at these winners.
 - **[Experiment 7](experiments/experiment-7/index.md)** — the same two-lever design on the
   previous demand stream at reduced scale: LPT **+44.9 % (store)** / **+5.3 % (fulfillment)** at
   ±0.06 % labor, and the `Rank_labor` family leading store labor in both inventories

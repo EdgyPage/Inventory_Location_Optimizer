@@ -1,0 +1,117 @@
+# Experiment 9 manifest — single source of truth for this experiment's docs.
+#
+# The first COUPLED publish: phase 2 of the inbound funnel, eleven cells that differ ONLY in
+# the rule the dock uses to decide which standing trailer to unload next, run over one site
+# (one dock, one yard, two channels served by one receiving crew) at full production scale,
+# with phase 1's winning placement pair plus the FIFO rider in every cell.  The finding is a
+# result rather than a ranking: at this site's demand, unloading order cannot move where
+# stock lands by more than a few hundredths of a percent of pick work, and what separates
+# the cells is the yard bill each policy runs up to get there.
+#
+# Headline numbers render from data/unload_ranking.json (the ranking, its measured floor,
+# and every cell's overage) and are quoted from data/whatif_volume.json, data/whatif_labor.json
+# and data/comparison_census.json — all staged by ingest from the run root, so every number the
+# pages quote has a committed, diffable source.  No channel rollup exists for this experiment:
+# the rollup sums per-channel savings and REFUSES a coupled run, where one dock serves both
+# channels and the sum is not defined.
+
+title: "Experiment 9 — which trailer to unload first: at this demand the choice moves the yard bill, not the pick work"
+
+# Primary run folder = the REFERENCE cell (its config.json drives setup_table / run_section):
+# first-come-first-served at the dock, the do-nothing policy every cell is measured against.
+run: k1_off_fifo
+
+# Run-tree contract the source run followed (verified against the stored contract doc at
+# build time by docs/macros.py:_verify_manifest_schema) and the cells ingest staged.
+schema_id: sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13
+cells:
+  - k1_off_fifo
+  - k1_off_lifo
+  - k1_off_gmyopic
+  - k1_off_gforecast
+  - k1_off_ggated_h025
+  - k1_off_ggated_h050
+  - k1_off_ggated_h100
+  - k1_off_fsight_w5
+  - k1_off_fsight_wall
+  - k1_off_gmyopic_k8
+  - k1_off_inb_off
+
+catalogue: catalogue
+baseline: uni_fifo_norsl      # the FIFO restock rider every cell also carries, as a control
+
+# The placement pair every cell runs: phase 1's winner (store rule / fulfillment rule).  Not
+# a podium — this experiment ranks CELLS (unloading policies), not placement rules — but the
+# rule catalogue and the per-arm figures key off these names.
+winners: [rank_cartlabor, rank_minlabor]
+
+# Batch-sampler era of the source run (run_spec.json:sampler).  v3 = the declared sampler
+# adopted 2026-09-12; v3 runs are not row-comparable with the v2 Experiment 8 or the v1
+# experiments 1-7.  Beyond the sampler, this run is COUPLED and carries the inbound era
+# (a standing yard, derived crews, per-item charges), none of which Experiment 8 had.
+era: v3
+
+whatif:
+  source_run: comparison_whatif_20260920_150203
+  # The simulator commit this run was produced with.  The run's own run_spec.json stamps
+  # `unknown`: it ran from a git-archive snapshot that predates the provenance fix that
+  # lets an exported tree name its commit.  The snapshot's commit is recorded in the
+  # campaign map (.scratch/phase-2-campaign/map.md, "Resumed unbounded at 16 workers").
+  commit: 8f993a33
+  dirty: false
+  reference: k1_off_fifo      # first-come-first-served; every other cell is diffed against it
+  scatter: whatif_volume_curves.png
+  winner: k1_off_ggated_h050  # rank 1 on the winner pair, decided by overage inside a tie group
+  cells: 11
+  arms: 6                     # 3 rule pairs x 2 stock modes, per channel
+  n_batches: 40
+
+inventories:
+  bell_lt0:
+    id: mixed_20260816_131535__mixed_realistic_bell_lt0
+    label: "bell · lt0 — the campaign's reference catalogue, one inventory pair"
+
+# Copied from the RUN's leaf config.json (both channels carry the same brackets; they are
+# ineffective for fulfillment by geometry, as Experiment 8's formula page states).
+configs:
+  - name: store
+    label: "store · base ergonomics (StoreCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+  - name: ful_calibrated
+    label: "fulfillment · base (FulfillmentCart)"
+    height_brackets: [[96.0, 1.0], [240.0, 1.2], [null, 1.4]]
+
+# Curated figures.  The per-leaf sets are the registry defaults plus the placement score
+# (`layout.pick_owed`, the quantity the unload ranking scores on); `site_suite` is new with
+# this experiment: the SITE yard's figures, rendered once per cell rather than per channel,
+# which is where an unloading policy shows.
+figures:
+  top3:
+    - percent_top_vs_baseline.png
+    - table_top_vs_baseline.png
+    - percent_both_levers.png
+    - delta_prodtime_top3_by_initial.png
+    - percent_labor_per_batch.png
+    - percent_pick_owed_per_arm.png
+  full_suite:
+    - effect_heatmap.png
+    - percent_all_arms_vs_baseline.png
+    - absolute_task_duration_ranked.png
+    - delta_task_duration_vs_fifo.png
+    - percent_travel_per_arm.png
+    - absolute_pick_owed_per_arm.png
+  site_suite:
+    - absolute_yard_scorecard.png
+    - absolute_yard_overage_days.png
+    - percent_yard_overage_days.png
+    - absolute_yard_over_threshold_trailers.png
+    - absolute_detention_mean.png
+    - absolute_detention_distribution.png
+    - absolute_yard_depth.png
+    - absolute_binding_cuts.png
+
+inventory_plots:
+  - group_sizes.png
+  - demand.png
+  - param_relative_frequency.png
+  - param_quantity.png

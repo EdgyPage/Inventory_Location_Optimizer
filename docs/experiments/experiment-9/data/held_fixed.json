@@ -1,0 +1,326 @@
+{
+  "note": "Derived from the run's own tree, its leaf configs and its run spec: a factor is VARIED when more than one distinct value appears in this run and FIXED when exactly one does, so the fixed list cannot be incomplete. The run-level declarations (stock coverage, safety stock, the stock floor) come from the spec because a sweep states them once; every other factor comes from the leaves. ABSENT names knobs the model has no parameter for \u2014 a different answer from \"held constant\", and the only one that implies a code change to explore.",
+  "spec": {
+    "n_batches": 40,
+    "max_skus": null,
+    "seed_world": 42,
+    "seed_batches": 1337,
+    "workers": 12,
+    "keyframe_interval": 25,
+    "checkpoint_frac": 0.1,
+    "sampler": "v3",
+    "aisle_columns": 50,
+    "aisle_levels": 10,
+    "work_day_seconds": null,
+    "releases_per_day": 1,
+    "cut_at_day_end": true,
+    "roll_over_unpicked": true,
+    "shift_drain_or_cap": true,
+    "couple_channels": true,
+    "recv_crew_size": 0,
+    "recv_day_seconds": null,
+    "recv_day_origin": 0.0,
+    "put_queue_split": false,
+    "put_cart_crew": 1,
+    "put_pallet_crew": 1,
+    "put_ff_crew": 1,
+    "put_cart_staging": null,
+    "put_pallet_staging": null,
+    "put_ff_staging": null,
+    "put_swap_coef": 0.0,
+    "put_crew_size": 1,
+    "put_intercept_scale": 0.5,
+    "put_item_ratio": 0.2,
+    "recv_intercept_scale": 1.0,
+    "inbound_trailer_type": "53",
+    "inbound_dock_doors": 4,
+    "inbound_lead_minutes": 480.0,
+    "inbound_lead_spread": 0.7,
+    "inbound_local_policy": "fifo",
+    "inbound_trailer_bound": null,
+    "inbound_standing_yard": true,
+    "inbound_crew_allocation": "split",
+    "inbound_yard_policy": "fifo",
+    "inbound_dock_policy": "fifo",
+    "inbound_door_team": 10,
+    "inbound_fee_threshold_days": 2.0,
+    "inbound_urgency_horizon_days": 0.0,
+    "inbound_futuresight_batches": null,
+    "inbound_unload_intercept": null,
+    "inbound_unload_weight_coef": null,
+    "inbound_unload_volume_coef": null,
+    "s_max_aisles": null,
+    "s_max_bins": null,
+    "s_min_bins": null,
+    "ff_max_aisles": null,
+    "ff_max_bins": null,
+    "ff_min_bins": null,
+    "s_composition": null,
+    "store_fill": null,
+    "ff_fill": null,
+    "store_pickers": null,
+    "store_pickers_provenance": "derived",
+    "ff_pickers": null,
+    "ff_pickers_provenance": "derived",
+    "store_demand": 0.00245335,
+    "store_demand_provenance": "assumed",
+    "ff_demand": 0.018138,
+    "ff_demand_provenance": "assumed",
+    "first_time_confidence": 0.95,
+    "first_time_confidence_provenance": "assumed",
+    "min_headroom": 0.05,
+    "min_headroom_provenance": "assumed",
+    "rho_pick": null,
+    "rho_put": 0.85,
+    "rho_put_provenance": "assumed",
+    "rho_recv": 0.85,
+    "rho_recv_provenance": "assumed",
+    "f_put": 1.0,
+    "f_put_provenance": "assumed",
+    "f_recv": 1.0,
+    "f_recv_provenance": "assumed",
+    "f_repack": 0.0,
+    "f_repack_provenance": "assumed",
+    "band_tol": 0.1,
+    "band_tol_provenance": "assumed",
+    "put_crew_mode": "foot",
+    "put_crew_mode_provenance": "assumed",
+    "coverage_days": 10.0,
+    "coverage_days_provenance": "assumed",
+    "safety_days": 2.0,
+    "safety_days_provenance": "assumed",
+    "floor_lines": null,
+    "floor_lines_provenance": "derived",
+    "s_pick_store": null,
+    "s_pick_store_provenance": "assumed",
+    "s_pick_ff": null,
+    "s_pick_ff_provenance": "assumed",
+    "s_put": null,
+    "s_put_provenance": "assumed",
+    "inbound_lead_tag": 7853,
+    "whatif": false,
+    "spec": "inbound_unload",
+    "all_profiles": false,
+    "profile_run": "mixed_20260816_131535",
+    "max_tasks_per_child": 1,
+    "max_retries": 2,
+    "resume_granularity": "strategy",
+    "repo_commit": "unknown",
+    "repo_dirty": null
+  },
+  "varied": [
+    {
+      "factor": "batch_mean_frac",
+      "label": "wave size, as a share of the catalogue",
+      "n_levels": 2,
+      "levels": [
+        0.00245335,
+        0.018138
+      ]
+    },
+    {
+      "factor": "cart_capacity",
+      "label": "cart capacity",
+      "n_levels": 2,
+      "levels": [
+        125000,
+        25000
+      ]
+    },
+    {
+      "factor": "cart_swap_coef",
+      "label": "cart-swap seconds",
+      "n_levels": 2,
+      "levels": [
+        240,
+        300
+      ]
+    },
+    {
+      "factor": "cell",
+      "label": "scheduler cell",
+      "n_levels": 11,
+      "levels": [
+        "k1_off_fifo",
+        "k1_off_fsight_w5",
+        "k1_off_fsight_wall",
+        "k1_off_gforecast",
+        "k1_off_ggated_h025",
+        "k1_off_ggated_h050",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic",
+        "k1_off_gmyopic_k8",
+        "k1_off_inb_off",
+        "k1_off_lifo"
+      ]
+    },
+    {
+      "factor": "channel",
+      "label": "channel",
+      "n_levels": 2,
+      "levels": [
+        "fulfillment",
+        "store"
+      ]
+    },
+    {
+      "factor": "config",
+      "label": "pick configuration",
+      "n_levels": 2,
+      "levels": [
+        "ful_calibrated",
+        "store"
+      ]
+    },
+    {
+      "factor": "num_pickers",
+      "label": "crew size",
+      "n_levels": 2,
+      "levels": [
+        23,
+        31
+      ]
+    },
+    {
+      "factor": "pick_intercept",
+      "label": "per-pick setup seconds",
+      "n_levels": 2,
+      "levels": [
+        10,
+        15
+      ]
+    }
+  ],
+  "fixed": [
+    {
+      "factor": "avg_equilibrium_qty",
+      "label": "mean order-up-to quantity",
+      "n_levels": 1,
+      "levels": [
+        14.2
+      ]
+    },
+    {
+      "factor": "avg_lead_time_mean",
+      "label": "mean lead time",
+      "n_levels": 1,
+      "levels": [
+        0.0
+      ]
+    },
+    {
+      "factor": "avg_reorder_point",
+      "label": "mean reorder point",
+      "n_levels": 1,
+      "levels": [
+        13.21
+      ]
+    },
+    {
+      "factor": "avg_supply_cv",
+      "label": "supply variability",
+      "n_levels": 1,
+      "levels": [
+        0.075
+      ]
+    },
+    {
+      "factor": "coverage_days",
+      "label": "stock coverage, in days of demand",
+      "n_levels": 1,
+      "levels": [
+        10.0
+      ]
+    },
+    {
+      "factor": "floor_lines",
+      "label": "the stock floor, in lines of the SKU's own mean line",
+      "n_levels": 1,
+      "levels": [
+        "{\"fulfillment\": 1.4994, \"store\": 1.3078}"
+      ]
+    },
+    {
+      "factor": "height_brackets",
+      "label": "height multipliers",
+      "n_levels": 1,
+      "levels": [
+        "[[96.0, 1.0], [240.0, 1.2], [null, 1.4]]"
+      ]
+    },
+    {
+      "factor": "inventory",
+      "label": "inventory model (supply)",
+      "n_levels": 1,
+      "levels": [
+        "mixed_20260816_131535__mixed_realistic_bell_lt0"
+      ]
+    },
+    {
+      "factor": "n_batches",
+      "label": "waves per run",
+      "n_levels": 1,
+      "levels": [
+        40
+      ]
+    },
+    {
+      "factor": "n_skus",
+      "label": "stocked SKUs",
+      "n_levels": 1,
+      "levels": [
+        400000
+      ]
+    },
+    {
+      "factor": "safety_days",
+      "label": "safety stock, in days of demand",
+      "n_levels": 1,
+      "levels": [
+        2.0
+      ]
+    },
+    {
+      "factor": "sampler",
+      "label": "demand sampler",
+      "n_levels": 1,
+      "levels": [
+        "v3"
+      ]
+    },
+    {
+      "factor": "total_aisles",
+      "label": "aisles",
+      "n_levels": 1,
+      "levels": [
+        2774
+      ]
+    },
+    {
+      "factor": "total_bins",
+      "label": "bins",
+      "n_levels": 1,
+      "levels": [
+        2505050
+      ]
+    }
+  ],
+  "absent": [
+    {
+      "factor": "breaks_and_shifts",
+      "why": "Breaks, lunches and shift changes WITHIN a working day are not modeled: a crew works continuously from the moment its day opens until its whistle. The day itself is modeled \u2014 a working-day length, a release cadence, and a receiving crew with hours of its own \u2014 so what is absent is the structure inside a shift, not the shift."
+    },
+    {
+      "factor": "inter_aisle_travel",
+      "why": "Walking between aisles is not modeled, for either scheduler."
+    },
+    {
+      "factor": "aisle_congestion",
+      "why": "Several pickers heading for the same aisle is not modeled."
+    },
+    {
+      "factor": "cold_start_skus",
+      "why": "Every SKU has demand history from batch zero; there is no new-item case."
+    }
+  ]
+}

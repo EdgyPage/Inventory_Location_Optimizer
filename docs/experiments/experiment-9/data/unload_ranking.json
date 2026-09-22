@@ -1,0 +1,3152 @@
+{
+  "version": 2,
+  "written": "2026-09-22T17:51:01",
+  "run": {
+    "base": "comparison_whatif_20260920_150203",
+    "spec": "inbound_unload",
+    "schema_id": "sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13",
+    "repo_commit": "unknown",
+    "n_batches": 40,
+    "cells": [
+      "k1_off_fifo",
+      "k1_off_lifo",
+      "k1_off_gmyopic",
+      "k1_off_gforecast",
+      "k1_off_ggated_h025",
+      "k1_off_ggated_h050",
+      "k1_off_ggated_h100",
+      "k1_off_fsight_w5",
+      "k1_off_fsight_wall",
+      "k1_off_gmyopic_k8",
+      "k1_off_inb_off"
+    ],
+    "pairs": [
+      "mixed_20260816_131535__mixed_realistic_bell_lt0"
+    ],
+    "reference": "k1_off_fifo",
+    "coupled": true,
+    "site_crews": {
+      "mixed_20260816_131535__mixed_realistic_bell_lt0": {
+        "receiving_crew": 23,
+        "put_crew": 64,
+        "day_seconds": 28800.0,
+        "receiving_expected_utilization": {
+          "store": 0.6517821920425034,
+          "fulfillment": 0.19004315622572826
+        },
+        "provenance": "derived"
+      }
+    }
+  },
+  "metric": {
+    "quantity": "pick_owed_s",
+    "series_field": "ss_pick_owed",
+    "batch_column": "pick_owed_s",
+    "declared_by": "spec:inbound_unload",
+    "units": "seconds -- the steady-state mean of the per-batch column, summed over the unit's two leaves and the inventory pairs; a cell's score for a rule pair sums that pair's units (both stock modes). For pick_owed_s: what the run's PLANNED batches would cost served from where the stock stands.",
+    "direction": "lower is better",
+    "why": "a STATE read, not a flow. Every flow total (labour, unload seconds, throughput) is invariant to an unloading ORDER over a window long enough to unload everything, which is why the 2026-09-18 ranking on ss_prod_total came back an exact tie across ten cells.",
+    "adjustment": {
+      "applies": true,
+      "rule": "owed * W / (W - unservable), per batch, W = the script's planned lines rebuilt from the pair's batch pickle by batch_precompute.planned_lines",
+      "why": "the score prices a line with no shelf stock at ZERO, so a cell that leaves more in the yard reads cheaper for it; on the 2026-09-20 campaign that was ~35% of the fifo-vs-gforecast gap. Pricing each unpriced line at the leaf's own mean priced line charges it what the leaf measured, nothing invented. `owed_unadjusted` keeps the raw scalar beside it; a unit that could not be adjusted says `adjusted: false` and ranks on the raw one."
+    },
+    "tie_break": {
+      "quantity": "yard_overage_days",
+      "units": "trailer-days past the cell's free threshold, whole run, from the SITE yard through frames._ydf",
+      "direction": "lower is better",
+      "applies_within_pct": "per rule pair: noise_floor[pair].applied_pct",
+      "threshold_days": {
+        "k1_off_fifo": 0.4,
+        "k1_off_lifo": 0.4,
+        "k1_off_gmyopic": 0.4,
+        "k1_off_gforecast": 0.4,
+        "k1_off_ggated_h025": 0.4,
+        "k1_off_ggated_h050": 0.4,
+        "k1_off_ggated_h100": 0.4,
+        "k1_off_fsight_w5": 0.4,
+        "k1_off_fsight_wall": 0.4,
+        "k1_off_gmyopic_k8": 0.4,
+        "k1_off_inb_off": 0.4
+      }
+    },
+    "noise_floor_pct": 0.1,
+    "noise_floor_note": "the DECLARED floor, applied only where the paired per-batch series could not be read. Where it could, the floor is MEASURED per rule pair (see noise_floor): the widest 95% moving-block bootstrap half-width of any cell's mean paired per-batch gap to the reference, so two cells closer than any cell's own uncertainty tie and the overage decides.",
+    "census": {
+      "quantity": "unservable_weight",
+      "series_field": "ss_unservable",
+      "units": "planned lines with no shelf stock, summed like the score",
+      "material_pct": 1.0,
+      "note": "Reported beside the score and priced INTO it only through the adjustment above, never as a fabricated penalty. A run whose census is material was decided by availability rather than by placement and this tool names no cells. `census_pct` divides lines by the ADJUSTED seconds, so the material threshold reads against a denominator a few tenths of a percent larger than the raw score's."
+    }
+  },
+  "noise_floor": {
+    "fifo/fifo": {
+      "floor_pct": 0.017165692140351713,
+      "reference": "k1_off_fifo",
+      "cells": {
+        "k1_off_fsight_w5": {
+          "gap_pct": -0.004946244126244165,
+          "ci_pct": [
+            -0.018141037919756298,
+            0.006114981619482893
+          ],
+          "n_batches": 40
+        },
+        "k1_off_fsight_wall": {
+          "gap_pct": 0.001967729616198418,
+          "ci_pct": [
+            -0.010272706344228411,
+            0.015118280802031458
+          ],
+          "n_batches": 40
+        },
+        "k1_off_gforecast": {
+          "gap_pct": -0.024206017865790998,
+          "ci_pct": [
+            -0.03429108884707686,
+            -0.014506223075399423
+          ],
+          "n_batches": 40
+        },
+        "k1_off_ggated_h025": {
+          "gap_pct": 0.0003738695831832433,
+          "ci_pct": [
+            -0.015824035650438432,
+            0.01850734863026499
+          ],
+          "n_batches": 40
+        },
+        "k1_off_ggated_h050": {
+          "gap_pct": -0.009661924713505974,
+          "ci_pct": [
+            -0.020765773646996794,
+            -0.001429519457421295
+          ],
+          "n_batches": 40
+        },
+        "k1_off_ggated_h100": {
+          "gap_pct": 0.0,
+          "ci_pct": [
+            0.0,
+            0.0
+          ],
+          "n_batches": 40
+        },
+        "k1_off_gmyopic": {
+          "gap_pct": 0.0,
+          "ci_pct": [
+            0.0,
+            0.0
+          ],
+          "n_batches": 40
+        },
+        "k1_off_gmyopic_k8": {
+          "gap_pct": 0.0,
+          "ci_pct": [
+            0.0,
+            0.0
+          ],
+          "n_batches": 40
+        },
+        "k1_off_lifo": {
+          "gap_pct": -0.015450297716242728,
+          "ci_pct": [
+            -0.029660034202881137,
+            -0.0035467910258874173
+          ],
+          "n_batches": 40
+        }
+      },
+      "source": "measured",
+      "applied_pct": 0.017165692140351713,
+      "declared_pct": 0.1
+    },
+    "rank_cartlabor/rank_minlabor": {
+      "floor_pct": 0.07975291658079735,
+      "reference": "k1_off_fifo",
+      "cells": {
+        "k1_off_fsight_w5": {
+          "gap_pct": -0.11520203598777294,
+          "ci_pct": [
+            -0.20357336005849877,
+            -0.05059888650696604
+          ],
+          "n_batches": 40
+        },
+        "k1_off_fsight_wall": {
+          "gap_pct": -0.09961749673037798,
+          "ci_pct": [
+            -0.17530119818349646,
+            -0.044098753672461355
+          ],
+          "n_batches": 40
+        },
+        "k1_off_gforecast": {
+          "gap_pct": -0.1169131675971565,
+          "ci_pct": [
+            -0.20308283751189102,
+            -0.04357700435029632
+          ],
+          "n_batches": 40
+        },
+        "k1_off_ggated_h025": {
+          "gap_pct": -0.0702080786038114,
+          "ci_pct": [
+            -0.12196263048905435,
+            -0.028678146227033845
+          ],
+          "n_batches": 40
+        },
+        "k1_off_ggated_h050": {
+          "gap_pct": -0.04068214770393735,
+          "ci_pct": [
+            -0.08485718579361548,
+            -0.0022533030292311716
+          ],
+          "n_batches": 40
+        },
+        "k1_off_ggated_h100": {
+          "gap_pct": 0.0,
+          "ci_pct": [
+            0.0,
+            0.0
+          ],
+          "n_batches": 40
+        },
+        "k1_off_gmyopic": {
+          "gap_pct": -0.004784404970133843,
+          "ci_pct": [
+            -0.028710534950735705,
+            0.015206131764758431
+          ],
+          "n_batches": 40
+        },
+        "k1_off_gmyopic_k8": {
+          "gap_pct": 0.005972478190964962,
+          "ci_pct": [
+            -0.0027027932931083403,
+            0.016357311185799472
+          ],
+          "n_batches": 40
+        },
+        "k1_off_lifo": {
+          "gap_pct": 0.006757576337269524,
+          "ci_pct": [
+            -0.01729204602668304,
+            0.02727493840685546
+          ],
+          "n_batches": 40
+        }
+      },
+      "source": "measured",
+      "applied_pct": 0.07975291658079735,
+      "declared_pct": 0.1
+    }
+  },
+  "inbound_repick": {
+    "fifo/fifo": {
+      "k1_off_fifo": {
+        "store": {
+          "picked_units": 517896.0,
+          "served_units": 44598.0,
+          "placed_units": 482610.0,
+          "repicked_units": 44598.0,
+          "n_units": 2,
+          "served_share": 0.08611381435655036,
+          "repicked_share": 0.09241002051345808,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516204.0,
+          "served_units": 597754.0,
+          "placed_units": 2397076.0,
+          "repicked_units": 597754.0,
+          "n_units": 2,
+          "served_share": 0.23756181931194767,
+          "repicked_share": 0.24936797998895321,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_lifo": {
+        "store": {
+          "picked_units": 517856.0,
+          "served_units": 44634.0,
+          "placed_units": 479612.0,
+          "repicked_units": 44634.0,
+          "n_units": 2,
+          "served_share": 0.08618998331582525,
+          "repicked_share": 0.09306272570327681,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516608.0,
+          "served_units": 598278.0,
+          "placed_units": 2412102.0,
+          "repicked_units": 598278.0,
+          "n_units": 2,
+          "served_share": 0.23773189944560297,
+          "repicked_share": 0.24803179965026353,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_gmyopic": {
+        "store": {
+          "picked_units": 517896.0,
+          "served_units": 44598.0,
+          "placed_units": 482610.0,
+          "repicked_units": 44598.0,
+          "n_units": 2,
+          "served_share": 0.08611381435655036,
+          "repicked_share": 0.09241002051345808,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516204.0,
+          "served_units": 597754.0,
+          "placed_units": 2397076.0,
+          "repicked_units": 597754.0,
+          "n_units": 2,
+          "served_share": 0.23756181931194767,
+          "repicked_share": 0.24936797998895321,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_gforecast": {
+        "store": {
+          "picked_units": 517894.0,
+          "served_units": 44610.0,
+          "placed_units": 482152.0,
+          "repicked_units": 44610.0,
+          "n_units": 2,
+          "served_share": 0.08613731767504547,
+          "repicked_share": 0.09252268994010188,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515854.0,
+          "served_units": 597400.0,
+          "placed_units": 2367644.0,
+          "repicked_units": 597400.0,
+          "n_units": 2,
+          "served_share": 0.2374541606945395,
+          "repicked_share": 0.2523183383988471,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_ggated_h025": {
+        "store": {
+          "picked_units": 517794.0,
+          "served_units": 44578.0,
+          "placed_units": 481010.0,
+          "repicked_units": 44578.0,
+          "n_units": 2,
+          "served_share": 0.08609215247762624,
+          "repicked_share": 0.09267582794536496,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515996.0,
+          "served_units": 597802.0,
+          "placed_units": 2373864.0,
+          "repicked_units": 597802.0,
+          "n_units": 2,
+          "served_share": 0.23760053672581355,
+          "repicked_share": 0.25182655788200164,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_ggated_h050": {
+        "store": {
+          "picked_units": 517986.0,
+          "served_units": 44688.0,
+          "placed_units": 481854.0,
+          "repicked_units": 44688.0,
+          "n_units": 2,
+          "served_share": 0.0862726019622152,
+          "repicked_share": 0.09274178485599373,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515824.0,
+          "served_units": 598018.0,
+          "placed_units": 2369434.0,
+          "repicked_units": 598018.0,
+          "n_units": 2,
+          "served_share": 0.23770263738639905,
+          "repicked_share": 0.25238854511246145,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_ggated_h100": {
+        "store": {
+          "picked_units": 517896.0,
+          "served_units": 44598.0,
+          "placed_units": 482610.0,
+          "repicked_units": 44598.0,
+          "n_units": 2,
+          "served_share": 0.08611381435655036,
+          "repicked_share": 0.09241002051345808,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516204.0,
+          "served_units": 597754.0,
+          "placed_units": 2397076.0,
+          "repicked_units": 597754.0,
+          "n_units": 2,
+          "served_share": 0.23756181931194767,
+          "repicked_share": 0.24936797998895321,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_fsight_w5": {
+        "store": {
+          "picked_units": 517916.0,
+          "served_units": 44660.0,
+          "placed_units": 480206.0,
+          "repicked_units": 44660.0,
+          "n_units": 2,
+          "served_share": 0.08623019949180949,
+          "repicked_share": 0.09300175341415975,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516176.0,
+          "served_units": 597468.0,
+          "placed_units": 2384632.0,
+          "repicked_units": 597468.0,
+          "n_units": 2,
+          "served_share": 0.23745079835432817,
+          "repicked_share": 0.2505493510109736,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_fsight_wall": {
+        "store": {
+          "picked_units": 517956.0,
+          "served_units": 44718.0,
+          "placed_units": 482030.0,
+          "repicked_units": 44718.0,
+          "n_units": 2,
+          "served_share": 0.08633551884716076,
+          "repicked_share": 0.09277015953363899,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515854.0,
+          "served_units": 597434.0,
+          "placed_units": 2367612.0,
+          "repicked_units": 597434.0,
+          "n_units": 2,
+          "served_share": 0.23746767499226903,
+          "repicked_share": 0.25233610912598853,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_gmyopic_k8": {
+        "store": {
+          "picked_units": 517896.0,
+          "served_units": 44598.0,
+          "placed_units": 482610.0,
+          "repicked_units": 44598.0,
+          "n_units": 2,
+          "served_share": 0.08611381435655036,
+          "repicked_share": 0.09241002051345808,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516204.0,
+          "served_units": 597754.0,
+          "placed_units": 2397076.0,
+          "repicked_units": 597754.0,
+          "n_units": 2,
+          "served_share": 0.23756181931194767,
+          "repicked_share": 0.24936797998895321,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      }
+    },
+    "rank_cartlabor/rank_minlabor": {
+      "k1_off_fifo": {
+        "store": {
+          "picked_units": 517881.0,
+          "served_units": 44858.0,
+          "placed_units": 479931.0,
+          "repicked_units": 44858.0,
+          "n_units": 2,
+          "served_share": 0.08661835440960375,
+          "repicked_share": 0.09346760263454539,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516595.0,
+          "served_units": 574000.0,
+          "placed_units": 2408050.0,
+          "repicked_units": 574000.0,
+          "n_units": 2,
+          "served_share": 0.22808596536192752,
+          "repicked_share": 0.23836714353937832,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_lifo": {
+        "store": {
+          "picked_units": 517895.0,
+          "served_units": 44873.0,
+          "placed_units": 479073.0,
+          "repicked_units": 44873.0,
+          "n_units": 2,
+          "served_share": 0.0866449762982844,
+          "repicked_share": 0.09366630972732756,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516627.0,
+          "served_units": 573780.0,
+          "placed_units": 2407153.0,
+          "repicked_units": 573780.0,
+          "n_units": 2,
+          "served_share": 0.22799564655389934,
+          "repicked_share": 0.23836457425016191,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_gmyopic": {
+        "store": {
+          "picked_units": 517820.0,
+          "served_units": 44784.0,
+          "placed_units": 480767.0,
+          "repicked_units": 44784.0,
+          "n_units": 2,
+          "served_share": 0.08648565138465104,
+          "repicked_share": 0.0931511522213463,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516654.0,
+          "served_units": 573901.0,
+          "placed_units": 2414085.0,
+          "repicked_units": 573901.0,
+          "n_units": 2,
+          "served_share": 0.22804128020776793,
+          "repicked_share": 0.23773023733629925,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_gforecast": {
+        "store": {
+          "picked_units": 517931.0,
+          "served_units": 44942.0,
+          "placed_units": 483439.0,
+          "repicked_units": 44942.0,
+          "n_units": 2,
+          "served_share": 0.08677217621652306,
+          "repicked_share": 0.09296312461344658,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515815.0,
+          "served_units": 570560.0,
+          "placed_units": 2372461.0,
+          "repicked_units": 570560.0,
+          "n_units": 2,
+          "served_share": 0.22678933069402957,
+          "repicked_share": 0.2404928890295773,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_ggated_h025": {
+        "store": {
+          "picked_units": 518046.0,
+          "served_units": 45023.0,
+          "placed_units": 485303.0,
+          "repicked_units": 45023.0,
+          "n_units": 2,
+          "served_share": 0.08690927060531305,
+          "repicked_share": 0.09277296864021034,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515989.0,
+          "served_units": 570491.0,
+          "placed_units": 2379740.0,
+          "repicked_units": 570491.0,
+          "n_units": 2,
+          "served_share": 0.22674622186345011,
+          "repicked_share": 0.23972828964508727,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_ggated_h050": {
+        "store": {
+          "picked_units": 517890.0,
+          "served_units": 44852.0,
+          "placed_units": 482534.0,
+          "repicked_units": 44852.0,
+          "n_units": 2,
+          "served_share": 0.08660526366602947,
+          "repicked_share": 0.09295096304094634,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2515975.0,
+          "served_units": 571142.0,
+          "placed_units": 2375942.0,
+          "repicked_units": 571142.0,
+          "n_units": 2,
+          "served_share": 0.22700623018909172,
+          "repicked_share": 0.2403854976257838,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_ggated_h100": {
+        "store": {
+          "picked_units": 517881.0,
+          "served_units": 44858.0,
+          "placed_units": 479931.0,
+          "repicked_units": 44858.0,
+          "n_units": 2,
+          "served_share": 0.08661835440960375,
+          "repicked_share": 0.09346760263454539,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516595.0,
+          "served_units": 574000.0,
+          "placed_units": 2408050.0,
+          "repicked_units": 574000.0,
+          "n_units": 2,
+          "served_share": 0.22808596536192752,
+          "repicked_share": 0.23836714353937832,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_fsight_w5": {
+        "store": {
+          "picked_units": 517933.0,
+          "served_units": 44942.0,
+          "placed_units": 480161.0,
+          "repicked_units": 44942.0,
+          "n_units": 2,
+          "served_share": 0.08677184114547634,
+          "repicked_share": 0.0935977724138362,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516056.0,
+          "served_units": 570057.0,
+          "placed_units": 2378590.0,
+          "repicked_units": 570057.0,
+          "n_units": 2,
+          "served_share": 0.22656769165710144,
+          "repicked_share": 0.23966173237085836,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_fsight_wall": {
+        "store": {
+          "picked_units": 518026.0,
+          "served_units": 44964.0,
+          "placed_units": 483870.0,
+          "repicked_units": 44964.0,
+          "n_units": 2,
+          "served_share": 0.08679873210997131,
+          "repicked_share": 0.0929257858515717,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516059.0,
+          "served_units": 569549.0,
+          "placed_units": 2381758.0,
+          "repicked_units": 569549.0,
+          "n_units": 2,
+          "served_share": 0.22636551845564828,
+          "repicked_share": 0.2391296680855066,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      },
+      "k1_off_gmyopic_k8": {
+        "store": {
+          "picked_units": 517906.0,
+          "served_units": 44831.0,
+          "placed_units": 480848.0,
+          "repicked_units": 44831.0,
+          "n_units": 2,
+          "served_share": 0.08656204021579206,
+          "repicked_share": 0.09323320467174658,
+          "bins_per_picked_sku": 3.989136700217266,
+          "picked_skus": 22553
+        },
+        "fulfillment": {
+          "picked_units": 2516473.0,
+          "served_units": 573394.0,
+          "placed_units": 2405787.0,
+          "repicked_units": 573394.0,
+          "n_units": 2,
+          "served_share": 0.22785620986197747,
+          "repicked_share": 0.23833947061813868,
+          "bins_per_picked_sku": 7.600055226066703,
+          "picked_skus": 83294
+        }
+      }
+    }
+  },
+  "inbound_repick_note": "per rule pair, cell and channel, units-weighted over the pair's units (both stock modes). served_share = units picked from bins a reorder placed earlier in the window / units picked; repicked_share = of the units reorder placed in the window, those picked again before it ended (per bin, min(picked after placement, placed)). Unit grain, any pick after the placement. The leverage an unloading rule can have at all: it changes only which empty bin a placed pack takes.",
+  "discriminating": {
+    "fifo/fifo": true,
+    "rank_cartlabor/rank_minlabor": true
+  },
+  "discriminating_note": "per rule pair: false when every cell landed in ONE tie group, i.e. the score did not separate the policies. A result, not a failure -- but not a ranking either.",
+  "rank_agreement": {
+    "pairs": [
+      "fifo/fifo",
+      "rank_cartlabor/rank_minlabor"
+    ],
+    "orders": {
+      "fifo/fifo": [
+        "k1_off_ggated_h050",
+        "k1_off_gforecast",
+        "k1_off_lifo",
+        "k1_off_fifo",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic",
+        "k1_off_gmyopic_k8",
+        "k1_off_ggated_h025",
+        "k1_off_fsight_w5",
+        "k1_off_fsight_wall"
+      ],
+      "rank_cartlabor/rank_minlabor": [
+        "k1_off_ggated_h050",
+        "k1_off_ggated_h025",
+        "k1_off_gforecast",
+        "k1_off_fsight_wall",
+        "k1_off_fsight_w5",
+        "k1_off_fifo",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic_k8",
+        "k1_off_gmyopic",
+        "k1_off_lifo"
+      ]
+    },
+    "agree": null,
+    "common": [],
+    "control": "fifo/fifo",
+    "note": "fewer than two replicating rule pairs produced a ranking (the rider 'fifo/fifo' is a control, not a replication), so agreement is unknown rather than true"
+  },
+  "rider_control": {
+    "reference": "k1_off_fifo",
+    "inert": [
+      "k1_off_ggated_h100",
+      "k1_off_gmyopic",
+      "k1_off_gmyopic_k8"
+    ],
+    "moved": [
+      "k1_off_ggated_h050",
+      "k1_off_gforecast",
+      "k1_off_lifo",
+      "k1_off_ggated_h025",
+      "k1_off_fsight_w5",
+      "k1_off_fsight_wall"
+    ],
+    "note": "a CONTROL, not a replication: under FIFO restock a gain policy degenerates to arrival order, so `inert` names the policies that did nothing at all under the rider and `moved` the ones that reorder on a rule independent of placement. Read beside the winner pair; never a veto on it."
+  },
+  "exact_check": {
+    "fifo/fifo": {
+      "score_order": [
+        "k1_off_ggated_h050",
+        "k1_off_gforecast",
+        "k1_off_lifo",
+        "k1_off_fifo",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic",
+        "k1_off_gmyopic_k8",
+        "k1_off_ggated_h025",
+        "k1_off_fsight_w5",
+        "k1_off_fsight_wall"
+      ],
+      "exact_order": [
+        "k1_off_fifo",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic",
+        "k1_off_gmyopic_k8",
+        "k1_off_ggated_h050",
+        "k1_off_ggated_h025",
+        "k1_off_fsight_wall",
+        "k1_off_gforecast",
+        "k1_off_lifo",
+        "k1_off_fsight_w5"
+      ],
+      "agree": false
+    },
+    "rank_cartlabor/rank_minlabor": {
+      "score_order": [
+        "k1_off_ggated_h050",
+        "k1_off_ggated_h025",
+        "k1_off_gforecast",
+        "k1_off_fsight_wall",
+        "k1_off_fsight_w5",
+        "k1_off_fifo",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic_k8",
+        "k1_off_gmyopic",
+        "k1_off_lifo"
+      ],
+      "exact_order": [
+        "k1_off_fifo",
+        "k1_off_ggated_h100",
+        "k1_off_gmyopic_k8",
+        "k1_off_ggated_h050",
+        "k1_off_ggated_h025",
+        "k1_off_gmyopic",
+        "k1_off_lifo",
+        "k1_off_gforecast",
+        "k1_off_fsight_wall",
+        "k1_off_fsight_w5"
+      ],
+      "agree": false
+    }
+  },
+  "exact_check_note": "the same cells ranked on ss_pick_owed_exact, the closed-form expected pick re-taken over each placement at keyframe cadence. A DIFFERENT MODEL at a different grain (seconds per unit), so only the ORDERS are comparable. null when no arm took the check. Reported, never enforced -- AND ASYMMETRIC: the closed form walks every aisle once a day, so its travel term is ~0.4% of its total and it cannot see aisle choice at all. Its placement signal is the height bracket, which the score also carries. AGREEMENT here is therefore weak evidence; DISAGREEMENT is the informative direction, and it means the score has moved on something the closed form prices the other way. Measured in Tests/unit/test_pick_owed_agrees_with_the_closed_form.py.",
+  "refused": null,
+  "k": "repicked_units",
+  "rule_pair_order": [
+    "store",
+    "fulfillment"
+  ],
+  "rider": "fifo/fifo",
+  "primary_pair": "rank_cartlabor/rank_minlabor",
+  "rankings": {
+    "fifo/fifo": [
+      {
+        "cell": "k1_off_ggated_h050",
+        "owed_seconds": 64749221.4381402,
+        "owed_unadjusted": 64173018.92467195,
+        "adjusted": true,
+        "unservable": 1894.35,
+        "census_pct": 0.002925672244275269,
+        "overage_days": 27.165103702600845,
+        "n_units": 2,
+        "trailers": 1286,
+        "gap_pct": -0.009661924713505974,
+        "gap_ci_pct": [
+          -0.020765773646996794,
+          -0.001429519457421295
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 1,
+        "margin_pct": -0.01454921011651539
+      },
+      {
+        "cell": "k1_off_gforecast",
+        "owed_seconds": 64739800.937864356,
+        "owed_unadjusted": 64166072.30412063,
+        "adjusted": true,
+        "unservable": 1943.0,
+        "census_pct": 0.0030012449402877263,
+        "overage_days": 56.8014775397748,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": -0.024206017865790998,
+        "gap_ci_pct": [
+          -0.03429108884707686,
+          -0.014506223075399423
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 2,
+        "margin_pct": 0.008760386032427441
+      },
+      {
+        "cell": "k1_off_lifo",
+        "owed_seconds": 64745472.39434314,
+        "owed_unadjusted": 64191075.46333682,
+        "adjusted": true,
+        "unservable": 1943.75,
+        "census_pct": 0.003002140424833516,
+        "overage_days": 73.90250958146636,
+        "n_units": 2,
+        "trailers": 1284,
+        "gap_pct": -0.015450297716242728,
+        "gap_ci_pct": [
+          -0.029660034202881137,
+          -0.0035467910258874173
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 3,
+        "margin_pct": 0.015459797898432989
+      },
+      {
+        "cell": "k1_off_fifo",
+        "owed_seconds": 64755481.91352369,
+        "owed_unadjusted": 64189822.03725818,
+        "adjusted": true,
+        "unservable": 1924.3999999999999,
+        "census_pct": 0.002971794731710743,
+        "overage_days": 15.226635875740847,
+        "n_units": 2,
+        "trailers": 1284,
+        "gap_pct": null,
+        "gap_ci_pct": null,
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 4,
+        "margin_pct": 0.0
+      },
+      {
+        "cell": "k1_off_ggated_h100",
+        "owed_seconds": 64755481.91352369,
+        "owed_unadjusted": 64189822.03725818,
+        "adjusted": true,
+        "unservable": 1924.3999999999999,
+        "census_pct": 0.002971794731710743,
+        "overage_days": 15.226635875740847,
+        "n_units": 2,
+        "trailers": 1284,
+        "gap_pct": 0.0,
+        "gap_ci_pct": [
+          0.0,
+          0.0
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 5,
+        "margin_pct": 0.0
+      },
+      {
+        "cell": "k1_off_gmyopic",
+        "owed_seconds": 64755481.91352369,
+        "owed_unadjusted": 64189822.03725818,
+        "adjusted": true,
+        "unservable": 1924.3999999999999,
+        "census_pct": 0.002971794731710743,
+        "overage_days": 15.226635875740847,
+        "n_units": 2,
+        "trailers": 1284,
+        "gap_pct": 0.0,
+        "gap_ci_pct": [
+          0.0,
+          0.0
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 6,
+        "margin_pct": 0.0
+      },
+      {
+        "cell": "k1_off_gmyopic_k8",
+        "owed_seconds": 64755481.91352369,
+        "owed_unadjusted": 64189822.03725818,
+        "adjusted": true,
+        "unservable": 1924.3999999999999,
+        "census_pct": 0.002971794731710743,
+        "overage_days": 15.226635875740847,
+        "n_units": 2,
+        "trailers": 1284,
+        "gap_pct": 0.0,
+        "gap_ci_pct": [
+          0.0,
+          0.0
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 7,
+        "margin_pct": 0.0003673265782023429
+      },
+      {
+        "cell": "k1_off_ggated_h025",
+        "owed_seconds": 64755719.7776196,
+        "owed_unadjusted": 64196315.29546368,
+        "adjusted": true,
+        "unservable": 1874.6999999999998,
+        "census_pct": 0.0028950338386137743,
+        "overage_days": 35.30197807106859,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": 0.0003738695831832433,
+        "gap_ci_pct": [
+          -0.015824035650438432,
+          0.01850734863026499
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 8,
+        "margin_pct": -0.005327799394482524
+      },
+      {
+        "cell": "k1_off_fsight_w5",
+        "owed_seconds": 64752269.722773395,
+        "owed_unadjusted": 64180168.65699096,
+        "adjusted": true,
+        "unservable": 1947.2,
+        "census_pct": 0.0030071532756096872,
+        "overage_days": 50.83845677264526,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": -0.004946244126244165,
+        "gap_ci_pct": [
+          -0.018141037919756298,
+          0.006114981619482893
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 9,
+        "margin_pct": 0.006922117131104953
+      },
+      {
+        "cell": "k1_off_fsight_wall",
+        "owed_seconds": 64756751.950728655,
+        "owed_unadjusted": 64184655.870305575,
+        "adjusted": true,
+        "unservable": 1957.3,
+        "census_pct": 0.003022541960549916,
+        "overage_days": 50.96257370199531,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": 0.001967729616198418,
+        "gap_ci_pct": [
+          -0.010272706344228411,
+          0.015118280802031458
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 10,
+        "margin_pct": null
+      }
+    ],
+    "rank_cartlabor/rank_minlabor": [
+      {
+        "cell": "k1_off_ggated_h050",
+        "owed_seconds": 62896597.3423931,
+        "owed_unadjusted": 62351998.85428249,
+        "adjusted": true,
+        "unservable": 2057.8,
+        "census_pct": 0.003271719118282122,
+        "overage_days": 27.76988139455274,
+        "n_units": 2,
+        "trailers": 1286,
+        "gap_pct": -0.04068214770393735,
+        "gap_ci_pct": [
+          -0.08485718579361548,
+          -0.0022533030292311716
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 1,
+        "margin_pct": -0.029424143647392053
+      },
+      {
+        "cell": "k1_off_ggated_h025",
+        "owed_seconds": 62878090.55724175,
+        "owed_unadjusted": 62333830.57452969,
+        "adjusted": true,
+        "unservable": 2126.875,
+        "census_pct": 0.003382537512114456,
+        "overage_days": 49.590684200288685,
+        "n_units": 2,
+        "trailers": 1287,
+        "gap_pct": -0.0702080786038114,
+        "gap_ci_pct": [
+          -0.12196263048905435,
+          -0.028678146227033845
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 2,
+        "margin_pct": -0.04652616178740916
+      },
+      {
+        "cell": "k1_off_gforecast",
+        "owed_seconds": 62848835.79510026,
+        "owed_unadjusted": 62278208.11202943,
+        "adjusted": true,
+        "unservable": 2339.875,
+        "census_pct": 0.0037230204353004394,
+        "overage_days": 91.41334247056685,
+        "n_units": 2,
+        "trailers": 1285,
+        "gap_pct": -0.1169131675971565,
+        "gap_ci_pct": [
+          -0.20308283751189102,
+          -0.04357700435029632
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 3,
+        "margin_pct": 0.017224571199757743
+      },
+      {
+        "cell": "k1_off_fsight_wall",
+        "owed_seconds": 62859661.23757,
+        "owed_unadjusted": 62299909.76428461,
+        "adjusted": true,
+        "unservable": 2303.7250000000004,
+        "census_pct": 0.0036648702119048463,
+        "overage_days": 92.09275892552515,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": -0.09961749673037798,
+        "gap_ci_pct": [
+          -0.17530119818349646,
+          -0.044098753672461355
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 4,
+        "margin_pct": -0.015513943647939813
+      },
+      {
+        "cell": "k1_off_fsight_w5",
+        "owed_seconds": 62849909.22514832,
+        "owed_unadjusted": 62279668.53776843,
+        "adjusted": true,
+        "unservable": 2343.35,
+        "census_pct": 0.003728485894236341,
+        "overage_days": 96.611554245398,
+        "n_units": 2,
+        "trailers": 1287,
+        "gap_pct": -0.11520203598777294,
+        "gap_ci_pct": [
+          -0.20357336005849877,
+          -0.05059888650696604
+        ],
+        "tie_group": 1,
+        "decided_by": "overage",
+        "rank": 5,
+        "margin_pct": 0.11488631085111495
+      },
+      {
+        "cell": "k1_off_fifo",
+        "owed_seconds": 62922115.16723037,
+        "owed_unadjusted": 62367591.12247387,
+        "adjusted": true,
+        "unservable": 1940.0,
+        "census_pct": 0.0030831767095622774,
+        "overage_days": 19.399744219225433,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": null,
+        "gap_ci_pct": null,
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 6,
+        "margin_pct": 0.0
+      },
+      {
+        "cell": "k1_off_ggated_h100",
+        "owed_seconds": 62922115.16723037,
+        "owed_unadjusted": 62367591.12247387,
+        "adjusted": true,
+        "unservable": 1940.0,
+        "census_pct": 0.0030831767095622774,
+        "overage_days": 19.399744219225433,
+        "n_units": 2,
+        "trailers": 1288,
+        "gap_pct": 0.0,
+        "gap_ci_pct": [
+          0.0,
+          0.0
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 7,
+        "margin_pct": 0.005948918774607874
+      },
+      {
+        "cell": "k1_off_gmyopic_k8",
+        "owed_seconds": 62925858.35275293,
+        "owed_unadjusted": 62370552.48521255,
+        "adjusted": true,
+        "unservable": 1954.65,
+        "census_pct": 0.0031062746717613688,
+        "overage_days": 23.48704957772532,
+        "n_units": 2,
+        "trailers": 1287,
+        "gap_pct": 0.005972478190964962,
+        "gap_ci_pct": [
+          -0.0027027932931083403,
+          0.016357311185799472
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 8,
+        "margin_pct": -0.0107316262677598
+      },
+      {
+        "cell": "k1_off_gmyopic",
+        "owed_seconds": 62919105.384808734,
+        "owed_unadjusted": 62373499.33639681,
+        "adjusted": true,
+        "unservable": 1926.6,
+        "census_pct": 0.003062027007881076,
+        "overage_days": 54.5647187368342,
+        "n_units": 2,
+        "trailers": 1289,
+        "gap_pct": -0.004784404970133843,
+        "gap_ci_pct": [
+          -0.028710534950735705,
+          0.015206131764758431
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 9,
+        "margin_pct": 0.01152076464213742
+      },
+      {
+        "cell": "k1_off_lifo",
+        "owed_seconds": 62926354.14685506,
+        "owed_unadjusted": 62369876.25536662,
+        "adjusted": true,
+        "unservable": 1930.15,
+        "census_pct": 0.0030673157950570147,
+        "overage_days": 85.38059640624816,
+        "n_units": 2,
+        "trailers": 1287,
+        "gap_pct": 0.006757576337269524,
+        "gap_ci_pct": [
+          -0.01729204602668304,
+          0.02727493840685546
+        ],
+        "tie_group": 2,
+        "decided_by": "overage",
+        "rank": 10,
+        "margin_pct": null
+      }
+    ]
+  },
+  "chosen": {
+    "fifo/fifo": [
+      "k1_off_ggated_h050",
+      "k1_off_gforecast",
+      "k1_off_lifo"
+    ],
+    "rank_cartlabor/rank_minlabor": [
+      "k1_off_ggated_h050",
+      "k1_off_ggated_h025",
+      "k1_off_gforecast"
+    ]
+  },
+  "units": [
+    {
+      "cell": "k1_off_fifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_fifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258951.0,
+          "served_units": 22430.0,
+          "served_share": 0.08661870392468073,
+          "placed_units": 239727.0,
+          "repicked_units": 22430.0,
+          "repicked_share": 0.09356476325153196,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258319.0,
+          "served_units": 273821.0,
+          "served_share": 0.21760857143538323,
+          "placed_units": 1205050.0,
+          "repicked_units": 273821.0,
+          "repicked_share": 0.22722791585411395,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 645,
+      "owed_seconds": 31805457.062747303,
+      "owed_unadjusted": 31526547.389620155,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 996.0250000000001,
+      "exact_s_per_unit": 119.32383759779863,
+      "overage_days": 8.482418302363202
+    },
+    {
+      "cell": "k1_off_fifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_fifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258930.0,
+          "served_units": 22428.0,
+          "served_share": 0.08661800486618004,
+          "placed_units": 240204.0,
+          "repicked_units": 22428.0,
+          "repicked_share": 0.09337063496028376,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258276.0,
+          "served_units": 300179.0,
+          "served_share": 0.2385637173402338,
+          "placed_units": 1203000.0,
+          "repicked_units": 300179.0,
+          "repicked_share": 0.249525353283458,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 31116658.104483068,
+      "owed_unadjusted": 30841043.732853718,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 943.9749999999999,
+      "exact_s_per_unit": 122.6345305467257,
+      "overage_days": 10.91732591686223
+    },
+    {
+      "cell": "k1_off_lifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258928.0,
+          "served_units": 22317.0,
+          "served_share": 0.08618998331582525,
+          "placed_units": 239806.0,
+          "repicked_units": 22317.0,
+          "repicked_share": 0.09306272570327681,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258304.0,
+          "served_units": 299139.0,
+          "served_share": 0.23773189944560297,
+          "placed_units": 1206051.0,
+          "repicked_units": 299139.0,
+          "repicked_share": 0.24803179965026353,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32372736.19717157,
+      "owed_unadjusted": 32095537.73166841,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 971.875,
+      "exact_s_per_unit": 122.94607238813954,
+      "overage_days": 36.95125479073318
+    },
+    {
+      "cell": "k1_off_lifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258939.0,
+          "served_units": 22421.0,
+          "served_share": 0.08658796087109319,
+          "placed_units": 239378.0,
+          "repicked_units": 22421.0,
+          "repicked_share": 0.09366357810659293,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258246.0,
+          "served_units": 273813.0,
+          "served_share": 0.2176148384338198,
+          "placed_units": 1200323.0,
+          "repicked_units": 273813.0,
+          "repicked_share": 0.22811609875008643,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 31815395.528361015,
+      "owed_unadjusted": 31535456.62533257,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 973.0999999999999,
+      "exact_s_per_unit": 119.32815466671457,
+      "overage_days": 41.11885908094085
+    },
+    {
+      "cell": "k1_off_lifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258928.0,
+          "served_units": 22317.0,
+          "served_share": 0.08618998331582525,
+          "placed_units": 239806.0,
+          "repicked_units": 22317.0,
+          "repicked_share": 0.09306272570327681,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258304.0,
+          "served_units": 299139.0,
+          "served_share": 0.23773189944560297,
+          "placed_units": 1206051.0,
+          "repicked_units": 299139.0,
+          "repicked_share": 0.24803179965026353,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32372736.19717157,
+      "owed_unadjusted": 32095537.73166841,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 971.875,
+      "exact_s_per_unit": 122.94607238813954,
+      "overage_days": 36.95125479073318
+    },
+    {
+      "cell": "k1_off_lifo",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258956.0,
+          "served_units": 22452.0,
+          "served_share": 0.0867019879825144,
+          "placed_units": 239695.0,
+          "repicked_units": 22452.0,
+          "repicked_share": 0.09366903773545547,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258381.0,
+          "served_units": 299967.0,
+          "served_share": 0.2383753410135722,
+          "placed_units": 1206830.0,
+          "repicked_units": 299967.0,
+          "repicked_share": 0.24855779190109625,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 31110958.618494045,
+      "owed_unadjusted": 30834419.630034048,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 957.0500000000001,
+      "exact_s_per_unit": 122.62704298072455,
+      "overage_days": 44.26173732530731
+    },
+    {
+      "cell": "k1_off_gmyopic",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_gmyopic",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258935.0,
+          "served_units": 22368.0,
+          "served_share": 0.08638461389924112,
+          "placed_units": 240552.0,
+          "repicked_units": 22368.0,
+          "repicked_share": 0.09298613189663774,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258315.0,
+          "served_units": 273608.0,
+          "served_share": 0.2174399891918955,
+          "placed_units": 1206792.0,
+          "repicked_units": 273608.0,
+          "repicked_share": 0.22672341215387573,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 647,
+      "owed_seconds": 31805585.733464357,
+      "owed_unadjusted": 31529909.204186063,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 981.175,
+      "exact_s_per_unit": 119.32286729093067,
+      "overage_days": 28.904633280366703
+    },
+    {
+      "cell": "k1_off_gmyopic",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_gmyopic",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258885.0,
+          "served_units": 22416.0,
+          "served_share": 0.08658670838403151,
+          "placed_units": 240215.0,
+          "repicked_units": 22416.0,
+          "repicked_share": 0.093316404054701,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258339.0,
+          "served_units": 300293.0,
+          "served_share": 0.23864236902774214,
+          "placed_units": 1207293.0,
+          "repicked_units": 300293.0,
+          "repicked_share": 0.24873249492873725,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 31113519.65134438,
+      "owed_unadjusted": 30843590.132210746,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 945.425,
+      "exact_s_per_unit": 122.62839491971192,
+      "overage_days": 25.6600854564675
+    },
+    {
+      "cell": "k1_off_gforecast",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258947.0,
+          "served_units": 22305.0,
+          "served_share": 0.08613731767504547,
+          "placed_units": 241076.0,
+          "repicked_units": 22305.0,
+          "repicked_share": 0.09252268994010188,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257927.0,
+          "served_units": 298700.0,
+          "served_share": 0.2374541606945395,
+          "placed_units": 1183822.0,
+          "repicked_units": 298700.0,
+          "repicked_share": 0.2523183383988471,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32369900.468932178,
+      "owed_unadjusted": 32083036.152060315,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 971.5,
+      "exact_s_per_unit": 122.93878630563648,
+      "overage_days": 28.4007387698874
+    },
+    {
+      "cell": "k1_off_gforecast",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258956.0,
+          "served_units": 22444.0,
+          "served_share": 0.08667109470334729,
+          "placed_units": 241140.0,
+          "repicked_units": 22444.0,
+          "repicked_share": 0.09307456249481628,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258065.0,
+          "served_units": 272257.0,
+          "served_share": 0.2164093270220537,
+          "placed_units": 1191505.0,
+          "repicked_units": 272257.0,
+          "repicked_share": 0.22849841167263252,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 31764950.07847329,
+      "owed_unadjusted": 31466668.69687472,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1243.725,
+      "exact_s_per_unit": 119.35011511263659,
+      "overage_days": 50.58335548848359
+    },
+    {
+      "cell": "k1_off_gforecast",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258947.0,
+          "served_units": 22305.0,
+          "served_share": 0.08613731767504547,
+          "placed_units": 241076.0,
+          "repicked_units": 22305.0,
+          "repicked_share": 0.09252268994010188,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257927.0,
+          "served_units": 298700.0,
+          "served_share": 0.2374541606945395,
+          "placed_units": 1183822.0,
+          "repicked_units": 298700.0,
+          "repicked_share": 0.2523183383988471,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32369900.468932178,
+      "owed_unadjusted": 32083036.152060315,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 971.5,
+      "exact_s_per_unit": 122.93878630563648,
+      "overage_days": 28.4007387698874
+    },
+    {
+      "cell": "k1_off_gforecast",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258975.0,
+          "served_units": 22498.0,
+          "served_share": 0.08687325031373684,
+          "placed_units": 242299.0,
+          "repicked_units": 22498.0,
+          "repicked_share": 0.09285221977804284,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257750.0,
+          "served_units": 298303.0,
+          "served_share": 0.2371719340091433,
+          "placed_units": 1180956.0,
+          "repicked_units": 298303.0,
+          "repicked_share": 0.2525945081781201,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 31083885.716626972,
+      "owed_unadjusted": 30811539.415154714,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1096.15,
+      "exact_s_per_unit": 122.63821995806303,
+      "overage_days": 40.829986982083255
+    },
+    {
+      "cell": "k1_off_ggated_h025",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258897.0,
+          "served_units": 22289.0,
+          "served_share": 0.08609215247762624,
+          "placed_units": 240505.0,
+          "repicked_units": 22289.0,
+          "repicked_share": 0.09267582794536496,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257998.0,
+          "served_units": 298901.0,
+          "served_share": 0.23760053672581355,
+          "placed_units": 1186932.0,
+          "repicked_units": 298901.0,
+          "repicked_share": 0.25182655788200164,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32377859.8888098,
+      "owed_unadjusted": 32098157.64773184,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 937.3499999999999,
+      "exact_s_per_unit": 122.93230061700577,
+      "overage_days": 17.650989035534295
+    },
+    {
+      "cell": "k1_off_ggated_h025",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 259042.0,
+          "served_units": 22494.0,
+          "served_share": 0.08683533944302468,
+          "placed_units": 242651.0,
+          "repicked_units": 22494.0,
+          "repicked_share": 0.09270103976492988,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258210.0,
+          "served_units": 272288.0,
+          "served_share": 0.21640902552038213,
+          "placed_units": 1199064.0,
+          "repicked_units": 272288.0,
+          "repicked_share": 0.22708379202444573,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 645,
+      "owed_seconds": 31786208.270882696,
+      "owed_unadjusted": 31511959.208890934,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1082.95,
+      "exact_s_per_unit": 119.33523061351399,
+      "overage_days": 25.853608393491086
+    },
+    {
+      "cell": "k1_off_ggated_h025",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258897.0,
+          "served_units": 22289.0,
+          "served_share": 0.08609215247762624,
+          "placed_units": 240505.0,
+          "repicked_units": 22289.0,
+          "repicked_share": 0.09267582794536496,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257998.0,
+          "served_units": 298901.0,
+          "served_share": 0.23760053672581355,
+          "placed_units": 1186932.0,
+          "repicked_units": 298901.0,
+          "repicked_share": 0.25182655788200164,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32377859.8888098,
+      "owed_unadjusted": 32098157.64773184,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 937.3499999999999,
+      "exact_s_per_unit": 122.93230061700577,
+      "overage_days": 17.650989035534295
+    },
+    {
+      "cell": "k1_off_ggated_h025",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 259004.0,
+          "served_units": 22529.0,
+          "served_share": 0.086983212614477,
+          "placed_units": 242652.0,
+          "repicked_units": 22529.0,
+          "repicked_share": 0.0928448972190627,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257779.0,
+          "served_units": 298203.0,
+          "served_share": 0.2370869604278653,
+          "placed_units": 1180676.0,
+          "repicked_units": 298203.0,
+          "repicked_share": 0.25256971429926584,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 31091882.28635906,
+      "owed_unadjusted": 30821871.365638763,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1043.925,
+      "exact_s_per_unit": 122.6272819233322,
+      "overage_days": 23.7370758067976
+    },
+    {
+      "cell": "k1_off_ggated_h050",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258993.0,
+          "served_units": 22344.0,
+          "served_share": 0.0862726019622152,
+          "placed_units": 240927.0,
+          "repicked_units": 22344.0,
+          "repicked_share": 0.09274178485599373,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257912.0,
+          "served_units": 299009.0,
+          "served_share": 0.23770263738639905,
+          "placed_units": 1184717.0,
+          "repicked_units": 299009.0,
+          "repicked_share": 0.25238854511246145,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 32374610.7190701,
+      "owed_unadjusted": 32086509.462335974,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 947.175,
+      "exact_s_per_unit": 122.93941377769896,
+      "overage_days": 13.582551851300423
+    },
+    {
+      "cell": "k1_off_ggated_h050",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258898.0,
+          "served_units": 22339.0,
+          "served_share": 0.08628494619502661,
+          "placed_units": 239838.0,
+          "repicked_units": 22339.0,
+          "repicked_share": 0.09314203754200752,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258186.0,
+          "served_units": 272599.0,
+          "served_share": 0.21666033479946525,
+          "placed_units": 1195238.0,
+          "repicked_units": 272599.0,
+          "repicked_share": 0.22807089466700356,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 31802290.331108842,
+      "owed_unadjusted": 31525492.64625654,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1040.175,
+      "exact_s_per_unit": 119.30709833282292,
+      "overage_days": 14.133133627886105
+    },
+    {
+      "cell": "k1_off_ggated_h050",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258993.0,
+          "served_units": 22344.0,
+          "served_share": 0.0862726019622152,
+          "placed_units": 240927.0,
+          "repicked_units": 22344.0,
+          "repicked_share": 0.09274178485599373,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257912.0,
+          "served_units": 299009.0,
+          "served_share": 0.23770263738639905,
+          "placed_units": 1184717.0,
+          "repicked_units": 299009.0,
+          "repicked_share": 0.25238854511246145,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 32374610.7190701,
+      "owed_unadjusted": 32086509.462335974,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 947.175,
+      "exact_s_per_unit": 122.93941377769896,
+      "overage_days": 13.582551851300423
+    },
+    {
+      "cell": "k1_off_ggated_h050",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258992.0,
+          "served_units": 22513.0,
+          "served_share": 0.08692546487922406,
+          "placed_units": 242696.0,
+          "repicked_units": 22513.0,
+          "repicked_share": 0.09276213864258166,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257789.0,
+          "served_units": 298543.0,
+          "served_share": 0.23735539108705833,
+          "placed_units": 1180704.0,
+          "repicked_units": 298543.0,
+          "repicked_share": 0.2528516884841586,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 31094307.011284254,
+      "owed_unadjusted": 30826506.20802595,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1017.625,
+      "exact_s_per_unit": 122.62684593116987,
+      "overage_days": 13.636747766666634
+    },
+    {
+      "cell": "k1_off_ggated_h100",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_ggated_h100",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258951.0,
+          "served_units": 22430.0,
+          "served_share": 0.08661870392468073,
+          "placed_units": 239727.0,
+          "repicked_units": 22430.0,
+          "repicked_share": 0.09356476325153196,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258319.0,
+          "served_units": 273821.0,
+          "served_share": 0.21760857143538323,
+          "placed_units": 1205050.0,
+          "repicked_units": 273821.0,
+          "repicked_share": 0.22722791585411395,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 645,
+      "owed_seconds": 31805457.062747303,
+      "owed_unadjusted": 31526547.389620155,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 996.0250000000001,
+      "exact_s_per_unit": 119.32383759779863,
+      "overage_days": 8.482418302363202
+    },
+    {
+      "cell": "k1_off_ggated_h100",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_ggated_h100",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258930.0,
+          "served_units": 22428.0,
+          "served_share": 0.08661800486618004,
+          "placed_units": 240204.0,
+          "repicked_units": 22428.0,
+          "repicked_share": 0.09337063496028376,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258276.0,
+          "served_units": 300179.0,
+          "served_share": 0.2385637173402338,
+          "placed_units": 1203000.0,
+          "repicked_units": 300179.0,
+          "repicked_share": 0.249525353283458,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 31116658.104483068,
+      "owed_unadjusted": 30841043.732853718,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 943.9749999999999,
+      "exact_s_per_unit": 122.6345305467257,
+      "overage_days": 10.91732591686223
+    },
+    {
+      "cell": "k1_off_fsight_w5",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258958.0,
+          "served_units": 22330.0,
+          "served_share": 0.08623019949180949,
+          "placed_units": 240103.0,
+          "repicked_units": 22330.0,
+          "repicked_share": 0.09300175341415975,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258088.0,
+          "served_units": 298734.0,
+          "served_share": 0.23745079835432817,
+          "placed_units": 1192316.0,
+          "repicked_units": 298734.0,
+          "repicked_share": 0.2505493510109736,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32376134.861386698,
+      "owed_unadjusted": 32090084.32849548,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 973.6,
+      "exact_s_per_unit": 122.9586337923867,
+      "overage_days": 25.41922838632263
+    },
+    {
+      "cell": "k1_off_fsight_w5",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258987.0,
+          "served_units": 22449.0,
+          "served_share": 0.08668002641059204,
+          "placed_units": 240713.0,
+          "repicked_units": 22449.0,
+          "repicked_share": 0.0932604387797917,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257984.0,
+          "served_units": 271647.0,
+          "served_share": 0.21593835851648352,
+          "placed_units": 1187251.0,
+          "repicked_units": 271647.0,
+          "repicked_share": 0.22880334486978743,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 31771254.32656104,
+      "owed_unadjusted": 31476204.762607813,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1232.75,
+      "exact_s_per_unit": 119.35693753214862,
+      "overage_days": 50.751216610543494
+    },
+    {
+      "cell": "k1_off_fsight_w5",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258958.0,
+          "served_units": 22330.0,
+          "served_share": 0.08623019949180949,
+          "placed_units": 240103.0,
+          "repicked_units": 22330.0,
+          "repicked_share": 0.09300175341415975,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258088.0,
+          "served_units": 298734.0,
+          "served_share": 0.23745079835432817,
+          "placed_units": 1192316.0,
+          "repicked_units": 298734.0,
+          "repicked_share": 0.2505493510109736,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32376134.861386698,
+      "owed_unadjusted": 32090084.32849548,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 973.6,
+      "exact_s_per_unit": 122.9586337923867,
+      "overage_days": 25.41922838632263
+    },
+    {
+      "cell": "k1_off_fsight_w5",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258946.0,
+          "served_units": 22493.0,
+          "served_share": 0.0868636704177705,
+          "placed_units": 239448.0,
+          "repicked_units": 22493.0,
+          "repicked_share": 0.09393688817613845,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258072.0,
+          "served_units": 298410.0,
+          "served_share": 0.2371962812939164,
+          "placed_units": 1191339.0,
+          "repicked_units": 298410.0,
+          "repicked_share": 0.2504828600423557,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 31078654.89858728,
+      "owed_unadjusted": 30803463.775160618,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1110.6,
+      "exact_s_per_unit": 122.62855446047026,
+      "overage_days": 45.8603376348545
+    },
+    {
+      "cell": "k1_off_fsight_wall",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258978.0,
+          "served_units": 22359.0,
+          "served_share": 0.08633551884716076,
+          "placed_units": 241015.0,
+          "repicked_units": 22359.0,
+          "repicked_share": 0.09277015953363899,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257927.0,
+          "served_units": 298717.0,
+          "served_share": 0.23746767499226903,
+          "placed_units": 1183806.0,
+          "repicked_units": 298717.0,
+          "repicked_share": 0.25233610912598853,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32378375.975364327,
+      "owed_unadjusted": 32092327.935152788,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 978.65,
+      "exact_s_per_unit": 122.95042926704066,
+      "overage_days": 25.481286850997655
+    },
+    {
+      "cell": "k1_off_fsight_wall",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258978.0,
+          "served_units": 22400.0,
+          "served_share": 0.08649383345303462,
+          "placed_units": 240982.0,
+          "repicked_units": 22400.0,
+          "repicked_share": 0.09295300063905187,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257996.0,
+          "served_units": 271649.0,
+          "served_share": 0.21593788851474885,
+          "placed_units": 1187217.0,
+          "repicked_units": 271649.0,
+          "repicked_share": 0.22881158204439458,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 643,
+      "owed_seconds": 31775822.829908162,
+      "owed_unadjusted": 31482645.24170827,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1220.825,
+      "exact_s_per_unit": 119.35334187668118,
+      "overage_days": 49.765037717428456
+    },
+    {
+      "cell": "k1_off_fsight_wall",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258978.0,
+          "served_units": 22359.0,
+          "served_share": 0.08633551884716076,
+          "placed_units": 241015.0,
+          "repicked_units": 22359.0,
+          "repicked_share": 0.09277015953363899,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1257927.0,
+          "served_units": 298717.0,
+          "served_share": 0.23746767499226903,
+          "placed_units": 1183806.0,
+          "repicked_units": 298717.0,
+          "repicked_share": 0.25233610912598853,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 644,
+      "owed_seconds": 32378375.975364327,
+      "owed_unadjusted": 32092327.935152788,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 978.65,
+      "exact_s_per_unit": 122.95042926704066,
+      "overage_days": 25.481286850997655
+    },
+    {
+      "cell": "k1_off_fsight_wall",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 259048.0,
+          "served_units": 22564.0,
+          "served_share": 0.08710354837713474,
+          "placed_units": 242888.0,
+          "repicked_units": 22564.0,
+          "repicked_share": 0.09289878462501235,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258063.0,
+          "served_units": 297900.0,
+          "served_share": 0.23679259305774036,
+          "placed_units": 1194541.0,
+          "repicked_units": 297900.0,
+          "repicked_share": 0.24938449161644516,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 645,
+      "owed_seconds": 31083838.40766184,
+      "owed_unadjusted": 30817264.52257634,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 1082.9,
+      "exact_s_per_unit": 122.64208578071273,
+      "overage_days": 42.32772120809669
+    },
+    {
+      "cell": "k1_off_gmyopic_k8",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_fifo_norsl__opt_fifo_norsl",
+      "arms": {
+        "store": "opt_fifo_norsl",
+        "fulfillment": "opt_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_gmyopic_k8",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "opt_rank_cartlabor_norsl__opt_rank_minlabor_norsl",
+      "arms": {
+        "store": "opt_rank_cartlabor_norsl",
+        "fulfillment": "opt_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258962.0,
+          "served_units": 22405.0,
+          "served_share": 0.08651848533761711,
+          "placed_units": 239727.0,
+          "repicked_units": 22405.0,
+          "repicked_share": 0.09346047796034657,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258315.0,
+          "served_units": 273343.0,
+          "served_share": 0.21722939009707426,
+          "placed_units": 1204949.0,
+          "repicked_units": 273343.0,
+          "repicked_share": 0.226850265031964,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 645,
+      "owed_seconds": 31810633.10632819,
+      "owed_unadjusted": 31531692.520803146,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 998.75,
+      "exact_s_per_unit": 119.31923577870873,
+      "overage_days": 10.760335434817772
+    },
+    {
+      "cell": "k1_off_gmyopic_k8",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_fifo_norsl__uni_fifo_norsl",
+      "arms": {
+        "store": "uni_fifo_norsl",
+        "fulfillment": "uni_fifo_norsl"
+      },
+      "rule_pair": [
+        "fifo",
+        "fifo"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258948.0,
+          "served_units": 22299.0,
+          "served_share": 0.08611381435655036,
+          "placed_units": 241305.0,
+          "repicked_units": 22299.0,
+          "repicked_share": 0.09241002051345808,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258102.0,
+          "served_units": 298877.0,
+          "served_share": 0.23756181931194767,
+          "placed_units": 1198538.0,
+          "repicked_units": 298877.0,
+          "repicked_share": 0.24936797998895321,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 32377740.956761844,
+      "owed_unadjusted": 32094911.01862909,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 962.1999999999999,
+      "exact_s_per_unit": 122.93581333265377,
+      "overage_days": 7.613317937870423
+    },
+    {
+      "cell": "k1_off_gmyopic_k8",
+      "pair": "mixed_20260816_131535__mixed_realistic_bell_lt0",
+      "arm_pair": "uni_rank_cartlabor_norsl__uni_rank_minlabor_norsl",
+      "arms": {
+        "store": "uni_rank_cartlabor_norsl",
+        "fulfillment": "uni_rank_minlabor_norsl"
+      },
+      "rule_pair": [
+        "rank_cartlabor",
+        "rank_minlabor"
+      ],
+      "stock_mode": null,
+      "inbound_repick": {
+        "store": {
+          "picked_units": 258944.0,
+          "served_units": 22426.0,
+          "served_share": 0.08660559812160158,
+          "placed_units": 241121.0,
+          "repicked_units": 22426.0,
+          "repicked_share": 0.09300724532496132,
+          "picked_skus": 22553,
+          "bins_per_picked_sku": 3.989136700217266
+        },
+        "fulfillment": {
+          "picked_units": 1258158.0,
+          "served_units": 300051.0,
+          "served_share": 0.2384843557009533,
+          "placed_units": 1200838.0,
+          "repicked_units": 300051.0,
+          "repicked_share": 0.24986800884049307,
+          "picked_skus": 83294,
+          "bins_per_picked_sku": 7.600055226066703
+        }
+      },
+      "trailers": 642,
+      "owed_seconds": 31115225.246424742,
+      "owed_unadjusted": 30838859.964409404,
+      "adjusted": true,
+      "planned_weight": {
+        "store": 24725.0,
+        "fulfillment": 119223.0
+      },
+      "unservable": 955.9,
+      "exact_s_per_unit": 122.63373855686942,
+      "overage_days": 12.726714142907547
+    }
+  ],
+  "hand_off": "copy `chosen[primary_pair]` into whatif_config.PHASE3_UNLOAD by hand; a spec that read this file at import would make the decision invisible"
+}

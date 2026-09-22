@@ -1,0 +1,452 @@
+{
+  "schema_id": "sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13",
+  "reference": "k1_off_fifo",
+  "reference_label": "k1_off_fifo",
+  "metrics": [
+    "dthr_batch",
+    "dtask_ms",
+    "dbatch_ms",
+    "dthr_task"
+  ],
+  "window_batches": 50,
+  "arms": 6,
+  "pairs": [
+    "mixed_20260816_131535__mixed_realistic_bell_lt0"
+  ],
+  "channels": [
+    "fulfillment",
+    "store"
+  ],
+  "cells": [
+    {
+      "name": "k1_off_lifo",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.03635016959992944,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.007292505559057111,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.014159408723802162,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.01786947257413425,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": -0.07136696476098056,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.006219270421335822,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": -0.10596428807932355,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": -0.058744326198181415,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_gmyopic",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.018926439969876682,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.0006243309175471804,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.01970307805198378,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.0014027397325964142,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.013128440064611436,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_gforecast",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.08071577145929251,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.04460578071790845,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.07872864586721995,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.033976028081734305,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": -0.017217496063894437,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.004159033018028476,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": -0.06947322666633991,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": -0.009899639213871624,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_ggated_h025",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.008159602950838458,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.02174439035843303,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.04917683821020431,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.017224654816553376,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 0.07244238535753539,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.014424473545513338,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.06634428140258349,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.017396972506821626,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_ggated_h050",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.04990678934280973,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.02269954554742202,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.07600109283902003,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.013146433571173337,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 0.0378047121752236,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.0389116876515703,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.00553393430002703,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": -0.019166755255081405,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_ggated_h100",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.0,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.0,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_fsight_w5",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.0936802676525286,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.02520231872657664,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.09528301242954809,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.03961233706767823,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": -0.0141321773564082,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.005361579788067339,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": -0.029028399300469146,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.024567014447620317,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_fsight_wall",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.09301092284324593,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.0421108240392836,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.09191422294312221,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.04602252830281815,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 0.055091142223959624,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.026379425243122503,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.015018659603745672,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.0005704198813362895,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_gmyopic_k8",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": -0.0016210991716987836,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.009767931487887786,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.007766067570913382,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.0,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.007041758576824688,
+            "n": 4
+          }
+        }
+      }
+    },
+    {
+      "name": "k1_off_inb_off",
+      "layout": "whole aisle",
+      "zoning_label": "off",
+      "by_channel": {
+        "fulfillment": {
+          "dthr_batch": {
+            "med": 0.07999274863917476,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.011604257728887095,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": 0.02201783095203553,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": 0.041814965098148776,
+            "n": 4
+          }
+        },
+        "store": {
+          "dthr_batch": {
+            "med": -0.09685911640554815,
+            "n": 4
+          },
+          "dtask_ms": {
+            "med": -0.1484312924338826,
+            "n": 4
+          },
+          "dbatch_ms": {
+            "med": -0.2571265486169801,
+            "n": 4
+          },
+          "dthr_task": {
+            "med": -0.0774489021620405,
+            "n": 4
+          }
+        }
+      }
+    }
+  ]
+}

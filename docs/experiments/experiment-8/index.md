@@ -1,5 +1,13 @@
 # {{ experiment().title }}
 
+!!! info "Superseded — kept for reference"
+    [Experiment 9](../experiment-9/index.md) is the current sweep (2026-09-22). It holds this
+    experiment's two levers fixed at their winners and asks the next question — which trailer
+    the dock unloads first — on a coupled site with a standing yard. The findings on this page
+    stand as the reference for the placement and scheduling levers; its absolute numbers are
+    not comparable with Experiment 9's, which runs a different era (coupled channels, a yard,
+    the v3 demand stream).
+
 **Two levers, two outcomes, one run — at full production scale.** Where restock gets put away
 (**placement**) decides how much work a day contains. Who picks what next (**scheduling**) decides
 how fast that work clears. This experiment moves each lever separately across the full
@@ -148,13 +156,14 @@ The two rows move for different reasons, and that is the whole experiment. Place
     exist in any building, and it is the *direction and ranking* of the results, not the third
     decimal, that transfers.
 
-!!! note "This experiment is the new baseline"
+!!! note "This experiment was the v2 baseline — superseded 2026-09-22"
     The simulator's synthetic **demand stream was upgraded** before this sweep (a faster,
-    deterministic order-draw engine — "v2", 2026-08-20). The weighting model is identical, but
-    the specific sequence of simulated orders differs from earlier experiments, so numbers here
-    are compared **within this experiment**, and future sweeps will be compared against **these**
-    figures. Experiments 1–7 remain readable history on the previous stream; do not lay their
-    absolute numbers beside these.
+    deterministic order-draw engine — "v2", 2026-08-20), and this experiment was the baseline
+    later sweeps were to be compared against. That plan changed with
+    [Experiment 9](../experiment-9/index.md): its run couples the two channels through one
+    dock, carries a standing yard, and draws from the declared v3 stream, so its numbers are
+    compared within itself and not against these. This page remains the reference for the two
+    pick-side levers, which Experiment 9 held fixed at the winners named here.
 
 !!! note "The charts on this page were rebuilt on 2026-08-23"
     Same run, same simulation, same numbers — **the presentation changed**. The analysis suite was
