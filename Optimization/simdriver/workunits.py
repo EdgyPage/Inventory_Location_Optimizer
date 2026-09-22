@@ -542,6 +542,11 @@ def _prepare_channel_run(
         optimal_work     = ch_optimal_work,
         inv_db     = shared['inv_db'],
         aff_db     = shared['aff_db'],
+        # WHICH batch list this leaf's arms scored against (`batches_cache`, one per channel
+        # in the pair directory), so a reader that needs the script's planned weight -- the
+        # unload ranking pricing the unservable census -- can pick the right pickle without
+        # matching it to the channel by its SKUs.  None when the workers sampled inline.
+        batches_fingerprint = ch_batches_fp,
         # The shape every sim_<arm>.db in this directory was written with (Schema/identity.py).
         # It is stamped into simulation_runs.sim_schema_id too, but the docs site opens NO
         # database — docs/macros.py and docs/experiments/ingest.py read committed JSON only —

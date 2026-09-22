@@ -2216,6 +2216,27 @@ _dataset.register_query(_dataset.Query(
     tables={'bin_scores': ('run_id', *_BIN_SCORE_COLS)}))
 
 _dataset.register_query(_dataset.Query(
+    # Every pick at BIN grain -- (sku, bin) per batch with the units taken -- for a reader
+    # that joins picks onto `bin_placement` by the same key: `run_unload_ranking` prices
+    # how much of what inbound put away was picked again inside the window (the
+    # re-pick share Experiment 9's readers asked for).  Aggregated per (sku, bin, batch)
+    # so the row count is the distinct bins visited, not the pick events.
+    name='pick_bins', family='sim_db',
+    sql=('SELECT sku, batch_id, aisle_id, bayX, bayY, SUM(quantity) AS units'
+         ' FROM picks WHERE run_id = :run_id'
+         ' GROUP BY sku, batch_id, aisle_id, bayX, bayY ORDER BY batch_id'),
+    columns=('sku', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'units'),
+    tables={'picks': ('run_id', 'batch_id', 'aisle_id', 'bayX', 'bayY', 'sku', 'quantity')}))
+
+
+def load_pick_bins(path: str, run_id: int) -> list:
+    """Units picked per (sku, bin, batch), the `pick_bins` named query; `[]` on an
+    unservable vintage.  Read-only and immutable, like every loader beside it."""
+    rows = _query_rows('pick_bins', path, run_id=run_id)
+    return [dict(r) for r in rows] if rows is not None else []
+
+
+_dataset.register_query(_dataset.Query(
     name='sku_series_live', family='sim_db',
     sql=('SELECT sku, batch_id, COUNT(*) AS picks, SUM(quantity) AS units'
          ' FROM picks WHERE run_id = :run_id'

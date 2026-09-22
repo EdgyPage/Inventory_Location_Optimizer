@@ -149,21 +149,56 @@ def write_batches(path: str, fingerprint: str, batches: list) -> None:
     os.replace(tmp, path)
 
 
-def load_batches(path: str, expected_fingerprint: str) -> list | None:
-    """Return the stored batch list IFF the stored fingerprint matches expected; else None so the
-    caller falls back to inline sampling (never the wrong family's list).
+def read_batches_blob(path: str) -> tuple[str, list] | None:
+    """`(fingerprint, batches)` as stored, or None for a file that cannot be read.
+
+    The reader for a consumer that does NOT know the fingerprint in advance -- a ranking tool
+    walking a finished run's pair directory, where a leaf written before 2026-09-22 recorded
+    no `batches_fingerprint` in its `sim_meta.json` and the two channels' lists sit side by
+    side.  Such a caller matches the list to the channel by its SKUs; a worker never does,
+    because `load_batches` below already knows what it expects.
 
     ImportError/AttributeError guard: a cache written before a module rename/move (e.g. the
-    flat->package conversion) embeds the OLD class paths — unpicklable now.  Treat it exactly
-    like a corrupt file (fall back inline; delete stale _batches_*.pkl to regain the dedup)."""
+    flat->package conversion) embeds the OLD class paths -- unpicklable now.  Treat it exactly
+    like a corrupt file."""
     try:
         with open(path, 'rb') as f:
             blob = pickle.load(f)
     except (OSError, pickle.UnpicklingError, EOFError, ValueError, ImportError, AttributeError):
         return None
-    if not isinstance(blob, dict) or blob.get('fingerprint') != expected_fingerprint:
+    if not isinstance(blob, dict) or not isinstance(blob.get('batches'), list):
         return None
-    return blob.get('batches')
+    return str(blob.get('fingerprint')), blob['batches']
+
+
+def load_batches(path: str, expected_fingerprint: str) -> list | None:
+    """Return the stored batch list IFF the stored fingerprint matches expected; else None so the
+    caller falls back to inline sampling (never the wrong family's list)."""
+    got = read_batches_blob(path)
+    if got is None or got[0] != expected_fingerprint:
+        return None
+    return got[1]
+
+
+def planned_lines(batches: list, n_batches: int | None = None) -> dict:
+    """{sku: planned lines} over the first `n_batches` batches -- the SCRIPT's weight.
+
+    ONE construction, because two things read it and must agree to the line: the worker
+    hands it to `Inventory_Manager.enable_pick_owed` as the weight `pick_owed_s` prices the
+    placement against (`strategy_runner._build_arm`), and `run_unload_ranking` rebuilds its
+    TOTAL to price the lines that score declined to price (`unservable_weight`) at the leaf's
+    mean line.  A second spelling would not fail; it would adjust the score by a weight the
+    score was never measured on, silently.
+
+    A batch's `items` is keyed by SKU, one key per line, so a SKU's weight is the number of
+    batches that ask for it -- not the units, which is what makes the score a count of
+    walks rather than of pieces.
+    """
+    lines: dict = {}
+    for b in (batches if n_batches is None else batches[:n_batches]):
+        for sku in b.items:
+            lines[sku] = lines.get(sku, 0.0) + 1.0
+    return lines
 
 
 def _sibling_batches(out_dir: str, name: str) -> str | None:

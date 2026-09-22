@@ -366,6 +366,21 @@ PHASE1_RUN_DEFAULTS = {
 #: Nothing else about the era changes: the crews are still derived per inventory pair and the
 #: record is byte-identical across the coupling boundary (only how the crews are FIELDED moves),
 #: which is why the campaign's staffing pin works unchanged across phases.
+#: WHAT RANKS A PHASE-2 CELL, declared on the spec so `run_unload_ranking` reads it off the
+#: run's recorded spec name rather than carrying one metric for every question.  The keys
+#: are `run_unload_ranking.DEFAULT_METRIC`'s: the series scalar summed per unit, the
+#: per-batch `batch_stats` column it is the mean of (the floor is measured from it), the
+#: census read beside it, and the closed form's second opinion.  Phase 2's era run ranks on
+#: the placement score; the fill trial (`.scratch/inbound-throughput/` 06) will declare
+#: pick labour here instead, with no census, and the same tool ranks it.  Value-identical
+#: to the tool's DEFAULT on purpose: the declaration is what makes the choice visible on
+#: the spec, not a different choice.
+PHASE2_RANKING = {
+    'quantity': 'pick_owed_s', 'field': 'ss_pick_owed', 'column': 'pick_owed_s',
+    'census_quantity': 'unservable_weight', 'census_field': 'ss_unservable',
+    'census_column': 'unservable_weight', 'exact_field': 'ss_pick_owed_exact',
+}
+
 PHASE2_RUN_DEFAULTS = {
     **ERA_RUN_DEFAULTS,
     **INBOUND_ARRIVAL_REGIME,
@@ -654,6 +669,7 @@ SPECS = {
         'inbound': phase2_inbound_axis(),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': PHASE2_RANKING,
         'phase': 2,
     },
     # THE CAMPAIGN-SCALE BYTE-IDENTITY PROBE: `inbound_unload`'s reference cell and its first
@@ -670,6 +686,7 @@ SPECS = {
         'inbound': phase2_inbound_axis(keep=('fifo', 'gmyopic')),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': PHASE2_RANKING,
     },
     # THE TRAILER-BOUND DECISION, ASKED BEFORE THE MATRIX RATHER THAN INSIDE IT.
     #
@@ -706,6 +723,7 @@ SPECS = {
             keep=('fifo', 'gmyopic', f'gmyopic_k{PHASE2_BOUND_PROBE_K}')),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': PHASE2_RANKING,
         'phase': 2,
     },
     # THE BYTE-IDENTITY TOY MATRIX WITH A PRICED CELL.  `smoketest --profile tiny` runs

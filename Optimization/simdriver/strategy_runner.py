@@ -92,7 +92,8 @@ from Optimization.simdriver.audit_ledgers import AuditLedgers
 from Optimization.simdriver.leaf_scope import scope_for
 from Optimization.simdriver.batch_state import BatchState
 from Optimization.simdriver.shift_ledger import ShiftLedger
-from Optimization.simdriver.batch_precompute import load_batches, batch_fingerprint
+from Optimization.simdriver.batch_precompute import (
+    load_batches, batch_fingerprint, planned_lines as _planned_lines)
 # The ONE definition of a drained day (labour-only); the ledger's `drained` is written with it.
 from Optimization.simconfig.equilibrium import is_drained as _is_drained
 from Optimization.metrics.bin_recorder import BinRecorder
@@ -1830,13 +1831,12 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # differ only by where their stock ended up.  Falling back to `freq_by_sku` when this
     # worker is sampling inline keeps the score defined; it is then the expectation rather
     # than the realisation, which the ranking states.
+    # The construction lives in `batch_precompute.planned_lines` because `run_unload_ranking`
+    # rebuilds its TOTAL from the same pickle to price the unservable census; two spellings
+    # would adjust the score by a weight it was never measured on.
     _po_weight = freq_by_sku
     if batches is not None:
-        _lines: dict = {}
-        for _b in batches[:n_batches]:
-            for _sku in _b.items:
-                _lines[_sku] = _lines.get(_sku, 0.0) + 1.0
-        _po_weight = _lines
+        _po_weight = _planned_lines(batches, n_batches)
     mgr.enable_pick_owed(_po_weight, qty_by_sku, inventory.orders, wp)
 
     # ── the two crews, and the axis they share ─────────────────────────────────
