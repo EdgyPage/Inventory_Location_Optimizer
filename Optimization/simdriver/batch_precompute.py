@@ -154,7 +154,7 @@ def read_batches_blob(path: str) -> tuple[str, list] | None:
 
     The reader for a consumer that does NOT know the fingerprint in advance -- a ranking tool
     walking a finished run's pair directory, where a leaf written before 2026-09-22 recorded
-    no `batches_fingerprint` in its `sim_meta.json` and the two channels' lists sit side by
+    no `batches_fingerprint` in its meta record and the two channels' lists sit side by
     side.  Such a caller matches the list to the channel by its SKUs; a worker never does,
     because `load_batches` below already knows what it expects.
 

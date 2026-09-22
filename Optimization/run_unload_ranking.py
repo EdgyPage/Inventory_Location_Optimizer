@@ -166,7 +166,7 @@ DEFAULT_METRIC = {
 def _metric_for(layout: dict, log=print) -> dict:
     """The ranking metric the run's SPEC declares, else the default, as one dict.
 
-    Read off `run_layout.json`'s recorded spec name through `whatif_config.SPECS`; a spec
+    Read off the run layout's recorded spec name through `whatif_config.SPECS`; a spec
     with no `ranking` key ranks on the default.  A run whose spec is no longer registered
     (renamed, retired) ranks on the default OUT LOUD rather than refusing: the artifact
     names what it used, and a reader who wanted the other metric can see it did not get it.
@@ -612,7 +612,7 @@ class _PlannedWeights:
     `pick_owed_s` prices `W - unservable_weight` lines, where W is the sum of
     `batch_precompute.planned_lines` over the batches the worker fielded; the adjustment
     needs W and nothing records it, so this rebuilds it from the same pickle by the same
-    function.  Which pickle: the leaf's `batches_fingerprint` (in `sim_meta.json` since
+    function.  Which pickle: the leaf's `batches_fingerprint` (in its meta record since
     2026-09-22) when it has one, else the pickle whose SKUs are the leaf's -- a mixed run
     keeps one list per channel side by side, and the channels' catalogues are disjoint by
     regime, so the match is all-or-nothing.  Cached per pickle, because a campaign list is

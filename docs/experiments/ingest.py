@@ -123,7 +123,7 @@ def _registry_lists(flag: str):
     # `macros.run_suite_section`, so they must not join the per-leaf `full_suite` list —
     # that list is composed into `images/{run}/{inv}/{cfg}/{fname}`.
     # `site_suite` is the SITE-scope section: figures a coupled run renders once per
-    # (cell, pair) under `_site/`, staged through `site_figure_png` and rendered by
+    # (cell, pair) in the site-scope tree, staged through `site_figure_png` and rendered by
     # `macros.site_suite_section`.  Listed here so the registry parses; read through
     # `_registry_section` because this tuple's three slots are spelled at every caller.
     by = {'top3': [], 'full_suite': [], 'run_suite': [], 'site_suite': [], 'inventory': []}
@@ -629,7 +629,7 @@ def _stage_whatif(source, exp_dir, dry, log, rt=None):
 def _stage_site_figures(exp_dir, cell, inv, names, dry, log, rt=None):
     """The SITE-scope figures a coupled run rendered for one (cell, pair), by name, into
     `site_figure_png`.  Nothing without a resolver (site scope postdates the descriptor
-    route) and nothing on an uncoupled run, where no `_site` tree exists -- both silent,
+    route) and nothing on an uncoupled run, where no site tree exists -- both silent,
     because an experiment that curates no site figures asks for none.
 
     The candidates come from the contract's `figures_site_<family>_pngs` globs, every
@@ -651,7 +651,7 @@ def _stage_site_figures(exp_dir, cell, inv, names, dry, log, rt=None):
         src = found.get(fname)
         if src is None:
             if found:                     # a site tree exists but not this figure: say so
-                log.append(f'  MISSING  site figure {cell}/{inv}/_site: {fname}')
+                log.append(f'  MISSING  site figure {cell}/{inv} (site scope): {fname}')
             continue
         n += _copy(src, site_tree.path('site_figure_png', exp_dir, run=cell, inv=inv,
                                        figure=fname), dry, log)

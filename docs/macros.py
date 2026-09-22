@@ -998,7 +998,7 @@ def define_env(env):
     @env.macro
     def site_suite_section(*args):
         """The SITE-scope figure blocks for one run/inventory variant — the figures a
-        COUPLED run renders once for the site (`_site/figures/<family>/`), not once per
+        COUPLED run renders once for the site (its site-scope figure folder), not once per
         channel leaf.
 
         `full_suite_section` composes `images/{run}/{inv}/{cfg}/{fname}`; a site figure has
@@ -1016,16 +1016,19 @@ def define_env(env):
             out.append("")
         return "\n".join(out).rstrip()
 
+    #: The ranking artifact's staged path -- spelled ONCE, like the what-if reads above.
+    _RANKING = "data/unload_ranking.json"
+
     @env.macro
     def unload_ranking(pair=None, control=False):
         """The unloading-policy ranking of a phase-2 experiment, from the committed
-        `data/unload_ranking.json` — one row per cell, in rank order, for one rule pair.
+        ranking artifact under `data/` — one row per cell, in rank order, for one rule pair.
 
         `pair` is the rule-pair label (`store_rule/ful_rule`); the artifact's primary pair by
         default, its rider (the control) with `control=True`.  Numbers live in the JSON, so
         the page holds only prose; the caption names the floor that applied and how it was
         obtained, because a rank inside a tie group is the tie-break's, not the score's."""
-        d = _load_json(f"{_exp_dir()}/data/unload_ranking.json")
+        d = _load_json(f"{_exp_dir()}/{_RANKING}")
         lbl = pair or (d.get("rider") if control else d.get("primary_pair"))
         ranked = d["rankings"][lbl]
         nf = (d.get("noise_floor") or {}).get(lbl) or {}
@@ -1057,10 +1060,10 @@ def define_env(env):
             f"could really be in once day-to-day noise is allowed for (a moving-block "
             f"bootstrap of the paired per-batch gap to the reference); inside a tie group the "
             f"overage orders the cells. All numbers from the committed "
-            f"[`data/unload_ranking.json`](data/unload_ranking.json).</small>"
+            f"[`{_RANKING}`]({_RANKING}).</small>"
             if floor is not None else
             f"\n<small>Rule pair `{lbl}`. All numbers from the committed "
-            f"[`data/unload_ranking.json`](data/unload_ranking.json).</small>"
+            f"[`{_RANKING}`]({_RANKING}).</small>"
         )
         return "\n".join(lines) + "\n" + cap
 

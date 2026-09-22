@@ -301,6 +301,11 @@ _BASELINE: dict = {('Diagnostics/bucket_fill.py', 'warehouse.db'): 1,
  ('docs/macros.py', 'run_spec.json'): 1,
  ('docs/macros.py', 'whatif_delta.csv'): 2,
  ('docs/macros.py', 'whatif_delta.json'): 2,
+ # Experiment 9 (2026-09-22): the ranking artifact read, spelled once like the what-if
+ # reads; and the site-scope figure path, which test_site_tree pins character-for-character
+ # to the `site_figure_png` template (the reserved `_site` name is the contract's own).
+ ('docs/macros.py', 'unload_ranking.json'): 1,
+ ('docs/macros.py', '_site'): 1,
  ('scripts/archive_cells.py', 'resume.pkl'): 1,
  ('scripts/archive_cells.py', 'run_layout.json'): 1,
  ('scripts/archive_cells.py', 'runtime_metrics.db'): 1,
