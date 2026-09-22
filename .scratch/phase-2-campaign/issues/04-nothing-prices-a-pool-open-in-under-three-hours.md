@@ -1,7 +1,7 @@
 # 04 - nothing between the toy digest and a three-hour probe can price a pool open
 
 Type: task
-Status: open
+Status: resolved
 
 **Found 2026-09-20** while landing the performance round (commits `c9a447af`..`679b18f6`). The
 instruments this repo has for the gain evaluator's pool path are:
@@ -56,3 +56,7 @@ is a large one. Without this benchmark, every attempt at it costs a three-hour r
 
 Working drafts from the round are NOT in the repo; they were written to a session temp directory
 and are gone. The numbers above are the record.
+
+## Answer
+
+Resolved 2026-09-22 as `.scratch/inbound-throughput/issues/02`: `Tests/bench/bench_pool_open.py` with a gated smoke form.

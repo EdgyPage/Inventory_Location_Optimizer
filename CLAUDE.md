@@ -39,7 +39,8 @@ python -m pytest Tests/calltree/test_calltree_smoke.py \
                 Tests/unit/test_placed_union.py \
                 Tests/unit/test_frozen_tier.py \
                 Tests/integration/test_work_pool.py \
-                Tests/architecture/test_digest_surface.py -q   # the instruments still measure
+                Tests/architecture/test_digest_surface.py \
+                Tests/unit/test_bench_pool_open.py -q   # the instruments still measure
 ```
 
 The last gate, the pytest selection, is ~25 s and exists because the instruments it covers are the ones that
@@ -97,6 +98,12 @@ units (~24 h on the phase-2 `inbound_unload` shape against ~4 h of worker-hours)
 regression there is silent in the healthy direction -- a driver that quietly drained each
 cell before submitting the next finishes every run, byte-identical, six times slower -- so
 the file's first test is a barrier only a flat pool can pass, with a non-vacuity twin.
+
+`test_bench_pool_open.py` joined on 2026-09-22 with inbound-throughput ticket 02. The pool-open
+bench (`Tests/bench/bench_pool_open.py`) is the only instrument between the 90 s toy digest and
+a three-hour campaign probe that can price a gain-evaluator pool open, and the one before it
+(the meso ladder) gave the wrong sign once. The smoke form asserts non-vacuity only -- eager
+and template opens emit the same sequence, something is seated -- never a timing.
 
 It deliberately does NOT include
 `test_rank_cache_equivalence.py` — that one is 7-13 minutes and is a pre-merge cost, not a

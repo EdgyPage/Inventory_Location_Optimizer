@@ -15,6 +15,7 @@ the scenario builders the real tests import.
 | `run_digest.py` | content digests over a run's domain tables — the byte-identical gate for results-preserving refactors (`--self-test` first; two run roots to compare) |
 | `bench_ranked_assign.py` | `_ranked_assign_impl` (lift waves) |
 | `bench_plan_warehouse.py` | warehouse planning: sizing + fielding |
+| `bench_pool_open.py` | one gain-evaluator pool open at the campaign shape (eager vs template, the prologue split, the helper replica's weight); its smoke form `Tests/unit/test_bench_pool_open.py` is in the CLAUDE.md gate |
 
 ```bash
 python Tests/bench/perf_simulation.py
