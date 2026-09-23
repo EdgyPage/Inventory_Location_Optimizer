@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 31cf3b4f-6a24-4bd3-9118-cfbd0ff52dc6
-  modified: 2026-09-22T22:59:55.053Z
+  modified: 2026-09-23T15:36:36.734Z
 ---
 
 **The decision.** Opened 2026-09-22 in `.scratch/inbound-throughput/map.md` (destination 1),
@@ -41,3 +41,7 @@ user closed the whole inbound-throughput map to re-think the evaluator from the 
 statement. Their direction: the aisles must churn enough to give bins breathing room before an
 inbound decision can matter. Do not treat this gate as a live decision. See
 [[inbound-needs-churn-before-unload-order-matters]].
+
+**Quantified 2026-09-23:** see [[fresh-bin-law]] and [[breathing-room-frontier-law]] for the
+closed-form ceiling behind that re-think -- the served-fraction and occupancy-share laws that
+explain why the evaluators above had nothing to decide at this site's demand.

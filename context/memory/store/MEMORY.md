@@ -149,3 +149,7 @@
 - [Gain evaluator prices by the policy record](gain-evaluator-prices-by-the-policy-record.md) — never reads mgr.placement; a non-arm placer is mispriced
 - [Fill trial driver mode](fill-trial-driver-mode.md) — 7bcd0cec; markers in pick-stage batches, F differs per cell, door-bound fill crews, uni refused
 - [Inbound needs churn before unload order matters](inbound-needs-churn-before-unload-order-matters.md) — measured twice; the user's 2026-09-23 re-think starts from aisle churn
+- [Fresh-bin law](fresh-bin-law.md) — inbound reaches only repeat-line picks: ~8% store / ~24% ff at declared demand; k is the lever
+- [Breathing-room frontier law](breathing-room-frontier-law.md) — ranked rule spends brackets cheap-end first; LPT = water-filling; s* = sigma_G
+- [Closed-form module usage](closed-form-module-usage.md) — kernel DSL + Mirror gate + models/ + render/docs_page; how to add a law
+- [Confidence lever saturates](confidence-lever-saturates-at-one-line.md) — c<=0.80 declares the one-line floor; k is the churn lever

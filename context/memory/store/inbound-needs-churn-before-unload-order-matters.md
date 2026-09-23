@@ -1,8 +1,11 @@
 ---
 name: inbound-needs-churn-before-unload-order-matters
-description: unloading order cannot move placement where aisles don't churn; measured twice (era run, 40k fill), and the user's 2026-09-23 re-think starts from churn
+description: "unloading order cannot move placement where aisles don't churn; measured twice (era run, 40k fill), and the user's 2026-09-23 re-think starts from churn"
 metadata:
+  node_type: memory
   type: project
+  originSessionId: 31cf3b4f-6a24-4bd3-9118-cfbd0ff52dc6
+  modified: 2026-09-23T15:36:34.706Z
 ---
 
 Two independent measurements say an unloading policy has nothing to decide at this site's demand:
@@ -25,3 +28,8 @@ read by demand; that was the dead end the map ran into.
 churns -- the share of placed units picked again inside the window, and bins freed per day --
 not only yard depth. Related: [[pick-owed-cannot-see-inbound-at-this-demand]],
 [[fill-trial-driver-mode]], [[gain-evaluator-to-be-replaced-approximate]].
+
+**Follow-up (2026-09-23):** the aisle-churn campaign quantified this ceiling. See
+[[fresh-bin-law]] (an inbound decision can only reach picks that follow an earlier line of the
+same SKU by an order-to-shelf lead) and [[breathing-room-frontier-law]] (a velocity-blind ranked
+rule converges to its own occupancy share; only a turnover differential beats it).
