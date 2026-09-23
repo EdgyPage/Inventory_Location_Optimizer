@@ -59,3 +59,16 @@ revisions without convergence opens an issue for the user.
 - **Milestone 1** (framework): `Warehouse/kernel/closed_form.py` + `Tests/unit/test_closed_form.py`.
 - **Milestone 2** (cost laws as attributes): `PickConfig.closed_form`, `PutawayCost.closed_form`,
   `UnloadCost.closed_form` + `Tests/unit/test_cost_laws.py` (every registered config).
+- **Milestone 3, partial** (composed models): `models/levels.py` (S02: Q, rp, P exact for all
+  800,000 declared SKUs), `models/reorders.py` (S03: fires -0.5% to -1.7%).
+- **S05/S06** closed: receive exact, put-away -0.2% to -3%; pick per unit stable at -8% (store) /
+  -3% to -6% (fulfillment) once conditioned on the window's own SKUs; the store's placement gap
+  priced to half a point, fulfillment's (aisle choice) not seen.
+- **S08** closed: the fresh-bin law -- an inbound decision reaches ~8% of the store's picking and
+  ~25% of fulfillment's over 40 days; conditional Beta form within 0.2 points of the script.
+- **S09** closed: the frontier law + water-filling predicts the ranked rule's ground share per
+  block within 4 points with nothing measured fed back; the steady state s* = sigma_G (the rule
+  cannot beat its own occupancy without a turnover differential); the store's -0.80% restock gap
+  is -0.60% height on fresh picks; fifo vs lifo is exchangeable, E = 0 +- 0.012%, the fill null
+  retrodicted.
+- **Skipped so far:** S04 (yard) and S07 (g_b, fulfillment's co-location gap).
