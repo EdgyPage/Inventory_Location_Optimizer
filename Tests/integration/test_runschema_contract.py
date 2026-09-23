@@ -549,12 +549,13 @@ def test_the_schema_family_tuple_equals_the_declared_leaf_families():
 
 
 def test_a_run_scope_family_has_no_per_leaf_glob():
-    """`cost` renders at run scope. Nine families, eight globs — and a generator that
-    iterated all nine would move `schema_id`."""
+    """`cost` and `closed_form` render at run scope, into the dossier, so they have no
+    per-leaf glob -- and a generator that iterated every family would move `schema_id`.
+    The run-scope families declare their own dossier artifacts instead."""
     from Optimization.runschema import schema
     fams = _families()
     assert set(fams.RUN_SCOPE_FAMILIES) & set(schema._LEAF_FIGURE_FAMILIES) == set()
-    assert len(schema._LEAF_FIGURE_FAMILIES) == len(fams.FAMILIES) - 1
+    assert len(schema._LEAF_FIGURE_FAMILIES) ==         len(fams.FAMILIES) - len(fams.RUN_SCOPE_FAMILIES)
 
 
 def test_every_leaf_family_glob_is_generated_and_complete():
