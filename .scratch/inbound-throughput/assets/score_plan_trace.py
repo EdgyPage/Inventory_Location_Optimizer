@@ -16,6 +16,19 @@ plus two diagnostics from the exact per-round gains:
   * the exact winner's margin over the runner-up, relative -- near-ties are where any
     approximation flips the order, and where flipping it costs nothing.
 
+and two readings of what a disagreement COSTS, added 2026-09-22 after the first partial read
+(every reduction failed the tau gate, yet a drain only stages as many trailers as it has free
+doors and replans the rest the next day, so disagreement deep in the order may cost nothing):
+
+  * set agreement at k = 1, 2, 4: the share of the exact plan's first k trailers the reduction
+    also puts in its first k -- the trailers a drain with k free doors would actually stage,
+    whatever order it stages them in;
+  * regret at the first wrong pick: at the first position the orders differ, the exact
+    round's gain for the reduction's choice against the exact winner's, as a share of the
+    winner's.  EXACT, not estimated: the orders agree up to that round, so both trailers are
+    candidates of the same recorded round.  0 for a plan that never diverges.  It prices the
+    first mistake only; the states after it differ and the trace holds no gains for them.
+
 THE GATE (map decision Q9): a reduction qualifies when median tau >= 0.9 AND top-1 >= 0.8
 over the pool-family plans (`pool: true`); plans with T <= 2 are counted separately, since
 a one- or two-trailer order carries no ordering evidence.
@@ -64,6 +77,41 @@ def first_divergence(a: list, b: list) -> int | None:
     return None
 
 
+SET_K = (1, 2, 4)
+
+
+def set_agreement(a: list, b: list, k: int) -> float | None:
+    """|first k of a  ∩  first k of b| / k, over orders of the same items; None if empty."""
+    k = min(k, len(a), len(b))
+    if k < 1:
+        return None
+    return len(set(a[:k]) & set(b[:k])) / k
+
+
+def first_pick_regret(order: list, exact: list, rounds: list, prefix: int,
+                      absolute: bool = False) -> float | None:
+    """The first wrong pick's lost gain, as a share of the exact winner's (0 when the orders
+    never differ).  Round `r` of the trace picks `exact[prefix + r]`, so at the first
+    divergence `d` both `exact[d]` and `order[d]` are candidates of round `d - prefix`."""
+    d = first_divergence(order, exact)
+    if d is None:
+        return 0.0
+    r = d - prefix
+    if r < 0 or r >= len(rounds):
+        return None
+    g = {seq: gain for seq, _n, _dfr, gain in rounds[r]['cands']}
+    gw, ga = g.get(exact[d]), g.get(order[d])
+    if gw is None or ga is None:
+        return None
+    if absolute:
+        # In the gain's own units.  The share form is ill-conditioned wherever gains sit
+        # near or below zero -- 81% of gain_forecast's candidates did on the first read.
+        return gw - ga
+    if gw == 0:
+        return None
+    return (gw - ga) / abs(gw)
+
+
 def records(root: str) -> list:
     from Optimization.runschema import reader_for, resolver_for
     rt = resolver_for(root)
@@ -93,7 +141,9 @@ def _pct(xs, q):
 
 def score(recs: list) -> dict:
     by = defaultdict(lambda: defaultdict(lambda: {'tau': [], 'top1': [], 'div': [],
-                                                  'calls': 0, 'wall': 0.0}))
+                                                  'calls': 0, 'wall': 0.0, 'regret': [],
+                                                  'regret_abs': [], 'spread': [],
+                                                  **{f'set{k}': [] for k in SET_K}}))
     exact_cost = defaultdict(lambda: {'calls': 0, 'wall': 0.0, 'plans': 0, 'small': 0})
     mono = defaultdict(lambda: [0, 0])        # entry -> [rises, pairs]
     margins = defaultdict(list)
@@ -119,6 +169,20 @@ def score(recs: list) -> dict:
             s['top1'].append(order[prefix] == exact[prefix] if len(exact) > prefix else True)
             d = first_divergence(order, exact)
             s['div'].append(len(exact) if d is None else d)
+            for k in SET_K:
+                a = set_agreement(order[prefix:], exact[prefix:], k)
+                if a is not None:
+                    s[f'set{k}'].append(a)
+            rg = first_pick_regret(order, exact, r['rounds'], prefix)
+            if rg is not None:
+                s['regret'].append(rg)
+            ra = first_pick_regret(order, exact, r['rounds'], prefix, absolute=True)
+            if ra is not None:
+                s['regret_abs'].append(ra)
+                # the first round's gain spread: what "a lot" means for this plan
+                g0 = [c[3] for c in r['rounds'][0]['cands']] if r['rounds'] else []
+                if g0:
+                    s['spread'].append(max(g0) - min(g0))
             s['calls'] += r['calls'].get(name, 0)
             s['wall'] += r['wall_s'].get(name, 0.0)
         prev = None
@@ -147,6 +211,15 @@ def score(recs: list) -> dict:
                                                           if s['div'] else None),
                 'calls_ratio': (s['calls'] / ec['calls']) if ec['calls'] else None,
                 'wall_ratio': (s['wall'] / ec['wall']) if ec['wall'] else None,
+                **{f'set{k}_mean': (statistics.fmean(s[f'set{k}']) if s[f'set{k}'] else None)
+                   for k in SET_K},
+                'regret_median': statistics.median(s['regret']) if s['regret'] else None,
+                'regret_p90': _pct(s['regret'], 0.90),
+                'regret_abs_median': (statistics.median(s['regret_abs'])
+                                      if s['regret_abs'] else None),
+                'regret_of_spread_median': (statistics.median(
+                    [a / sp for a, sp in zip(s['regret_abs'], s['spread']) if sp > 0])
+                    if s['spread'] else None),
                 'passes_gate': (med is not None and top1 is not None
                                 and med >= GATE_TAU and top1 >= GATE_TOP1),
             }
@@ -188,6 +261,15 @@ def main(argv=None) -> int:
                   f'{_f(v["top1"], "{:.0%}"):>7} {_f(v["first_divergence_median"], "{:.1f}"):>8} '
                   f'{_f(v["calls_ratio"], "{:.2f}x"):>7} {_f(v["wall_ratio"], "{:.2f}x"):>7}  '
                   f'{"PASS" if v["passes_gate"] else "fail"}')
+        print(f'  {"variant":<8} ' + ' '.join(f'{"set@" + str(k):>7}' for k in SET_K)
+              + f' {"regret med":>11} {"regret p90":>11} {"abs med":>10} {"of spread":>10}'
+              + '   (what a disagreement costs)')
+        for name, v in sorted(e['variants'].items()):
+            print(f'  {name:<8} ' + ' '.join(f'{_f(v[f"set{k}_mean"], "{:.0%}"):>7}'
+                                              for k in SET_K)
+                  + f' {_f(v["regret_median"], "{:.2%}"):>11} {_f(v["regret_p90"], "{:.2%}"):>11}'
+                  + f' {_f(v["regret_abs_median"], "{:,.0f}"):>10}'
+                  + f' {_f(v["regret_of_spread_median"], "{:.1%}"):>10}')
     if a.json:
         with open(a.json, 'w', encoding='utf-8') as f:
             json.dump(res, f, indent=2)
