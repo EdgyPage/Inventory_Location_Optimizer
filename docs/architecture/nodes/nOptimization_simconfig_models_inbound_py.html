@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.models.inbound · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_models_inbound_py" data-id="Optimization/simconfig/models/inbound.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/models/inbound.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.models.inbound</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_models_inbound_py.html"><code>Optimization/simconfig/models/inbound.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>Optimization.simconfig.models.inbound</code></pre>
+<section class="doc">inbound.py -- the inbound flow as one closed-form model: packs, trailers, the dock, crews.
+
+The supply side the staffing record already derives (`staffing.implied_reorders`: every fired
+lot, arrived by `received_law`, packed by the sim&#x27;s own packer, each pack priced by the
+`PutawayCost` / `UnloadCost` laws) is the per-day LOAD; this module composes it with what the
+record does not carry -- trailers and the dock -- into one model, so the whole chain renders
+and evaluates together:
+
+    V_d            shipped volume per day (units reordered x unit volume; steady state = picked)
+    pallets/day  = V_d / (P - E[v] + E[v^2] / 2E[v])             next-fit renewal on 48^3 pallets
+    trailers/day = pallets/day / 26 + 1/2                        53-ft trailer; the daily release
+                                                                 ships the partial last trailer
+    rho_door     = trailers/day x E[o] / (doors x S)              `models.dock`
+    recv crew    = ceil(recv load / (S rho_recv)),  put crew = ceil(put load / (S rho_put))
+
+`expected_swaps` (the cart&#x27;s next-fit renewal, `simconfig/expected_travel.py`) IS the pallet
+count: a load pallet is a cart that holds 48^3 of loose items (`Inbound/trailer.py`).</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_expected_travel_py.html"><code>Optimization.simconfig.expected_travel</code></a> <span class="dim">Optimization/simconfig/expected_travel.py</span></li><li><a href="nOptimization_simconfig_staffing_py.html"><code>Optimization.simconfig.staffing</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li><li><a href="nWarehouse_kernel_closed_form_py.html"><code>Warehouse.kernel.closed_form</code></a> <span class="dim">Warehouse/kernel/closed_form.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_closed_form_docs_page_py.html"><code>Optimization.Performance_Evaluations.closed_form.docs_page</code></a> <span class="dim">Optimization/Performance_Evaluations/closed_form/docs_page.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nOptimization_simconfig_models_inbound_py__INBOUND.html"><code>INBOUND</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__PALLETS.html"><code>PALLETS</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__PALLET_VOLUME.html"><code>PALLET_VOLUME</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__POSITIONS_53.html"><code>POSITIONS_53</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__PUT_CREW.html"><code>PUT_CREW</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__RECV_CREW.html"><code>RECV_CREW</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__TRAILERS.html"><code>TRAILERS</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__item_moments.html"><code>item_moments</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li><li><a href="nOptimization_simconfig_models_inbound_py__trailers_per_day.html"><code>trailers_per_day</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_models_inbound_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/models/inbound.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

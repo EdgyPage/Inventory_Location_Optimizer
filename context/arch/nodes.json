@@ -2993,7 +2993,7 @@
     },
     "Optimization/Performance_Evaluations/closed_form/evaluation.py": {
       "decorators": [],
-      "doc": "closed_form.predicted \u2014 the closed-form models evaluated at a run's own record, against what\nthe run did.  A run-scope evaluation: it writes the contract's `closed_form_json` document at\nthe dossier root and one predicted-vs-realised figure (`closed_form_pngs`); both basenames and\nfolders come from the declarations, never from text here.\n\nPER CHANNEL SECTION, from the run's staffing record (the coverage calibration: lines per day,\nthe solved floor, the lead) and its frozen catalogue:\n\n  levels     `models.levels.LEVELS` for every SKU: the share on its line floor, the stock the\n             warehouse is sized for (sum Q), and the median cover Q / d in days;\n  fresh      the fresh-bin share phi over the run's window (`models.churn`), two ways --\n               declared: the unconditional law at the LINE SHARE the declaration prices\n                         (what the record alone predicts; S01 says the sampler bends it),\n               script:   the count-conditional law on the run's own batch script (exogenous\n                         demand, known before any placement);\n  realised   the share of units picked from bins a reorder filled inside the window, per arm\n             of the reference cell (`run_unload_ranking.inbound_repick`), and the free pool at\n             the window's two ends (the flow equilibrium: frees = placements).\n\nEvery equation in the JSON's `derivation` is `Model.to_markdown` of the tree that produced the\nnumber beside it.  The study behind it: `.scratch/aisle-churn/` S02, S08, S09.",
+      "doc": "closed_form.predicted \u2014 the closed-form models evaluated at a run's own record, against what\nthe run did.  A run-scope evaluation: it writes the contract's `closed_form_json` document at\nthe dossier root and one predicted-vs-realised figure (`closed_form_pngs`); both basenames and\nfolders come from the declarations, never from text here.\n\nPER CHANNEL SECTION, from the run's staffing record (the coverage calibration: lines per day,\nthe solved floor, the lead) and its frozen catalogue:\n\n  levels     `models.levels.LEVELS` for every SKU: the share on its line floor, the stock the\n             warehouse is sized for (sum Q), and the median cover Q / d in days;\n  fresh      the fresh-bin share phi over the run's window (`models.churn`), two ways --\n               declared: the unconditional law at the LINE SHARE the declaration prices\n                         (what the record alone predicts; S01 says the sampler bends it),\n               script:   the count-conditional law on the run's own batch script (exogenous\n                         demand, known before any placement);\n  realised   the share of units picked from bins a reorder filled inside the window, per arm\n             of the reference cell (`run_unload_ranking.inbound_repick`), and the free pool at\n             the window's two ends (the flow equilibrium: frees = placements).\n  dock       the door utilisation the record declares (receiving load over doors x door team\n             x shift, `models.dock`) beside the one the site yard realised, and the yard's\n             queueing wait beside Allen-Cunneen's (None past the gate).\n\nAlso one CSV of the predicted-vs-realised rows under the dossier's declared tables glob.\n\nEvery equation in the JSON's `derivation` is `Model.to_markdown` of the tree that produced the\nnumber beside it.  The study behind it: `.scratch/aisle-churn/` S02, S08, S09.",
       "kind": "module",
       "signature": null
     },
@@ -3025,6 +3025,13 @@
       "kind": "function",
       "signature": "(spec: dict, pair: str) -> dict"
     },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_dock": {
+      "decorators": [],
+      "doc": "The dock gate (`models.dock`): the record's DECLARED door utilisation -- receiving load\nover doors x door team x shift -- beside the REALISED one read off the site yard (door\noccupancy per trailer, trailers per day) of the reference cell's first coupled unit.\n{} when the run has no site yard (uncoupled, or no standing yard).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, spec: dict, cell: str, H: int) -> dict"
+    },
     "Optimization/Performance_Evaluations/closed_form/evaluation.py::_head_basename": {
       "decorators": [],
       "doc": null,
@@ -3046,9 +3053,16 @@
       "kind": "function",
       "signature": "(ctx, cell: str, pair: str, skus: set)"
     },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_write_table": {
+      "decorators": [],
+      "doc": "The predicted-vs-realised rows as one CSV beside the other dossier tables.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, doc: dict) -> None"
+    },
     "Optimization/Performance_Evaluations/closed_form/evaluation.py::render": {
       "decorators": [
-        "evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run', scope='run', needs=('catalogue',), out_subdir=('', _FIG_SUBDIR))"
+        "evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run', scope='run', needs=('catalogue',), out_subdir=('', _FIG_SUBDIR, _TABLE_SUBDIR))"
       ],
       "doc": null,
       "is_async": false,
@@ -14906,7 +14920,7 @@
     },
     "Optimization/simconfig/models/__init__.py": {
       "decorators": [],
-      "doc": "models -- the composed closed-form models, one module per question.\n\nEach module builds `Warehouse.kernel.closed_form.Model`s out of the kernel's expression tree and\nthe existing closed forms beside it (`coverage`, `staffing`, `expected_travel`, `fragmentation`),\nwhich enter through `Call` nodes rather than being re-implemented.  Every equation that models a\nsimulator or record function is registered with a `Mirror` and held equal to it by\n`Tests/unit/test_closed_form.py`.\n\n  levels     where a SKU's equilibrium units come from (the declaration)\n  reorders   when a reorder fires, how often, and what lands\n  churn      how much picking an inbound decision reaches, how long a ranked rule\n             keeps finding good bins, and what any unloading order could move\n  dock       the two throughput gates: doors held for whole trailers (rho_door) and the\n             one-picker-per-aisle ceiling on picking (k*)",
+      "doc": "models -- the composed closed-form models, one module per question.\n\nEach module builds `Warehouse.kernel.closed_form.Model`s out of the kernel's expression tree and\nthe existing closed forms beside it (`coverage`, `staffing`, `expected_travel`, `fragmentation`),\nwhich enter through `Call` nodes rather than being re-implemented.  Every equation that models a\nsimulator or record function is registered with a `Mirror` and held equal to it by\n`Tests/unit/test_closed_form.py`.\n\n  levels     where a SKU's equilibrium units come from (the declaration)\n  reorders   when a reorder fires, how often, and what lands\n  churn      how much picking an inbound decision reaches, how long a ranked rule\n             keeps finding good bins, and what any unloading order could move\n  inbound    shipped items to pallets and trailers (next fit), and loads to crews\n  pick       a day's picking under either drain order; the aisles a day opens; what\n             one location is worth (the Palm form, where affinity enters)\n  dock       the two throughput gates: doors held for whole trailers (rho_door) and the\n             one-picker-per-aisle ceiling on picking (k*)",
       "kind": "module",
       "signature": null
     },
@@ -14922,6 +14936,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "Equation('B', 'B', G_FREE / (M_RATE * (S_NOW - SIG_G)), unit='days', doc='breathing room: days until the good free pool is spent at the net rate placed-good minus freed-good')"
+    },
+    "Optimization/simconfig/models/churn.py::CAPTURED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('captured', '\\\\Pi(H)', PHI_CAP * Sym('prize', '\\\\Pi'), unit='s/day', doc='the share of the prize a restock rule can earn in a window: it only touches the picks its own placements serve')"
+    },
+    "Optimization/simconfig/models/churn.py::FLOOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('floor', '\\\\delta_{95}', Z * SIG * (TAU / NB) ** 0.5, unit='%', doc=\"half-width of a paired per-batch gap's interval: sd of the per-batch relative difference, inflated by its integrated au..."
     },
     "Optimization/simconfig/models/churn.py::FRESH": {
       "decorators": [],
@@ -14944,6 +14972,13 @@
       "signature": null,
       "value_preview": "Model('gap', (GAP,), doc=\"The height mechanism of a ranked rule's pick gap (S09 section 3).\")"
     },
+    "Optimization/simconfig/models/churn.py::NOISE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('noise floor', (FLOOR,), doc='The smallest gap two cells of one run can tell apart.')"
+    },
     "Optimization/simconfig/models/churn.py::ORDER_SD": {
       "decorators": [],
       "doc": null,
@@ -14957,6 +14992,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "Equation('phi', '\\\\varphi_s', Sym('served', '\\\\mathbb{E}[\\\\mathrm{served}_s]') / (LAM * H), doc=\"the SKU's share of its lines an inbound decision can reach\")"
+    },
+    "Optimization/simconfig/models/churn.py::PRIZE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('prize', '\\\\Pi', T_BLIND - T_AWARE, unit='s/day', doc='what a velocity-aware placement of the WHOLE stock saves over a velocity-blind one (the opt-vs-uni layout value)')"
+    },
+    "Optimization/simconfig/models/churn.py::PRIZE_MODEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('prize', (PRIZE, CAPTURED), doc='The most a placement decision can be worth over a window.')"
     },
     "Optimization/simconfig/models/churn.py::SERVED": {
       "decorators": [],
@@ -15000,6 +15049,20 @@
       "kind": "function",
       "signature": "(x: float, a: int, b: int) -> float"
     },
+    "Optimization/simconfig/models/churn.py::capture": {
+      "decorators": [],
+      "doc": "Phi(H): the share of a window's picks served from stock a rule placed in it -- the\nfresh-bin law at horizon H (`section_phi`).  THE TIME-DENSITY COLLAPSE: scaling every rate\nby k and the horizon by 1/k leaves x = lambda (H - l) unchanged except through the lead,\nso Phi_k(H) = Phi_1(k H) exactly when l << H (`collapse_gap` measures the departure).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rates, H: float, ell: float) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::collapse_gap": {
+      "decorators": [],
+      "doc": "Phi_k(H) - Phi_1(k H): zero at lead 0; the lead's share of the window otherwise.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rates, k: float, H: float, ell: float) -> float"
+    },
     "Optimization/simconfig/models/churn.py::effective_count": {
       "decorators": [],
       "doc": "1 / sum share^2 -- how many aisles the placements effectively spread over.",
@@ -15028,6 +15091,20 @@
       "kind": "function",
       "signature": "(D)"
     },
+    "Optimization/simconfig/models/churn.py::integrated_autocorr": {
+      "decorators": [],
+      "doc": "tau = 1 + 2 sum_k rho_k, summed while rho_k stays positive (Geyer's initial positive\nsequence, truncated at n/4): the variance inflation of a correlated series' mean.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x, max_lag: int | None=None) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::noise_floor": {
+      "decorators": [],
+      "doc": "{'sigma', 'tau', 'n', 'floor'} for per-batch series `a` against reference `b`\n(`{batch: value}`), in percent -- the closed form `run_unload_ranking.measured_floor`\nbootstraps.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a: dict, b: dict, z: float=1.96) -> dict"
+    },
     "Optimization/simconfig/models/churn.py::rearrangement": {
       "decorators": [],
       "doc": "(C_actual, C_min, C_max, sd_random) for packs `w` paired in order with bins `M`: the\nrearrangement bounds every order lies between, and the spread of a uniformly random\npairing, whose mean is C_actual's expectation under any velocity-blind order.",
@@ -15048,6 +15125,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(n: int, H: float, ell: float) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::threshold": {
+      "decorators": [],
+      "doc": "The first x (in the sweep's order) at which |gap(x)| exceeds mult x floor(x), linearly\ninterpolated between grid points; None when no point does.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(xs, gap, floor, *, mult: float=2.0)"
     },
     "Optimization/simconfig/models/churn.py::water_level": {
       "decorators": [],
@@ -15124,6 +15208,75 @@
       "is_async": false,
       "kind": "function",
       "signature": "(lam_per_day: float, occ_s: float, doors: int, shift_s: float, cv_arrival: float=1.0, cv_service: float=0.45) -> float"
+    },
+    "Optimization/simconfig/models/inbound.py": {
+      "decorators": [],
+      "doc": "inbound.py -- the inbound flow as one closed-form model: packs, trailers, the dock, crews.\n\nThe supply side the staffing record already derives (`staffing.implied_reorders`: every fired\nlot, arrived by `received_law`, packed by the sim's own packer, each pack priced by the\n`PutawayCost` / `UnloadCost` laws) is the per-day LOAD; this module composes it with what the\nrecord does not carry -- trailers and the dock -- into one model, so the whole chain renders\nand evaluates together:\n\n    V_d            shipped volume per day (units reordered x unit volume; steady state = picked)\n    pallets/day  = V_d / (P - E[v] + E[v^2] / 2E[v])             next-fit renewal on 48^3 pallets\n    trailers/day = pallets/day / 26 + 1/2                        53-ft trailer; the daily release\n                                                                 ships the partial last trailer\n    rho_door     = trailers/day x E[o] / (doors x S)              `models.dock`\n    recv crew    = ceil(recv load / (S rho_recv)),  put crew = ceil(put load / (S rho_put))\n\n`expected_swaps` (the cart's next-fit renewal, `simconfig/expected_travel.py`) IS the pallet\ncount: a load pallet is a cart that holds 48^3 of loose items (`Inbound/trailer.py`).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/models/inbound.py::INBOUND": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('inbound', (PALLETS, TRAILERS, RECV_CREW, PUT_CREW), doc=\"From the day's shipped items to trailers, and from the day's loads to the crews. Compose with models.dock for the gate.\")"
+    },
+    "Optimization/simconfig/models/inbound.py::PALLETS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('pallets', 'n_{\\\\mathrm{pal}}', Call('next_fit', expected_swaps, {'vol_per_day': V, 'e_v': EV, 'e_v2': EV2, 'cart_cap': Const(PALLET_VOLUME)}, tex='\\\\operatorname{nextfit}_{48^3}'), unit='..."
+    },
+    "Optimization/simconfig/models/inbound.py::PALLET_VOLUME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "48 ** 3"
+    },
+    "Optimization/simconfig/models/inbound.py::POSITIONS_53": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "26"
+    },
+    "Optimization/simconfig/models/inbound.py::PUT_CREW": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('put_crew', 'K_{\\\\mathrm{put}}', Call('crew_size', crew_size, {'load_seconds_per_day': PUT_LOAD, 'day_seconds': S, 'rho': RHO_P}, tex='\\\\operatorname{crew}'), unit='workers')"
+    },
+    "Optimization/simconfig/models/inbound.py::RECV_CREW": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('recv_crew', 'K_{\\\\mathrm{recv}}', Call('crew_size', crew_size, {'load_seconds_per_day': RECV_LOAD, 'day_seconds': S, 'rho': RHO_R}, tex='\\\\operatorname{crew}'), unit='workers', doc='ceil(..."
+    },
+    "Optimization/simconfig/models/inbound.py::TRAILERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('trailers', '\\\\lambda_T', Sym('pallets', 'n_{\\\\mathrm{pal}}') / POS + REL / 2, unit='trailers/day', doc='each release ships the open trailer, full or not: half a trailer of slack per relea..."
+    },
+    "Optimization/simconfig/models/inbound.py::item_moments": {
+      "decorators": [],
+      "doc": "(V, E[v], E[v^2]) over `[(qty, unit_volume), ...]`, unit-weighted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(units) -> tuple"
+    },
+    "Optimization/simconfig/models/inbound.py::trailers_per_day": {
+      "decorators": [],
+      "doc": "The trailer law over a window's shipped items `[(qty, unit_volume), ...]` (inches^3).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(units, *, days: float, releases_per_day: float=1.0, positions: int=POSITIONS_53) -> dict"
     },
     "Optimization/simconfig/models/levels.py": {
       "decorators": [],
@@ -15270,6 +15423,103 @@
       "is_async": false,
       "kind": "function",
       "signature": "(order, *, lines_per_day: float, line_share: float, floor_lines: float, transit_days: float, lead_unit_days: float=1.0, coverage_days: float=10.0, safety_days: float=2.0) -> dict"
+    },
+    "Optimization/simconfig/models/pick.py": {
+      "decorators": [],
+      "doc": "pick.py -- a day's picking in closed form, and what one location is worth to it (S06, S07).\n\nTHE DAY.  `expected_travel`'s chain (accumulate -> routing -> expected_swaps -> expected_pick)\nprices a day at a placement; this module runs it under either DRAIN ORDER:\n\n  'recorded'   forward-pick first, then location -- `PlacementDist.initial`, what the record\n               and `strategy_runner.expected_pick_over` use today;\n  'smallest'   smallest on hand first, then location -- what the simulator actually drains\n               (ADR-0003; S06 variant b).  The research variant: making it the production\n               default is a comparability break for `pick_owed_exact_s`, proposed to the\n               user and NOT made here.\n\nTASKS -- the aisles a day opens.  Two forms (S07):\n\n  independent  E[tasks] = sum_a (1 - exp(-Lambda_a))                (what the chain assumes)\n  script       mean over the script's days of |U_{s in day} aisle(s)|  (carries the sampler's\n               affinity co-draws; on the 40k fill root it sees rank_minlabor open 17-20% FEWER\n               fulfillment aisles than fifo where the independent form says 3-13% MORE)\n\nTHE VALUE OF A LOCATION (the Mecke / Palm form).  Adding SKU s's lines to bin b in aisle a costs\n\n    g_b = lambda_s [ h_b + P0_a(s) T_new(b) + (1 - P0_a(s)) E[dT_b | a open] ]\n\nwith h_b the at-location handling (`PickConfig.closed_form`, M(y_b) scaled), P0_a(s) the\nprobability that NO other line of a day that draws s lands in aisle a (Palm: conditioned on s\nbeing drawn -- which is where affinity enters), T_new(b) the cost of a task opened just for b,\nand E[dT_b | a open] the extra travel b adds to a task already walking a (zero on a one-way\nlane; twice the overshoot past the farthest column on a two-way one).  `palm_open` and\n`colocation_delta` compute the script-conditional pieces; the difference in `script` tasks\nfrom moving s between aisles is exactly the P0 difference (the test holds them equal).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/models/pick.py::G_B": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('g_b', 'g_b', LAM * (H_B + P0 * T_NEW + (1 - P0) * DT), unit='s/day', doc='the daily labour a location adds for SKU s: handling, the task it opens when nothing else would, the travel it ad..."
+    },
+    "Optimization/simconfig/models/pick.py::LAMS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Sym('Lambda', '\\\\Lambda_a')"
+    },
+    "Optimization/simconfig/models/pick.py::LOCATION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('location value', (G_B,), doc='What one location is worth to a day of picking (Mecke / Palm form).')"
+    },
+    "Optimization/simconfig/models/pick.py::TASKS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('tasks', '\\\\mathbb{E}[\\\\mathrm{tasks}]', Call('open_aisles', tasks_independent, {'lam_by_aisle': LAMS}, tex='\\\\sum_a\\\\left(1-e^{-\\\\Lambda_a}\\\\right)'), unit='tasks/day', doc=\"aisles a day ..."
+    },
+    "Optimization/simconfig/models/pick.py::TASK_MODEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('tasks', (TASKS,), doc='How many aisles a day opens, if lines were drawn independently.')"
+    },
+    "Optimization/simconfig/models/pick.py::colocation_delta": {
+      "decorators": [],
+      "doc": "Tasks per day saved (negative) or added by moving `sku` to `new_aisle`: the\nscript-conditional marginal, lambda_s [P0_new - P0_old].",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sku, new_aisle, days, where: dict) -> float"
+    },
+    "Optimization/simconfig/models/pick.py::location_value": {
+      "decorators": [],
+      "doc": "g_b for putting `sku`'s lines at (aisle, x_b), script-conditional throughout:\n`where[sku] = aisle`, `where_x[sku] = x`; `t_new` the task-opening cost at that bin.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sku, aisle, x_b: float, h_b: float, days, where: dict, where_x: dict, x_pace: float, t_new: float, one_way: bool) -> float"
+    },
+    "Optimization/simconfig/models/pick.py::overshoot_travel": {
+      "decorators": [],
+      "doc": "E[dT_b | a open] on one day: 0 on a one-way lane; on a two-way one, out-and-back to the\nfarthest column -- twice the overshoot past the farthest other column the day visits.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x_b: float, others_x, x_pace: float, one_way: bool) -> float"
+    },
+    "Optimization/simconfig/models/pick.py::palm_open": {
+      "decorators": [],
+      "doc": "P0_a(s): over the days that draw `sku`, the share on which NO other drawn SKU sits in\n`aisle` -- the Palm probability that s's line would open the aisle by itself.  None when\nthe window never draws s.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sku, aisle, days, where: dict) -> float"
+    },
+    "Optimization/simconfig/models/pick.py::pick_day": {
+      "decorators": [],
+      "doc": "`expected_pick`'s day (every component, and `s_pick`) at `lines` a day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, pick_cfg, bin_map: dict, geometry, lines: float, cv: float=0.0, drain: str='recorded') -> dict"
+    },
+    "Optimization/simconfig/models/pick.py::placement": {
+      "decorators": [],
+      "doc": "A `PlacementDist` for `bin_map[sku] = [(aisle_id, bayX, bayY, qty), ...]`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bin_map: dict, geometry, drain: str='recorded')"
+    },
+    "Optimization/simconfig/models/pick.py::tasks_independent": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam_by_aisle) -> float"
+    },
+    "Optimization/simconfig/models/pick.py::tasks_script": {
+      "decorators": [],
+      "doc": "Mean distinct aisles over `days` (each an iterable of SKUs), `where[sku] = aisle`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(days, where: dict) -> float"
     },
     "Optimization/simconfig/models/reorders.py": {
       "decorators": [],

@@ -230,3 +230,90 @@ ORDER_SD = Equation('order_sd', r'\sigma_{\pi}',
                          tex=r'\operatorname{sd}_{\pi}'),
                     unit='s', doc='the spread of a velocity-blind order\'s fresh-pick cost: '
                                   'sqrt(sum (w - w_bar)^2 sum (M - M_bar)^2 / (n - 1))')
+
+
+# ── the capture curve, the prize, the noise floor, the thresholds ───────────────────────────
+
+def capture(rates, H: float, ell: float) -> float:
+    """Phi(H): the share of a window's picks served from stock a rule placed in it -- the
+    fresh-bin law at horizon H (`section_phi`).  THE TIME-DENSITY COLLAPSE: scaling every rate
+    by k and the horizon by 1/k leaves x = lambda (H - l) unchanged except through the lead,
+    so Phi_k(H) = Phi_1(k H) exactly when l << H (`collapse_gap` measures the departure)."""
+    return section_phi(rates, H, ell)
+
+
+def collapse_gap(rates, k: float, H: float, ell: float) -> float:
+    """Phi_k(H) - Phi_1(k H): zero at lead 0; the lead's share of the window otherwise."""
+    return capture([k * r for r in rates], H, ell) - capture(rates, k * H, ell)
+
+
+T_BLIND, T_AWARE, PHI_CAP = (Sym('T_blind', r'T_{\mathrm{blind}}'),
+                             Sym('T_aware', r'T_{\mathrm{aware}}'), Sym('Phi', r'\Phi(H)'))
+PRIZE = Equation('prize', r'\Pi', T_BLIND - T_AWARE, unit='s/day',
+                 doc='what a velocity-aware placement of the WHOLE stock saves over a '
+                     'velocity-blind one (the opt-vs-uni layout value)')
+CAPTURED = Equation('captured', r'\Pi(H)', PHI_CAP * Sym('prize', r'\Pi'), unit='s/day',
+                    doc='the share of the prize a restock rule can earn in a window: it only '
+                        'touches the picks its own placements serve')
+PRIZE_MODEL = Model('prize', (PRIZE, CAPTURED),
+                    doc='The most a placement decision can be worth over a window.')
+
+
+def integrated_autocorr(x, max_lag: int | None = None) -> float:
+    """tau = 1 + 2 sum_k rho_k, summed while rho_k stays positive (Geyer's initial positive
+    sequence, truncated at n/4): the variance inflation of a correlated series' mean."""
+    n = len(x)
+    if n < 3:
+        return 1.0
+    m = sum(x) / n
+    d = [v - m for v in x]
+    c0 = sum(v * v for v in d) / n
+    if c0 <= 0.0:
+        return 1.0
+    tau = 1.0
+    for k in range(1, (max_lag or n // 4) + 1):
+        rho = sum(d[i] * d[i + k] for i in range(n - k)) / n / c0
+        if rho <= 0.0:
+            break
+        tau += 2.0 * rho
+    return tau
+
+
+SIG, TAU, NB, Z = Sym('sigma', r'\sigma'), Sym('tau', r'\tau'), Sym('n', 'n'), Sym('z', 'z')
+FLOOR = Equation('floor', r'\delta_{95}', Z * SIG * (TAU / NB) ** 0.5, unit='%',
+                 doc='half-width of a paired per-batch gap\'s interval: sd of the per-batch '
+                     'relative difference, inflated by its integrated autocorrelation')
+NOISE = Model('noise floor', (FLOOR,),
+              doc='The smallest gap two cells of one run can tell apart.')
+
+
+def noise_floor(a: dict, b: dict, z: float = 1.96) -> dict:
+    """{'sigma', 'tau', 'n', 'floor'} for per-batch series `a` against reference `b`
+    (`{batch: value}`), in percent -- the closed form `run_unload_ranking.measured_floor`
+    bootstraps."""
+    shared = sorted(k for k in a if k in b and b[k])
+    d = [(a[k] - b[k]) / b[k] * 100.0 for k in shared]
+    n = len(d)
+    if n < 3:
+        return {'sigma': None, 'tau': None, 'n': n, 'floor': None}
+    m = sum(d) / n
+    sd = (sum((v - m) ** 2 for v in d) / (n - 1)) ** 0.5
+    tau = integrated_autocorr(d)
+    return {'sigma': sd, 'tau': tau, 'n': n,
+            'floor': NOISE.evaluate({'z': z, 'sigma': sd, 'tau': tau, 'n': n})['floor']}
+
+
+def threshold(xs, gap, floor, *, mult: float = 2.0):
+    """The first x (in the sweep's order) at which |gap(x)| exceeds mult x floor(x), linearly
+    interpolated between grid points; None when no point does."""
+    prev = None
+    for x in xs:
+        g, f = abs(gap(x)), mult * floor(x)
+        if g > f:
+            if prev is None:
+                return x
+            px, pg, pf = prev
+            t = (pf - pg) / ((g - pg) - (f - pf)) if (g - pg) != (f - pf) else 1.0
+            return px + max(0.0, min(1.0, t)) * (x - px)
+        prev = (x, g, f)
+    return None

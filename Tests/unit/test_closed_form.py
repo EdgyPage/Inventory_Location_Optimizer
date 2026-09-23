@@ -228,3 +228,12 @@ def test_the_handling_term_mirrors_every_transform_the_configs_use(wfn, vfn):
 def test_a_second_equation_under_a_registered_name_is_refused():
     with pytest.raises(ValueError, match='already registered'):
         cf.register('kernel.per_pick', Equation('x', 'x', Const(1)))
+
+
+def test_a_fraction_under_a_power_is_parenthesised_and_a_percent_unit_is_escaped():
+    from Warehouse.kernel.closed_form import Equation, Sym
+    a, b = Sym('a'), Sym('b')
+    assert (a / b ** 2).latex() != ((a / b) ** 2).latex()
+    assert ((a / b) ** 2).latex().startswith(r'\left(\frac{a}{b}\right)^')
+    eq = Equation('p', 'p', a / b, unit='%')
+    assert r'\mathrm{\%}' in eq.latex({'a': 1.0, 'b': 2.0})

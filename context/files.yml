@@ -1486,6 +1486,16 @@ files:
       - {name: "GAP_CHAIN", file: "Optimization/simconfig/models/churn.py", kind: "const"}
       - {name: "rearrangement", file: "Optimization/simconfig/models/churn.py", kind: "function"}
       - {name: "ORDER_SD", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "capture", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "collapse_gap", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "PRIZE", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "CAPTURED", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "PRIZE_MODEL", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "integrated_autocorr", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "FLOOR", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "NOISE", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "noise_floor", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "threshold", file: "Optimization/simconfig/models/churn.py", kind: "function"}
     notes: ""
   "Optimization/simconfig/models/dock.py":
     purpose: "The two throughput gates (S04): door utilisation for doors held by whole trailers, with an Allen-Cunneen yard wait, and the one-picker-per-aisle ceiling k* on picking."
@@ -1500,6 +1510,20 @@ files:
       - {name: "K_STAR", file: "Optimization/simconfig/models/dock.py", kind: "const"}
       - {name: "AISLE", file: "Optimization/simconfig/models/dock.py", kind: "const"}
       - {name: "overflow", file: "Optimization/simconfig/models/dock.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/models/inbound.py":
+    purpose: "The inbound flow as one closed-form model: shipped items to load pallets (next fit) and trailers (half a trailer per release), and the day's loads to crews."
+    layer: "optimization"
+    key_symbols:
+      - {name: "PALLET_VOLUME", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "POSITIONS_53", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "PALLETS", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "TRAILERS", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "RECV_CREW", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "PUT_CREW", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "INBOUND", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "item_moments", file: "Optimization/simconfig/models/inbound.py", kind: "function"}
+      - {name: "trailers_per_day", file: "Optimization/simconfig/models/inbound.py", kind: "function"}
     notes: ""
   "Optimization/simconfig/models/levels.py":
     purpose: "where a SKU's equilibrium units come from, as one closed-form model."
@@ -1523,6 +1547,24 @@ files:
       - {name: "LEVELS", file: "Optimization/simconfig/models/levels.py", kind: "const"}
       - {name: "sku_inputs", file: "Optimization/simconfig/models/levels.py", kind: "function"}
       - {name: "section", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/models/pick.py":
+    purpose: "A day's picking under either drain order, the aisles a day opens (independent vs script-conditional), and the Palm-form value of one location (S06, S07)."
+    layer: "optimization"
+    key_symbols:
+      - {name: "placement", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "pick_day", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "tasks_independent", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "LAMS", file: "Optimization/simconfig/models/pick.py", kind: "const"}
+      - {name: "TASKS", file: "Optimization/simconfig/models/pick.py", kind: "const"}
+      - {name: "TASK_MODEL", file: "Optimization/simconfig/models/pick.py", kind: "const"}
+      - {name: "tasks_script", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "palm_open", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "colocation_delta", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "G_B", file: "Optimization/simconfig/models/pick.py", kind: "const"}
+      - {name: "LOCATION", file: "Optimization/simconfig/models/pick.py", kind: "const"}
+      - {name: "overshoot_travel", file: "Optimization/simconfig/models/pick.py", kind: "function"}
+      - {name: "location_value", file: "Optimization/simconfig/models/pick.py", kind: "function"}
     notes: ""
   "Optimization/simconfig/models/reorders.py":
     purpose: "when a reorder fires, how often, and what lands, as one closed-form model."
@@ -4184,6 +4226,7 @@ files:
       - {name: "test_the_mirrored_bracket_table_is_the_simulators", file: "Tests/unit/test_closed_form.py", kind: "function"}
       - {name: "test_the_handling_term_mirrors_every_transform_the_configs_use", file: "Tests/unit/test_closed_form.py", kind: "function"}
       - {name: "test_a_second_equation_under_a_registered_name_is_refused", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_fraction_under_a_power_is_parenthesised_and_a_percent_unit_is_escaped", file: "Tests/unit/test_closed_form.py", kind: "function"}
     notes: ""
   "Tests/unit/test_closed_form_render.py":
     purpose: "Pins the closed-form visualiser: graph layering, every renderer writes a file, and the generated docs page is not stale."
@@ -5351,6 +5394,15 @@ files:
       - {name: "test_yard_wait_matches_an_mm1_simulation", file: "Tests/unit/test_models_dock.py", kind: "function"}
       - {name: "test_aisle_ceiling_and_overflow", file: "Tests/unit/test_models_dock.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_models_inbound.py":
+    purpose: "Pins the inbound flow model: the next-fit pallet law against the trailer loader's own rule, the trailer arithmetic and the crews."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_constants_match_the_trailer_model", file: "Tests/unit/test_models_inbound.py", kind: "function"}
+      - {name: "test_next_fit_law_matches_the_loader", file: "Tests/unit/test_models_inbound.py", kind: "function"}
+      - {name: "test_trailers_add_half_a_trailer_per_release", file: "Tests/unit/test_models_inbound.py", kind: "function"}
+      - {name: "test_crews_are_the_records_crew_size", file: "Tests/unit/test_models_inbound.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_models_levels_reorders.py":
     purpose: "the LEVELS and REORDERS closed-form models."
     layer: "tests"
@@ -5362,6 +5414,16 @@ files:
       - {name: "test_the_noise_law_is_a_centred_rounded_normal", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
       - {name: "test_fires_per_line_match_a_replica_of_the_position_rule", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
       - {name: "test_the_model_reads_rates_and_orders_back_every_unit", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_models_pick.py":
+    purpose: "Pins the pick model: task forms, the Palm probability against a recount, the location value, and the drain-order switch."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_independent_tasks_is_the_poisson_open_count", file: "Tests/unit/test_models_pick.py", kind: "function"}
+      - {name: "test_colocation_delta_is_the_recount_difference", file: "Tests/unit/test_models_pick.py", kind: "function"}
+      - {name: "test_co_locating_an_affine_pair_saves_tasks_the_independent_form_cannot_see", file: "Tests/unit/test_models_pick.py", kind: "function"}
+      - {name: "test_palm_open_and_location_value", file: "Tests/unit/test_models_pick.py", kind: "function"}
+      - {name: "test_drain_orders_differ_only_in_order", file: "Tests/unit/test_models_pick.py", kind: "function"}
     notes: ""
   "Tests/unit/test_operations_actors.py":
     purpose: "who does the work, and the two id spaces."

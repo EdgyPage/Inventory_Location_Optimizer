@@ -192,6 +192,73 @@ The height mechanism of a ranked rule's pick gap (S09 section 3).
 $$ \Delta T / T = \frac{\varphi\,U\,\bar h\,\left(\bar M_{\mathrm{rank}} - \bar M_{\mathrm{free}}\right)}{T} = \frac{0.086 \cdot 258{,}930 \cdot 59\,\left(1.162 - 1.263\right)}{26{,}845{,}232} = -0.004943 $$
 
 
+## What one location is worth (fulfillment, one-way lane)
+
+What one location is worth to a day of picking (Mecke / Palm form).
+
+**Inputs**
+
+- $P^0_a(s) = 0.6$
+- $T_{\mathrm{new}}(b) = 93$
+- $\mathbb{E}[\Delta T_b \mid a\ \mathrm{open}] = 0$
+- $h_b = 16$
+- $\lambda_s = 0.05$
+
+**g_b** (s/day) — the daily labour a location adds for SKU s: handling, the task it opens when nothing else would, the travel it adds when something else does
+
+$$ g_b = \lambda_s\,\left(h_b + P^0_a(s)\,T_{\mathrm{new}}(b) + \left(1 - P^0_a(s)\right)\,\mathbb{E}[\Delta T_b \mid a\ \mathrm{open}]\right) = 0.05\,\left(16 + 0.6 \cdot 93 + \left(1 - 0.6\right)\,0\right) = 3.59\ \mathrm{s/day} $$
+
+
+## From shipped items to trailers and crews
+
+From the day's shipped items to trailers, and from the day's loads to the crews.  Compose with models.dock for the gate.
+
+**Inputs**
+
+- $S = 28{,}800$
+- $V_d = 74{,}395{,}584$
+- $\mathbb{E}[v] = 1{,}610$
+- $\mathbb{E}[v^2] = 7{,}776{,}300$
+- $n_{pos} = 26$
+- $W_{\mathrm{put}} = 900{,}000$
+- $W_{\mathrm{recv}} = 1{,}335{,}412$
+- $r = 1$
+- $\rho_{\mathrm{put}} = 0.85$
+- $\rho_{\mathrm{recv}} = 0.85$
+
+**pallets** (pallets/day) — load pallets per day: next-fit of the day's items onto 48-inch cubes
+
+$$ n_{\mathrm{pal}} = \operatorname{nextfit}_{48^3}\left(V_d, \mathbb{E}[v], \mathbb{E}[v^2], 110{,}592\right) = \operatorname{nextfit}_{48^3}\left(74{,}395{,}584, 1{,}610, 7{,}776{,}300, 110{,}592\right) = 667.8\ \mathrm{pallets/day} $$
+
+**trailers** (trailers/day) — each release ships the open trailer, full or not: half a trailer of slack per release
+
+$$ \lambda_T = \frac{n_{\mathrm{pal}}}{n_{pos}} + \frac{r}{2} = \frac{667.8}{26} + \frac{1}{2} = 26.19\ \mathrm{trailers/day} $$
+
+**recv_crew** (workers) — ceil(load / (S rho)), floored at one when there is load
+
+$$ K_{\mathrm{recv}} = \operatorname{crew}\left(W_{\mathrm{recv}}, S, \rho_{\mathrm{recv}}\right) = \operatorname{crew}\left(1{,}335{,}412, 28{,}800, 0.85\right) = 55\ \mathrm{workers} $$
+
+**put_crew** (workers)
+
+$$ K_{\mathrm{put}} = \operatorname{crew}\left(W_{\mathrm{put}}, S, \rho_{\mathrm{put}}\right) = \operatorname{crew}\left(900{,}000, 28{,}800, 0.85\right) = 37\ \mathrm{workers} $$
+
+
+## The smallest gap two cells can tell apart
+
+The smallest gap two cells of one run can tell apart.
+
+**Inputs**
+
+- $n = 35$
+- $\sigma = 1$
+- $\tau = 1$
+- $z = 1.96$
+
+**floor** (%) — half-width of a paired per-batch gap's interval: sd of the per-batch relative difference, inflated by its integrated autocorrelation
+
+$$ \delta_{95} = z\,\sigma\,\left(\frac{\tau}{n}\right)^{0.5} = 1.96 \cdot 1\,\left(\frac{1}{35}\right)^{0.5} = 0.3313\ \mathrm{\%} $$
+
+
 ## When the dock saturates
 
 The site dock as doors held for whole trailers.

@@ -55,7 +55,7 @@ def _store_pick_law():
 
 def sections():
     """`[(model, result, heading), ...]` in page order."""
-    from Optimization.simconfig.models import churn, dock, levels, reorders
+    from Optimization.simconfig.models import churn, dock, inbound, levels, pick, reorders
     law = _store_pick_law()
     n_store, skus = 58.585998, 23_880
     return [
@@ -75,6 +75,16 @@ def sections():
         (churn.GAP_CHAIN, churn.GAP_CHAIN.evaluate({
             'phi': 0.086, 'U': 258_930.0, 'hbar': 59.0, 'M_rank': 1.162, 'M_free': 1.263,
             'T': 26_845_232.0}), 'What the placement rule is worth on the picks'),
+        (pick.LOCATION, pick.LOCATION.evaluate({
+            'lam': 0.05, 'h_b': 16.0, 'P0': 0.6, 'T_new': 93.0, 'dT': 0.0}),
+         'What one location is worth (fulfillment, one-way lane)'),
+        (inbound.INBOUND, inbound.INBOUND.evaluate({
+            'V': 43_053 * 1_728.0, 'e_v': 1_610.0, 'e_v2': 1_610.0 ** 2 * 3.0,
+            'positions': 26, 'releases': 1, 'recv_load': 1_335_412.0, 'put_load': 900_000.0,
+            'S': 28_800.0, 'rho_recv': 0.85, 'rho_put': 0.85}),
+         'From shipped items to trailers and crews'),
+        (churn.NOISE, churn.NOISE.evaluate({'z': 1.96, 'sigma': 1.0, 'tau': 1.0, 'n': 35}),
+         'The smallest gap two cells can tell apart'),
         (dock.DOCK, dock.DOCK.evaluate({
             'lam_T': 28.0, 'W_T': 34_500.0, 'team': 10, 'overhead': 0.08, 'doors': 4,
             'S': 28_800.0}), 'When the dock saturates'),

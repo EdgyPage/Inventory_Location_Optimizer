@@ -10,6 +10,9 @@ simulator or record function is registered with a `Mirror` and held equal to it 
   reorders   when a reorder fires, how often, and what lands
   churn      how much picking an inbound decision reaches, how long a ranked rule
              keeps finding good bins, and what any unloading order could move
+  inbound    shipped items to pallets and trailers (next fit), and loads to crews
+  pick       a day's picking under either drain order; the aisles a day opens; what
+             one location is worth (the Palm form, where affinity enters)
   dock       the two throughput gates: doors held for whole trailers (rho_door) and the
              one-picker-per-aisle ceiling on picking (k*)
 """

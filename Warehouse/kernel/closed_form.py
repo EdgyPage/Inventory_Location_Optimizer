@@ -258,7 +258,12 @@ class Pow(Expr):
         return self.base.evaluate(env) ** self.exp.evaluate(env)
 
     def latex(self, env=None):
-        return f'{_paren(self.base.latex(env), self.base.prec, _P_ATOM)}^{{{self.exp.latex(env)}}}'
+        # A \frac is atomic next to a product but not under an exponent: (a/b)^c would print
+        # as \frac{a}{b}^{c}, which reads as a / b^c.
+        base = self.base.latex(env)
+        if isinstance(self.base, Div):
+            return rf'\left({base}\right)^{{{self.exp.latex(env)}}}'
+        return f'{_paren(base, self.base.prec, _P_ATOM)}^{{{self.exp.latex(env)}}}'
 
     def symbols(self):
         return self.base.symbols() | self.exp.symbols()
@@ -485,7 +490,8 @@ class Equation:
             return bare
         sub = self.expr.latex(env)
         val = self.evaluate(env)
-        unit = rf'\ \mathrm{{{self.unit}}}' if self.unit else ''
+        # `%` opens a comment in TeX: a percent unit must be escaped or MathJax drops the rest
+        unit = rf'\ \mathrm{{{self.unit.replace("%", chr(92) + "%")}}}' if self.unit else ''
         if sub == self.expr.latex():                 # nothing substituted: no middle step
             return f'{bare} = {fmt_num(val)}{unit}'
         return f'{bare} = {sub} = {fmt_num(val)}{unit}'
