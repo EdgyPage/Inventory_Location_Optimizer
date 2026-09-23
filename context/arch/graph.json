@@ -2256,6 +2256,11 @@
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
     },
     {
+      "dst": "Optimization/simconfig/models/churn.py::PUT_GAIN_MODEL",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
       "dst": "Optimization/simconfig/models/churn.py::STEADY",
       "kind": "ref",
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
@@ -13629,6 +13634,16 @@
       "dst": "Warehouse/kernel/closed_form.py::Model",
       "kind": "calls",
       "src": "Optimization/simconfig/models/churn.py::PRIZE_MODEL"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::PUT_GAIN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::PUT_GAIN_MODEL"
     },
     {
       "dst": "Warehouse/kernel/closed_form.py::Equation",
@@ -41572,6 +41587,22 @@
       "kind": "const",
       "module": "Optimization/simconfig/models/churn.py",
       "name": "PRIZE_MODEL",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::PUT_GAIN",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "PUT_GAIN",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::PUT_GAIN_MODEL",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "PUT_GAIN_MODEL",
       "public": true
     },
     {

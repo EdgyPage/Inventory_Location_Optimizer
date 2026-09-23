@@ -153,3 +153,12 @@ def test_gap_chain_arithmetic_and_rendering():
     assert r['gap'] == pytest.approx(0.086 * 258_930 * 59.0 * (1.162 - 1.263) / 26_845_232)
     md = churn.GAP_CHAIN.to_markdown(r)
     assert r'\Delta T / T' in md and r'\bar M_{\mathrm{rank}}' in md
+
+
+def test_put_gain_scales_each_share_by_its_ratio():
+    r = churn.PUT_GAIN_MODEL.evaluate({'s_loc': 0.84, 's_trav': 0.16, 'M_rank': 1.154,
+                                       'M_free': 1.260, 'T_rank': 9.4, 'T_free': 16.2})
+    assert r['put_gain'] == pytest.approx(0.84 * (1.154 / 1.260 - 1) + 0.16 * (9.4 / 16.2 - 1))
+    same = churn.PUT_GAIN_MODEL.evaluate({'s_loc': 0.5, 's_trav': 0.5, 'M_rank': 1.2,
+                                          'M_free': 1.2, 'T_rank': 3.0, 'T_free': 3.0})
+    assert same['put_gain'] == 0.0

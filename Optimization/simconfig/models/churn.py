@@ -317,3 +317,17 @@ def threshold(xs, gap, floor, *, mult: float = 2.0):
             return px + max(0.0, min(1.0, t)) * (x - px)
         prev = (x, g, f)
     return None
+
+
+# ── the put-side gain ────────────────────────────────────────────────────────────────────────
+
+S_LOC, S_TRAV = Sym('s_loc', r's_{\mathrm{loc}}'), Sym('s_trav', r's_{\mathrm{trav}}')
+M_R, M_F = Sym('M_rank', r'\bar M_{\mathrm{rank}}'), Sym('M_free', r'\bar M_{\mathrm{free}}')
+T_R, T_F = Sym('T_rank', r'\bar T_{\mathrm{rank}}'), Sym('T_free', r'\bar T_{\mathrm{free}}')
+PUT_GAIN = Equation('put_gain', r'\Delta P / P',
+                    S_LOC * (M_R / M_F - 1) + S_TRAV * (T_R / T_F - 1),
+                    doc='a ranked rule\'s put-away saving per unit against a velocity-blind '
+                        'one: the at-location share scaled by the height ratio, the travel '
+                        'share by the travel ratio (S05b)')
+PUT_GAIN_MODEL = Model('put gain', (PUT_GAIN,),
+                       doc='What a placement rule saves on the put itself, immediately.')

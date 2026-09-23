@@ -54,6 +54,13 @@ s* = σ_G).**
 | demand density itself | stops being a lever at **k\* = 12.8** on the store (40 on fulfillment) | one picker per aisle-day: past it the day-cut backlog grows whatever the crew (S04) |
 | breathing room (free pool grows) | only off the floor: fulfillment k ≥ 10 (+13% to +25%) | declared coverage stock drawn down to the order-up-to cycle; sign and scale predicted, fragmentation open (S14) |
 
+**The put-side gain (S05b, `churn.PUT_GAIN`).**  Relative to fifo,
+ΔP/P = s_loc·(M̄_rank/M̄_free − 1) + s_trav·(T̄_rank/T̄_free − 1).  On the 400k store it
+predicts **−13.8%**, with the frontier law's M̄_rank = 1.154 and the fifo shares 0.84 / 0.16,
+against **−14.6%** measured (`assets/s05_putgain.py`).  The put law itself reprices every
+placement to the second (100.2 and 85.6 s/unit, as realised).  The saving comes immediately,
+on every put, unlike the pick gap, which waits for reach.
+
 **k\*_place = 1** on the store: the placement gap clears twice its floor at the declared demand
 (|−1.07%| > 2 × 0.40%, from `churn.threshold`).
 

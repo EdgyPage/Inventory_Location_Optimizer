@@ -192,6 +192,24 @@ The height mechanism of a ranked rule's pick gap (S09 section 3).
 $$ \Delta T / T = \frac{\varphi\,U\,\bar h\,\left(\bar M_{\mathrm{rank}} - \bar M_{\mathrm{free}}\right)}{T} = \frac{0.086 \cdot 258{,}930 \cdot 59\,\left(1.162 - 1.263\right)}{26{,}845{,}232} = -0.004943 $$
 
 
+## What the placement rule saves on the put
+
+What a placement rule saves on the put itself, immediately.
+
+**Inputs**
+
+- $\bar M_{\mathrm{free}} = 1.26$
+- $\bar M_{\mathrm{rank}} = 1.154$
+- $\bar T_{\mathrm{free}} = 16.2$
+- $\bar T_{\mathrm{rank}} = 9.4$
+- $s_{\mathrm{loc}} = 0.838$
+- $s_{\mathrm{trav}} = 0.162$
+
+**put_gain** — a ranked rule's put-away saving per unit against a velocity-blind one: the at-location share scaled by the height ratio, the travel share by the travel ratio (S05b)
+
+$$ \Delta P / P = s_{\mathrm{loc}}\,\left(\frac{\bar M_{\mathrm{rank}}}{\bar M_{\mathrm{free}}} - 1\right) + s_{\mathrm{trav}}\,\left(\frac{\bar T_{\mathrm{rank}}}{\bar T_{\mathrm{free}}} - 1\right) = 0.838\,\left(\frac{1.154}{1.26} - 1\right) + 0.162\,\left(\frac{9.4}{16.2} - 1\right) = -0.1385 $$
+
+
 ## What one location is worth (fulfillment, one-way lane)
 
 What one location is worth to a day of picking (Mecke / Palm form).

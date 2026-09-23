@@ -15016,6 +15016,20 @@
       "signature": null,
       "value_preview": "Model('prize', (PRIZE, CAPTURED), doc='The most a placement decision can be worth over a window.')"
     },
+    "Optimization/simconfig/models/churn.py::PUT_GAIN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('put_gain', '\\\\Delta P / P', S_LOC * (M_R / M_F - 1) + S_TRAV * (T_R / T_F - 1), doc=\"a ranked rule's put-away saving per unit against a velocity-blind one: the at-location share scaled by..."
+    },
+    "Optimization/simconfig/models/churn.py::PUT_GAIN_MODEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('put gain', (PUT_GAIN,), doc='What a placement rule saves on the put itself, immediately.')"
+    },
     "Optimization/simconfig/models/churn.py::SERVED": {
       "decorators": [],
       "doc": null,

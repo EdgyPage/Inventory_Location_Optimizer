@@ -75,6 +75,9 @@ def sections():
         (churn.GAP_CHAIN, churn.GAP_CHAIN.evaluate({
             'phi': 0.086, 'U': 258_930.0, 'hbar': 59.0, 'M_rank': 1.162, 'M_free': 1.263,
             'T': 26_845_232.0}), 'What the placement rule is worth on the picks'),
+        (churn.PUT_GAIN_MODEL, churn.PUT_GAIN_MODEL.evaluate({
+            's_loc': 0.838, 's_trav': 0.162, 'M_rank': 1.154, 'M_free': 1.260,
+            'T_rank': 9.4, 'T_free': 16.2}), 'What the placement rule saves on the put'),
         (pick.LOCATION, pick.LOCATION.evaluate({
             'lam': 0.05, 'h_b': 16.0, 'P0': 0.6, 'T_new': 93.0, 'dT': 0.0}),
          'What one location is worth (fulfillment, one-way lane)'),

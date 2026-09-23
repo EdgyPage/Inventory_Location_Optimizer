@@ -1498,6 +1498,8 @@ files:
       - {name: "NOISE", file: "Optimization/simconfig/models/churn.py", kind: "const"}
       - {name: "noise_floor", file: "Optimization/simconfig/models/churn.py", kind: "function"}
       - {name: "threshold", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "PUT_GAIN", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "PUT_GAIN_MODEL", file: "Optimization/simconfig/models/churn.py", kind: "const"}
     notes: ""
   "Optimization/simconfig/models/dock.py":
     purpose: "The two throughput gates (S04): door utilisation for doors held by whole trailers, with an Allen-Cunneen yard wait, and the one-picker-per-aisle ceiling k* on picking."
@@ -5388,6 +5390,7 @@ files:
       - {name: "test_steady_state_and_breathing_room", file: "Tests/unit/test_models_churn.py", kind: "function"}
       - {name: "test_rearrangement_bounds_and_the_random_spread_by_enumeration", file: "Tests/unit/test_models_churn.py", kind: "function"}
       - {name: "test_gap_chain_arithmetic_and_rendering", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_put_gain_scales_each_share_by_its_ratio", file: "Tests/unit/test_models_churn.py", kind: "function"}
     notes: ""
   "Tests/unit/test_models_crosscheck.py":
     purpose: "Cross-checks the composed models against simulator code and pinned hand computations: the pick day, LEVELS line mean, and the trailer law against the real TrailerTransit loader."
