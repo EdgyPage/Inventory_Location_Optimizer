@@ -146,3 +146,5 @@
 - [Trailer bound buys wall with discrimination](the-trailer-bound-buys-wall-with-discrimination.md) — REFUTED: 2.1x faster, keeps 12% of the gap to fifo
 - [pick_owed cannot see inbound at this demand](pick-owed-cannot-see-inbound-at-this-demand.md) — score arithmetic x an under-demanded window; era run cannot rank unload policies; fill trial re-asks it
 - [Gain evaluator to be replaced, approximate](gain-evaluator-to-be-replaced-approximate.md) — decided 2026-09-22: gated on tau>=0.9 median, top-1>=0.8 vs the exact plan
+- [Gain evaluator prices by the policy record](gain-evaluator-prices-by-the-policy-record.md) — never reads mgr.placement; a non-arm placer is mispriced
+- [Fill trial driver mode](fill-trial-driver-mode.md) — 7bcd0cec; markers in pick-stage batches, F differs per cell, door-bound fill crews, uni refused
