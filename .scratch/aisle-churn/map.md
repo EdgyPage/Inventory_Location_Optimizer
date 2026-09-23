@@ -84,3 +84,11 @@ revisions without convergence opens an issue for the user.
   ceiling k* = S / max W_a = 12.8 on the store that throttles reorders and so the dock.
   `models/dock.py`.  **S14** partial: the off-floor free-pool growth is the declaration's stock
   above its reorder cycle; sign and scale right, fragmentation and the dock-coupled lead open.
+- **S07** closed: fulfillment's lever is co-location of co-drawn SKUs; the independent-visit form
+  inverts it, the Palm probability prices it (`models/pick.py`).  **S15** closed: rank_minlabor
+  tracks cartlabor (ratios 1.08-1.19); rank_popularity buys ~2x its height prediction (a travel
+  term named); map holds a ground share 4-6 points above sigma_G at k <= 3 but earns less than
+  the greedy rules in 40 days (score matching, offline targets); the order is null for every
+  rule below the gate (1 of 48).  Thresholds solved: k*_place = 1 (store), k*_order = 29.6,
+  k* (aisle ceiling) = 12.8.  Toy digest IDENTICAL (3bcd5228 -> HEAD, 40 arms); the dossier
+  evaluation analysed end to end on the toy and validated by the preflight canaries.

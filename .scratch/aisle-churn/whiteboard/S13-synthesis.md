@@ -49,9 +49,13 @@ s* = σ_G).**
 | decision | where it first moves pick labour | mechanism |
 |---|---|---|
 | placement rule, store | everywhere (k ≥ 1); grows to k ≈ 10 (−1.9%), then plateaus | height on fresh picks: φ × ΔM̄, where ΔM̄ decays as the good bins are spent |
-| placement rule, fulfillment | only under dock saturation | all bins at M = 1; the aisle co-location lever is unmodelled (S07) |
-| unloading order (any velocity-blind pair) | only when the site dock saturates: 24–27 trailers/day, store k 25–30 at c = 0.95 | exchangeable pairings below it (0 of 56 readings); above it the order decides the DAY a pack lands |
-| breathing room (free pool grows) | only off the floor: fulfillment k ≥ 10 (+13% to +25%) | declared coverage stock drawn down to the order-up-to cycle |
+| placement rule, fulfillment | once most stock is rule-placed (the 100-batch fill: −1.6% to −2.2%), or under dock saturation | co-location of co-drawn SKUs.  The independent-visit form INVERTS it; the Palm probability P⁰_a(s) prices it (S07) |
+| unloading order (any velocity-blind pair) | only past the dock gate ρ_door = λ_T·E[o]/(doors·S) = 1: **k\*_order = 29.6** (store k, fulfillment at 10, c = 0.95) | exchangeable pairings below it (0 of 56 readings); above it the order decides the DAY a pack lands (S04, S12) |
+| demand density itself | stops being a lever at **k\* = 12.8** on the store (40 on fulfillment) | one picker per aisle-day: past it the day-cut backlog grows whatever the crew (S04) |
+| breathing room (free pool grows) | only off the floor: fulfillment k ≥ 10 (+13% to +25%) | declared coverage stock drawn down to the order-up-to cycle; sign and scale predicted, fragmentation open (S14) |
+
+**k\*_place = 1** on the store: the placement gap clears twice its floor at the declared demand
+(|−1.07%| > 2 × 0.40%, from `churn.threshold`).
 
 **The answer to the user's question.**  Churn alone does not make the unloading decision
 matter; saturation does.  More churn buys two things:
@@ -68,17 +72,19 @@ any churn, through height.
 |---|---|
 | `Warehouse/kernel/closed_form.py` | the DSL: evaluate, render LaTeX, compose, mirror-gate |
 | `PickConfig` / `PutawayCost` / `UnloadCost.closed_form` | per-event laws as class attributes |
-| `Optimization/simconfig/models/{levels,reorders,churn}.py` | the composed models |
+| `Optimization/simconfig/models/{levels,reorders,churn,dock,inbound,pick}.py` | the composed models: levels, reorders, the fresh-bin reach and frontier and noise floor, the dock gate and aisle ceiling, trailers and crews, the pick day and the location value |
 | `Optimization/Performance_Evaluations/closed_form/` | render (graph, sweep, predicted-vs-realised); `docs_page` (generated `docs/closed-form-models.md`, freshness-tested); `evaluation` (`closed_form.predicted`, a run-scope dossier artifact) |
 
 ## Open, and proposed
 
 | item | what it would add |
 |---|---|
-| S04 (yard) | a closed form for the dock's saturation point: ρ_recv from trailers/day and the derived receiving crew.  The S12 bisection measured the threshold; a model would predict it. |
-| S07 (g_b) | the marginal value of a location for fulfillment's aisle co-location lever, which the independent-bin routing cannot see |
-| carry term | φ_units = φ_lines + f(1 − fill_c) |
-| off-floor drawdown | the free-pool growth law, from the cycle stock of the order-up-to policy |
+| ~~S04 (yard)~~ | **done**: `models/dock.py` + `models/inbound.py` (trailers within 2% of the yard; the gate at ρ_door = 1) |
+| ~~S07 (g_b)~~ | **done**: `models/pick.py` (Palm P⁰_a(s); the script form sees co-location the independent form inverts) |
+| carry term | φ_units = φ_lines + f(1 − fill_c): the shortfall's remainder served from the lot it triggered; dominates on short windows (the 6-batch toy: 1.8% realised against ~0 from the fresh-bin law) |
+| off-floor drawdown | S14 is partial: compose the fragmentation chain, and replace the declared lead with the dock-coupled one |
+| yard latency | the fixed yard wait grows with volume (3.4 → 6.7 h from k1 to k10) on top of Allen–Cunneen; the drain cadence is the candidate |
+| **Proposed, not made:** multi-picker aisles (or more, smaller store aisles) | lifts the k\* = 12.8 aisle ceiling, without which store churn past ~13× measures the ceiling |
 | **Proposed, not made:** the drain-order fix in `expected_travel.PlacementDist.initial` | correct the drain to smallest-first (S06 variant b).  A comparability break for `pick_owed_exact_s`, so it needs the user's decision. |
 | **Proposed, not run:** one 400k confirmation | at the contention edge (store k ≈ 30, c = 0.95) with the gain policies |
 | **Suggested design** | a turnover-aware placement rule (fast packs to good bins), the one lever the frontier law says can raise s* above σ_G |

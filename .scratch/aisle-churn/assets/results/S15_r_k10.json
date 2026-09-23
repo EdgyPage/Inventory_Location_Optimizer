@@ -1,0 +1,417 @@
+{
+ "root": "comparison_whatif_20260923_131511",
+ "window": [
+  0,
+  40
+ ],
+ "P1": {
+  "fulfillment/opt_fifo_norsl": 0.723246580067939,
+  "fulfillment/opt_map_norsl": 0.7088371844480139,
+  "fulfillment/opt_rank_minlabor_norsl": 0.7086086156893259,
+  "fulfillment/opt_rank_popularity_norsl": 0.729475478557737,
+  "fulfillment/uni_fifo_norsl": 0.723246580067939,
+  "fulfillment/uni_map_norsl": 0.7247313957207191,
+  "fulfillment/uni_rank_minlabor_norsl": 0.7243751566478807,
+  "fulfillment/uni_rank_popularity_norsl": 0.7290682197123869,
+  "store/opt_fifo_norsl": 0.4995421458614642,
+  "store/opt_map_norsl": 0.49545232311787485,
+  "store/opt_rank_minlabor_norsl": 0.4879964843096763,
+  "store/opt_rank_popularity_norsl": 0.5012421492287029,
+  "store/uni_fifo_norsl": 0.4995421458614642,
+  "store/uni_map_norsl": 0.5018026723793335,
+  "store/uni_rank_minlabor_norsl": 0.5017735525053129,
+  "store/uni_rank_popularity_norsl": 0.5056017080745342
+ },
+ "P3": {
+  "k1_off_fifo/fulfillment/map": {
+   "total_pct": -0.033028815421110025,
+   "paired_pct": -0.05335899953565461,
+   "ci_pct": [
+    -0.2018142090669471,
+    0.044302510477969445
+   ]
+  },
+  "k1_off_fifo/fulfillment/rank_minlabor": {
+   "total_pct": -0.08964997625275917,
+   "paired_pct": -0.13772139714579829,
+   "ci_pct": [
+    -0.3610306511172051,
+    0.04079213243243788
+   ]
+  },
+  "k1_off_fifo/fulfillment/rank_popularity": {
+   "total_pct": -0.08652215262965335,
+   "paired_pct": -0.1287585287471195,
+   "ci_pct": [
+    -0.3788436909571061,
+    0.05745207624365193
+   ]
+  },
+  "k1_off_fifo/store/map": {
+   "total_pct": -1.4555704218348953,
+   "paired_pct": -1.442177864076578,
+   "ci_pct": [
+    -1.903013400199966,
+    -0.9002861971188141
+   ]
+  },
+  "k1_off_fifo/store/rank_minlabor": {
+   "total_pct": -2.049692405932302,
+   "paired_pct": -2.1461385993955227,
+   "ci_pct": [
+    -3.147802825337757,
+    -1.3601329492044618
+   ]
+  },
+  "k1_off_fifo/store/rank_popularity": {
+   "total_pct": -0.6277886363669993,
+   "paired_pct": -0.5455597397774401,
+   "ci_pct": [
+    -0.96505092643946,
+    -0.019074093200905022
+   ]
+  },
+  "k1_off_lifo/fulfillment/map": {
+   "total_pct": -0.018693842425987484,
+   "paired_pct": -0.02968007605441103,
+   "ci_pct": [
+    -0.21578796365142902,
+    0.1768559891066863
+   ]
+  },
+  "k1_off_lifo/fulfillment/rank_minlabor": {
+   "total_pct": -0.11985752632518443,
+   "paired_pct": -0.10610123662376778,
+   "ci_pct": [
+    -0.3280169491301425,
+    0.14185927003301085
+   ]
+  },
+  "k1_off_lifo/fulfillment/rank_popularity": {
+   "total_pct": -0.15059052056353162,
+   "paired_pct": -0.16161684628070638,
+   "ci_pct": [
+    -0.2970563415170669,
+    0.030059829272136067
+   ]
+  },
+  "k1_off_lifo/store/map": {
+   "total_pct": -1.3875292630039393,
+   "paired_pct": -1.3703753542449448,
+   "ci_pct": [
+    -1.7348064644652408,
+    -0.9135844303485389
+   ]
+  },
+  "k1_off_lifo/store/rank_minlabor": {
+   "total_pct": -2.016688133335731,
+   "paired_pct": -1.9863615428746109,
+   "ci_pct": [
+    -2.6835774366073517,
+    -1.4141298616903974
+   ]
+  },
+  "k1_off_lifo/store/rank_popularity": {
+   "total_pct": -0.6396920966283193,
+   "paired_pct": -0.396502601099762,
+   "ci_pct": [
+    -0.8848265807129327,
+    0.4097861810007615
+   ]
+  }
+ },
+ "P4": {
+  "fulfillment/opt_fifo_norsl": {
+   "total_pct": -0.009001349992632246,
+   "paired_pct": -0.012821337346228635,
+   "ci_pct": [
+    -0.3835344754762211,
+    0.3350561738064927
+   ]
+  },
+  "fulfillment/opt_map_norsl": {
+   "total_pct": 0.034235505670454636,
+   "paired_pct": 0.024543925855264326,
+   "ci_pct": [
+    -0.23192494551470452,
+    0.32639654108146554
+   ]
+  },
+  "fulfillment/opt_rank_minlabor_norsl": {
+   "total_pct": 0.006132724447360793,
+   "paired_pct": -0.013638439242440436,
+   "ci_pct": [
+    -0.1351195076237388,
+    0.12105805487758255
+   ]
+  },
+  "fulfillment/opt_rank_popularity_norsl": {
+   "total_pct": 0.025827279954215854,
+   "paired_pct": 0.01185615227646154,
+   "ci_pct": [
+    -0.29919071166067,
+    0.28648209064766006
+   ]
+  },
+  "fulfillment/uni_fifo_norsl": {
+   "total_pct": -0.009001349992632246,
+   "paired_pct": -0.012821337346228635,
+   "ci_pct": [
+    -0.3835344754762211,
+    0.3350561738064927
+   ]
+  },
+  "fulfillment/uni_map_norsl": {
+   "total_pct": 0.005337068471167328,
+   "paired_pct": 0.011555696216639832,
+   "ci_pct": [
+    -0.4300579833638164,
+    0.49439032225747287
+   ]
+  },
+  "fulfillment/uni_rank_minlabor_norsl": {
+   "total_pct": -0.039233283899309246,
+   "paired_pct": 0.02185759589387567,
+   "ci_pct": [
+    -0.5353878515911215,
+    0.6449133450693475
+   ]
+  },
+  "fulfillment/uni_rank_popularity_norsl": {
+   "total_pct": -0.07311942724914644,
+   "paired_pct": -0.043712966458988235,
+   "ci_pct": [
+    -0.5301753249904225,
+    0.48804730996271717
+   ]
+  },
+  "store/opt_fifo_norsl": {
+   "total_pct": -0.011251442515380905,
+   "paired_pct": -0.06869039400877677,
+   "ci_pct": [
+    -0.3324339376484393,
+    0.15700944439143197
+   ]
+  },
+  "store/opt_map_norsl": {
+   "total_pct": -0.07623908618714648,
+   "paired_pct": -0.16776050975662762,
+   "ci_pct": [
+    -0.579200266004438,
+    0.3244176999292579
+   ]
+  },
+  "store/opt_rank_minlabor_norsl": {
+   "total_pct": -0.07556787838639556,
+   "paired_pct": -0.15219252209068693,
+   "ci_pct": [
+    -0.6770658202348661,
+    0.2921765091392723
+   ]
+  },
+  "store/opt_rank_popularity_norsl": {
+   "total_pct": -0.15191683711549553,
+   "paired_pct": -0.12200775430556612,
+   "ci_pct": [
+    -0.5149687374905842,
+    0.5345073917652949
+   ]
+  },
+  "store/uni_fifo_norsl": {
+   "total_pct": -0.011251442515380905,
+   "paired_pct": -0.06869039400877677,
+   "ci_pct": [
+    -0.3324339376484393,
+    0.15700944439143197
+   ]
+  },
+  "store/uni_map_norsl": {
+   "total_pct": 0.0577869633187289,
+   "paired_pct": 0.01306432467074623,
+   "ci_pct": [
+    -0.3705637255055391,
+    0.3256725678027096
+   ]
+  },
+  "store/uni_rank_minlabor_norsl": {
+   "total_pct": 0.022439681025110403,
+   "paired_pct": 0.09919789646697133,
+   "ci_pct": [
+    -0.3505391510470152,
+    0.4750997069068949
+   ]
+  },
+  "store/uni_rank_popularity_norsl": {
+   "total_pct": -0.023228755676685253,
+   "paired_pct": 0.07224816575265196,
+   "ci_pct": [
+    -0.31299618768810117,
+    0.6709552062299512
+   ]
+  }
+ },
+ "P5": {
+  "k1_off_fifo/fulfillment/map": {
+   "total_pct": 0.04601588445605209,
+   "paired_pct": 0.05497617521892034,
+   "ci_pct": [
+    -0.2110257595521459,
+    0.3496998536548159
+   ]
+  },
+  "k1_off_fifo/fulfillment/rank_minlabor": {
+   "total_pct": -0.07974042260346925,
+   "paired_pct": -0.06393485029065583,
+   "ci_pct": [
+    -0.2525391816347434,
+    0.11961470265965207
+   ]
+  },
+  "k1_off_fifo/fulfillment/rank_popularity": {
+   "total_pct": -0.06208921611249307,
+   "paired_pct": -0.06693694847285911,
+   "ci_pct": [
+    -0.3256168482683912,
+    0.1855020708396741
+   ]
+  },
+  "k1_off_fifo/store/map": {
+   "total_pct": -1.506823170010263,
+   "paired_pct": -1.9569024103155044,
+   "ci_pct": [
+    -3.1278205493580873,
+    -0.9769957399137813
+   ]
+  },
+  "k1_off_fifo/store/rank_minlabor": {
+   "total_pct": -1.8269138527679307,
+   "paired_pct": -0.695536875770083,
+   "ci_pct": [
+    -2.446923358709795,
+    2.6282321741041987
+   ]
+  },
+  "k1_off_fifo/store/rank_popularity": {
+   "total_pct": -0.17772330925617252,
+   "paired_pct": -0.2250339790571178,
+   "ci_pct": [
+    -0.9989095905568263,
+    0.5232204544555804
+   ]
+  },
+  "k1_off_lifo/fulfillment/map": {
+   "total_pct": 0.07492607657004768,
+   "paired_pct": 0.07245784622899107,
+   "ci_pct": [
+    -0.2788605441775933,
+    0.4876627214868597
+   ]
+  },
+  "k1_off_lifo/fulfillment/rank_minlabor": {
+   "total_pct": -0.03439279794125172,
+   "paired_pct": -0.0824407828476674,
+   "ci_pct": [
+    -0.5254801119546372,
+    0.31787714847004933
+   ]
+  },
+  "k1_off_lifo/fulfillment/rank_popularity": {
+   "total_pct": 0.036868413107726816,
+   "paired_pct": -0.010835885891188968,
+   "ci_pct": [
+    -0.42421658042341764,
+    0.3447731201063795
+   ]
+  },
+  "k1_off_lifo/store/map": {
+   "total_pct": -1.6387534454484598,
+   "paired_pct": -2.126518991085356,
+   "ci_pct": [
+    -3.2265380334707774,
+    -1.1334520895698788
+   ]
+  },
+  "k1_off_lifo/store/rank_minlabor": {
+   "total_pct": -1.923109312545468,
+   "paired_pct": -0.9419821656993296,
+   "ci_pct": [
+    -2.5485465381665398,
+    2.15243281228776
+   ]
+  },
+  "k1_off_lifo/store/rank_popularity": {
+   "total_pct": -0.3062125284248207,
+   "paired_pct": -0.4354438951500656,
+   "ci_pct": [
+    -1.0242388177009696,
+    0.27000445439693016
+   ]
+  }
+ },
+ "P6": {
+  "fulfillment/opt_fifo_norsl": [
+   196686,
+   200185
+  ],
+  "fulfillment/opt_map_norsl": [
+   196686,
+   199993
+  ],
+  "fulfillment/opt_rank_minlabor_norsl": [
+   196686,
+   202718
+  ],
+  "fulfillment/opt_rank_popularity_norsl": [
+   196686,
+   203728
+  ],
+  "fulfillment/uni_fifo_norsl": [
+   196686,
+   200185
+  ],
+  "fulfillment/uni_map_norsl": [
+   196686,
+   199803
+  ],
+  "fulfillment/uni_rank_minlabor_norsl": [
+   196686,
+   199181
+  ],
+  "fulfillment/uni_rank_popularity_norsl": [
+   196686,
+   199708
+  ],
+  "store/opt_fifo_norsl": [
+   261106,
+   260705
+  ],
+  "store/opt_map_norsl": [
+   261106,
+   260737
+  ],
+  "store/opt_rank_minlabor_norsl": [
+   261106,
+   260530
+  ],
+  "store/opt_rank_popularity_norsl": [
+   261106,
+   260228
+  ],
+  "store/uni_fifo_norsl": [
+   261106,
+   260705
+  ],
+  "store/uni_map_norsl": [
+   261106,
+   260746
+  ],
+  "store/uni_rank_minlabor_norsl": [
+   261106,
+   260827
+  ],
+  "store/uni_rank_popularity_norsl": [
+   261106,
+   260662
+  ]
+ }
+}
