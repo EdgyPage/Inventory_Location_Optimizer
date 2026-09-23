@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>renewal_lines_noisy · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_models_reorders_py__renewal_lines_noisy" data-id="Optimization/simconfig/models/reorders.py::renewal_lines_noisy">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_models_reorders_py.html"><code>Optimization/simconfig/models/reorders.py</code></a> <span class="sep">›</span> <span class="here"><code>renewal_lines_noisy</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>renewal_lines_noisy</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_models_reorders_py.html"><code>Optimization/simconfig/models/reorders.py</code></a></p>
+
+<pre class="sig"><code>def renewal_lines_noisy(lam: float, pipeline: float, cv: float) -&gt; float</code></pre>
+<section class="doc">E[N] with SUPPLY NOISE: a fire restores the position to S + epsilon, so the next fire
+needs the running quantity to reach P + 1 + epsilon (at least 1 -- a position already at
+or below the reorder point fires on the very next line).  Epsilon&#x27;s law is `noise_pmf` at
+the typical lot E[q] * E[N] of the noise-free cycle.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simconfig_models_reorders_py__noise_pmf.html"><code>noise_pmf</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__renewal_lines.html"><code>renewal_lines</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_models_reorders_py__CYCLE.html"><code>CYCLE</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_models_reorders_py__renewal_lines_noisy">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/models/reorders.py#:~:text=def%20renewal_lines_noisy">Source ↗</a></p>
+</article>
+</main>
+</body></html>

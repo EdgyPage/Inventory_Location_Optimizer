@@ -440,6 +440,17 @@ class Mirror:
     fixed: dict = field(default_factory=dict)
     rel_tol: float = 1e-12
 
+    def draw(self, rng) -> dict:
+        """One sample of the inputs: `(lo, hi)` draws a float, `('int', lo, hi)` an integer
+        (a count, a level -- anything the mirrored code would `int()`)."""
+        out = {}
+        for sym, spec in self.domain.items():
+            if len(spec) == 3 and spec[0] == 'int':
+                out[sym] = rng.randint(spec[1], spec[2])
+            else:
+                out[sym] = rng.uniform(*spec)
+        return out
+
     def resolve(self) -> Callable:
         mod, _, fn = self.target.partition(':')
         return getattr(importlib.import_module(mod), fn)
@@ -586,9 +597,10 @@ class Model:
         env = result.values if result is not None else None
         ins = sorted(self.inputs)
         if ins:
+            known = self.symbol_tex()
             lines += ['**Inputs**', '']
             for n in ins:
-                tex = (input_tex or {}).get(n, n)
+                tex = (input_tex or {}).get(n, known.get(n, n))
                 val = f' = {fmt_num(env[n])}' if env is not None and n in env \
                     and not isinstance(env[n], (list, tuple, dict)) else ''
                 lines.append(f'- ${tex}{val}$')
@@ -602,6 +614,14 @@ class Model:
                 head += f' _(mirrors `{e.mirrors.target}`)_'
             lines += [head, '', f'$$ {e.latex(env)} $$', '']
         return '\n'.join(lines)
+
+    def symbol_tex(self) -> dict:
+        """`{name: LaTeX}` for every symbol the model's trees name, read off the `Sym` nodes
+        themselves -- so an input is printed as the equations print it, not by its key."""
+        out: dict = {}
+        for e in self.equations:
+            _collect_tex(e.expr, out)
+        return out
 
     def to_dot(self) -> str:
         """The dependency graph in Graphviz DOT: inputs as boxes, equations as ellipses."""
@@ -643,6 +663,40 @@ class Law:
         """The law as a page; with a complete event, every number substituted."""
         full = self.event_inputs <= set(event)
         return self.model.to_markdown(self.result(**event) if full else None, title=title)
+
+
+def _collect_tex(node, out: dict) -> None:
+    """Walk a tree, recording each named `Sym`'s LaTeX (the first spelling met wins)."""
+    if isinstance(node, Sym):
+        if node.tex is not None:
+            out.setdefault(node.name, node.tex)
+        return
+    for child in _children(node):
+        _collect_tex(child, out)
+
+
+def _children(node) -> tuple:
+    if isinstance(node, Add):
+        return node.terms
+    if isinstance(node, Mul):
+        return node.factors
+    if isinstance(node, Div):
+        return node.num, node.den
+    if isinstance(node, Pow):
+        return node.base, node.exp
+    if isinstance(node, Neg):
+        return (node.x,)
+    if isinstance(node, Cmp):
+        return node.a, node.b
+    if isinstance(node, Fn):
+        return node.args
+    if isinstance(node, Piecewise):
+        return tuple(x for case in node.cases for x in case) + (node.otherwise,)
+    if isinstance(node, Sum):
+        return (node.body,)
+    if isinstance(node, Call):
+        return tuple(node.args.values())
+    return ()
 
 
 # ── the kernel's own cost laws ───────────────────────────────────────────────────────────────

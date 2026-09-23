@@ -1434,6 +1434,46 @@ files:
       - {name: "bucket_of", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
       - {name: "section_fragmentation", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
     notes: ""
+  "Optimization/simconfig/models/levels.py":
+    purpose: "where a SKU's equilibrium units come from, as one closed-form model."
+    layer: "optimization"
+    key_symbols:
+      - {name: "mirror_line_mean", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+      - {name: "mirror_line_floor", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+      - {name: "mirror_lead", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+      - {name: "mirror_Q", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+      - {name: "mirror_rp", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+      - {name: "LINE_MEAN", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "DAILY", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "FLOOR", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "LEAD", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "PIPELINE", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "COVERAGE", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "ORDER_UP_TO", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "REORDER_POINT", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "ON_FLOOR", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "POSITION", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "LEVELS", file: "Optimization/simconfig/models/levels.py", kind: "const"}
+      - {name: "sku_inputs", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+      - {name: "section", file: "Optimization/simconfig/models/levels.py", kind: "function"}
+    notes: ""
+  "Optimization/simconfig/models/reorders.py":
+    purpose: "when a reorder fires, how often, and what lands, as one closed-form model."
+    layer: "optimization"
+    key_symbols:
+      - {name: "line_pmf", file: "Optimization/simconfig/models/reorders.py", kind: "function"}
+      - {name: "renewal_lines", file: "Optimization/simconfig/models/reorders.py", kind: "function"}
+      - {name: "noise_pmf", file: "Optimization/simconfig/models/reorders.py", kind: "function"}
+      - {name: "renewal_lines_noisy", file: "Optimization/simconfig/models/reorders.py", kind: "function"}
+      - {name: "LINE_MEAN", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "CV", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "CYCLE", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "LOT", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "FIRES", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "UNITS", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "REORDERS", file: "Optimization/simconfig/models/reorders.py", kind: "const"}
+      - {name: "section_flows", file: "Optimization/simconfig/models/reorders.py", kind: "function"}
+    notes: ""
   "Optimization/simconfig/staffing.py":
     purpose: "the calibrated era's staffing DERIVATION, as a pure module."
     layer: "optimization"
@@ -5209,6 +5249,18 @@ files:
       - {name: "test_mixed_catalog_build_and_db_roundtrip", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
       - {name: "test_mixed_plan_has_both_aisle_kinds", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
       - {name: "test_per_channel_batches_and_simulation", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_models_levels_reorders.py":
+    purpose: "the LEVELS and REORDERS closed-form models."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_chain_composes_the_records_levels", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+      - {name: "test_a_slow_sku_sits_on_its_floor_and_a_fast_one_leaves_it", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+      - {name: "test_the_line_pmf_is_max_one_poisson", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+      - {name: "test_the_renewal_count_in_closed_cases", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+      - {name: "test_the_noise_law_is_a_centred_rounded_normal", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+      - {name: "test_fires_per_line_match_a_replica_of_the_position_rule", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
+      - {name: "test_the_model_reads_rates_and_orders_back_every_unit", file: "Tests/unit/test_models_levels_reorders.py", kind: "function"}
     notes: ""
   "Tests/unit/test_operations_actors.py":
     purpose: "who does the work, and the two id spaces."

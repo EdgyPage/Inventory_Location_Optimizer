@@ -13176,6 +13176,366 @@
       "src": "Optimization/simconfig/fragmentation.py::unit_for"
     },
     {
+      "dst": "Optimization/simconfig/coverage.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::ceil",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::exp",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::COVERAGE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::rnd",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::COVERAGE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::DAILY"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::ceil",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LEAD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LEAD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LEAD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LEAD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LEVELS"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LINE_MEAN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LINE_MEAN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::exp",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LINE_MEAN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::LINE_MEAN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ON_FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ON_FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Piecewise",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ON_FLOOR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Piecewise",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::rnd",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::ORDER_UP_TO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::PIPELINE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::PIPELINE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::rnd",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::PIPELINE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::POSITION"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Piecewise",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmin",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::rnd",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::REORDER_POINT"
+    },
+    {
+      "dst": "Warehouse/catalog/Demand.py::LineDistribution",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::_line"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::stock_levels",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::mirror_Q"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::sku_lead_days",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::mirror_lead"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::line_floor",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::mirror_line_floor"
+    },
+    {
+      "dst": "Optimization/simconfig/models/levels.py::_line",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::mirror_line_floor"
+    },
+    {
+      "dst": "Optimization/simconfig/models/levels.py::_line",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::mirror_line_mean"
+    },
+    {
+      "dst": "Optimization/simconfig/coverage.py::stock_levels",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::mirror_rp"
+    },
+    {
+      "dst": "Optimization/simconfig/models/levels.py::sku_inputs",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/levels.py::section"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/models/reorders.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::CV"
+    },
+    {
+      "dst": "Optimization/simconfig/models/reorders.py::renewal_lines_noisy",
+      "kind": "ref",
+      "src": "Optimization/simconfig/models/reorders.py::CYCLE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Call",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::CYCLE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::CYCLE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::FIRES"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::LINE_MEAN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::exp",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::LINE_MEAN"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::LOT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::REORDERS"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::UNITS"
+    },
+    {
+      "dst": "Optimization/simconfig/models/reorders.py::line_pmf",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::renewal_lines"
+    },
+    {
+      "dst": "Optimization/simconfig/models/reorders.py::noise_pmf",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::renewal_lines_noisy"
+    },
+    {
+      "dst": "Optimization/simconfig/models/reorders.py::renewal_lines",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/reorders.py::renewal_lines_noisy"
+    },
+    {
       "dst": "Inbound/pack.py",
       "kind": "imports",
       "src": "Optimization/simconfig/staffing.py"
@@ -20991,6 +21351,16 @@
       "src": "Warehouse/kernel/closed_form.py::Model.sweep"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py::_collect_tex",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Model.symbol_tex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model.symbol_tex",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Model.to_markdown"
+    },
+    {
       "dst": "Warehouse/kernel/closed_form.py::fmt_num",
       "kind": "calls",
       "src": "Warehouse/kernel/closed_form.py::Model.to_markdown"
@@ -21049,6 +21419,11 @@
       "dst": "Warehouse/kernel/closed_form.py::register",
       "kind": "calls",
       "src": "Warehouse/kernel/closed_form.py::TRAVEL"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_children",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::_collect_tex"
     },
     {
       "dst": "Warehouse/kernel/closed_form.py::Const",
@@ -40098,6 +40473,286 @@
       "public": true
     },
     {
+      "file": "Optimization/simconfig/models/__init__.py",
+      "id": "Optimization/simconfig/models/__init__.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/models/__init__.py",
+      "name": "Optimization.simconfig.models",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "Optimization.simconfig.models.levels",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::COVERAGE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "COVERAGE",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::DAILY",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "DAILY",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::FLOOR",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "FLOOR",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::LEAD",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "LEAD",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::LEVELS",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "LEVELS",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::LINE_MEAN",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "LINE_MEAN",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::ON_FLOOR",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "ON_FLOOR",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::ORDER_UP_TO",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "ORDER_UP_TO",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::PIPELINE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "PIPELINE",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::POSITION",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "POSITION",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::REORDER_POINT",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "REORDER_POINT",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::_HERE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "_HERE",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::_line",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "_line",
+      "public": false
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::mirror_Q",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "mirror_Q",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::mirror_lead",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "mirror_lead",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::mirror_line_floor",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "mirror_line_floor",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::mirror_line_mean",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "mirror_line_mean",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::mirror_rp",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "mirror_rp",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::section",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "section",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/levels.py",
+      "id": "Optimization/simconfig/models/levels.py::sku_inputs",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/levels.py",
+      "name": "sku_inputs",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "Optimization.simconfig.models.reorders",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::CV",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "CV",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::CYCLE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "CYCLE",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::FIRES",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "FIRES",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::LINE_MEAN",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "LINE_MEAN",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::LOT",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "LOT",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::REORDERS",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "REORDERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::UNITS",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "UNITS",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::line_pmf",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "line_pmf",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::noise_pmf",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "noise_pmf",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::renewal_lines",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "renewal_lines",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::renewal_lines_noisy",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "renewal_lines_noisy",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/reorders.py",
+      "id": "Optimization/simconfig/models/reorders.py::section_flows",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/reorders.py",
+      "name": "section_flows",
+      "public": true
+    },
+    {
       "file": "Optimization/simconfig/staffing.py",
       "id": "Optimization/simconfig/staffing.py",
       "kind": "module",
@@ -50835,6 +51490,14 @@
     },
     {
       "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mirror.draw",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "draw",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
       "id": "Warehouse/kernel/closed_form.py::Mirror.resolve",
       "kind": "function",
       "module": "Warehouse/kernel/closed_form.py",
@@ -50903,6 +51566,14 @@
       "kind": "function",
       "module": "Warehouse/kernel/closed_form.py",
       "name": "sweep",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.symbol_tex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbol_tex",
       "public": true
     },
     {
@@ -51160,6 +51831,22 @@
       "module": "Warehouse/kernel/closed_form.py",
       "name": "TRAVEL",
       "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::_children",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_children",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::_collect_tex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_collect_tex",
+      "public": false
     },
     {
       "file": "Warehouse/kernel/closed_form.py",

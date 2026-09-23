@@ -33,6 +33,7 @@ from Warehouse.kernel.closed_form import (Call, Const, Equation, Model, Piecewis
 #: registrations run; a module added here that registers nothing fails `test_every_declaring_*`.
 DECLARING_MODULES = (
     'Warehouse.kernel.closed_form',
+    'Optimization.simconfig.models.levels',
 )
 
 a, b, c = Sym('a'), Sym('b'), Sym('c')
@@ -183,7 +184,7 @@ def _load_declaring_modules():
 def test_every_declaring_module_registers_equations():
     _load_declaring_modules()
     owners = {name.split('.', 1)[0] for name in cf.REGISTRY}
-    assert {'kernel'} <= owners
+    assert {'kernel', 'levels'} <= owners
     assert {'kernel.per_pick', 'kernel.travel', 'kernel.handle_var',
             'kernel.height_multiplier'} <= set(cf.REGISTRY), 'the kernel laws went missing'
 
@@ -199,7 +200,7 @@ def test_every_registered_equation_equals_the_simulator_function_it_mirrors(seed
         missing = eq.inputs - set(mir.domain)
         assert not missing, f'{name}: inputs {sorted(missing)} have no sampling domain'
         for _ in range(200):
-            vals = {s: rng.uniform(*mir.domain[s]) for s in eq.inputs}
+            vals = mir.draw(rng)
             got, want = eq.evaluate(vals), mir.call(vals)
             assert math.isclose(got, want, rel_tol=mir.rel_tol, abs_tol=1e-12), (
                 f'{name} = {got!r} but {mir.target} = {want!r} at {vals}')

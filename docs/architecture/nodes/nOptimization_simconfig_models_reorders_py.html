@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.models.reorders · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_models_reorders_py" data-id="Optimization/simconfig/models/reorders.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/models/reorders.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.models.reorders</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_models_reorders_py.html"><code>Optimization/simconfig/models/reorders.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>Optimization.simconfig.models.reorders</code></pre>
+<section class="doc">reorders.py -- when a reorder fires, how often, and what lands, as one closed-form model.
+
+What the simulator does (`Warehouse/inventory/inventory_reorder.py:246-274, 501-569`): after a
+pick the SKU&#x27;s POSITION (on hand + queued + deferred) is compared with its reorder point r; at
+or below it, the next `check_reorders` fires an order-up-to lot `Q + P - position`, noised by
+the SKU&#x27;s supply CV.  After a fire the position is restored to S = Q + P.
+
+On the floor (every SKU on both reference catalogues, S02) r = Q - 1, so from a full position a
+fire needs the cumulative units taken since the last fire to reach **P + 1**:
+
+  * P = 0 (almost every SKU): EVERY line fires, and its lot is exactly what the line took;
+  * P &gt;= 1: lines smaller than P + 1 accumulate, and a fire comes after N lines, where N is the
+    first passage of the running line-quantity sum over P + 1 -- a renewal count.
+
+With q ~ max(1, Poisson(lambda)) the renewal function U(j) = sum_n P(S_n = j) satisfies
+U(0) = 1, U(j) = sum_{k=1..j} p_k U(j - k), and the expected lines per fire is
+
+    E[N] = sum_{j=0}^{P} U(j)                       (lines until the sum reaches P + 1)
+
+so, by Wald,  E[lot] = E[q] E[N],  fires per day = p_s / E[N],  units ordered per day = p_s E[q].
+
+`p_s` is the REALISED line rate (S01: the sampler&#x27;s, not the line share), and a line takes
+`min(q, on hand)` when stock is short -- the thinning S06 names.
+
+SUPPLY NOISE shifts the threshold (S03): a fire lands `epsilon = qty - ideal` units off, so the
+next fire needs P + 1 + epsilon units taken; `renewal_lines_noisy` averages the renewal count
+over epsilon&#x27;s law.  PIPELINE FILL is a one-time transient, not a flow: a run starts every SKU
+at Q with nothing on order, so the first fire of a SKU with P &gt;= 1 orders its P extra units.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_closed_form_py.html"><code>Warehouse.kernel.closed_form</code></a> <span class="dim">Warehouse/kernel/closed_form.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(12)</span></h2><ul><li><a href="nOptimization_simconfig_models_reorders_py__CV.html"><code>CV</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__CYCLE.html"><code>CYCLE</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__FIRES.html"><code>FIRES</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__LINE_MEAN.html"><code>LINE_MEAN</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__LOT.html"><code>LOT</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__REORDERS.html"><code>REORDERS</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__UNITS.html"><code>UNITS</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__line_pmf.html"><code>line_pmf</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__noise_pmf.html"><code>noise_pmf</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__renewal_lines.html"><code>renewal_lines</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__renewal_lines_noisy.html"><code>renewal_lines_noisy</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li><li><a href="nOptimization_simconfig_models_reorders_py__section_flows.html"><code>section_flows</code></a> <span class="dim">Optimization/simconfig/models/reorders.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_models_reorders_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/models/reorders.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

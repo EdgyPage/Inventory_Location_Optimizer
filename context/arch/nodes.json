@@ -14710,6 +14710,248 @@
       "kind": "function",
       "signature": "(order, single: bool, n0: int)"
     },
+    "Optimization/simconfig/models/__init__.py": {
+      "decorators": [],
+      "doc": "models -- the composed closed-form models, one module per question.\n\nEach module builds `Warehouse.kernel.closed_form.Model`s out of the kernel's expression tree and\nthe existing closed forms beside it (`coverage`, `staffing`, `expected_travel`, `fragmentation`),\nwhich enter through `Call` nodes rather than being re-implemented.  Every equation that models a\nsimulator or record function is registered with a `Mirror` and held equal to it by\n`Tests/unit/test_closed_form.py`.\n\n  levels     where a SKU's equilibrium units come from (the declaration)\n  reorders   when a reorder fires, how often, and what lands",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/models/levels.py": {
+      "decorators": [],
+      "doc": "levels.py -- where a SKU's equilibrium units come from, as one closed-form model.\n\nThe declaration chain `Optimization/simconfig/coverage.py` computes for every SKU, written once\nas an expression tree (`Warehouse/kernel/closed_form.py`) so it evaluates, renders and is held\nequal to the code it models:\n\n    E[q]  = lambda + e^-lambda                      the line law's mean (q = max(1, Poisson))\n    d     = n * pi * E[q]                            daily units at the declared line rate\n    L     = max(1, ceil(f * E[q]))                   the line floor, f the SOLVED floor lines\n    l     = supplier lead * unit + E[ceil(T/D)]      order-to-shelf lead, days\n    P     = max(0, round(d * l))                     the pipeline allowance\n    Q     = max(L, round(C * d))                     the order-up-to (1 when that is <= 1)\n    rp    = min(Q - 1, max(L, round(d (l + s))))     the reorder point (1 when Q is 1)\n\n`pi` here is the LINE SHARE f_s / sum(f) -- what the declaration prices with.  What the sampler\nactually delivers differs per SKU (S01: the affinity lift steepens the store's frequency spread\nand flattens fulfillment's), which matters for the dynamics, not for the levels.\n\n`f` (the floor lines) is an INPUT: it is solved per section by `coverage.solve_floor_lines` so the\nfirst-pass fill clears sqrt(c), which is a bisection over the whole section, not a per-SKU law.\nThe record stamps it (reference catalogue: 1.3078 store, 1.4994 fulfillment).\n\n`on_floor` answers the question the study turns on: a SKU is ON THE FLOOR when its coverage term\ndoes not exceed its floor, `round(C d) <= L`.  Then Q = L -- base stock -- and the SKU's stock is\nset by how big one line is, not by how fast it sells.  On the reference catalogue essentially\nevery SKU is on the floor (memory `coverage-in-days-floors-the-store-section`).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/models/levels.py::COVERAGE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('Qcov', 'Q^{\\\\mathrm{cov}}_s', rnd(C_DAYS * D), unit='units', doc='the coverage term: C days of demand')"
+    },
+    "Optimization/simconfig/models/levels.py::DAILY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('d', 'd_s', N * PI * EQ, unit='units/day', doc='daily units at the declared line rate and the line share')"
+    },
+    "Optimization/simconfig/models/levels.py::FLOOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('L', 'L_s', fmax(1, ceil(F_LINES * EQ - Const(1e-09, '\\\\epsilon'))), unit='units', doc='the line floor: the least stock a SKU holds, f lines of its mean line')"
+    },
+    "Optimization/simconfig/models/levels.py::LEAD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('levels.lead', Equation('ell', '\\\\ell_s', fmax(0.0, SUPPLIER) * UNIT + fmax(0.0, TRANSIT), unit='days', doc='order-to-shelf lead: supplier lead (batches x days per batch) plus the transit ..."
+    },
+    "Optimization/simconfig/models/levels.py::LEVELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('levels', (LINE_MEAN, DAILY, FLOOR, LEAD, PIPELINE, COVERAGE, ORDER_UP_TO, REORDER_POINT, ON_FLOOR, POSITION), doc=\"Where one SKU's equilibrium units come from: the declaration `Optimization/..."
+    },
+    "Optimization/simconfig/models/levels.py::LINE_MEAN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('levels.line_mean', Equation('Eq', '\\\\mathbb{E}[q_s]', LAM + exp(-LAM), doc='units per line: q = max(1, X), X ~ Poisson(lambda)', mirrors=Mirror(f'{_HERE}:mirror_line_mean', args={'lam': '..."
+    },
+    "Optimization/simconfig/models/levels.py::ON_FLOOR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('on_floor', '\\\\mathbb{1}_{\\\\mathrm{floor}}', Piecewise(((Const(1), QCOV <= L),), Const(0)), doc='1 when the coverage term does not exceed the floor: base stock, Q = L')"
+    },
+    "Optimization/simconfig/models/levels.py::ORDER_UP_TO": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('levels.Q', Equation('Q', 'Q_s', Piecewise(((Const(1), fmax(L, rnd(C_DAYS * D)) <= 1),), fmax(L, rnd(C_DAYS * D))), unit='units', doc='the order-up-to: coverage days of demand, floored at ..."
+    },
+    "Optimization/simconfig/models/levels.py::PIPELINE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('P', 'P_s', fmax(0, rnd(D * fmax(0.0, ELL))), unit='units', doc='the pipeline allowance: units expected in transit over the lead')"
+    },
+    "Optimization/simconfig/models/levels.py::POSITION": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('S', 'S_s', Q + P, unit='units', doc='the inventory position a fired order restores: order-up-to plus pipeline')"
+    },
+    "Optimization/simconfig/models/levels.py::REORDER_POINT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('levels.rp', Equation('rp', 'r_s', Piecewise(((Const(1), fmax(L, rnd(C_DAYS * D)) <= 1),), fmin(fmax(L, rnd(C_DAYS * D)) - 1, fmax(L, rnd(D * (fmax(0.0, ELL) + SAFETY))))), unit='units', d..."
+    },
+    "Optimization/simconfig/models/levels.py::_HERE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'Optimization.simconfig.models.levels'"
+    },
+    "Optimization/simconfig/models/levels.py::_line": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam)"
+    },
+    "Optimization/simconfig/models/levels.py::mirror_Q": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d, ell, C, safety, L)"
+    },
+    "Optimization/simconfig/models/levels.py::mirror_lead": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(supplier, unit, transit)"
+    },
+    "Optimization/simconfig/models/levels.py::mirror_line_floor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam, f_L)"
+    },
+    "Optimization/simconfig/models/levels.py::mirror_line_mean": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam)"
+    },
+    "Optimization/simconfig/models/levels.py::mirror_rp": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(d, ell, C, safety, L)"
+    },
+    "Optimization/simconfig/models/levels.py::section": {
+      "decorators": [],
+      "doc": "The LEVELS model evaluated for every SKU of one channel section: a list of\n`(order, Result)` in the order given.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, *, lines_per_day: float, floor_lines: float, transit_days: float, lead_unit_days: float=1.0, coverage_days: float=10.0, safety_days: float=2.0) -> list"
+    },
+    "Optimization/simconfig/models/levels.py::sku_inputs": {
+      "decorators": [],
+      "doc": "The LEVELS model's inputs for one catalogue order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(order, *, lines_per_day: float, line_share: float, floor_lines: float, transit_days: float, lead_unit_days: float=1.0, coverage_days: float=10.0, safety_days: float=2.0) -> dict"
+    },
+    "Optimization/simconfig/models/reorders.py": {
+      "decorators": [],
+      "doc": "reorders.py -- when a reorder fires, how often, and what lands, as one closed-form model.\n\nWhat the simulator does (`Warehouse/inventory/inventory_reorder.py:246-274, 501-569`): after a\npick the SKU's POSITION (on hand + queued + deferred) is compared with its reorder point r; at\nor below it, the next `check_reorders` fires an order-up-to lot `Q + P - position`, noised by\nthe SKU's supply CV.  After a fire the position is restored to S = Q + P.\n\nOn the floor (every SKU on both reference catalogues, S02) r = Q - 1, so from a full position a\nfire needs the cumulative units taken since the last fire to reach **P + 1**:\n\n  * P = 0 (almost every SKU): EVERY line fires, and its lot is exactly what the line took;\n  * P >= 1: lines smaller than P + 1 accumulate, and a fire comes after N lines, where N is the\n    first passage of the running line-quantity sum over P + 1 -- a renewal count.\n\nWith q ~ max(1, Poisson(lambda)) the renewal function U(j) = sum_n P(S_n = j) satisfies\nU(0) = 1, U(j) = sum_{k=1..j} p_k U(j - k), and the expected lines per fire is\n\n    E[N] = sum_{j=0}^{P} U(j)                       (lines until the sum reaches P + 1)\n\nso, by Wald,  E[lot] = E[q] E[N],  fires per day = p_s / E[N],  units ordered per day = p_s E[q].\n\n`p_s` is the REALISED line rate (S01: the sampler's, not the line share), and a line takes\n`min(q, on hand)` when stock is short -- the thinning S06 names.\n\nSUPPLY NOISE shifts the threshold (S03): a fire lands `epsilon = qty - ideal` units off, so the\nnext fire needs P + 1 + epsilon units taken; `renewal_lines_noisy` averages the renewal count\nover epsilon's law.  PIPELINE FILL is a one-time transient, not a flow: a run starts every SKU\nat Q with nothing on order, so the first fire of a SKU with P >= 1 orders its P extra units.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/models/reorders.py::CV": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Sym('cv', '\\\\kappa_s')"
+    },
+    "Optimization/simconfig/models/reorders.py::CYCLE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('N', '\\\\mathbb{E}[N_s]', Call('renewal', renewal_lines_noisy, {'lam': LAM, 'pipeline': PIPE, 'cv': CV}, tex='\\\\mathbb{E}_{\\\\epsilon}\\\\,\\\\operatorname{U}_{\\\\Sigma}'), unit='lines', doc='lin..."
+    },
+    "Optimization/simconfig/models/reorders.py::FIRES": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('fires', '\\\\phi_s', RATE / NCYC, unit='fires/day', doc='reorders fired per day at the realised line rate')"
+    },
+    "Optimization/simconfig/models/reorders.py::LINE_MEAN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('Eq', '\\\\mathbb{E}[q_s]', LAM + exp(-LAM), doc='units per line, q = max(1, Poisson)')"
+    },
+    "Optimization/simconfig/models/reorders.py::LOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('lot', '\\\\mathbb{E}[\\\\mathrm{lot}_s]', EQ * NCYC, unit='units', doc='units per fire, by Wald')"
+    },
+    "Optimization/simconfig/models/reorders.py::REORDERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('reorders', (LINE_MEAN, CYCLE, LOT, FIRES, UNITS), doc='When a floor SKU reorders: after the running quantity taken since its last fire reaches P + 1, for exactly what was taken.')"
+    },
+    "Optimization/simconfig/models/reorders.py::UNITS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('ordered', 'o_s', RATE * EQ, unit='units/day', doc='units ordered per day: every unit taken is ordered back')"
+    },
+    "Optimization/simconfig/models/reorders.py::line_pmf": {
+      "decorators": [],
+      "doc": "P(q = k) for k = 0..upto, q = max(1, Poisson(lam)): P(q = 0) = 0 and P(q = 1) takes the\nPoisson's mass at 0 and 1 together.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam: float, upto: int) -> list"
+    },
+    "Optimization/simconfig/models/reorders.py::noise_pmf": {
+      "decorators": [],
+      "doc": "The supply noise a fire lands with, epsilon = qty - ideal, as `{eps: prob}` over integers:\n`qty = max(1, round(Normal(ideal, ideal * cv)))` (`_fire_reorders`), taken at the typical lot.\nZero noise (cv = 0) is `{0: 1}`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lot: float, cv: float) -> dict"
+    },
+    "Optimization/simconfig/models/reorders.py::renewal_lines": {
+      "decorators": [],
+      "doc": "E[N]: the expected number of lines until their running quantity reaches `threshold`\n(an integer >= 1), for q ~ max(1, Poisson(lam)).  1 when the threshold is 1.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam: float, threshold: float) -> float"
+    },
+    "Optimization/simconfig/models/reorders.py::renewal_lines_noisy": {
+      "decorators": [],
+      "doc": "E[N] with SUPPLY NOISE: a fire restores the position to S + epsilon, so the next fire\nneeds the running quantity to reach P + 1 + epsilon (at least 1 -- a position already at\nor below the reorder point fires on the very next line).  Epsilon's law is `noise_pmf` at\nthe typical lot E[q] * E[N] of the noise-free cycle.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(lam: float, pipeline: float, cv: float) -> float"
+    },
+    "Optimization/simconfig/models/reorders.py::section_flows": {
+      "decorators": [],
+      "doc": "Section totals from `[(lam, P, p, cv), ...]`: fires/day and units ordered/day.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(skus: list) -> dict"
+    },
     "Optimization/simconfig/staffing.py": {
       "decorators": [],
       "doc": "staffing.py \u2014 the calibrated era's staffing DERIVATION, as a pure module.\n\nDEMAND per channel is the declared staffing input of the calibrated era (ADR-0004,\n.scratch/department-calibration, \"Fit the store's window to its own steady state\" --\nreversing \"Define the calibrated era\", which declared the pickers): a mean day is a\ndeclared fraction of the section's SKUs drawn as lines, and everything a run fields is\nDERIVED from that and ONE more declared scalar, the joint FIRST-TIME CONFIDENCE `c` -- the\nprobability a pick is completed the first time, reached on its day AND filled from its\nshelf -- live at setup:\n\n    lines per day      n = demand \u00d7 N_skus                     (the declared day, mean)\n    day law            N ~ Normal(n, cv\u00b7n), cv the declared batch spread   (declared)\n    line floor         the smallest floor_lines whose first-pass fill >= sqrt(c)\n                                                              (`coverage.solve_floor_lines`)\n    pick load          E[W] = demanded units/day \u00d7 s_pick      (DEMANDED, never served)\n    picking crew       the smallest integer K with E[(W - K\u00b7S)^+] / E[W] <= 1 - sqrt(c)\n                                                              (`solve_pickers`, per channel)\n    batch content      one batch = one day's demand          (a BatchConfig mean fraction)\n    put load           units \u00d7 f_put                         (units put per unit picked)\n    put crew           ceil(\u03a3_ch put load_ch \u00d7 s_put_ch \u00f7 (S \u00d7 \u03c1_put))   (ONE site crew)\n    receive load       packs the script's LOTS pack into \u00d7 f_recv\n    receiving crew     ceil(receive seconds \u00f7 (S \u00d7 \u03c1_recv))  (ONE site crew)\n\nNOTHING IS LOST under the era (memory `nothing-is-lost-under-the-era`): a pick the day cut\nor the shelf could not fill is re-offered next day and a lead-0 top-up lands before the\nre-attempt, so the crew picks ALL of demand and is sized on DEMANDED units.  The previous\nderivation priced pickers on SERVED units (demand \u00d7 fill rate) and under-staffed both\nchannels by exactly that factor; `test_first_time_guarantee` pins the sabotage.  Put-away\nand receiving keep their declared utilization targets: a receiving backlog on a heavy\ntrailer is a legitimate scenario the inbound campaign exists to study.\n\n`s_pick` and `s_put` are BOTH per channel, and both are seconds per unit: CLOSED-FORM\nEXPECTATIONS over the catalogue's demand distribution and the warehouse geometry the run\nbuilt (`Optimization/simconfig/expected_travel.py`, \"Derive the expected-travel closed form\").\nThere are no calibration simulations and no calibration record.  The harness computes them\nat setup and hands them in as resolved constants (a declared `--s-pick-*` / `--s-put`\noverride replaces the expectation and is recorded `declared`).  `s_recv` is EXACT from the\nscript: an unload has no travel term, so every pack's seconds are computable from the\ncatalogue and the cost model alone.\n\n**s_put IS PER CHANNEL** (\"Give put-away a per-channel expected travel\", 2026-09-08).  It was\none site value until then, and the two sections do not share a geometry: the era re-read\nmeasured 98.5 s/unit put away on the store against 29.2 on fulfillment, a 3.4\u00d7 spread that a\nsingle site price averaged away.  The site TOTAL stayed right -- so the crew was correctly\nSIZED -- while both leaves' expected utilization sat ~0.21 outside the band, in opposite\ndirections.  Picking never had this defect (its constant was always per channel) and neither\ndid receiving (its per-channel seconds come straight from the script).  There is now no\nsite-wide put price anywhere in the derived record: `put.s_put` is a map keyed by channel.\n\nTHIS MODULE IS PURE.  Inputs, the resolved constants and the catalogue / script totals go\nin; the derived dict comes out.  It imports no CONFIG, reads no settings and\ntouches no file, so the arithmetic is testable against a hand computation without a run\n(`Tests/unit/test_staffing_derivation.py`).  The harness seam that feeds it is\n`Optimization/simdriver/workunits._derive_staffing_for_pair`, which runs AFTER batch\nprecompute because the receiving crew needs the packs the script implies -- and the script\nis itself derived from the pickers, which is why the derivation has two stages:\n\n    stage A  (the catalogue and the geometry)  s_pick at the declared day, the picking crew\n                               (solved), batch content -- BEFORE precompute\n    stage B  (the script)      put load, packs, the two site crews -- AFTER precompute\n\nEvery scalar default below is a declared ASSUMPTION of the era, never a measurement, and the\nrecord says so (`PROVENANCE`, \"Design the staffing record\", decision 5).  The derived block\ncarries `derived`; a copied constant keeps the provenance it arrived with.",
@@ -24119,6 +24361,13 @@
       "kind": "function",
       "signature": "(self, values: dict) -> float"
     },
+    "Warehouse/kernel/closed_form.py::Mirror.draw": {
+      "decorators": [],
+      "doc": "One sample of the inputs: `(lo, hi)` draws a float, `('int', lo, hi)` an integer\n(a count, a level -- anything the mirrored code would `int()`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, rng) -> dict"
+    },
     "Warehouse/kernel/closed_form.py::Mirror.resolve": {
       "decorators": [],
       "doc": null,
@@ -24184,6 +24433,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, name: str, values: Iterable, inputs: dict, outputs: Iterable) -> list"
+    },
+    "Warehouse/kernel/closed_form.py::Model.symbol_tex": {
+      "decorators": [],
+      "doc": "`{name: LaTeX}` for every symbol the model's trees name, read off the `Sym` nodes\nthemselves -- so an input is printed as the equations print it, not by its key.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
     },
     "Warehouse/kernel/closed_form.py::Model.to_dot": {
       "decorators": [],
@@ -24415,6 +24671,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "register('kernel.travel', Equation('travel', 't_{\\\\mathrm{travel}}', X / (INCHES_PER_FOOT * VX) + Y / (INCHES_PER_FOOT * VY), unit='s', doc='mouth-to-bin travel: inches over (12 in/ft \u00b7 ft/s) on ea..."
+    },
+    "Warehouse/kernel/closed_form.py::_children": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(node) -> tuple"
+    },
+    "Warehouse/kernel/closed_form.py::_collect_tex": {
+      "decorators": [],
+      "doc": "Walk a tree, recording each named `Sym`'s LaTeX (the first spelling met wins).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(node, out: dict) -> None"
     },
     "Warehouse/kernel/closed_form.py::_e": {
       "decorators": [],

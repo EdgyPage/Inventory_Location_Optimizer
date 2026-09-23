@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.models.levels · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_models_levels_py" data-id="Optimization/simconfig/models/levels.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/models/levels.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.models.levels</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_models_levels_py.html"><code>Optimization/simconfig/models/levels.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>Optimization.simconfig.models.levels</code></pre>
+<section class="doc">levels.py -- where a SKU&#x27;s equilibrium units come from, as one closed-form model.
+
+The declaration chain `Optimization/simconfig/coverage.py` computes for every SKU, written once
+as an expression tree (`Warehouse/kernel/closed_form.py`) so it evaluates, renders and is held
+equal to the code it models:
+
+    E[q]  = lambda + e^-lambda                      the line law&#x27;s mean (q = max(1, Poisson))
+    d     = n * pi * E[q]                            daily units at the declared line rate
+    L     = max(1, ceil(f * E[q]))                   the line floor, f the SOLVED floor lines
+    l     = supplier lead * unit + E[ceil(T/D)]      order-to-shelf lead, days
+    P     = max(0, round(d * l))                     the pipeline allowance
+    Q     = max(L, round(C * d))                     the order-up-to (1 when that is &lt;= 1)
+    rp    = min(Q - 1, max(L, round(d (l + s))))     the reorder point (1 when Q is 1)
+
+`pi` here is the LINE SHARE f_s / sum(f) -- what the declaration prices with.  What the sampler
+actually delivers differs per SKU (S01: the affinity lift steepens the store&#x27;s frequency spread
+and flattens fulfillment&#x27;s), which matters for the dynamics, not for the levels.
+
+`f` (the floor lines) is an INPUT: it is solved per section by `coverage.solve_floor_lines` so the
+first-pass fill clears sqrt(c), which is a bisection over the whole section, not a per-SKU law.
+The record stamps it (reference catalogue: 1.3078 store, 1.4994 fulfillment).
+
+`on_floor` answers the question the study turns on: a SKU is ON THE FLOOR when its coverage term
+does not exceed its floor, `round(C d) &lt;= L`.  Then Q = L -- base stock -- and the SKU&#x27;s stock is
+set by how big one line is, not by how fast it sells.  On the reference catalogue essentially
+every SKU is on the floor (memory `coverage-in-days-floors-the-store-section`).</section>
+<section class="rel"><h2>Imports <span class="count">(3)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py.html"><code>Optimization.simconfig.coverage</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li><li><a href="nWarehouse_catalog_Demand_py.html"><code>Warehouse.catalog.Demand</code></a> <span class="dim">Warehouse/catalog/Demand.py</span></li><li><a href="nWarehouse_kernel_closed_form_py.html"><code>Warehouse.kernel.closed_form</code></a> <span class="dim">Warehouse/kernel/closed_form.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(20)</span></h2><ul><li><a href="nOptimization_simconfig_models_levels_py__COVERAGE.html"><code>COVERAGE</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__DAILY.html"><code>DAILY</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__FLOOR.html"><code>FLOOR</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__LEAD.html"><code>LEAD</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__LEVELS.html"><code>LEVELS</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__LINE_MEAN.html"><code>LINE_MEAN</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__ON_FLOOR.html"><code>ON_FLOOR</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__ORDER_UP_TO.html"><code>ORDER_UP_TO</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__PIPELINE.html"><code>PIPELINE</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__POSITION.html"><code>POSITION</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__REORDER_POINT.html"><code>REORDER_POINT</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py___HERE.html"><code>_HERE</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py___line.html"><code>_line</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__mirror_Q.html"><code>mirror_Q</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__mirror_lead.html"><code>mirror_lead</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__mirror_line_floor.html"><code>mirror_line_floor</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__mirror_line_mean.html"><code>mirror_line_mean</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__mirror_rp.html"><code>mirror_rp</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__section.html"><code>section</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li><li><a href="nOptimization_simconfig_models_levels_py__sku_inputs.html"><code>sku_inputs</code></a> <span class="dim">Optimization/simconfig/models/levels.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_models_levels_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/models/levels.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>
