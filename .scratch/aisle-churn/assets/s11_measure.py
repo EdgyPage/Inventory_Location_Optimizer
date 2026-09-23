@@ -78,7 +78,9 @@ def _gap(a, b):
 def main(root, lo=0, hi=40, out=None):
     dbs = _dbs(root)
     S = {k: _series(v, lo, hi) for k, v in dbs.items()}
-    res = {'root': root, 'window': [lo, hi], 'P1': {}, 'P3': {}, 'P4': {}, 'P5': {}, 'P6': {}}
+    # the run root by NAME (relative to COMPARISON_OUTPUT_DIR): a tracked result never
+    # carries a machine-local path (CLAUDE.md section 5)
+    res = {'root': os.path.basename(os.path.normpath(root)), 'window': [lo, hi], 'P1': {}, 'P3': {}, 'P4': {}, 'P5': {}, 'P6': {}}
     rank = {'store': 'rank_cartlabor', 'fulfillment': 'rank_minlabor'}
 
     def row(tag, key, g):
