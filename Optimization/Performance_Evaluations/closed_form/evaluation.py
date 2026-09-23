@@ -1,7 +1,9 @@
 """closed_form.predicted — the closed-form models evaluated at a run's own record, against what
-the run did.  A run-scope evaluation: it writes the contract's `closed_form_json` document at
-the dossier root and one predicted-vs-realised figure (`closed_form_pngs`); both basenames and
-folders come from the declarations, never from text here.
+the run did.  TWO run-scope evaluations, because a family owns only its figures folder:
+`closed_form.predicted` writes the contract's `closed_form_json` document at the dossier root
+and its rows as one CSV; `closed_form.figure` (family `closed_form`, quantity `fresh_share`)
+reads that document back and draws the predicted-vs-realised figure (`closed_form_pngs`).
+Basenames and folders come from the declarations, never from text here.
 
 PER CHANNEL SECTION, from the run's staffing record (the coverage calibration: lines per day,
 the solved floor, the lead) and its frozen catalogue:
@@ -39,7 +41,6 @@ from Optimization.Performance_Evaluations.common import io
 from Optimization.Performance_Evaluations.core.registry import evaluation
 
 _ARTIFACT = 'closed_form_json'
-_FIG_SUBDIR = 'figures/closed_form'
 #: the predicted-vs-realised rows, one CSV under the dossier's declared `tables/*.csv` glob
 _TABLE_SUBDIR, _TABLE_NAME = 'tables', 'closed_form_predicted.csv'
 
@@ -203,11 +204,28 @@ def section_prediction(orders, cov: dict, channel: str, H: int, script=None) -> 
     return out
 
 
+def fresh_rows(doc: dict) -> list:
+    """The predicted-vs-realised rows of the fresh-bin share, in percent, from the document."""
+    rows = []
+    for ch, sec in sorted(doc.get('sections', {}).items()):
+        p = sec['predicted']
+        shares = [r['served_share'] for r in sec.get('realised', {}).values()
+                  if r.get('served_share') is not None]
+        mean = statistics.mean(shares) if shares else None
+        for label, key in (('declared line share', 'phi_declared'),
+                           ('the run\'s script', 'phi_script')):
+            if p.get(key) is not None:
+                rows.append({'label': f'{ch}: from {label}', 'predicted': 100.0 * p[key],
+                             'realised': None if mean is None else 100.0 * mean,
+                             'lo': None if not shares else 100.0 * min(shares),
+                             'hi': None if not shares else 100.0 * max(shares)})
+    return rows
+
+
 @evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run',
-            scope='run', needs=('catalogue',),
-            out_subdir=('', _FIG_SUBDIR, _TABLE_SUBDIR))
+            scope='run', needs=('catalogue',), out_subdir=('', _TABLE_SUBDIR))
 def render(ctx, params):
-    from Optimization.Performance_Evaluations.closed_form import render as draw
+    """The document and the table.  The figure is `closed_form.figure`, in the family."""
     from Optimization.simconfig.models import churn
     from Optimization.simconfig.staffing import regime_orders
     from Warehouse.generation.generate_inventory import load_run_inventory
@@ -221,7 +239,6 @@ def render(ctx, params):
     ref_cell = sorted({c for c, _cr in runs})[0]
     doc = {'run': os.path.basename(os.path.abspath(ctx.run_root)), 'window_batches': H,
            'reference_cell': ref_cell, 'sections': {}}
-    rows = []
     for cell, cr in runs:
         if cell != ref_cell or cr.pair not in cats:
             continue
@@ -240,18 +257,6 @@ def render(ctx, params):
                 continue
             arm = os.path.basename(db)[4:-3]
             real[arm] = _realised(db, arm, H)
-    for ch, sec in sorted(doc['sections'].items()):
-        p = sec['predicted']
-        shares = [r['served_share'] for r in sec.get('realised', {}).values()
-                  if r.get('served_share') is not None]
-        mean = statistics.mean(shares) if shares else None
-        for label, key in (('declared line share', 'phi_declared'),
-                           ('the run\'s script', 'phi_script')):
-            if p.get(key) is not None:
-                rows.append({'label': f'{ch}: from {label}', 'predicted': 100.0 * p[key],
-                             'realised': None if mean is None else 100.0 * mean,
-                             'lo': None if not shares else 100.0 * min(shares),
-                             'hi': None if not shares else 100.0 * max(shares)})
     doc['dock'] = _dock(ctx, spec, ref_cell, H)
     ex = churn.FRESH.evaluate({'lam': 0.01, 'H': float(H), 'ell': 2.766})
     doc['derivation'] = churn.FRESH.to_markdown(ex, title='fresh-bin law (worked at 0.01 '
@@ -262,10 +267,29 @@ def render(ctx, params):
     with open(os.path.join(io.out_dir(ctx, pick=''), _BASENAME), 'w', encoding='utf-8') as fh:
         json.dump(doc, fh, indent=2)
     _write_table(ctx, doc)
-    if rows:
-        figs = io.out_dir(ctx, pick=_FIG_SUBDIR)
-        draw.predicted_vs_realised(
-            rows, os.path.join(figs, 'fresh_share.png'),
-            title='Fresh-bin share: closed form vs the run',
-            subtitle=f'{H}-batch window, reference cell {ref_cell}; the bar spans its arms')
     ctx.log.info(f'  wrote the closed-form predictions ({len(doc["sections"])} sections)')
+
+
+@evaluation(key='closed_form.figure', label='Closed-form predictions vs the run: figure',
+            scope='run', family='closed_form', shape='inspection',
+            quantities=('fresh_share',))
+def render_figure(ctx, params):
+    """The fresh-bin share, predicted against realised, drawn from the document
+    `closed_form.predicted` wrote earlier in the same pass (read through HEAD's contract --
+    `RunContext.reader` -- because this run may predate the artifact)."""
+    from Optimization.Performance_Evaluations.closed_form import render as draw
+    rd = ctx.reader(_ARTIFACT)
+    path = rd.path(_ARTIFACT) if rd is not None else None
+    if not path or not os.path.exists(path):
+        ctx.log.info('  closed-form figure: no predictions document; skipped')
+        return
+    doc = json.load(open(path, encoding='utf-8'))
+    rows = fresh_rows(doc)
+    if not rows:
+        return
+    draw.predicted_vs_realised(
+        rows, os.path.join(io.out_dir(ctx), 'absolute_fresh_share.png'),
+        title='Fresh-bin share: closed form vs the run',
+        subtitle=f"{doc['window_batches']}-batch window, reference cell "
+                 f"{doc['reference_cell']}; the bar spans its arms",
+        view='absolute')

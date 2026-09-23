@@ -340,8 +340,8 @@ ARTIFACTS = {
         'path': '_dossier/figures/closed_form/*.png', 'format': 'png', 'scope': 'run',
         'optional': True,
         'condition': 'written with the closed-form JSON when a realised share exists.',
-        'evaluation': 'closed_form.predicted',
-        'writer': 'render@Optimization/Performance_Evaluations/closed_form/evaluation.py'},
+        'evaluation': 'closed_form.figure',
+        'writer': 'render_figure@Optimization/Performance_Evaluations/closed_form/evaluation.py'},
     'comparison_census_json': {
         'group': 'dossier',
         'path': '_dossier/comparison_census.json', 'format': 'json', 'scope': 'run',

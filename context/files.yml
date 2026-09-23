@@ -230,7 +230,9 @@ files:
     layer: "evaluations"
     key_symbols:
       - {name: "section_prediction", file: "Optimization/Performance_Evaluations/closed_form/evaluation.py", kind: "function"}
+      - {name: "fresh_rows", file: "Optimization/Performance_Evaluations/closed_form/evaluation.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/closed_form/evaluation.py", kind: "function"}
+      - {name: "render_figure", file: "Optimization/Performance_Evaluations/closed_form/evaluation.py", kind: "function"}
     notes: ""
   "Optimization/Performance_Evaluations/closed_form/render.py":
     purpose: "The closed-form visualiser: a model's dependency graph, sweep curves, predicted-vs-realised dots with intervals, and a Markdown page of models."

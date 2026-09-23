@@ -91,9 +91,11 @@ def sweep_chart(model, name, values, inputs, outputs, path, *, xlabel=None, ylab
 
 # ── predicted against realised ───────────────────────────────────────────────────────────────
 
-def predicted_vs_realised(rows, path, *, title, subtitle=None, unit='%') -> str:
+def predicted_vs_realised(rows, path, *, title, subtitle=None, unit='%',
+                          view=None) -> str:
     """One row per quantity: the closed form's prediction (hollow diamond) and the simulator's
-    measurement (filled dot, with its interval when `lo`/`hi` are given).
+    measurement (filled dot, with its interval when `lo`/`hi` are given).  `view` is the
+    family-grammar view a registry render saves under (`<view>_*.png`); None outside one.
     `rows`: `[{'label', 'predicted', 'realised', 'lo'?, 'hi'?}, ...]`, top row first."""
     n = len(rows)
     chart = ck.make(panels=1, panel_h=ck.height_for_categories(n), legend='gutter',
@@ -119,7 +121,7 @@ def predicted_vs_realised(rows, path, *, title, subtitle=None, unit='%') -> str:
     chart.legend([Line2D([], [], marker='D', ls='none', mfc='none', mec=_PRED, mew=1.4),
                   Line2D([], [], marker='o', ls='none', color=_REAL)],
                  ['closed form', 'simulator (95% interval)'])
-    return chart.save(path)
+    return chart.save(path, view=view)
 
 
 # ── the page ─────────────────────────────────────────────────────────────────────────────────

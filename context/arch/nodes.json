@@ -2993,7 +2993,7 @@
     },
     "Optimization/Performance_Evaluations/closed_form/evaluation.py": {
       "decorators": [],
-      "doc": "closed_form.predicted \u2014 the closed-form models evaluated at a run's own record, against what\nthe run did.  A run-scope evaluation: it writes the contract's `closed_form_json` document at\nthe dossier root and one predicted-vs-realised figure (`closed_form_pngs`); both basenames and\nfolders come from the declarations, never from text here.\n\nPER CHANNEL SECTION, from the run's staffing record (the coverage calibration: lines per day,\nthe solved floor, the lead) and its frozen catalogue:\n\n  levels     `models.levels.LEVELS` for every SKU: the share on its line floor, the stock the\n             warehouse is sized for (sum Q), and the median cover Q / d in days;\n  fresh      the fresh-bin share phi over the run's window (`models.churn`), two ways --\n               declared: the unconditional law at the LINE SHARE the declaration prices\n                         (what the record alone predicts; S01 says the sampler bends it),\n               script:   the count-conditional law on the run's own batch script (exogenous\n                         demand, known before any placement);\n  realised   the share of units picked from bins a reorder filled inside the window, per arm\n             of the reference cell (`run_unload_ranking.inbound_repick`), and the free pool at\n             the window's two ends (the flow equilibrium: frees = placements).\n  dock       the door utilisation the record declares (receiving load over doors x door team\n             x shift, `models.dock`) beside the one the site yard realised, and the yard's\n             queueing wait beside Allen-Cunneen's (None past the gate).\n\nAlso one CSV of the predicted-vs-realised rows under the dossier's declared tables glob.\n\nEvery equation in the JSON's `derivation` is `Model.to_markdown` of the tree that produced the\nnumber beside it.  The study behind it: `.scratch/aisle-churn/` S02, S08, S09.",
+      "doc": "closed_form.predicted \u2014 the closed-form models evaluated at a run's own record, against what\nthe run did.  TWO run-scope evaluations, because a family owns only its figures folder:\n`closed_form.predicted` writes the contract's `closed_form_json` document at the dossier root\nand its rows as one CSV; `closed_form.figure` (family `closed_form`, quantity `fresh_share`)\nreads that document back and draws the predicted-vs-realised figure (`closed_form_pngs`).\nBasenames and folders come from the declarations, never from text here.\n\nPER CHANNEL SECTION, from the run's staffing record (the coverage calibration: lines per day,\nthe solved floor, the lead) and its frozen catalogue:\n\n  levels     `models.levels.LEVELS` for every SKU: the share on its line floor, the stock the\n             warehouse is sized for (sum Q), and the median cover Q / d in days;\n  fresh      the fresh-bin share phi over the run's window (`models.churn`), two ways --\n               declared: the unconditional law at the LINE SHARE the declaration prices\n                         (what the record alone predicts; S01 says the sampler bends it),\n               script:   the count-conditional law on the run's own batch script (exogenous\n                         demand, known before any placement);\n  realised   the share of units picked from bins a reorder filled inside the window, per arm\n             of the reference cell (`run_unload_ranking.inbound_repick`), and the free pool at\n             the window's two ends (the flow equilibrium: frees = placements).\n  dock       the door utilisation the record declares (receiving load over doors x door team\n             x shift, `models.dock`) beside the one the site yard realised, and the yard's\n             queueing wait beside Allen-Cunneen's (None past the gate).\n\nAlso one CSV of the predicted-vs-realised rows under the dossier's declared tables glob.\n\nEvery equation in the JSON's `derivation` is `Model.to_markdown` of the tree that produced the\nnumber beside it.  The study behind it: `.scratch/aisle-churn/` S02, S08, S09.",
       "kind": "module",
       "signature": null
     },
@@ -3010,13 +3010,6 @@
       "kind": "const",
       "signature": null,
       "value_preview": "_head_basename(_ARTIFACT)"
-    },
-    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_FIG_SUBDIR": {
-      "decorators": [],
-      "doc": null,
-      "kind": "const",
-      "signature": null,
-      "value_preview": "'figures/closed_form'"
     },
     "Optimization/Performance_Evaluations/closed_form/evaluation.py::_coverage": {
       "decorators": [],
@@ -3060,11 +3053,27 @@
       "kind": "function",
       "signature": "(ctx, doc: dict) -> None"
     },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::fresh_rows": {
+      "decorators": [],
+      "doc": "The predicted-vs-realised rows of the fresh-bin share, in percent, from the document.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(doc: dict) -> list"
+    },
     "Optimization/Performance_Evaluations/closed_form/evaluation.py::render": {
       "decorators": [
-        "evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run', scope='run', needs=('catalogue',), out_subdir=('', _FIG_SUBDIR, _TABLE_SUBDIR))"
+        "evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run', scope='run', needs=('catalogue',), out_subdir=('', _TABLE_SUBDIR))"
       ],
-      "doc": null,
+      "doc": "The document and the table.  The figure is `closed_form.figure`, in the family.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::render_figure": {
+      "decorators": [
+        "evaluation(key='closed_form.figure', label='Closed-form predictions vs the run: figure', scope='run', family='closed_form', shape='inspection', quantities=('fresh_share',))"
+      ],
+      "doc": "The fresh-bin share, predicted against realised, drawn from the document\n`closed_form.predicted` wrote earlier in the same pass (read through HEAD's contract --\n`RunContext.reader` -- because this run may predate the artifact).",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, params)"
@@ -3098,10 +3107,10 @@
     },
     "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised": {
       "decorators": [],
-      "doc": "One row per quantity: the closed form's prediction (hollow diamond) and the simulator's\nmeasurement (filled dot, with its interval when `lo`/`hi` are given).\n`rows`: `[{'label', 'predicted', 'realised', 'lo'?, 'hi'?}, ...]`, top row first.",
+      "doc": "One row per quantity: the closed form's prediction (hollow diamond) and the simulator's\nmeasurement (filled dot, with its interval when `lo`/`hi` are given).  `view` is the\nfamily-grammar view a registry render saves under (`<view>_*.png`); None outside one.\n`rows`: `[{'label', 'predicted', 'realised', 'lo'?, 'hi'?}, ...]`, top row first.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rows, path, *, title, subtitle=None, unit='%') -> str"
+      "signature": "(rows, path, *, title, subtitle=None, unit='%', view=None) -> str"
     },
     "Optimization/Performance_Evaluations/closed_form/render.py::sweep_chart": {
       "decorators": [],
@@ -6719,7 +6728,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed', 'closed_form.predicted']"
+      "value_preview": "['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed', 'closed_form.predicted', 'closed_form.figure']"
     },
     "Optimization/Performance_Evaluations/presets.py::_SITE": {
       "decorators": [],

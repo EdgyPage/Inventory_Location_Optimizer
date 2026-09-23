@@ -74,6 +74,10 @@ FAMILIES: dict = {
                          charter='raw operational read-outs for inspection. THE deliberate '
                                  'exemption from comparison work: a grid or a scorecard is '
                                  'read to find out what happened, not to rank anything'),
+    'closed_form':  dict(scope='run',
+                         charter='what the closed-form models predicted for this run, from '
+                                 'its own record, beside what the run did -- the '
+                                 'verification picture of `Optimization/simconfig/models/`'),
     'cost':         dict(scope='run',
                          charter='what a rule costs to RUN, in real wall-clock seconds — '
                                  'orthogonal to every family above, which measure modeled '

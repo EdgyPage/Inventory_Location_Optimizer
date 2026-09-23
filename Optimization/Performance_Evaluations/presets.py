@@ -67,7 +67,7 @@ _SITE     = ['yard.site_binding', 'yard.site_detention', 'yard.site_fee',
 # run, what the rules and the inventory model actually were, and what was held fixed.
 _RUN      = ['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census',
              'catalog.rules', 'catalog.inventory', 'catalog.fixed',
-             'closed_form.predicted']
+             'closed_form.predicted', 'closed_form.figure']
 
 #: The two stats flavours, mutually exclusive per preset.  Not in the groups above because
 #: no preset runs both: `_keys` picks one.

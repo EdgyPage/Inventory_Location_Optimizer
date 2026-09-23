@@ -2426,11 +2426,6 @@
       "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render"
     },
     {
-      "dst": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised",
-      "kind": "calls",
-      "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render"
-    },
-    {
       "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render"
@@ -2449,6 +2444,26 @@
       "dst": "Warehouse/generation/generate_inventory.py::load_run_inventory",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/evaluation.py::fresh_rows",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/io.py::out_dir",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render_figure"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/registry.py::evaluation",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render_figure"
     },
     {
       "dst": "Optimization/simconfig/models/churn.py::section_phi",
@@ -27913,14 +27928,6 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
-      "id": "Optimization/Performance_Evaluations/closed_form/evaluation.py::_FIG_SUBDIR",
-      "kind": "const",
-      "module": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
-      "name": "_FIG_SUBDIR",
-      "public": false
-    },
-    {
-      "file": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
       "id": "Optimization/Performance_Evaluations/closed_form/evaluation.py::_coverage",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
@@ -27969,10 +27976,26 @@
     },
     {
       "file": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/evaluation.py::fresh_rows",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
+      "name": "fresh_rows",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
       "id": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render",
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
       "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/evaluation.py::render_figure",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/evaluation.py",
+      "name": "render_figure",
       "public": true
     },
     {

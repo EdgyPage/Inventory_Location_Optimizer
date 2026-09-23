@@ -151,6 +151,11 @@ class Source:
     steady_state_name: str | None = None
     series: tuple | None = None
     runtime: str | None = None
+    #: The closed-form model that PREDICTS this quantity at a run's own record
+    #: (`Optimization/simconfig/models/`, `module.MODEL`), read from the dossier's
+    #: `closed_form_json`.  Not a sim-DB read and not a measurement: a predicted-vs-realised
+    #: figure draws this beside whatever realised source the quantity also names.
+    predicted: str | None = None
     #: The sim-DB columns the per-batch FRAME column is built from, when they are not the
     #: same name.  They usually are — but `completion_rate` is `total_items / duration`,
     #: computed in `common/frames._bdf` and present in no database, and declaring the
@@ -194,7 +199,8 @@ class Source:
         it would still satisfy the view derivation, which is why the check lives at
         construction rather than in a linter.
         """
-        return bool(self.per_batch or self.steady_state or self.series or self.runtime)
+        return bool(self.per_batch or self.steady_state or self.series or self.runtime
+                    or self.predicted)
 
     @property
     def frame_kind(self) -> str:
@@ -383,6 +389,16 @@ QUANTITIES: tuple = (
     # ── the compute-cost family: what a RULE costs to run, in wall-clock seconds ──
     # Read from the run's own cost rows rather than from a sim DB, which is what
     # `Source.runtime` names.  These measure the optimiser, not the warehouse.
+    # ── predicted by a closed form ──────────────────────────────────────────────────
+    # `Source.predicted` names the model; the realised half is measured by the evaluation
+    # that draws it (`closed_form.predicted`), from the run's own sim DBs.
+    Quantity(
+        key='fresh_share', label='Picks an inbound decision can reach',
+        axis_stem='share of picks served from bins a reorder filled', unit=_SHARE,
+        direction='higher', source=Source(predicted='churn.FRESH'),
+        notes='The fresh-bin law (aisle-churn S08): a pick is reachable only if an earlier '
+              'line of the same SKU fell a lead before it.  Predicted in lines from the '
+              'declared line share and from the run\'s own script; realised in units.'),
     Quantity(
         key='reord_ms_per_unit', label='Placement time per unit',
         axis_stem='seconds of placement per unit put away', unit=Unit('duration_s'),
