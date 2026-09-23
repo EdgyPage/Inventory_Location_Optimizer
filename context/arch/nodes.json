@@ -14712,9 +14712,155 @@
     },
     "Optimization/simconfig/models/__init__.py": {
       "decorators": [],
-      "doc": "models -- the composed closed-form models, one module per question.\n\nEach module builds `Warehouse.kernel.closed_form.Model`s out of the kernel's expression tree and\nthe existing closed forms beside it (`coverage`, `staffing`, `expected_travel`, `fragmentation`),\nwhich enter through `Call` nodes rather than being re-implemented.  Every equation that models a\nsimulator or record function is registered with a `Mirror` and held equal to it by\n`Tests/unit/test_closed_form.py`.\n\n  levels     where a SKU's equilibrium units come from (the declaration)\n  reorders   when a reorder fires, how often, and what lands",
+      "doc": "models -- the composed closed-form models, one module per question.\n\nEach module builds `Warehouse.kernel.closed_form.Model`s out of the kernel's expression tree and\nthe existing closed forms beside it (`coverage`, `staffing`, `expected_travel`, `fragmentation`),\nwhich enter through `Call` nodes rather than being re-implemented.  Every equation that models a\nsimulator or record function is registered with a `Mirror` and held equal to it by\n`Tests/unit/test_closed_form.py`.\n\n  levels     where a SKU's equilibrium units come from (the declaration)\n  reorders   when a reorder fires, how often, and what lands\n  churn      how much picking an inbound decision reaches, how long a ranked rule\n             keeps finding good bins, and what any unloading order could move",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/simconfig/models/churn.py": {
+      "decorators": [],
+      "doc": "churn.py -- how much of the picking an inbound decision can reach, how long a placement rule\nkeeps finding good bins, and what any unloading order could move.  The aisle-churn study's\nsessions S08 and S09 (`.scratch/aisle-churn/whiteboard/`), as one module.\n\nTHE FRESH-BIN LAW (S08).  On the floor every line fires a lot of exactly what it took, and the\nsimulator drains a SKU's bins smallest-on-hand first (ADR-0003), so a SKU's next line is served\nfrom the fresh packs while the declared bulk waits.  A pick is served from a bin an inbound\ndecision filled iff an earlier line of the same SKU fell at least one order-to-shelf lead l\nbefore it.  With lines at Poisson rate lambda over H days, x = lambda (H - l)^+:\n\n    E[served] = x - (1 - e^-x)              phi = sum_s E[served]_s / sum_s lambda_s H\n\nand, CONDITIONAL on the window holding n lines of the SKU (a retrodiction):\n\n    E[served | n] = sum_{j=2}^{n} (1 - I_{l/H}(j - 1, n - j + 2)).\n\nTHE FRONTIER LAW (S09).  `_TravelBalancedPool.take` (Rank_labor / Rank_cartlabor) puts a unit in\nthe head of the height bracket b minimising M_b h_s + D_b, so each bracket is a queue consumed\nfrom its cheap end.  Frees return at costs distributed like the bracket's occupied bins; a free\nin front of the front is retaken at once.  The front D_b(t) solves\n\n    N_b(D_b) + R_b(t) Q_b(D_b) = C_b(t),    s_b(t) = Pr_h[argmin_b' (M_b' h + D_b'(t)) = b],\n\nwith dC_b/dt = m_a s_b, and the per-aisle rate m_a WATER-FILLED: the aisle is chosen by LPT on\nthe ledger's expected labour, so sum_a (lambda - L_a)^+ = W(t) and each aisle takes its rise.\n\nTHE STEADY STATE.  The free pool is at a flow equilibrium (frees = placements, S09 section 1),\nso once the good free bins are spent a bracket hands out exactly what it frees:\n\n    s*_b = n_b nu_b / sum_b' n_b' nu_b'      (= sigma_b, the occupancy share, when turnover\n                                               nu is equal across brackets)\n\n-- a velocity-blind rule cannot beat its own occupancy.  The time it can, the BREATHING ROOM, is\n\n    B = G_free / (m (s - sigma_G)).\n\nTHE GAP CHAIN.  The placement rule's pick gap is earned on fresh picks:\n\n    dT / T ~ phi (U h / T) (M_rank - M_free).\n\nTHE ORDER BOUND.  An unloading order only permutes which of a day's packs takes which of the\nday's bins; by the rearrangement inequality every order lies in [C_min, C_max], and two\nvelocity-blind orders are exchangeable -- expected gap exactly 0, random-permutation spread\nVar = (1/(n-1)) sum (w - w_bar)^2 sum (M - M_bar)^2.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/simconfig/models/churn.py::BREATH": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('B', 'B', G_FREE / (M_RATE * (S_NOW - SIG_G)), unit='days', doc='breathing room: days until the good free pool is spent at the net rate placed-good minus freed-good')"
+    },
+    "Optimization/simconfig/models/churn.py::FRESH": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('fresh', (X_EQ, SERVED, PHI), doc='The fresh-bin law: an inbound decision reaches only lines that follow an earlier line of the same SKU by at least the order-to-shelf lead.')"
+    },
+    "Optimization/simconfig/models/churn.py::GAP": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('gap', '\\\\Delta T / T', PHI_S * U * HBAR * (M_RANK - M_FREE) / T, doc=\"the placement rule's pick gap, earned on the picks fresh bins serve: U the window's picked units, h the mean handling..."
+    },
+    "Optimization/simconfig/models/churn.py::GAP_CHAIN": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('gap', (GAP,), doc=\"The height mechanism of a ranked rule's pick gap (S09 section 3).\")"
+    },
+    "Optimization/simconfig/models/churn.py::ORDER_SD": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('order_sd', '\\\\sigma_{\\\\pi}', Call('rearrangement_sd', lambda w, M: rearrangement(w, M)[3], {'w': Sym('w', 'w'), 'M': Sym('M', 'M')}, tex='\\\\operatorname{sd}_{\\\\pi}'), unit='s', doc=\"the s..."
+    },
+    "Optimization/simconfig/models/churn.py::PHI": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('phi', '\\\\varphi_s', Sym('served', '\\\\mathbb{E}[\\\\mathrm{served}_s]') / (LAM * H), doc=\"the SKU's share of its lines an inbound decision can reach\")"
+    },
+    "Optimization/simconfig/models/churn.py::SERVED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('served', '\\\\mathbb{E}[\\\\mathrm{served}_s]', X - (1 - exp(-X)), unit='lines', doc='lines served from a bin a reorder filled inside the window')"
+    },
+    "Optimization/simconfig/models/churn.py::STEADY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('steady', (S_STAR, BREATH), doc='Where a ranked rule settles once its good free bins are spent.')"
+    },
+    "Optimization/simconfig/models/churn.py::S_STAR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('s_star', 's^*_b', N_B * NU_B / NU_TOT, doc='the long-run bracket share of a velocity-blind ranked rule: a bracket hands out what it frees')"
+    },
+    "Optimization/simconfig/models/churn.py::X": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Sym('x', 'x_s')"
+    },
+    "Optimization/simconfig/models/churn.py::X_EQ": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('x', 'x_s', LAM * fmax(0, H - ELL), unit='lines', doc='expected lines of the SKU after the first lead of the window')"
+    },
+    "Optimization/simconfig/models/churn.py::beta_inc_int": {
+      "decorators": [],
+      "doc": "I_x(a, b) for positive integers: the binomial tail\nsum_{j=a}^{a+b-1} C(a+b-1, j) x^j (1-x)^(a+b-1-j).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x: float, a: int, b: int) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::effective_count": {
+      "decorators": [],
+      "doc": "1 / sum share^2 -- how many aisles the placements effectively spread over.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(shares) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::frontier_shares": {
+      "decorators": [],
+      "doc": "The bracket shares a ranked rule's placements take, day by day, in ONE aisle (or a pool\nof homogeneous aisles fed as one).\n\nfree / occ : {M: sorted D list}  free and occupied bins of each height multiplier at t = 0\nm_day      : {day: placements}   r_day: frees per day (flow equilibrium: r = m)\nhs         : the placed units' h (labor_cost) -- the argmin is taken over their law\npsi        : the share of placements picked out again inside the window (S08), which frees\n             where it was PUT and is retaken at once\nReturns {day: {M: share}}.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(free: dict, occ: dict, m_day: dict, r_day: float, hs: list, days: int, psi: float=0.0, steps: int=20) -> dict"
+    },
+    "Optimization/simconfig/models/churn.py::frontier_shares.front": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(M)"
+    },
+    "Optimization/simconfig/models/churn.py::frontier_shares.front.avail": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(D)"
+    },
+    "Optimization/simconfig/models/churn.py::rearrangement": {
+      "decorators": [],
+      "doc": "(C_actual, C_min, C_max, sd_random) for packs `w` paired in order with bins `M`: the\nrearrangement bounds every order lies between, and the spread of a uniformly random\npairing, whose mean is C_actual's expectation under any velocity-blind order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(w, M)"
+    },
+    "Optimization/simconfig/models/churn.py::section_phi": {
+      "decorators": [],
+      "doc": "phi of a section, unconditional: `rates` are the SKUs' line rates per day (the\nSAMPLER's, S01 -- not the line share), those that draw no line included.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rates, H: float, ell: float) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::served_given_count": {
+      "decorators": [],
+      "doc": "E[served lines | the window holds n lines of the SKU]: the j-th of n uniform points on\n[0, H] is served iff its gap to the first, H Beta(j - 1, n - j + 2), is at least ell.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(n: int, H: float, ell: float) -> float"
+    },
+    "Optimization/simconfig/models/churn.py::water_level": {
+      "decorators": [],
+      "doc": "(lambda, shares): the level with sum_a (lambda - L_a)^+ = W, and each aisle's share of\nW.  W <= 0 returns the lowest load and all-zero shares.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(loads, W: float)"
     },
     "Optimization/simconfig/models/levels.py": {
       "decorators": [],

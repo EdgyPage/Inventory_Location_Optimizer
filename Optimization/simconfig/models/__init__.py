@@ -8,4 +8,6 @@ simulator or record function is registered with a `Mirror` and held equal to it 
 
   levels     where a SKU's equilibrium units come from (the declaration)
   reorders   when a reorder fires, how often, and what lands
+  churn      how much picking an inbound decision reaches, how long a ranked rule
+             keeps finding good bins, and what any unloading order could move
 """

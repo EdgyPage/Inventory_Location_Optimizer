@@ -13176,6 +13176,106 @@
       "src": "Optimization/simconfig/fragmentation.py::unit_for"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/models/churn.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::BREATH"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::FRESH"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::GAP"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::GAP_CHAIN"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py::rearrangement",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::ORDER_SD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Call",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::ORDER_SD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::ORDER_SD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::ORDER_SD"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::PHI"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::PHI"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::SERVED"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::exp",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::SERVED"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::STEADY"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::S_STAR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::X"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::X_EQ"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::X_EQ"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py::beta_inc_int",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/churn.py::served_given_count"
+    },
+    {
       "dst": "Optimization/simconfig/coverage.py",
       "kind": "imports",
       "src": "Optimization/simconfig/models/levels.py"
@@ -40478,6 +40578,174 @@
       "kind": "module",
       "module": "Optimization/simconfig/models/__init__.py",
       "name": "Optimization.simconfig.models",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "Optimization.simconfig.models.churn",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::BREATH",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "BREATH",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::FRESH",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "FRESH",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::GAP",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "GAP",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::GAP_CHAIN",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "GAP_CHAIN",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::ORDER_SD",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "ORDER_SD",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::PHI",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "PHI",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::SERVED",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "SERVED",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::STEADY",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "STEADY",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::S_STAR",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "S_STAR",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::X",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "X",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::X_EQ",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "X_EQ",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::beta_inc_int",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "beta_inc_int",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::effective_count",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "effective_count",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::frontier_shares",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "frontier_shares",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::frontier_shares.front",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "front",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::frontier_shares.front.avail",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "avail",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::rearrangement",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "rearrangement",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::section_phi",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "section_phi",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::served_given_count",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "served_given_count",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/churn.py",
+      "id": "Optimization/simconfig/models/churn.py::water_level",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/churn.py",
+      "name": "water_level",
       "public": true
     },
     {

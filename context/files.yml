@@ -1434,6 +1434,29 @@ files:
       - {name: "bucket_of", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
       - {name: "section_fragmentation", file: "Optimization/simconfig/fragmentation.py", kind: "function"}
     notes: ""
+  "Optimization/simconfig/models/churn.py":
+    purpose: "The aisle-churn laws (S08-S09): the fresh-bin share an inbound decision reaches, the ranked rule's bracket frontier with water-filled aisle rates, its steady state, and the unloading-order rearrangement bound."
+    layer: "optimization"
+    key_symbols:
+      - {name: "beta_inc_int", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "served_given_count", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "X", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "X_EQ", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "SERVED", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "PHI", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "FRESH", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "section_phi", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "water_level", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "effective_count", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "frontier_shares", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "S_STAR", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "BREATH", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "STEADY", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "GAP", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "GAP_CHAIN", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+      - {name: "rearrangement", file: "Optimization/simconfig/models/churn.py", kind: "function"}
+      - {name: "ORDER_SD", file: "Optimization/simconfig/models/churn.py", kind: "const"}
+    notes: ""
   "Optimization/simconfig/models/levels.py":
     purpose: "where a SKU's equilibrium units come from, as one closed-form model."
     layer: "optimization"
@@ -5249,6 +5272,22 @@ files:
       - {name: "test_mixed_catalog_build_and_db_roundtrip", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
       - {name: "test_mixed_plan_has_both_aisle_kinds", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
       - {name: "test_per_channel_batches_and_simulation", file: "Tests/unit/test_mixed_catalog_channels.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_models_churn.py":
+    purpose: "Pins the churn model's arithmetic against direct computation: Monte Carlo for the fresh-bin law, greedy LPT for water-filling, enumeration for the rearrangement bound."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_beta_inc_int_matches_the_beta_integral", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_unconditional_served_matches_a_poisson_process", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_count_conditional_served_matches_uniform_points", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_section_phi_weights_by_lines_and_is_linear_for_sparse_skus", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_water_level_conserves_the_added_load", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_water_level_is_where_greedy_lpt_lands", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_frontier_spends_the_good_bracket_then_holds_the_occupancy_share", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_frontier_argmin_prices_height_against_travel", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_steady_state_and_breathing_room", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_rearrangement_bounds_and_the_random_spread_by_enumeration", file: "Tests/unit/test_models_churn.py", kind: "function"}
+      - {name: "test_gap_chain_arithmetic_and_rendering", file: "Tests/unit/test_models_churn.py", kind: "function"}
     notes: ""
   "Tests/unit/test_models_levels_reorders.py":
     purpose: "the LEVELS and REORDERS closed-form models."
