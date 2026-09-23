@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 02, 03
+Blocked by: the user's reframing of the problem statement (03 answered: no reduction clears the gate)
 
 Ticket 03 says which of the two reductions (pool-free adapter for the selector families;
 top-m plan on stale gains) clears the order-agreement gate, and at what cost. This builds it.
