@@ -79,3 +79,8 @@ revisions without convergence opens an issue for the user.
 - **S13** synthesis written; **Milestone 5** built (visualiser, generated docs page,
   `closed_form.predicted` dossier evaluation).  Open: S04, S07, the carry term, the off-floor
   drawdown law; proposed: the drain-order fix and one 400k confirmation.
+- **S04** closed (after S13): the dock gate is rho_door = lambda_T E[o] / (doors S) (doors held
+  per trailer; a labour-seconds queue was refuted), and picking has a one-picker-per-aisle
+  ceiling k* = S / max W_a = 12.8 on the store that throttles reorders and so the dock.
+  `models/dock.py`.  **S14** partial: the off-floor free-pool growth is the declaration's stock
+  above its reorder cycle; sign and scale right, fragmentation and the dock-coupled lead open.
