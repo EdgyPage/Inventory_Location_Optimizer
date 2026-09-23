@@ -150,14 +150,39 @@ class _FrameSpec:
     extra: Callable | None = None
 
 
+def pick_stage(rows: list, start) -> list:
+    """`rows` from batch `start` on -- a FILL TRIAL's pick stage (CONTEXT.md: Fill trial).
+
+    A fill trial's arm tables hold its fill and idle days as batches `0 .. start - 1` and
+    its pick stage from `start` (`fill_batches` on the arm's sim_meta entry, the same
+    declared batch in every cell of the run).  Every per-batch quantity the suite reports
+    is a PICK-stage quantity, so this is applied where each arm's rows are loaded.
+
+    Rows carry their batch as `batch_id` (a dataclass or a dict).  A row without one -- a
+    trailer, a yard drain (keyed `batch`, deliberately not read here), a shift day -- passes
+    through, so the YARD family reads the whole run: on a fill trial the fill IS the yard's
+    experiment, and cutting it off would leave that family describing an idle dock.
+    `start` None or 0 returns `rows` itself: every run that is not a fill is untouched.
+    """
+    if not start:
+        return rows
+    out = []
+    for r in rows:
+        b = (r.get('batch_id') if isinstance(r, dict) else getattr(r, 'batch_id', None))
+        if b is None or b >= start:
+            out.append(r)
+    return out
+
+
 def frame(ctx, kind: str, key):
-    """One strategy's frame of `kind`, memoised per kind and key."""
+    """One strategy's frame of `kind`, memoised per kind and key -- over the pick stage
+    alone on a fill trial (`pick_stage`)."""
     cache = ctx._frames.setdefault(kind, {})
     df = cache.get(key)
     if df is None:
         s = ctx._by_key[key]
         spec = FRAME_SPECS[kind]
-        rows = spec.loader(s['db_path'], s['run_id'])
+        rows = pick_stage(spec.loader(s['db_path'], s['run_id']), s.get('fill_batches'))
         df = spec.builder(rows, *(spec.extra(ctx, key, rows) if spec.extra else ()))
         cache[key] = df
     return df
@@ -380,7 +405,8 @@ def site_batch_frame(ctx, key):
     df = cache.get(key)
     if df is None:
         import pandas as pd
-        parts = [_bdf(load_batch_stats(lf['db_path'], lf['run_id']))
+        parts = [_bdf(pick_stage(load_batch_stats(lf['db_path'], lf['run_id']),
+                                 lf.get('fill_batches')))
                  for lf in ctx._by_key[key]['leaves']]
         parts = [p for p in parts if not p.empty]
         df = pd.concat(parts, ignore_index=True) if parts else _bdf([])

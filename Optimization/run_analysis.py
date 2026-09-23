@@ -347,7 +347,7 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
             # same shape `EvalContext` indexes by `s['key']` -- and reading it as keys
             # silently matches NOTHING, which once made this whole stage emit zero jobs
             # while logging the line an uncoupled run logs.
-            have, by_channel = {}, {}
+            have, by_channel, fills = {}, {}, {}
             for run in runs:
                 meta_path = rt.leaf_path(run, 'sim_meta')
                 if not os.path.exists(meta_path):
@@ -359,6 +359,11 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
                 by_channel[run.channel] = run
                 have[run.channel] = {(a.get('key') if isinstance(a, dict) else a)
                                      for a in (meta.get('strategies') or [])}
+                # A fill trial's pick-stage start, per arm (`fill_batches`; absent on every
+                # other run), so the site readers select the pick stage as the leaf ones do.
+                fills[run.channel] = {a.get('key'): a.get('fill_batches')
+                                      for a in (meta.get('strategies') or [])
+                                      if isinstance(a, dict)}
             halves = rt.arm_pair_halves(arm_pair, have)
             if not halves:
                 # ASCII in the message: this log reaches a cp1252 console, where an em dash
@@ -373,7 +378,8 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
                 leaf_db = rt.leaf_path(by_channel[channel], 'sim_db', strategy=arm_key)
                 leaves.append({'key': arm_key, 'db_path': leaf_db,
                                'run_id': find_run(leaf_db, arm_key),
-                               'channel': channel})
+                               'channel': channel,
+                               'fill_batches': fills.get(channel, {}).get(arm_key)})
             # The FIRST declared channel's half. `arm_pair_halves` returns the channels in
             # the declared order, which is store-first -- the same order the stem was built
             # in, so "the store half" is read from the declaration rather than from a slice.
@@ -382,6 +388,8 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
                           # The pair is named by its STORE half for baseline selection:
                           # the diagonal is by rank and the reference pair is fifo/fifo.
                           **_pair_fields(store_arm, list(halves.values())),
+                          # One unit, one fill: both leaves start picking at one batch.
+                          'fill_batches': leaves[0]['fill_batches'],
                           'db_path': db, 'run_id': run_id, 'leaves': leaves})
         if not pairs or sim_result is None:
             continue

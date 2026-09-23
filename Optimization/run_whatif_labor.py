@@ -55,7 +55,7 @@ from Schema import connect
 from Optimization.Performance_Evaluations.common import chartkit as _ck
 from Optimization.Performance_Evaluations.common import io as _io
 from Optimization.Performance_Evaluations.common.stats_core import census
-from Optimization.run_whatif_delta import _metrics, _channel_of, WIN   # steady-state (last WIN) means
+from Optimization.run_whatif_delta import _metrics, _channel_of, WIN, fill_start   # steady-state (last WIN) means
 
 # The suite's one divisor, imported rather than restated -- this module used to carry
 # its own `MS_PER_HOUR = 3.6e6`, a second copy of the same wrong number.
@@ -97,7 +97,7 @@ def _parse_arm(arm: str):
     return initial, assignment, reslot
 
 
-def _hours(db: str):
+def _hours(db: str, start: int = 0):
     """Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.
 
     Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened
@@ -122,8 +122,9 @@ def _hours(db: str):
         ds = None        # unvetted → the plain read-only open below, historical behavior
     con = ds.con if ds is not None else connect.read_only(db, row_factory=False, immutable=True)
     try:
+        # From a fill trial's pick stage on (`start` 0 elsewhere: every row, as before).
         row = con.execute('SELECT SUM(task_makespan), SUM(duration), SUM(total_items), COUNT(*) '
-                          'FROM batch_stats').fetchone()
+                          'FROM batch_stats WHERE batch_id >= ?', (start,)).fetchone()
         if not row or row[0] is None:
             return None
         return {'labor_hours': row[0] / PER_HOUR, 'batch_hours': row[1] / PER_HOUR,
@@ -140,7 +141,8 @@ def _scan_labor(rt, cell: str) -> dict:
     """
     out = {}
     for _cell, cr, db in rt.sim_dbs(cell):
-        m, h = _metrics(db), _hours(db)
+        _st = fill_start(rt, cr, db)
+        m, h = _metrics(db, _st), _hours(db, _st)
         if m and h and m.get('task_ms'):
             out[(cr.pair, cr.config, _channel_of(cr), rt.strategy_of(db))] = {**m, **h}
     return out

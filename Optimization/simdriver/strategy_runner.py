@@ -849,7 +849,7 @@ class _Leaf:
     fill_lots   : object = None       # [(sku, qty, unit_volume)] | None
     fill_credit : object = None       # (int, int) -> None
     fill_settled: object = None       # () -> bool
-    begin_pick  : object = None       # (int) -> None
+    begin_pick  : object = None       # (int, settled=int) -> None
 
 
 def _check_declared_crew(args: dict, k_pickers: int, *, site_crews: bool = True) -> None:
@@ -1338,7 +1338,7 @@ class _FillDispatch:
             f'{self._sent:,} unit(s) dispatched over {self._last_day} day(s) at '
             f'{self.units_per_day:,.0f}/day; crews put {self.record["put_crew"]}->'
             f'{self.pick_put}, receiving {self.record["recv_crew"]}->{self.pick_recv}; '
-            f'the pick stage is batch {i + 1} on')
+            f'the pick stage starts at the declared batch {self.record.get("max_days")}')
 
 
 def _build_fill(args: dict, leaves, site, pool, log):
@@ -1554,7 +1554,7 @@ class ArmAssembly:
                   # THE FILL TRIAL: the declared lots until the dispatcher takes them, the
                   # script offset (0 on every other run, None while the fill runs), the
                   # pick stage's own length, and the fill's length once it has one.
-                  'fill_lots', 'script_off', 'n_script', 'fill_batches')
+                  'fill_lots', 'script_off', 'n_script', 'fill_batches', 'fill_settled')
 
     def __init__(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0,
                          _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers,
@@ -1576,6 +1576,7 @@ class ArmAssembly:
         self.script_off = 0 if fill_lots is None else None
         self.n_script = n_batches
         self.fill_batches = None
+        self.fill_settled = None
         self.n_catalogue = n_catalogue
         self.n_skus = n_skus
         self._cut_at_day_end = _cut_at_day_end
@@ -2659,7 +2660,12 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         trial's, whose pick stage starts at `script_off`; None on a FILL day, which has no
         demand at all.  `i - 0` is `i`, so the ordinary run reads the script exactly as it
         always did."""
-        return None if asm.script_off is None else i - asm.script_off
+        if asm.script_off is None:
+            return None
+        j = i - asm.script_off
+        # Negative only on a fill trial's IDLE days, between the fill settling and the
+        # declared pick start: no demand, like a fill day.
+        return j if j >= 0 else None
 
     def _script_batch(i: int):
         """The demand batch `i` releases: the shared script's entry (or its inline twin), or
@@ -3159,7 +3165,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     asm.cov.append((i, 'unpicked_unstocked', _sku, _un))
                 if _q - _un:
                     asm.cov.append((i, 'unpicked_notasks', _sku, _q - _un))
-            if asm.script_off is None and len(asm.pb) >= asm.checkpoint:
+            if _script_j(i) is None and len(asm.pb) >= asm.checkpoint:
                 # A FILL DAY FLUSHES.  The checkpoint flush sits on the picked path, and a fill
                 # is tens of skipped days in a row, each receiving and binning thousands of
                 # units -- so without this every put and receive row of the whole fill would
@@ -3627,7 +3633,11 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # THE FILL'S LENGTH, on a fill trial only: the pick stage is batches
             # `fill_batches .. fill_batches + n_batches - 1` of this arm's tables, and this is
             # the one number a reader needs to select it.  Absent on every other run.
-            **({'fill_batches': asm.fill_batches} if asm.fill_batches is not None else {}),
+            # `fill_settled` is the site day the fill cleared -- the unloading policy's own
+            # outcome, which differs by cell; `fill_batches` is the declared pick start, which
+            # does not.
+            **({'fill_batches': asm.fill_batches, 'fill_settled': asm.fill_settled}
+               if asm.fill_batches is not None else {}),
             'strategy': asm.strategy,
             'run_id'  : asm.run_id,
             'elapsed' : elapsed,
@@ -3679,11 +3689,13 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         return (not any(q > 0 for q in asm.mgr._deferred_qty.values())
                 and asm.mgr.queue_depth == 0)
 
-    def _begin_pick(off: int) -> None:
-        """The fill ended after batch `off - 1`: the pick stage's script starts at batch
-        `off`, and the arm now runs `off + n_script` batches in all."""
+    def _begin_pick(off: int, settled: int | None = None) -> None:
+        """The fill has settled (after `settled` site days): the pick stage's script starts
+        at the declared batch `off`, and the arm now runs `off + n_script` batches in all.
+        Batches `settled .. off - 1` are idle."""
         asm.script_off = off
         asm.fill_batches = off
+        asm.fill_settled = settled
         asm.n_batches = off + asm.n_script
         asm.fill_lots = None                 # the dispatcher holds its own copy
         # The arm's expected day, taken HERE rather than at build: a fill's shelf is empty at
@@ -3829,10 +3841,19 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             _sitedock.collect(i)
         if _off is None:
             if _fill.settled():
-                _off = i + 1
+                # THE PICK STAGE STARTS AT ONE DECLARED BATCH, not where this cell settled.
+                # The settle day is the unloading policy's own outcome and differs between
+                # cells, so starting each cell there would put the same script batch under
+                # different batch ids in different cells -- and every reader that pairs arms
+                # by `batch_id` (the significance and vs-baseline tables, the ranking's
+                # floor, keyframe alignment) would compare different demand.  Starting all
+                # of them at the fill's length cap makes the pick stage byte-comparable
+                # across cells literally (Q16): the days between settling and the start are
+                # IDLE -- nothing in the yard, nothing on order, nothing picked.
+                _off = int(args['fill']['max_days'])
                 _fill.end(i)
                 for lf in leaves:
-                    lf.begin_pick(_off)
+                    lf.begin_pick(_off, settled=i + 1)
             elif i + 1 >= int(args['fill']['max_days']):
                 raise RuntimeError(
                     f'the fill did not settle in {args["fill"]["max_days"]} site day(s) (twice '

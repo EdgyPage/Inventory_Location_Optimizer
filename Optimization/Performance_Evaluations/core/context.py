@@ -575,8 +575,9 @@ class SiteContext(EvalContext):
         """
         for lf in self._by_key[key]['leaves']:
             if lf.get('channel') == channel:
-                return _requests._bdf(_requests.load_batch_stats(lf['db_path'],
-                                                                 lf['run_id']))
+                return _requests._bdf(_requests.pick_stage(
+                    _requests.load_batch_stats(lf['db_path'], lf['run_id']),
+                    lf.get('fill_batches')))
         raise KeyError(f'{key} has no {channel!r} leaf '
                        f'({[lf.get("channel") for lf in self._by_key[key]["leaves"]]})')
 

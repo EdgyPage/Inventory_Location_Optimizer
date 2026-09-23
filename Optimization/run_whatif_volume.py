@@ -51,7 +51,7 @@ from Schema import compat as _compat
 from Schema import connect
 from Optimization.Performance_Evaluations.common import chartkit as _ck
 from Optimization.Performance_Evaluations.common import io as _io
-from Optimization.run_whatif_delta import _channel_of
+from Optimization.run_whatif_delta import _channel_of, fill_start
 from Optimization.run_whatif_labor import (
     PER_HOUR, _HOURS_NOTE, _SCHED_COLOR, _channels, _data_xlim, _headroom, _ordered,
     _panel_tag, _parse_arm, _scheduler_of, canonical_arm_order)
@@ -79,7 +79,7 @@ SEMANTIC_USES = {'sim_db': {
 }}
 
 
-def _series(db: str):
+def _series(db: str, start: int = 0):
     """(hours, items) cumulative arrays for one arm, ordered by batch.
 
     A VETTED file binds to its own schema vintage (`Schema.dataset.bind`, immutable=True — the
@@ -100,8 +100,9 @@ def _series(db: str):
         ds = None        # unvetted → the plain read-only open below, historical behavior
     con = ds.con if ds is not None else connect.read_only(db, row_factory=False, immutable=True)
     try:
+        # From a fill trial's pick stage on (`start` 0 elsewhere: every row, as before).
         rows = con.execute('SELECT duration, total_items, task_makespan FROM batch_stats '
-                           'ORDER BY batch_id').fetchall()
+                           'WHERE batch_id >= ? ORDER BY batch_id', (start,)).fetchall()
     except sqlite3.Error:
         return None
     finally:
@@ -160,7 +161,7 @@ def scan(rt, cell):
     """
     out = {}
     for _c, cr, db in rt.sim_dbs(cell):
-        s = _series(db)
+        s = _series(db, fill_start(rt, cr, db))
         if s is not None:
             out[(cr.pair, cr.config, _channel_of(cr), rt.strategy_of(db))] = s
     return out

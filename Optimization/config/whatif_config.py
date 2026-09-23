@@ -403,6 +403,7 @@ PHASE2_PLAN_TRACE_EVERY = 4
 #: the fifo-only depth probe measures all three (it is cheap, and 1 is the control that shows
 #: the knee), the priced spec runs 2 alone until the probe says how deep 2 actually stands.
 PHASE2_DOOR_PROBE_LEVELS = (3, 2, 1)
+
 PHASE2_DOOR_LEVELS = (2,)
 
 
@@ -443,6 +444,34 @@ PHASE2_H_MULTIPLES = (0.25, 0.5, 1.0)
 #: the campaign exists to measure.  The matrix-wide value is decided on this cell's
 #: evidence against its unbounded twin, never assumed.
 PHASE2_BOUND_PROBE_K = 8
+
+#: THE FILL TRIAL (CONTEXT.md; `.scratch/inbound-throughput/` 06, decisions Q15-Q23).  The
+#: span the fill crews are derived over and the arrival pressure, both declared; the fill's
+#: length, crews and dispatch rate are derived from them (ticket 05).  40 site days keeps
+#: every 40-batch instrument's scale; 0.95 is as deep as a queue gets while still being one.
+FILL_SPAN_DAYS = 40.0
+FILL_RATIO = 0.95
+FILL_RUN_DEFAULTS = {
+    **PHASE2_RUN_DEFAULTS,
+    'inbound_fill_span_days': FILL_SPAN_DAYS,
+    'inbound_fill_ratio': FILL_RATIO,
+}
+#: What ranks a fill (Q17): PICK LABOUR over the pick stage -- phase 1's own quantity,
+#: comparable here because every placement genuinely differs.  `ss_prod_hours` is the
+#: steady-state mean of each batch's summed task time, whose per-batch form is
+#: `batch_stats.task_makespan`, so the ranking's floor is measured from the pick stage's own
+#: paired per-batch noise (the analysis and the ranking read the pick stage alone).  NO
+#: census: `unservable_weight` prices pick-owed's blind spot, not labour's.  Labour has one
+#: of its own -- a policy that strands lines unservable picks less and reads cheaper -- and
+#: 06's write-up reads the served units beside the rank rather than adjusting it.
+FILL_RANKING = {
+    'quantity': 'pick_labour_s', 'field': 'ss_prod_hours', 'column': 'task_makespan',
+    'census_quantity': None, 'census_field': None, 'census_column': None,
+    'exact_field': None,
+}
+#: The fill trial's nine cells (Q23): `inbound_unload`'s axis less `inb_off` (places nothing
+#: in a fill, and the fill refuses it) and the trailer-bound probe (refuted).
+FILL_AXIS_EXCLUDED = ('inb_off', f'gmyopic_k{PHASE2_BOUND_PROBE_K}')
 
 
 def phase2_inbound_axis(*, threshold_days=PHASE2_THRESHOLD_DAYS,
@@ -843,6 +872,39 @@ SPECS = {
         'reference': 'k1_off_fifo',
         'run_defaults': {**PHASE2_RUN_DEFAULTS, 'inbound_fill_span_days': 2.0},
     },
+    # THE FILL TRIAL (`.scratch/inbound-throughput/` 06): which unloading policy places stock
+    # best when EVERYTHING must land.  The warehouse starts empty, the whole declaration comes
+    # through the coupled site yard over the derived fill crews, and the 40-batch pick stage
+    # that follows ranks the cells on pick labour (`FILL_RANKING`).  Nine cells (Q23), the
+    # winner pair plus the rider as control (Q4).  The 40k perf catalogue first (Q18), so no
+    # staffing pin: the pin is the reference catalogue's.  OPT ARMS ONLY until the user decides
+    # what the uniform stock mode means in a fill (ticket 05) -- the driver drops them.
+    # Registered, not launched: its gain cells need the cheaper evaluator (ticket 04), and
+    # `_probe_fill_depth` says first how deep a fill's yard stands.
+    'inbound_fill': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'inbound': [e for e in phase2_inbound_axis() if e[0] not in FILL_AXIS_EXCLUDED],
+        'unpinned': 'the 40k fill prototype binds the perf catalogue by design (Q18); its 400k confirmation (ticket 08) carries the pin',
+        'reference': 'k1_off_fifo',
+        'run_defaults': FILL_RUN_DEFAULTS,
+        'ranking': FILL_RANKING,
+        'phase': 'fill',
+    },
+    # HOW DEEP A FILL'S YARD STANDS, and how long the fill runs, before anything priced is
+    # launched into one: fifo and lifo only (no evaluator), the winner pair and the rider.
+    # The gain evaluator costs ~T^3 per drain, and a fill at ratio 0.95 is the deepest
+    # queue this repo has asked it to plan; this probe measures T instead of projecting it.
+    '_probe_fill_depth': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'lifo')],
+        'unpinned': 'the 40k fill prototype binds the perf catalogue by design (Q18); its 400k confirmation (ticket 08) carries the pin',
+        'reference': 'k1_off_fifo',
+        'run_defaults': FILL_RUN_DEFAULTS,
+        'ranking': FILL_RANKING,
+        'phase': 'fill',
+    },
     # The door lever's toy: fifo at the campaign's four doors and at one, where the door-team
     # cap seats 10 of the crew.  Proves a scarce cell builds, runs and records its own door
     # count end to end in ~2 minutes, before `_probe_door_depth` spends campaign hours on it.
@@ -1156,7 +1218,18 @@ def validate_spec(spec, name: str = '<spec>') -> None:
     # different crews and a different line floor.  Refused HERE for the shape (there is a pin
     # at all) and again per pair at setup for the MATCH (`workunits._record_derived`), because
     # no derivation exists this early.
-    if pairs is not None and not spec.get('staffing_pin'):
+    # ONE DECLARED EXEMPTION: `unpinned`, a sentence saying why this spec runs a rule pair on a
+    # warehouse the pin does not describe -- the fill trial's 40k prototype (inbound-throughput
+    # Q18) is the case: it binds a different catalogue by design, and its 400k confirmation
+    # carries the pin.  A reason, never a flag, so the exemption is read where it is taken.
+    _unpinned = spec.get('unpinned')
+    if _unpinned is not None and not (isinstance(_unpinned, str) and _unpinned.strip()):
+        raise ValueError(f'{name}: `unpinned` must be a sentence saying why the spec runs '
+                         f'unpinned; got {_unpinned!r}')
+    if _unpinned and spec.get('staffing_pin'):
+        raise ValueError(f'{name}: declares both a `staffing_pin` and `unpinned`; one of them '
+                         f'is wrong')
+    if pairs is not None and not spec.get('staffing_pin') and not _unpinned:
         raise ValueError(
             f'{name}: declares `rule_pairs` but no `staffing_pin`. Phase 1 ranked ONE '
             f'warehouse; without the pin a between-phase build that moved the derivation '

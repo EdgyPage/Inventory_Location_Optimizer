@@ -146,7 +146,8 @@ def _absorb_success(res, uid, sa, meta, done_uids, log, cell, run_root):
         # THE FILL'S LENGTH rides the same way (inbound-throughput 05): the pick stage of a
         # fill trial is batches `fill_batches ..` of the arm's tables, and sim_meta is where
         # a reader of one leaf finds it.  Absent off a fill -- nothing written, byte-identical.
-        _extra = {k: _r[k] for k in ('expected_pick', 'fill_batches') if _r.get(k) is not None}
+        _extra = {k: _r[k] for k in ('expected_pick', 'fill_batches', 'fill_settled')
+                  if _r.get(k) is not None}
         if not _extra:
             continue
         for _s in meta[_gk]['sim_skeleton'].get('strategies', []):

@@ -483,7 +483,7 @@ def _threshold_for(layout: dict, spec: dict, cell: str, log) -> float:
     return float(_settings.INBOUND_FEE_THRESHOLD_DAYS)
 
 
-def _leaf_batch_rows(rt, run, arm: str) -> tuple | None:
+def _leaf_batch_rows(rt, run, arm: str, start: int = 0) -> tuple | None:
     """`(rows, n_batches)` for one arm of one leaf, or None when the leaf DB is absent or
     holds no run: its `batch_stats` rows sorted by batch -- the per-batch form of the
     score, which the series document carries only SMOOTHED (`series._series` rolls it
@@ -491,7 +491,12 @@ def _leaf_batch_rows(rt, run, arm: str) -> tuple | None:
     the batch count the ARM itself recorded (`simulation_runs.n_batches`, on the
     guaranteed surface), which is the prefix the worker weighted the script over
     (`batches[:n_batches]`).  The row count is the fallback when an older vintage did not
-    stamp it, and a leaf that finalized short of its plan is not the rows' business."""
+    stamp it, and a leaf that finalized short of its plan is not the rows' business.
+
+    `start` is a FILL TRIAL arm's pick-stage start (`fill_batches`; 0 elsewhere): the fill's
+    and idle days are dropped, so the score, the floor and the adjustment are all read over
+    the pick stage.  The start is one declared batch in every cell of a fill run, so the
+    per-batch pairing across cells stays aligned."""
     from Optimization.persistence.Picking_Data import find_run, load_batch_stats, run_identity
     db = rt.leaf_path(run, 'sim_db', strategy=arm)
     if not os.path.exists(db):
@@ -499,7 +504,8 @@ def _leaf_batch_rows(rt, run, arm: str) -> tuple | None:
     run_id = find_run(db, arm)
     if run_id is None:
         return None
-    rows = sorted(load_batch_stats(db, run_id), key=lambda s: s.batch_id)
+    rows = sorted((r for r in load_batch_stats(db, run_id) if r.batch_id >= start),
+                  key=lambda s: s.batch_id)
     if not rows:
         return None
     n = run_identity(db, run_id).get('n_batches')
@@ -775,7 +781,10 @@ def _units_of_cell(rt, cell: str, cell_dir: str, threshold_days: float, log,
             complete = owed is not None
             for ch, arm in halves.items():
                 run, meta, _ser = per_channel[ch]
-                got = _leaf_batch_rows(rt, run, arm) if complete else None
+                _st = next((int(s.get('fill_batches') or 0)
+                            for s in (meta or {}).get('strategies') or []
+                            if isinstance(s, dict) and s.get('key') == arm), 0)
+                got = _leaf_batch_rows(rt, run, arm, _st) if complete else None
                 if not got:
                     complete = False
                     break

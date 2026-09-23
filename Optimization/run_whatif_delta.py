@@ -82,7 +82,30 @@ def _bind(db: str):
         return None
 
 
-def _metrics(db: str):
+def fill_start(rt, cr, db: str) -> int:
+    """The batch a FILL TRIAL arm's pick stage starts at (`fill_batches` on its sim_meta
+    entry), else 0 -- every run that is not a fill, and any arm whose meta is unreadable.
+
+    The three what-if writers read `batch_stats` with their own SQL, around the analysis
+    suite's loader (`core.requests.pick_stage`), so they select the pick stage here: a fill's
+    fill and idle days are zero-work batches, and a COUNT, a mean or a last-WIN window over
+    them reads an idle dock as part of the run.  0 makes every query below select every row,
+    so an ordinary run's numbers are the ones it always had.
+    """
+    import json
+    try:
+        with open(rt.leaf_path(cr, 'sim_meta'), encoding='utf-8') as f:
+            meta = json.load(f)
+    except (OSError, ValueError):
+        return 0
+    arm = rt.strategy_of(db)
+    for s in meta.get('strategies') or []:
+        if isinstance(s, dict) and s.get('key') == arm:
+            return int(s.get('fill_batches') or 0)
+    return 0
+
+
+def _metrics(db: str, start: int = 0):
     """Steady-state means (last WIN batches) of the four success metrics from batch_stats:
 
         task_ms   = task makespan  = Σ task time = total labor        (metric a)
@@ -107,7 +130,9 @@ def _metrics(db: str):
         maxb = con.execute('SELECT MAX(batch_id) FROM batch_stats').fetchone()[0]
         if maxb is None:
             return None
-        lo = maxb - WIN + 1
+        # Never before a fill trial's pick stage (`start` is 0 on every other run, and
+        # `batch_id >= max(lo, 0)` is every row `batch_id >= lo` was).
+        lo = max(maxb - WIN + 1, start)
         if ds is not None:
             has_tm = ds.has('batch_stats', ('task_makespan',))
         else:
@@ -148,7 +173,7 @@ def _scan(rt, cell: str) -> dict:
     """{(pair, pickcfg, channel, arm): metrics} for one cell, via the run-tree resolver."""
     out = {}
     for _cell, cr, db in rt.sim_dbs(cell):
-        m = _metrics(db)
+        m = _metrics(db, fill_start(rt, cr, db))
         if m and m['task_ms']:
             out[(cr.pair, cr.config, _channel_of(cr), rt.strategy_of(db))] = m
     return out

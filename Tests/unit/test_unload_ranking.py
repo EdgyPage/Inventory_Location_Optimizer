@@ -452,7 +452,7 @@ def test_batch_rows_adjust_the_score_and_measure_the_floor(tmp_path, monkeypatch
     # so adjusted it is 100 s -- an exact tie with fifo once the census is priced.  The
     # jitter is not periodic on purpose: an alternating +-0.5 collapses under a block
     # bootstrap of block length 2 to intervals of zero width.
-    def rows(rt, run, arm):
+    def rows(rt, run, arm, start=0):
         lifo = 'k1_off_lifo' in os.path.normpath(run.path).split(os.sep)
         owed, cen = (99.0, 10.0) if lifo else (100.0, 0.0)
         return ([_S(batch_id=b, pick_owed_s=owed + jitter[b], unservable_weight=cen)
@@ -500,7 +500,7 @@ def test_the_measured_floor_is_the_one_applied_and_it_groups_the_cells(tmp_path,
     noise = np.random.default_rng(3).normal(0.0, 0.3, n)      # lifo's own, unpaired noise
     noise -= noise.mean()                                    # zero-mean: the gap IS the offset
 
-    def rows(rt, run, arm):
+    def rows(rt, run, arm, start=0):
         lifo = 'k1_off_lifo' in os.path.normpath(run.path).split(os.sep)
         base = 100.05 if lifo else 100.0                      # a 0.05% gap, exactly
         return ([_S(batch_id=b, pick_owed_s=base + (noise[b] if lifo else 0.0),
@@ -534,7 +534,7 @@ def test_a_half_adjustable_unit_ranks_raw_and_poisons_its_cells_floor(tmp_path, 
                             'k1_off_lifo': _arms(3650.0, 3600.0, 7000.0)})
     _patch_site(monkeypatch, {})
 
-    def rows(rt, run, arm):
+    def rows(rt, run, arm, start=0):
         if run.channel == 'fulfillment':
             return None                               # no DB for this leaf
         return ([_S(batch_id=b, pick_owed_s=99.0, unservable_weight=10.0) for b in range(6)], 6)
@@ -549,7 +549,7 @@ def test_a_half_adjustable_unit_ranks_raw_and_poisons_its_cells_floor(tmp_path, 
     nf = doc['noise_floor'][win]
     assert nf['floor_pct'] is None and nf['source'].startswith('declared'), nf
     # and the mirror case: rows on both leaves but no weight for one of them
-    monkeypatch.setattr(ur, '_leaf_batch_rows', lambda rt, run, arm: (
+    monkeypatch.setattr(ur, '_leaf_batch_rows', lambda rt, run, arm, start=0: (
         [_S(batch_id=b, pick_owed_s=99.0, unservable_weight=10.0) for b in range(6)], 6))
     monkeypatch.setattr(ur._PlannedWeights, 'total',
                         lambda self, cell, run, meta, arm, n: (None if run.channel == 'store'
@@ -567,7 +567,7 @@ def test_a_frequency_weighted_census_is_never_priced_by_a_line_total(tmp_path, m
     root = _root(tmp_path, {'k1_off_fifo': _arms(3600.0, 3600.0, 7200.0),
                             'k1_off_lifo': _arms(3650.0, 3600.0, 7000.0)})
     _patch_site(monkeypatch, {})
-    monkeypatch.setattr(ur, '_leaf_batch_rows', lambda rt, run, arm: (
+    monkeypatch.setattr(ur, '_leaf_batch_rows', lambda rt, run, arm, start=0: (
         [_S(batch_id=b, pick_owed_s=99.0, unservable_weight=0.004) for b in range(6)], 6))
     monkeypatch.setattr(ur._PlannedWeights, 'total', lambda self, *a, **k: 1000.0)
     said = []

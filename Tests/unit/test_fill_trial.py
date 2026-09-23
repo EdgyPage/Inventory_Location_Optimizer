@@ -198,6 +198,9 @@ def test_the_payload_prices_the_rate_off_the_cells_own_doors():
     p = _fill_payload(leaf)
     assert p['seated'] == 20 and p['recv_crew'] == 115 and p['put_crew'] == 30
     assert p['max_days'] == math.ceil(2 * p['dispatch_days']) + 10
+    # the declared pick start lands on a keyframe, where the fill's placement is read
+    p5 = _fill_payload({**leaf, 'keyframe_interval': 5})
+    assert p5['max_days'] % 5 == 0 and 0 <= p5['max_days'] - p['max_days'] < 5
     assert _fill_payload({'inbound': {'fill': None}}) is None
     leaf['staffing'] = {'derived': {}}
     with pytest.raises(ValueError, match='derived no fill crews'):
@@ -366,7 +369,7 @@ class _Stub:
     def __init__(self, channel, start_i, n):
         self.channel, self.start_i, self.n_batches = channel, start_i, n
         self.n_catalogue, self.n_skus = 10, 5
-        self.seen, self.off = [], None
+        self.seen, self.off, self.settled = [], None, None
         self.fill_lots = []
 
     def replenish(self, i):
@@ -384,8 +387,8 @@ class _Stub:
     def charge(self, *_a):
         pass
 
-    def begin_pick(self, off):
-        self.off = off
+    def begin_pick(self, off, settled=None):
+        self.off, self.settled = off, settled
 
 
 def _drive(monkeypatch, *, start_i, n=4, settle_after=3):
@@ -417,12 +420,15 @@ def _drive(monkeypatch, *, start_i, n=4, settle_after=3):
     return leaves, calls
 
 
-def test_a_fresh_fill_fills_until_settled_then_runs_the_pick_stage(monkeypatch):
+def test_a_fresh_fill_fills_until_settled_idles_then_picks_from_the_declared_start(monkeypatch):
+    """The pick stage starts at the fill's length cap (20 here) in EVERY cell, whatever day
+    this cell settled on, so pick-stage batch ids align across cells."""
     leaves, calls = _drive(monkeypatch, start_i=0, n=4, settle_after=3)
     assert calls['end'] == 2, 'settled after the third fill day (batch 2)'
+    assert calls['settled'] == 3, 'nothing is asked of the dispatcher once it has settled'
     for lf in leaves:
-        assert lf.off == 3
-        assert lf.seen == list(range(0, 3 + 4)), 'three fill days, then exactly n pick batches'
+        assert (lf.off, lf.settled) == (20, 3)
+        assert lf.seen == list(range(0, 20 + 4)),             'three fill days, seventeen idle days, then exactly n pick batches'
 
 
 def test_a_finished_fill_arm_resubmitted_runs_no_batch(monkeypatch):
@@ -441,3 +447,86 @@ def test_a_fill_unit_refuses_a_resume_from_the_middle(monkeypatch):
 def test_an_unsettled_fill_raises_at_its_cap(monkeypatch):
     with pytest.raises(RuntimeError, match='did not settle in 20'):
         _drive(monkeypatch, start_i=0, settle_after=10**6)
+
+
+# ── 7. the analysis reads the pick stage ─────────────────────────────────────────────────
+
+def test_pick_stage_drops_the_fill_and_idle_days_and_nothing_else():
+    from Optimization.Performance_Evaluations.core.requests import pick_stage
+    rows = [types.SimpleNamespace(batch_id=b) for b in range(6)]
+    assert pick_stage(rows, None) is rows and pick_stage(rows, 0) is rows, \
+        'every run that is not a fill is untouched -- the same object, not a copy'
+    assert [r.batch_id for r in pick_stage(rows, 4)] == [4, 5]
+    dicts = [{'batch_id': 1, 'x': 1}, {'batch_id': 5, 'x': 2}]
+    assert pick_stage(dicts, 4) == [{'batch_id': 5, 'x': 2}]
+    # trailers, drains and shift days carry no `batch_id`: the yard family reads the whole
+    # run, which on a fill IS the fill
+    keep = [{'seq': 1, 'arrived_s': 0.0}, {'batch': 0, 'yard_start': 3}, {'day': 0}]
+    assert pick_stage(keep, 4) == keep
+
+
+def test_the_whatif_writers_find_the_pick_start_on_the_arms_meta(tmp_path):
+    import json as _json
+    from Optimization.run_whatif_delta import fill_start
+    meta = tmp_path / 'sim_meta.json'
+    meta.write_text(_json.dumps({'strategies': [{'key': 'opt_fifo_norsl', 'fill_batches': 21},
+                                                {'key': 'opt_rank_cartlabor_norsl'}]}))
+    rt = types.SimpleNamespace(leaf_path=lambda cr, art: str(meta),
+                               strategy_of=lambda db: db)
+    assert fill_start(rt, None, 'opt_fifo_norsl') == 21
+    assert fill_start(rt, None, 'opt_rank_cartlabor_norsl') == 0
+    rt.leaf_path = lambda cr, art: str(tmp_path / 'absent.json')
+    assert fill_start(rt, None, 'opt_fifo_norsl') == 0
+
+
+def test_the_steady_state_window_never_reaches_back_into_the_fill(tmp_path):
+    """A 4-batch pick stage after 20 zero-work fill days: the last-WIN mean must be over the
+    four, not over 50 rows of which 46 are an idle dock."""
+    import sqlite3
+    from Optimization.run_whatif_delta import _metrics
+    from Optimization.run_whatif_labor import _hours
+    db = tmp_path / 'sim.db'
+    con = sqlite3.connect(db)
+    con.execute('CREATE TABLE batch_stats (batch_id INTEGER, task_makespan REAL, '
+                'duration REAL, total_items INTEGER)')
+    con.executemany('INSERT INTO batch_stats VALUES (?,?,?,?)',
+                    [(b, 0.0, 0.0, 0) for b in range(20)]
+                    + [(20 + b, 100.0, 50.0, 10) for b in range(4)])
+    con.commit()
+    con.close()
+    whole = _metrics(str(db))
+    picked = _metrics(str(db), 20)
+    assert math.isclose(picked['task_ms'], 100.0) and math.isclose(picked['batch_ms'], 50.0)
+    assert whole['task_ms'] < 100.0, 'the unfiltered window is diluted -- the defect'
+    h = _hours(str(db), 20)
+    assert h['n_batches'] == 4 and math.isclose(h['labor_hours'], 400.0 / 3600)
+
+
+# ── 8. the fill trial's spec (ticket 06) ─────────────────────────────────────────────────
+
+def test_the_fill_trial_spec_is_the_nine_cells_ranked_on_pick_labour():
+    from Optimization.config.whatif_config import FILL_RANKING, get_spec
+    from Optimization.simdriver.cells import _build_cells
+    spec = get_spec('inbound_fill')
+    names = [c.name for c in _build_cells(spec)]
+    assert len(names) == 9 and 'k1_off_inb_off' not in names
+    assert not any('_k8' in n for n in names), 'the refuted trailer bound is not a fill cell'
+    assert spec['ranking'] is FILL_RANKING and FILL_RANKING['column'] == 'task_makespan'
+    assert spec['run_defaults']['inbound_fill_span_days'] == 40.0
+    assert spec['run_defaults']['n_batches'] == 40, 'the pick stage is a 40-batch era run'
+
+
+def test_a_rule_pair_spec_runs_unpinned_only_with_a_stated_reason():
+    from Optimization.config.whatif_config import (FILL_RUN_DEFAULTS, PHASE2_RIDER,
+                                                   PHASE2_STAFFING_PIN, validate_spec)
+    base = {'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+            'schedulers': ['lpt'], 'rule_pairs': [PHASE2_RIDER], 'reference': 'k1_off_lpt',
+            'run_defaults': FILL_RUN_DEFAULTS}
+    with pytest.raises(ValueError, match='no `staffing_pin`'):
+        validate_spec(dict(base), 'x')
+    with pytest.raises(ValueError, match='must be a sentence'):
+        validate_spec({**base, 'unpinned': '  '}, 'x')
+    with pytest.raises(ValueError, match='both'):
+        validate_spec({**base, 'unpinned': 'a reason', 'staffing_pin': PHASE2_STAFFING_PIN},
+                      'x')
+    validate_spec({**base, 'unpinned': 'a prototype on another catalogue'}, 'x')

@@ -703,7 +703,9 @@ def _fill_payload(leaf: dict) -> dict | None:
     Computed here, per cell, rather than in the per-pair derivation: the rate is priced off
     the SEATED receiving crew, and the seats are the cell's door count times its door team --
     which the door-scarcity axis varies across the cells of one pair.  `max_days` is the
-    fill's length cap: twice the dispatch span plus ten days.  At a declared ratio below one
+    fill's length cap -- twice the dispatch span plus ten days -- AND the declared batch the
+    pick stage starts at in every cell, whichever day that cell's fill settled on, so the
+    pick stage's batch ids align across the cells of a run at one door count.  At a declared ratio below one
     the yard is a queue and clears within days of the last dispatch, so a fill that has not
     settled by then is a fill that CANNOT (a unit no bin will take), and the worker raises
     with the census rather than running a pick stage that never starts.
@@ -721,10 +723,18 @@ def _fill_payload(leaf: dict) -> dict | None:
     day_s = float(work_day_spec()['seconds'])
     rate = _staffing.fill_dispatch_rate(fill, doors=_inb['doors'],
                                         door_team=_inb.get('door_team'), day_seconds=day_s)
+    cap = int(math.ceil(2.0 * rate['dispatch_days'])) + 10
+    # ON A KEYFRAME.  The pick stage's first batch is where the fill's placement is read by
+    # the keyframe-cadence closed form (`pick_owed_exact_s`: the arm's expected day over the
+    # placement, by CATALOGUE frequency) -- ticket 06's future-work diagnostic, taken "once at
+    # the fill's end and at each keyframe of the pick stage".  Keyframes fire at batch ids
+    # divisible by the interval, so the start is rounded up to one.
+    k = int(leaf.get('keyframe_interval') or 0)
+    if k > 0:
+        cap = int(math.ceil(cap / k)) * k
     return {'span_days': fill['span_days'], 'ratio': fill['ratio'],
             'put_crew': int(fill['put']['crew']), 'recv_crew': int(fill['receiving']['crew']),
-            'units': int(fill['units']), **rate,
-            'max_days': int(math.ceil(2.0 * rate['dispatch_days'])) + 10}
+            'units': int(fill['units']), **rate, 'max_days': cap}
 
 
 # ── the coupled pair's completeness, and the torn-pair repair ──────────────────
