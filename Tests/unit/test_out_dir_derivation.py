@@ -104,7 +104,8 @@ _LITERALS = {
     # load by name, plus its flat table beside the others.
     'catalog.inventory':              {'': (), 'tables': ('tables',)},
     # The closed-form predictions: a dossier document at the root plus its one figure.
-    'closed_form.predicted':          {'': (), 'figures/closed_form': ('figures', 'closed_form')},
+    'closed_form.predicted':          {'': (), 'figures/closed_form': ('figures', 'closed_form'),
+                                       'tables': ('tables',)},
 }
 
 

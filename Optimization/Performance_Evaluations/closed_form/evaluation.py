@@ -16,6 +16,11 @@ the solved floor, the lead) and its frozen catalogue:
   realised   the share of units picked from bins a reorder filled inside the window, per arm
              of the reference cell (`run_unload_ranking.inbound_repick`), and the free pool at
              the window's two ends (the flow equilibrium: frees = placements).
+  dock       the door utilisation the record declares (receiving load over doors x door team
+             x shift, `models.dock`) beside the one the site yard realised, and the yard's
+             queueing wait beside Allen-Cunneen's (None past the gate).
+
+Also one CSV of the predicted-vs-realised rows under the dossier's declared tables glob.
 
 Every equation in the JSON's `derivation` is `Model.to_markdown` of the tree that produced the
 number beside it.  The study behind it: `.scratch/aisle-churn/` S02, S08, S09.
@@ -35,6 +40,8 @@ from Optimization.Performance_Evaluations.core.registry import evaluation
 
 _ARTIFACT = 'closed_form_json'
 _FIG_SUBDIR = 'figures/closed_form'
+#: the predicted-vs-realised rows, one CSV under the dossier's declared `tables/*.csv` glob
+_TABLE_SUBDIR, _TABLE_NAME = 'tables', 'closed_form_predicted.csv'
 
 
 def _head_basename(artifact: str) -> str:
@@ -82,6 +89,87 @@ def _realised(db: str, arm: str, H: int) -> dict:
     return out
 
 
+def _dock(ctx, spec: dict, cell: str, H: int) -> dict:
+    """The dock gate (`models.dock`): the record's DECLARED door utilisation -- receiving load
+    over doors x door team x shift -- beside the REALISED one read off the site yard (door
+    occupancy per trailer, trailers per day) of the reference cell's first coupled unit.
+    {} when the run has no site yard (uncoupled, or no standing yard)."""
+    from Optimization.simconfig.models import dock
+    derived = (spec.get('staffing') or {}).get('derived') or {}
+    rec = next(iter(derived.values()), {}) if derived else {}
+    recv = rec.get('receiving') or {}
+    S = float(rec.get('day_seconds') or 28_800.0)
+    doors = int(spec.get('inbound_dock_doors') or 0)
+    team = int(spec.get('inbound_door_team') or 0)
+    if not (doors and team and recv):
+        return {}
+    out = {'doors': doors, 'door_team': team, 'shift_s': S,
+           'rho_door_declared': float(recv.get('load_seconds_per_day') or 0.0)
+           / (doors * team * S)}
+    try:
+        sites = sorted(ctx.rt.glob('site_inbound_db', cell=cell))
+    except Exception:                                  # noqa: BLE001 - absence is data
+        sites = []
+    if sites:
+        con = sqlite3.connect('file:' + sites[0] + '?mode=ro', uri=True)
+        try:
+            n, occ, wait = con.execute(
+                'select count(*), avg(emptied_s - staged_s), avg(staged_s - arrived_s) from '
+                'yard_trailers where emptied_s is not null').fetchone()
+        except sqlite3.OperationalError:
+            n = 0
+        finally:
+            con.close()
+        if n:
+            lam = n / H
+            r = dock.DOCK.evaluate({'lam_T': lam, 'W_T': occ * team, 'team': team,
+                                    'overhead': 0.0, 'doors': doors, 'S': S})
+            out.update({'trailers_per_day': lam, 'occupancy_s': occ,
+                        'rho_door_realised': r['rho_door'], 'yard_wait_s': wait,
+                        # None past the gate: an unstable queue has no mean wait
+                        'yard_wait_allen_cunneen_s': (
+                            None if r['rho_door'] >= 1.0
+                            else dock.yard_wait(lam, occ, doors, S))})
+    return out
+
+
+def _write_table(ctx, doc: dict) -> None:
+    """The predicted-vs-realised rows as one CSV beside the other dossier tables."""
+    import csv
+    rows = []
+    for ch, sec in sorted(doc['sections'].items()):
+        p = sec['predicted']
+        shares = [r['served_share'] for r in sec.get('realised', {}).values()
+                  if r.get('served_share') is not None]
+        for q in ('phi_declared', 'phi_script'):
+            if p.get(q) is not None:
+                rows.append({'section': ch, 'quantity': q.replace('phi', 'fresh_share'),
+                             'predicted': p[q],
+                             'realised': statistics.mean(shares) if shares else '',
+                             'realised_min': min(shares) if shares else '',
+                             'realised_max': max(shares) if shares else ''})
+        for q in ('on_floor_share', 'sum_Q', 'median_cover_days'):
+            rows.append({'section': ch, 'quantity': q, 'predicted': p.get(q), 'realised': '',
+                         'realised_min': '', 'realised_max': ''})
+    d = doc.get('dock') or {}
+    if 'rho_door_declared' in d:
+        rows.append({'section': 'site', 'quantity': 'rho_door', 'predicted':
+                     d['rho_door_declared'], 'realised': d.get('rho_door_realised', ''),
+                     'realised_min': '', 'realised_max': ''})
+    if d.get('yard_wait_s') is not None:
+        rows.append({'section': 'site', 'quantity': 'yard_queue_wait_s', 'predicted':
+                     ('' if d['yard_wait_allen_cunneen_s'] is None
+                      else d['yard_wait_allen_cunneen_s']),
+                     'realised': d['yard_wait_s'],
+                     'realised_min': '', 'realised_max': ''})
+    path = os.path.join(io.out_dir(ctx, pick=_TABLE_SUBDIR), _TABLE_NAME)
+    with open(path, 'w', newline='', encoding='utf-8') as fh:
+        w = csv.DictWriter(fh, fieldnames=['section', 'quantity', 'predicted', 'realised',
+                                           'realised_min', 'realised_max'])
+        w.writeheader()
+        w.writerows(rows)
+
+
 def section_prediction(orders, cov: dict, channel: str, H: int, script=None) -> dict:
     """The record's own predictions for one section (no simulation output read)."""
     from Optimization.simconfig.models import churn, levels
@@ -116,7 +204,8 @@ def section_prediction(orders, cov: dict, channel: str, H: int, script=None) -> 
 
 
 @evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run',
-            scope='run', needs=('catalogue',), out_subdir=('', _FIG_SUBDIR))
+            scope='run', needs=('catalogue',),
+            out_subdir=('', _FIG_SUBDIR, _TABLE_SUBDIR))
 def render(ctx, params):
     from Optimization.Performance_Evaluations.closed_form import render as draw
     from Optimization.simconfig.models import churn
@@ -163,6 +252,7 @@ def render(ctx, params):
                              'realised': None if mean is None else 100.0 * mean,
                              'lo': None if not shares else 100.0 * min(shares),
                              'hi': None if not shares else 100.0 * max(shares)})
+    doc['dock'] = _dock(ctx, spec, ref_cell, H)
     ex = churn.FRESH.evaluate({'lam': 0.01, 'H': float(H), 'ell': 2.766})
     doc['derivation'] = churn.FRESH.to_markdown(ex, title='fresh-bin law (worked at 0.01 '
                                                           'lines a day)')
@@ -171,6 +261,7 @@ def render(ctx, params):
                    'reference cell\'s arms.')
     with open(os.path.join(io.out_dir(ctx, pick=''), _BASENAME), 'w', encoding='utf-8') as fh:
         json.dump(doc, fh, indent=2)
+    _write_table(ctx, doc)
     if rows:
         figs = io.out_dir(ctx, pick=_FIG_SUBDIR)
         draw.predicted_vs_realised(

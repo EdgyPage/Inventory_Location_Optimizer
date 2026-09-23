@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:645550a904b37d36cd1148d64a014390ecf0551fa4095013c67087345373ef16",
-  "schema_short": "645550a904b3",
+  "schema_id": "sha256:d9ffe4d51503b71eda2460edf34548c1e333f092562f20528784bf1e7c89b57d",
+  "schema_short": "d9ffe4d51503",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -126,6 +126,18 @@
       "path": "{cell}/{pair}/{config}/{channel?}/_ckpt_{strategy}.pkl",
       "format": "pickle",
       "scope": "channel_run",
+      "optional": true
+    },
+    "closed_form_json": {
+      "path": "_dossier/closed_form.json",
+      "format": "json",
+      "scope": "run",
+      "optional": true
+    },
+    "closed_form_pngs": {
+      "path": "_dossier/figures/closed_form/*.png",
+      "format": "png",
+      "scope": "run",
       "optional": true
     },
     "comparison_census_json": {
