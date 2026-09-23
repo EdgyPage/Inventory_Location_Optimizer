@@ -15211,9 +15211,16 @@
     },
     "Optimization/simconfig/models/inbound.py": {
       "decorators": [],
-      "doc": "inbound.py -- the inbound flow as one closed-form model: packs, trailers, the dock, crews.\n\nThe supply side the staffing record already derives (`staffing.implied_reorders`: every fired\nlot, arrived by `received_law`, packed by the sim's own packer, each pack priced by the\n`PutawayCost` / `UnloadCost` laws) is the per-day LOAD; this module composes it with what the\nrecord does not carry -- trailers and the dock -- into one model, so the whole chain renders\nand evaluates together:\n\n    V_d            shipped volume per day (units reordered x unit volume; steady state = picked)\n    pallets/day  = V_d / (P - E[v] + E[v^2] / 2E[v])             next-fit renewal on 48^3 pallets\n    trailers/day = pallets/day / 26 + 1/2                        53-ft trailer; the daily release\n                                                                 ships the partial last trailer\n    rho_door     = trailers/day x E[o] / (doors x S)              `models.dock`\n    recv crew    = ceil(recv load / (S rho_recv)),  put crew = ceil(put load / (S rho_put))\n\n`expected_swaps` (the cart's next-fit renewal, `simconfig/expected_travel.py`) IS the pallet\ncount: a load pallet is a cart that holds 48^3 of loose items (`Inbound/trailer.py`).",
+      "doc": "inbound.py -- the inbound flow as one closed-form model: packs, trailers, the dock, crews.\n\nThe supply side the staffing record already derives (`staffing.implied_reorders`: every fired\nlot, arrived by `received_law`, packed by the sim's own packer, each pack priced by the\n`PutawayCost` / `UnloadCost` laws) is the per-day LOAD; this module composes it with what the\nrecord does not carry -- trailers and the dock -- into one model, so the whole chain renders\nand evaluates together:\n\n    V_d            shipped volume per day (units reordered x unit volume; steady state = picked)\n    pallets/day  = V_d / (P - E[v] + E[v^2] / 2E[v])             next-fit renewal on 48^3 pallets\n    trailers/day = r E[ceil(X / r)],  X ~ N(x, (cv x)^2),  x = pallets/day / 26\n                                                                 53-ft trailer; each of the r\n                                                                 releases ships its partial last\n                                                                 trailer: ceil(x) at cv 0, x + r/2\n                                                                 once a release fills many\n    rho_door     = trailers/day x E[o] / (doors x S)              `models.dock`\n    recv crew    = ceil(recv load / (S rho_recv)),  put crew = ceil(put load / (S rho_put))\n\n`expected_swaps` (the cart's next-fit renewal, `simconfig/expected_travel.py`) IS the pallet\ncount: a load pallet is a cart that holds 48^3 of loose items (`Inbound/trailer.py`).",
       "kind": "module",
       "signature": null
+    },
+    "Optimization/simconfig/models/inbound.py::CV": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Sym('cv', 'c_v')"
     },
     "Optimization/simconfig/models/inbound.py::INBOUND": {
       "decorators": [],
@@ -15262,7 +15269,14 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "Equation('trailers', '\\\\lambda_T', Sym('pallets', 'n_{\\\\mathrm{pal}}') / POS + REL / 2, unit='trailers/day', doc='each release ships the open trailer, full or not: half a trailer of slack per relea..."
+      "value_preview": "Equation('trailers', '\\\\lambda_T', Call('ceil_mean', expected_trailers, {'x': Sym('pallets', 'n_{\\\\mathrm{pal}}') / POS, 'cv': CV, 'releases': REL}, tex='r\\\\,\\\\mathbb{E}\\\\lceil X/r \\\\rceil'), unit=..."
+    },
+    "Optimization/simconfig/models/inbound.py::expected_trailers": {
+      "decorators": [],
+      "doc": "r E[ceil(X / r)] for a day's full-trailer equivalent X ~ N(x, (cv x)^2): every release\nships its open trailer, so a release that carries X / r trailers of volume ships its\nceiling.  E[ceil(Y)] = sum_{k>=0} P(Y > k) for Y >= 0; exact ceil(x / r) at cv = 0.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x: float, cv: float, releases: float=1.0) -> float"
     },
     "Optimization/simconfig/models/inbound.py::item_moments": {
       "decorators": [],
@@ -15273,10 +15287,10 @@
     },
     "Optimization/simconfig/models/inbound.py::trailers_per_day": {
       "decorators": [],
-      "doc": "The trailer law over a window's shipped items `[(qty, unit_volume), ...]` (inches^3).",
+      "doc": "The trailer law over a window's shipped items `[(qty, unit_volume), ...]` (inches^3).\n`cv` is the day-to-day spread of shipped volume (the record's `day_law.cv_units`, 0.34 on\nthe reference pair).",
       "is_async": false,
       "kind": "function",
-      "signature": "(units, *, days: float, releases_per_day: float=1.0, positions: int=POSITIONS_53) -> dict"
+      "signature": "(units, *, days: float, releases_per_day: float=1.0, positions: int=POSITIONS_53, cv: float=0.34) -> dict"
     },
     "Optimization/simconfig/models/levels.py": {
       "decorators": [],

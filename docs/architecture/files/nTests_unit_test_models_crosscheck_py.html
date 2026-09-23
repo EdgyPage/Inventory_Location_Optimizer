@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tests/unit/test_models_inbound.py · ILO code map</title>
+<title>Tests/unit/test_models_crosscheck.py · ILO code map</title>
 <link rel="stylesheet" href="../assets/arch.css">
 </head><body>
 <header class="topbar">
@@ -10,10 +10,10 @@
 </header>
 <main>
 <article class="file">
-<h1><code>Tests/unit/test_models_inbound.py</code></h1>
+<h1><code>Tests/unit/test_models_crosscheck.py</code></h1>
 <p class="meta">layer <span class="chip">tests</span></p>
-<p class="purpose">Pins the inbound flow model: the next-fit pallet law against the trailer loader&#x27;s own rule, the trailer arithmetic and the crews.</p>
-<section><h2>Key symbols</h2><ul class="rel"><li><code>test_constants_match_the_trailer_model</code> <span class="dim">function</span></li><li><code>test_next_fit_law_matches_the_loader</code> <span class="dim">function</span></li><li><code>test_each_release_ships_its_ceiling</code> <span class="dim">function</span></li><li><code>test_crews_are_the_records_crew_size</code> <span class="dim">function</span></li></ul></section>
+<p class="purpose">Cross-checks the composed models against simulator code and pinned hand computations: the pick day, LEVELS line mean, and the trailer law against the real TrailerTransit loader.</p>
+<section><h2>Key symbols</h2><ul class="rel"><li><code>KEY</code> <span class="dim">const</span></li><li><code>cfg</code> <span class="dim">function</span></li><li><code>test_pick_day_reproduces_the_pinned_routing_identity</code> <span class="dim">function</span></li><li><code>test_the_drain_order_moves_travel_when_the_small_bin_is_far</code> <span class="dim">function</span></li><li><code>test_trailer_law_counts_what_the_loader_opens</code> <span class="dim">function</span></li></ul></section>
 <section><h2>Nodes in this file <span class="count">(0)</span></h2><table class="tbl"><tr><th>kind</th><th>name</th><th class="num">fan-in</th><th class="num">fan-out</th></tr><tr><td class='dim' colspan='4'>no graph nodes (test/asset file)</td></tr></table></section>
 
 </article>

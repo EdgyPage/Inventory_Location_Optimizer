@@ -8,8 +8,11 @@ and evaluates together:
 
     V_d            shipped volume per day (units reordered x unit volume; steady state = picked)
     pallets/day  = V_d / (P - E[v] + E[v^2] / 2E[v])             next-fit renewal on 48^3 pallets
-    trailers/day = pallets/day / 26 + 1/2                        53-ft trailer; the daily release
-                                                                 ships the partial last trailer
+    trailers/day = r E[ceil(X / r)],  X ~ N(x, (cv x)^2),  x = pallets/day / 26
+                                                                 53-ft trailer; each of the r
+                                                                 releases ships its partial last
+                                                                 trailer: ceil(x) at cv 0, x + r/2
+                                                                 once a release fills many
     rho_door     = trailers/day x E[o] / (doors x S)              `models.dock`
     recv crew    = ceil(recv load / (S rho_recv)),  put crew = ceil(put load / (S rho_put))
 
@@ -17,6 +20,8 @@ and evaluates together:
 count: a load pallet is a cart that holds 48^3 of loose items (`Inbound/trailer.py`).
 """
 from __future__ import annotations
+
+import math
 
 from Optimization.simconfig.expected_travel import expected_swaps
 from Optimization.simconfig.staffing import crew_size
@@ -34,10 +39,38 @@ PALLETS = Equation('pallets', r'n_{\mathrm{pal}}',
                         tex=r'\operatorname{nextfit}_{48^3}'),
                    unit='pallets/day',
                    doc='load pallets per day: next-fit of the day\'s items onto 48-inch cubes')
-TRAILERS = Equation('trailers', r'\lambda_T', Sym('pallets', r'n_{\mathrm{pal}}') / POS + REL / 2,
+
+
+def expected_trailers(x: float, cv: float, releases: float = 1.0) -> float:
+    """r E[ceil(X / r)] for a day's full-trailer equivalent X ~ N(x, (cv x)^2): every release
+    ships its open trailer, so a release that carries X / r trailers of volume ships its
+    ceiling.  E[ceil(Y)] = sum_{k>=0} P(Y > k) for Y >= 0; exact ceil(x / r) at cv = 0."""
+    r = max(1.0, float(releases))
+    y = x / r
+    if y <= 0.0:
+        return 0.0
+    sd = cv * y
+    if sd <= 1e-12:
+        return r * math.ceil(y - 1e-12)
+    tot, k = 0.0, 0
+    while True:
+        p = 0.5 * math.erfc((k - y) / (sd * math.sqrt(2.0)))
+        if p < 1e-12 and k > y:
+            break
+        tot += p
+        k += 1
+    return r * tot
+
+
+CV = Sym('cv', r'c_v')
+TRAILERS = Equation('trailers', r'\lambda_T',
+                    Call('ceil_mean', expected_trailers,
+                         {'x': Sym('pallets', r'n_{\mathrm{pal}}') / POS, 'cv': CV,
+                          'releases': REL},
+                         tex=r'r\,\mathbb{E}\lceil X/r \rceil'),
                     unit='trailers/day',
-                    doc='each release ships the open trailer, full or not: half a trailer '
-                        'of slack per release')
+                    doc='each release ships its open trailer, full or not: the expected ceiling '
+                        'of the day\'s full-trailer equivalent, spread by the day-to-day cv')
 RECV_LOAD, PUT_LOAD = Sym('recv_load', r'W_{\mathrm{recv}}'), Sym('put_load', r'W_{\mathrm{put}}')
 S, RHO_R, RHO_P = Sym('S', 'S'), Sym('rho_recv', r'\rho_{\mathrm{recv}}'), Sym('rho_put', r'\rho_{\mathrm{put}}')
 RECV_CREW = Equation('recv_crew', r'K_{\mathrm{recv}}',
@@ -66,11 +99,14 @@ def item_moments(units) -> tuple:
 
 
 def trailers_per_day(units, *, days: float, releases_per_day: float = 1.0,
-                     positions: int = POSITIONS_53) -> dict:
-    """The trailer law over a window's shipped items `[(qty, unit_volume), ...]` (inches^3)."""
+                     positions: int = POSITIONS_53, cv: float = 0.34) -> dict:
+    """The trailer law over a window's shipped items `[(qty, unit_volume), ...]` (inches^3).
+    `cv` is the day-to-day spread of shipped volume (the record's `day_law.cv_units`, 0.34 on
+    the reference pair)."""
     V, ev, ev2 = item_moments(units)
     r = INBOUND.evaluate({'V': V / days, 'e_v': ev, 'e_v2': ev2, 'positions': positions,
-                          'releases': releases_per_day, 'recv_load': 0.0, 'put_load': 0.0,
+                          'releases': releases_per_day, 'cv': cv,
+                          'recv_load': 0.0, 'put_load': 0.0,
                           'S': 28_800.0, 'rho_recv': 1.0, 'rho_put': 1.0})
     return {'volume_per_day': V / days, 'e_v': ev, 'pallets_per_day': r['pallets'],
             'trailers_per_day': r['trailers']}

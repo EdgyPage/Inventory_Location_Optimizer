@@ -13736,6 +13736,11 @@
       "src": "Optimization/simconfig/models/inbound.py"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/inbound.py::CV"
+    },
+    {
       "dst": "Warehouse/kernel/closed_form.py::Model",
       "kind": "calls",
       "src": "Optimization/simconfig/models/inbound.py::INBOUND"
@@ -13789,6 +13794,16 @@
       "dst": "Warehouse/kernel/closed_form.py::Equation",
       "kind": "calls",
       "src": "Optimization/simconfig/models/inbound.py::RECV_CREW"
+    },
+    {
+      "dst": "Optimization/simconfig/models/inbound.py::expected_trailers",
+      "kind": "ref",
+      "src": "Optimization/simconfig/models/inbound.py::TRAILERS"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Call",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/inbound.py::TRAILERS"
     },
     {
       "dst": "Warehouse/kernel/closed_form.py::Equation",
@@ -41778,6 +41793,14 @@
     },
     {
       "file": "Optimization/simconfig/models/inbound.py",
+      "id": "Optimization/simconfig/models/inbound.py::CV",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/inbound.py",
+      "name": "CV",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/inbound.py",
       "id": "Optimization/simconfig/models/inbound.py::INBOUND",
       "kind": "const",
       "module": "Optimization/simconfig/models/inbound.py",
@@ -41830,6 +41853,14 @@
       "kind": "const",
       "module": "Optimization/simconfig/models/inbound.py",
       "name": "TRAILERS",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/inbound.py",
+      "id": "Optimization/simconfig/models/inbound.py::expected_trailers",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/inbound.py",
+      "name": "expected_trailers",
       "public": true
     },
     {

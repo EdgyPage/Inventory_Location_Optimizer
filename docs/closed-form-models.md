@@ -217,6 +217,7 @@ From the day's shipped items to trailers, and from the day's loads to the crews.
 
 - $S = 28{,}800$
 - $V_d = 74{,}395{,}584$
+- $c_v = 0.34$
 - $\mathbb{E}[v] = 1{,}610$
 - $\mathbb{E}[v^2] = 7{,}776{,}300$
 - $n_{pos} = 26$
@@ -230,9 +231,9 @@ From the day's shipped items to trailers, and from the day's loads to the crews.
 
 $$ n_{\mathrm{pal}} = \operatorname{nextfit}_{48^3}\left(V_d, \mathbb{E}[v], \mathbb{E}[v^2], 110{,}592\right) = \operatorname{nextfit}_{48^3}\left(74{,}395{,}584, 1{,}610, 7{,}776{,}300, 110{,}592\right) = 667.8\ \mathrm{pallets/day} $$
 
-**trailers** (trailers/day) — each release ships the open trailer, full or not: half a trailer of slack per release
+**trailers** (trailers/day) — each release ships its open trailer, full or not: the expected ceiling of the day's full-trailer equivalent, spread by the day-to-day cv
 
-$$ \lambda_T = \frac{n_{\mathrm{pal}}}{n_{pos}} + \frac{r}{2} = \frac{667.8}{26} + \frac{1}{2} = 26.19\ \mathrm{trailers/day} $$
+$$ \lambda_T = r\,\mathbb{E}\lceil X/r \rceil\left(\frac{n_{\mathrm{pal}}}{n_{pos}}, c_v, r\right) = r\,\mathbb{E}\lceil X/r \rceil\left(\frac{667.8}{26}, 0.34, 1\right) = 26.19\ \mathrm{trailers/day} $$
 
 **recv_crew** (workers) — ceil(load / (S rho)), floored at one when there is load
 

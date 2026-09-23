@@ -14,8 +14,10 @@
 <h1><span class="kind kind-function">function</span> <code>trailers_per_day</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_models_inbound_py.html"><code>Optimization/simconfig/models/inbound.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def trailers_per_day(units, *, days: float, releases_per_day: float=1.0, positions: int=POSITIONS_53) -&gt; dict</code></pre>
-<section class="doc">The trailer law over a window&#x27;s shipped items `[(qty, unit_volume), ...]` (inches^3).</section>
+<pre class="sig"><code>def trailers_per_day(units, *, days: float, releases_per_day: float=1.0, positions: int=POSITIONS_53, cv: float=0.34) -&gt; dict</code></pre>
+<section class="doc">The trailer law over a window&#x27;s shipped items `[(qty, unit_volume), ...]` (inches^3).
+`cv` is the day-to-day spread of shipped volume (the record&#x27;s `day_law.cv_units`, 0.34 on
+the reference pair).</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_models_inbound_py__item_moments.html"><code>item_moments</code></a> <span class="dim">Optimization/simconfig/models/inbound.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_models_inbound_py__trailers_per_day">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/models/inbound.py#:~:text=def%20trailers_per_day">Source ↗</a></p>
 </article>

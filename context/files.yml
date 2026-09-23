@@ -1518,6 +1518,8 @@ files:
       - {name: "PALLET_VOLUME", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
       - {name: "POSITIONS_53", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
       - {name: "PALLETS", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
+      - {name: "expected_trailers", file: "Optimization/simconfig/models/inbound.py", kind: "function"}
+      - {name: "CV", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
       - {name: "TRAILERS", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
       - {name: "RECV_CREW", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
       - {name: "PUT_CREW", file: "Optimization/simconfig/models/inbound.py", kind: "const"}
@@ -5385,6 +5387,16 @@ files:
       - {name: "test_rearrangement_bounds_and_the_random_spread_by_enumeration", file: "Tests/unit/test_models_churn.py", kind: "function"}
       - {name: "test_gap_chain_arithmetic_and_rendering", file: "Tests/unit/test_models_churn.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_models_crosscheck.py":
+    purpose: "Cross-checks the composed models against simulator code and pinned hand computations: the pick day, LEVELS line mean, and the trailer law against the real TrailerTransit loader."
+    layer: "tests"
+    key_symbols:
+      - {name: "KEY", file: "Tests/unit/test_models_crosscheck.py", kind: "const"}
+      - {name: "cfg", file: "Tests/unit/test_models_crosscheck.py", kind: "function"}
+      - {name: "test_pick_day_reproduces_the_pinned_routing_identity", file: "Tests/unit/test_models_crosscheck.py", kind: "function"}
+      - {name: "test_the_drain_order_moves_travel_when_the_small_bin_is_far", file: "Tests/unit/test_models_crosscheck.py", kind: "function"}
+      - {name: "test_trailer_law_counts_what_the_loader_opens", file: "Tests/unit/test_models_crosscheck.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_models_dock.py":
     purpose: "Pins the dock and aisle-ceiling gates against direct computation, including an M/M/1 simulation for the yard wait."
     layer: "tests"
@@ -5400,7 +5412,7 @@ files:
     key_symbols:
       - {name: "test_constants_match_the_trailer_model", file: "Tests/unit/test_models_inbound.py", kind: "function"}
       - {name: "test_next_fit_law_matches_the_loader", file: "Tests/unit/test_models_inbound.py", kind: "function"}
-      - {name: "test_trailers_add_half_a_trailer_per_release", file: "Tests/unit/test_models_inbound.py", kind: "function"}
+      - {name: "test_each_release_ships_its_ceiling", file: "Tests/unit/test_models_inbound.py", kind: "function"}
       - {name: "test_crews_are_the_records_crew_size", file: "Tests/unit/test_models_inbound.py", kind: "function"}
     notes: ""
   "Tests/unit/test_models_levels_reorders.py":

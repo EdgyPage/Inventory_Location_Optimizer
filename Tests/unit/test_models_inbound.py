@@ -33,7 +33,7 @@ def test_next_fit_law_matches_the_loader():
     items = [v for v in items if v < POSITION_VOLUME]
     V, ev, ev2 = inbound.item_moments([(1, v) for v in items])
     r = inbound.INBOUND.evaluate({'V': V, 'e_v': ev, 'e_v2': ev2, 'positions': 26,
-                                  'releases': 1, 'recv_load': 0.0, 'put_load': 0.0,
+                                  'releases': 1, 'cv': 0.0, 'recv_load': 0.0, 'put_load': 0.0,
                                   'S': 28_800.0, 'rho_recv': 1.0, 'rho_put': 1.0})
     # the renewal form's residual E[v^2]/2E[v] under-counts next-fit's waste on a heavy tail
     # by ~2% (lognormal sigma 0.9 here; the grid read 1-2% low too) -- a named bias, held at 3%
@@ -42,17 +42,22 @@ def test_next_fit_law_matches_the_loader():
     assert r['pallets'] <= loader
 
 
-def test_trailers_add_half_a_trailer_per_release():
-    units = [(10, 1_728)] * 100                      # 1,000 one-cubic-foot items a day
-    one = inbound.trailers_per_day(units, days=1.0)
-    two = inbound.trailers_per_day(units, days=1.0, releases_per_day=2.0)
-    assert two['trailers_per_day'] - one['trailers_per_day'] == pytest.approx(0.5)
-    assert one['trailers_per_day'] == pytest.approx(one['pallets_per_day'] / 26 + 0.5)
+def test_each_release_ships_its_ceiling():
+    # no spread: exactly the ceiling of each release's share
+    assert inbound.expected_trailers(0.84, 0.0) == 1.0
+    assert inbound.expected_trailers(3.2, 0.0, releases=2) == 2 * math.ceil(1.6)
+    # a wide day-to-day spread on a busy dock: x + r/2 (the uniform fractional part)
+    assert inbound.expected_trailers(25.6, 0.3) == pytest.approx(25.6 + 0.5, abs=0.02)
+    # E[ceil] = sum_k P(X > k) against a Monte Carlo of the same normal
+    rng = random.Random(1)
+    draws = [max(0.0, rng.gauss(1.4, 0.3 * 1.4)) for _ in range(200_000)]
+    assert inbound.expected_trailers(1.4, 0.3) == pytest.approx(
+        sum(math.ceil(d) for d in draws) / len(draws), abs=0.01)
 
 
 def test_crews_are_the_records_crew_size():
     r = inbound.INBOUND.evaluate({'V': 0.0, 'e_v': 0.0, 'e_v2': 0.0, 'positions': 26,
-                                  'releases': 1, 'recv_load': 1_335_412.0,
+                                  'releases': 1, 'cv': 0.0, 'recv_load': 1_335_412.0,
                                   'put_load': 100.0, 'S': 28_800.0, 'rho_recv': 0.85,
                                   'rho_put': 0.85})
     assert r['recv_crew'] == math.ceil(1_335_412.0 / (28_800 * 0.85))

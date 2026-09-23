@@ -80,7 +80,7 @@ def sections():
          'What one location is worth (fulfillment, one-way lane)'),
         (inbound.INBOUND, inbound.INBOUND.evaluate({
             'V': 43_053 * 1_728.0, 'e_v': 1_610.0, 'e_v2': 1_610.0 ** 2 * 3.0,
-            'positions': 26, 'releases': 1, 'recv_load': 1_335_412.0, 'put_load': 900_000.0,
+            'positions': 26, 'releases': 1, 'cv': 0.34, 'recv_load': 1_335_412.0, 'put_load': 900_000.0,
             'S': 28_800.0, 'rho_recv': 0.85, 'rho_put': 0.85}),
          'From shipped items to trailers and crews'),
         (churn.NOISE, churn.NOISE.evaluate({'z': 1.96, 'sigma': 1.0, 'tau': 1.0, 'n': 35}),
