@@ -1,7 +1,7 @@
 # 10 - a short dock by door count: does unloading order matter where the doors bind?
 
 Type: task
-Status: claimed
+Status: resolved (probe answered; the priced spec waits on 04)
 Blocked by: none for the fifo depth probe; the priced spec by 04, or by the probe's depth
 
 Opened 2026-09-22 from the user's suggestion to "reduce the amount of available doors". The
@@ -79,3 +79,28 @@ two doors standing shallow.
    T stays near the campaign's, or after ticket 04 if not.
 3. Optional, not decided: the fill trial (06) could take two doors as a second regime -- a
    fill whose dock is short as well as deep. The user's call once 06 exists.
+
+## The depth probe's answer (2026-09-23)
+
+`_probe_door_depth` (`comparison_whatif_20260923_023538`, reference catalogue, fifo, winner pair
++ rider, both stock modes, 16 units, ~75 min).  Per door count, over the 40 site days (ranges
+across the four pair x stock-mode units):
+
+| doors | yard depth mean | max | last 10 days | drains waiting on a door | standing at end | dwell median / p95 |
+|---|---|---|---|---|---|---|
+| 4 | 16.6-16.8 | 24-26 | 16.7-17.0 | 9-12 of 40 | 7-9 | 8.5 h / 11.4-11.9 h |
+| 3 | 16.6-17.0 | 25 | 16.6-17.0 | 9-12 of 40 | 2-8 | 8.3-8.5 h / 11.2-11.8 h |
+| 2 | 24.8-25.2 | 41-42 | 33.6-34.5 | 28 of 40 | 15-17 | 12.7-13.0 h / 20.0-20.3 h |
+| 1 | 137.5-137.7 | 288-289 | 255-257 | 36 of 40 | 282 | 63-64 h / 136-137 h |
+
+**The arithmetic held.**  Three doors equals four (the crew binds, not the doors).  Two doors
+is the short dock: a trailer waits for a door on 28 of 40 drains, dwell rises ~50%, and the
+yard is still DEEPENING at the run's end (last-10 mean 34 against 25 overall) -- near
+saturation, not settled within 40 days.  One door is the unstable queue projected (~1.9):
+depth grows through the run to ~290 with 282 trailers never unloaded.
+
+**What it means for the priced spec.**  `door_scarcity` at 2 doors would plan at yard depths of
+25-42.  The exact plan cost 146-267 s at depths 14-25 (ticket 03), and a pool-adapter drain
+grows ~cubically in depth, so a gain unit there would run for a day or more.  It stays
+registered and unlaunched until ticket 04 (now waiting on the user's reframing) gives a cheaper
+evaluator.  The fifo half of the question is answered here.
