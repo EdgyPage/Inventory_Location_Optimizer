@@ -1,7 +1,7 @@
 # 05 - a run that starts empty and receives its declaration through the yard
 
 Type: task
-Status: claimed
+Status: wontfix (closed 2026-09-23; was: claimed)
 Blocked by: 04 (for PRICED fill cells at scale only; the mode itself is built)
 
 No such path exists. Every run places its stock declaration at the freeze (cause `initial`)
@@ -151,3 +151,7 @@ unit counter).  The single loading chokepoint is `Performance_Evaluations/core/r
 `run_unload_ranking._leaf_batch_rows`).  The alternative worth weighing before building the
 re-base: start every cell's pick stage at one DECLARED batch (idle days after settling), which
 makes raw batch ids align across cells and reduces the analysis change to a filter.
+
+## Closed 2026-09-23 by the user
+
+The whole inbound-throughput map was closed: the evaluator question is being re-thought from the problem statement, and these tickets will not be relevant by the time it is picked up again.  What was built stays on develop; see the map's closing note.

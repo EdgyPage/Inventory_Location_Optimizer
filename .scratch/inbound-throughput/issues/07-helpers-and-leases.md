@@ -1,7 +1,7 @@
 # 07 - helpers and leases: a unit borrows the pool's idle workers for its drain
 
 Type: task
-Status: open
+Status: wontfix (closed 2026-09-23; was: open)
 Blocked by: 04
 
 CONDITIONAL. Built only if, after ticket 04, a campaign-shaped run's sim-phase occupancy
@@ -43,3 +43,7 @@ the reduction is ordered. Threads buy nothing (`_aisle_best` is Python-level, GI
 Occupancy >= 90% on a campaign-shaped run; the digest identical at 0 and 4 leases; a
 `test_work_pool.py` twin for the lease path (a lease granted while jobs are queued is the
 regression, silent in the healthy direction); the parent's RSS line reads what it costs.
+
+## Closed 2026-09-23 by the user
+
+The whole inbound-throughput map was closed: the evaluator question is being re-thought from the problem statement, and these tickets will not be relevant by the time it is picked up again.  What was built stays on develop; see the map's closing note.

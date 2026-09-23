@@ -24,3 +24,7 @@ Built 2026-09-22 as inbound-throughput ticket 05 (`INBOUND_FILL_SPAN_DAYS`; toy 
   there ([[gain-evaluator-prices-by-the-policy-record]]).
 
 Related: [[inbound-yard-is-a-stable-queue-under-the-era]], [[empty-batch-clock-stall-is-a-contract]].
+
+**Map closed 2026-09-23.** The mode stays built on develop; the uniform-stock-mode question was
+never decided, and the 40k prototype was never launched because the depth probe showed lifo
+cannot move pick labour there ([[inbound-needs-churn-before-unload-order-matters]]).

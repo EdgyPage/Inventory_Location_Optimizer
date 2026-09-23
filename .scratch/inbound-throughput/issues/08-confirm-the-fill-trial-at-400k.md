@@ -1,7 +1,7 @@
 # 08 - confirm the fill trial's answer on the reference catalogue
 
 Type: task
-Status: open
+Status: wontfix (closed 2026-09-23; was: open)
 Blocked by: 06
 
 Runs only if ticket 06's prototype passes its bar (Q26). The 40k prototype iterates in
@@ -31,3 +31,7 @@ come from a different catalogue, so state the choice in the map.
 Through `publish-experiment` as its own experiment (Q24: it hands nothing to phase 3), with
 the fill trial's definition (CONTEXT.md) on the page so a reader does not take it for an era
 result; the four-persona review loop as usual.
+
+## Closed 2026-09-23 by the user
+
+The whole inbound-throughput map was closed: the evaluator question is being re-thought from the problem statement, and these tickets will not be relevant by the time it is picked up again.  What was built stays on develop; see the map's closing note.

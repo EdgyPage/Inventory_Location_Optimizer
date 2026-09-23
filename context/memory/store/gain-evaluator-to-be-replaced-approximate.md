@@ -1,6 +1,6 @@
 ---
 name: gain-evaluator-to-be-replaced-approximate
-description: "Decided 2026-09-22: the exact plan_order gain evaluator will be REPLACED, not sped up further, by an approximate evaluator gated on order agreement with the exact plan (Kendall tau >= 0.9 median, top-1 >= 0.8), accepted at cell level on overage/pick-owed within the ranking's own noise floor"
+description: "SUPERSEDED 2026-09-23 (map closed, no reduction passed). Was, 2026-09-22: the exact plan_order gain evaluator will be REPLACED, not sped up further, by an approximate evaluator gated on order agreement with the exact plan (Kendall tau >= 0.9 median, top-1 >= 0.8), accepted at cell level on overage/pick-owed within the ranking's own noise floor"
 metadata:
   node_type: memory
   type: project
@@ -34,3 +34,10 @@ agreement could pass by being equally uninformative, not by being equally right.
 `plan_order` on tau/top-1 first, not on `pick_owed_s`/overage alone. Read the map's destination 1
 in `.scratch/inbound-throughput/map.md` for the current status of this work; do not assume it has
 landed — as of 2026-09-22 this is a decision and a gate, not yet a shipped evaluator.
+
+**SUPERSEDED 2026-09-23.** The plan-trace probe measured both reductions against this gate and
+neither passed (median tau 0.48-0.84; the merge rung's first pick matched 75% / 39%), and the
+user closed the whole inbound-throughput map to re-think the evaluator from the problem
+statement. Their direction: the aisles must churn enough to give bins breathing room before an
+inbound decision can matter. Do not treat this gate as a live decision. See
+[[inbound-needs-churn-before-unload-order-matters]].

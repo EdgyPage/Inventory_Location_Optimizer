@@ -1,6 +1,28 @@
 # inbound-throughput — a cheaper unload evaluator, a fill trial that can rank it, and the pool below the unit
 
 Label: wayfinder:map
+Status: CLOSED 2026-09-23 by the user
+
+## Closing note (2026-09-23)
+
+Closed whole, by the user's decision: the evaluator problem needs re-thinking from the problem
+statement, and the open tickets will not be relevant when it is picked up again.  Resolved:
+01, 02, 03, 09, and 10's fifo question.  Closed unfinished (`wontfix`): 04, 05's open stock-mode
+decision, 06's prototype, 07, 08, 10's priced spec.
+
+**The user's direction for the re-think:** the aisles must CHURN enough to give the bins
+breathing room, so that an inbound decision has something to decide.  The measurements that
+point there: in the era campaign one inbound pack lands among 4-8 existing bins and moves its
+term by 1/(N+1) of a line (ticket 01); in a 40k fill even lifo does not move pick labour,
+because only 7.7% of the store's placements are picked again within 40 batches (ticket 06).
+An unloading policy can only matter where placement is contended.
+
+**What stays built on develop and remains usable:** the door-scarcity axis and specs
+(`door_scarcity_axis`); the fill-trial driver mode (`INBOUND_FILL_SPAN_DAYS`, `_FillDispatch`,
+the pick stage at one declared batch, the analysis's `pick_stage` filter); the plan-trace
+probe and its scorer (`score_plan_trace.py`: tau, set agreement, regret); the pool-open bench;
+the ranking fixes (census pricing, measured floor, rider as control, metric by spec).
+
 
 Opened 2026-09-22 from a grilling session over the finished phase-2 campaign
 (`comparison_whatif_20260920_150203` under `COMPARISON_OUTPUT_DIR`, done 2026-09-21 06:55).

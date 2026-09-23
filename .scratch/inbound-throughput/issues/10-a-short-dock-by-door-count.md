@@ -1,7 +1,7 @@
 # 10 - a short dock by door count: does unloading order matter where the doors bind?
 
 Type: task
-Status: resolved (probe answered; the priced spec waits on 04)
+Status: wontfix (closed 2026-09-23; was: resolved (probe answered; the priced spec waits on 04))
 Blocked by: none for the fifo depth probe; the priced spec by 04, or by the probe's depth
 
 Opened 2026-09-22 from the user's suggestion to "reduce the amount of available doors". The
@@ -104,3 +104,7 @@ depth grows through the run to ~290 with 282 trailers never unloaded.
 grows ~cubically in depth, so a gain unit there would run for a day or more.  It stays
 registered and unlaunched until ticket 04 (now waiting on the user's reframing) gives a cheaper
 evaluator.  The fifo half of the question is answered here.
+
+## Closed 2026-09-23 by the user
+
+The whole inbound-throughput map was closed: the evaluator question is being re-thought from the problem statement, and these tickets will not be relevant by the time it is picked up again.  What was built stays on develop; see the map's closing note.

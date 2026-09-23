@@ -1,7 +1,7 @@
 # 06 - the fill trial as a spec, ranked on pick labour, prototyped at 40k
 
 Type: task
-Status: claimed
+Status: wontfix (closed 2026-09-23; was: claimed)
 Blocked by: 05
 
 The fill trial's question: which unloading policy places stock best when everything must
@@ -117,3 +117,7 @@ RULES differ by 2-4%.  The nine-cell prototype would, on this evidence, return o
 at a cost of hours of gain-evaluator wall.  **It is not launched; this needs the user's
 direction** (a longer pick stage, a demand-dense catalogue, a score that reads the whole
 placement rather than the picked part -- or the result recorded as the fill trial's answer).
+
+## Closed 2026-09-23 by the user
+
+The whole inbound-throughput map was closed: the evaluator question is being re-thought from the problem statement, and these tickets will not be relevant by the time it is picked up again.  What was built stays on develop; see the map's closing note.

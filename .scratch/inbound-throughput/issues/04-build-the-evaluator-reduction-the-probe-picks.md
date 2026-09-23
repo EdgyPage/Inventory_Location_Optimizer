@@ -1,7 +1,7 @@
 # 04 - build the evaluator reduction the probe picks, and re-key the bins on the way
 
 Type: task
-Status: open
+Status: wontfix (closed 2026-09-23; was: open)
 Blocked by: the user's reframing of the problem statement (03 answered: no reduction clears the gate)
 
 Ticket 03 says which of the two reductions (pool-free adapter for the selector families;
@@ -45,3 +45,7 @@ way `k1_off_gmyopic_k8` sets `INBOUND_TRAILER_BOUND` (`_policy('gain_myopic', ..
 - Memories `aisle-best-is-what-a-pool-open-now-costs` and `the-gain-sweep-cannot-be-made-
   incremental` updated: the first names the next target, the second's "exactly one lever" is
   no longer true.
+
+## Closed 2026-09-23 by the user
+
+The whole inbound-throughput map was closed: the evaluator question is being re-thought from the problem statement, and these tickets will not be relevant by the time it is picked up again.  What was built stays on develop; see the map's closing note.
