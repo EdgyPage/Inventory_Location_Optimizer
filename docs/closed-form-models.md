@@ -300,6 +300,33 @@ $$ \mathbb{E}[o] = \frac{W_T}{n_{team}}\,\left(1 + \omega\right) = \frac{34{,}50
 $$ \rho_{\mathrm{door}} = \frac{\lambda_T\,\mathbb{E}[o]}{n_{doors}\,S} = \frac{28 \cdot 3726}{4 \cdot 28{,}800} = 0.9056 $$
 
 
+## Whether the dock can saturate at all (400k)
+
+Where the dock can saturate at all: only once the load outgrows the doors.
+
+**Inputs**
+
+- $S = 28{,}800$
+- $W = 730{,}834$
+- $W_1 = 557{,}625$
+- $K_{\mathrm{recv}} = 30$
+- $n_{doors} = 4$
+- $r = 1.02$
+- $n_{team} = 10$
+
+**capacity** (s) — receiving seconds the site can work a day: the crew, or the door slots when the crew outnumbers them
+
+$$ C_{\mathrm{site}} = \min\left(K_{\mathrm{recv}}, n_{doors}\,n_{team}\right)\,S = \min\left(30, 4 \cdot 10\right)\,28{,}800 = 864{,}000\ \mathrm{s} $$
+
+**rho_site** — site receiving utilisation; the yard is unstable at or above 1, which needs the load past the door slots
+
+$$ \rho_{\mathrm{site}} = \frac{W}{C_{\mathrm{site}}} = \frac{730{,}834}{864{,}000} = 0.8459 $$
+
+**k_gate** — the demand multiple at which the realised load fills every door slot
+
+$$ k_{\mathrm{gate}} = \frac{n_{doors}\,n_{team}\,S}{r\,W_1} = \frac{4 \cdot 10 \cdot 28{,}800}{1.02 \cdot 557{,}625} = 2.025 $$
+
+
 ## When picking stops keeping up
 
 Where picking stops keeping up with demand whatever the crew.

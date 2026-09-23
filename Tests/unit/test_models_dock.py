@@ -50,3 +50,16 @@ def test_aisle_ceiling_and_overflow():
     k = 20
     assert dock.overflow(loads, k, 28_800) == pytest.approx(
         (k * 2_251 - 28_800) / (k * sum(loads)))
+
+
+def test_the_site_gate_is_the_crew_until_the_doors_bind():
+    # 400k, k = 1.35: 30 people on 4 x 10 door slots -- the crew binds, utilisation at target
+    r = dock.SITE.evaluate({'W': 730_834.0, 'crew': 30, 'doors': 4, 'team': 10,
+                            'S': 28_800.0, 'W_1': 557_625.0, 'r': 1.02})
+    assert r['capacity'] == 30 * 28_800
+    assert r['rho_site'] == pytest.approx(0.846, abs=0.001)
+    assert r['k_gate'] == pytest.approx(40 * 28_800 / (1.02 * 557_625))
+    # past the slots the doors bind and the crew beyond them is idle capacity
+    over = dock.SITE.evaluate({'W': 1_251_000.0, 'crew': 51, 'doors': 4, 'team': 10,
+                               'S': 28_800.0, 'W_1': 557_625.0, 'r': 1.02})
+    assert over['capacity'] == 40 * 28_800 and over['rho_site'] > 1.0

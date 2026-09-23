@@ -1508,6 +1508,10 @@ files:
       - {name: "OCC_EQ", file: "Optimization/simconfig/models/dock.py", kind: "const"}
       - {name: "RHO", file: "Optimization/simconfig/models/dock.py", kind: "const"}
       - {name: "DOCK", file: "Optimization/simconfig/models/dock.py", kind: "const"}
+      - {name: "CAP", file: "Optimization/simconfig/models/dock.py", kind: "const"}
+      - {name: "RHO_SITE", file: "Optimization/simconfig/models/dock.py", kind: "const"}
+      - {name: "K_GATE", file: "Optimization/simconfig/models/dock.py", kind: "const"}
+      - {name: "SITE", file: "Optimization/simconfig/models/dock.py", kind: "const"}
       - {name: "erlang_c", file: "Optimization/simconfig/models/dock.py", kind: "function"}
       - {name: "yard_wait", file: "Optimization/simconfig/models/dock.py", kind: "function"}
       - {name: "W_MAX", file: "Optimization/simconfig/models/dock.py", kind: "const"}
@@ -5410,6 +5414,7 @@ files:
       - {name: "test_erlang_c_limits", file: "Tests/unit/test_models_dock.py", kind: "function"}
       - {name: "test_yard_wait_matches_an_mm1_simulation", file: "Tests/unit/test_models_dock.py", kind: "function"}
       - {name: "test_aisle_ceiling_and_overflow", file: "Tests/unit/test_models_dock.py", kind: "function"}
+      - {name: "test_the_site_gate_is_the_crew_until_the_doors_bind", file: "Tests/unit/test_models_dock.py", kind: "function"}
     notes: ""
   "Tests/unit/test_models_inbound.py":
     purpose: "Pins the inbound flow model: the next-fit pallet law against the trailer loader's own rule, the trailer arithmetic and the crews."

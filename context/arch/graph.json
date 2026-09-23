@@ -2276,6 +2276,11 @@
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
     },
     {
+      "dst": "Optimization/simconfig/models/dock.py::SITE",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
       "dst": "Optimization/simconfig/models/inbound.py::INBOUND",
       "kind": "ref",
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
@@ -2507,6 +2512,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::reference_line",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised"
     },
@@ -13716,9 +13726,24 @@
       "src": "Optimization/simconfig/models/dock.py::AISLE"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::CAP"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmin",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::CAP"
+    },
+    {
       "dst": "Warehouse/kernel/closed_form.py::Model",
       "kind": "calls",
       "src": "Optimization/simconfig/models/dock.py::DOCK"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::K_GATE"
     },
     {
       "dst": "Warehouse/kernel/closed_form.py::Equation",
@@ -13734,6 +13759,21 @@
       "dst": "Warehouse/kernel/closed_form.py::Equation",
       "kind": "calls",
       "src": "Optimization/simconfig/models/dock.py::RHO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::RHO_SITE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::RHO_SITE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::SITE"
     },
     {
       "dst": "Warehouse/kernel/closed_form.py::Sym",
@@ -41775,10 +41815,26 @@
     },
     {
       "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::CAP",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "CAP",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
       "id": "Optimization/simconfig/models/dock.py::DOCK",
       "kind": "const",
       "module": "Optimization/simconfig/models/dock.py",
       "name": "DOCK",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::K_GATE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "K_GATE",
       "public": true
     },
     {
@@ -41803,6 +41859,22 @@
       "kind": "const",
       "module": "Optimization/simconfig/models/dock.py",
       "name": "RHO",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::RHO_SITE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "RHO_SITE",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::SITE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "SITE",
       "public": true
     },
     {

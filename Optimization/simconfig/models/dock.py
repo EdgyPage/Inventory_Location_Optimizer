@@ -14,6 +14,20 @@ labour only above it.  The queueing wait below the gate is Allen-Cunneen's M/G/c
 `yard_wait`.  NOTE lambda_T is the REALISED inbound flow: it is units picked, not units
 declared (below).
 
+THE SITE GATE (S16, the 400k confirmation).  The doors bind only when the RECEIVING CREW can
+fill them.  The staffing derivation sizes the crew to its utilisation target (ceil(load /
+(S rho_recv)), ~0.85), so while that crew is smaller than doors x door team every door works
+short-handed, a trailer takes longer (1.55 h at the 400k declared demand with 23 people on 4
+doors, 1.20 h with 30), and the realised utilisation sits at the crew's target whatever the
+demand: 0.854 and 0.846 measured at k = 1 and 1.35.  The capacity is min(crew, doors x team)
+x S, so the yard can only go unstable once the load exceeds doors x team x S:
+
+    rho_site = W / (min(K_recv, n_doors n_team) S),     k_gate = n_doors n_team S / (r W_1)
+
+with W_1 the declared receiving load at k = 1 and r the realised-to-declared ratio (~1.02).  The
+per-trailer form above (`DOCK`) is the same quantity read off the yard; its occupancy already
+carries the short-handed doors.
+
 THE AISLE CEILING.  The simulator hands each aisle's day of picking to one picker, so a day's
 work is divisible only across aisles.  With W_a the aisle's daily task seconds at the declared
 demand, the day-cut backlog of the busiest aisles grows once k W_a > S:
@@ -27,7 +41,7 @@ from __future__ import annotations
 
 import math
 
-from Warehouse.kernel.closed_form import Equation, Model, Sym
+from Warehouse.kernel.closed_form import Equation, Model, Sym, fmin
 
 LAM_T, W_T, TEAM, OVER = (Sym('lam_T', r'\lambda_T'), Sym('W_T', 'W_T'), Sym('team', 'n_{team}'),
                           Sym('overhead', r'\omega'))
@@ -39,6 +53,19 @@ RHO = Equation('rho_door', r'\rho_{\mathrm{door}}', LAM_T * OCC / (DOORS * SHIFT
                doc='door utilisation; the yard is unstable at or above 1')
 DOCK = Model('dock', (OCC_EQ, RHO),
              doc='The site dock as doors held for whole trailers.')
+
+LOAD, CREW, LOAD1, RATIO = (Sym('W', 'W'), Sym('crew', r'K_{\mathrm{recv}}'), Sym('W_1', 'W_1'),
+                            Sym('r', 'r'))
+CAP = Equation('capacity', r'C_{\mathrm{site}}', fmin(CREW, DOORS * TEAM) * SHIFT, unit='s',
+               doc='receiving seconds the site can work a day: the crew, or the door slots when '
+                   'the crew outnumbers them')
+RHO_SITE = Equation('rho_site', r'\rho_{\mathrm{site}}', LOAD / Sym('capacity', r'C_{\mathrm{site}}'),
+                    doc='site receiving utilisation; the yard is unstable at or above 1, which '
+                        'needs the load past the door slots')
+K_GATE = Equation('k_gate', r'k_{\mathrm{gate}}', DOORS * TEAM * SHIFT / (RATIO * LOAD1),
+                  doc='the demand multiple at which the realised load fills every door slot')
+SITE = Model('site gate', (CAP, RHO_SITE, K_GATE),
+             doc='Where the dock can saturate at all: only once the load outgrows the doors.')
 
 
 def erlang_c(c: int, a: float) -> float:

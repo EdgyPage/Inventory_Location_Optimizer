@@ -15165,7 +15165,7 @@
     },
     "Optimization/simconfig/models/dock.py": {
       "decorators": [],
-      "doc": "dock.py -- the two throughput gates behind the aisle-churn thresholds (S04 of the study,\n`.scratch/aisle-churn/whiteboard/S04-dock-and-aisle-gates.md`).\n\nTHE DOCK.  A trailer holds one door for its whole unload, and a door is worked by at most a\ndoor team, so a door is occupied for the trailer's work divided by the team, plus the time\nlost to indivisible packs (an overhead measured at ~8%).  The dock's utilisation is\n\n    rho_door = lambda_T * E[occ] / (doors * S),      E[occ] = W_T / team * (1 + overhead)\n\nwhere lambda_T is trailers per day, W_T the unload seconds in one trailer and S the shift.  A\nyard queue that is stable below rho = 1 grows without bound above it (the S12 bisection:\n0.93 held at ~8 h waits, 1.01 climbed 7 -> 25 h over 40 days), and the unloading ORDER moves pick\nlabour only above it.  The queueing wait below the gate is Allen-Cunneen's M/G/c form,\n`yard_wait`.  NOTE lambda_T is the REALISED inbound flow: it is units picked, not units\ndeclared (below).\n\nTHE AISLE CEILING.  The simulator hands each aisle's day of picking to one picker, so a day's\nwork is divisible only across aisles.  With W_a the aisle's daily task seconds at the declared\ndemand, the day-cut backlog of the busiest aisles grows once k W_a > S:\n\n    k* = S / max_a W_a,      overflow(k) = sum_a (k W_a - S)^+ / sum_a k W_a\n\nPast k*, picking falls behind demand whatever the crew; reorders -- and so trailers -- follow\nthe picks, which is why the dock saw less than the declaration at high density.",
+      "doc": "dock.py -- the two throughput gates behind the aisle-churn thresholds (S04 of the study,\n`.scratch/aisle-churn/whiteboard/S04-dock-and-aisle-gates.md`).\n\nTHE DOCK.  A trailer holds one door for its whole unload, and a door is worked by at most a\ndoor team, so a door is occupied for the trailer's work divided by the team, plus the time\nlost to indivisible packs (an overhead measured at ~8%).  The dock's utilisation is\n\n    rho_door = lambda_T * E[occ] / (doors * S),      E[occ] = W_T / team * (1 + overhead)\n\nwhere lambda_T is trailers per day, W_T the unload seconds in one trailer and S the shift.  A\nyard queue that is stable below rho = 1 grows without bound above it (the S12 bisection:\n0.93 held at ~8 h waits, 1.01 climbed 7 -> 25 h over 40 days), and the unloading ORDER moves pick\nlabour only above it.  The queueing wait below the gate is Allen-Cunneen's M/G/c form,\n`yard_wait`.  NOTE lambda_T is the REALISED inbound flow: it is units picked, not units\ndeclared (below).\n\nTHE SITE GATE (S16, the 400k confirmation).  The doors bind only when the RECEIVING CREW can\nfill them.  The staffing derivation sizes the crew to its utilisation target (ceil(load /\n(S rho_recv)), ~0.85), so while that crew is smaller than doors x door team every door works\nshort-handed, a trailer takes longer (1.55 h at the 400k declared demand with 23 people on 4\ndoors, 1.20 h with 30), and the realised utilisation sits at the crew's target whatever the\ndemand: 0.854 and 0.846 measured at k = 1 and 1.35.  The capacity is min(crew, doors x team)\nx S, so the yard can only go unstable once the load exceeds doors x team x S:\n\n    rho_site = W / (min(K_recv, n_doors n_team) S),     k_gate = n_doors n_team S / (r W_1)\n\nwith W_1 the declared receiving load at k = 1 and r the realised-to-declared ratio (~1.02).  The\nper-trailer form above (`DOCK`) is the same quantity read off the yard; its occupancy already\ncarries the short-handed doors.\n\nTHE AISLE CEILING.  The simulator hands each aisle's day of picking to one picker, so a day's\nwork is divisible only across aisles.  With W_a the aisle's daily task seconds at the declared\ndemand, the day-cut backlog of the busiest aisles grows once k W_a > S:\n\n    k* = S / max_a W_a,      overflow(k) = sum_a (k W_a - S)^+ / sum_a k W_a\n\nPast k*, picking falls behind demand whatever the crew; reorders -- and so trailers -- follow\nthe picks, which is why the dock saw less than the declaration at high density.",
       "kind": "module",
       "signature": null
     },
@@ -15176,12 +15176,26 @@
       "signature": null,
       "value_preview": "Model('aisle ceiling', (K_STAR,), doc='Where picking stops keeping up with demand whatever the crew.')"
     },
+    "Optimization/simconfig/models/dock.py::CAP": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('capacity', 'C_{\\\\mathrm{site}}', fmin(CREW, DOORS * TEAM) * SHIFT, unit='s', doc='receiving seconds the site can work a day: the crew, or the door slots when the crew outnumbers them')"
+    },
     "Optimization/simconfig/models/dock.py::DOCK": {
       "decorators": [],
       "doc": null,
       "kind": "const",
       "signature": null,
       "value_preview": "Model('dock', (OCC_EQ, RHO), doc='The site dock as doors held for whole trailers.')"
+    },
+    "Optimization/simconfig/models/dock.py::K_GATE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('k_gate', 'k_{\\\\mathrm{gate}}', DOORS * TEAM * SHIFT / (RATIO * LOAD1), doc='the demand multiple at which the realised load fills every door slot')"
     },
     "Optimization/simconfig/models/dock.py::K_STAR": {
       "decorators": [],
@@ -15203,6 +15217,20 @@
       "kind": "const",
       "signature": null,
       "value_preview": "Equation('rho_door', '\\\\rho_{\\\\mathrm{door}}', LAM_T * OCC / (DOORS * SHIFT), doc='door utilisation; the yard is unstable at or above 1')"
+    },
+    "Optimization/simconfig/models/dock.py::RHO_SITE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Equation('rho_site', '\\\\rho_{\\\\mathrm{site}}', LOAD / Sym('capacity', 'C_{\\\\mathrm{site}}'), doc='site receiving utilisation; the yard is unstable at or above 1, which needs the load past the door ..."
+    },
+    "Optimization/simconfig/models/dock.py::SITE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Model('site gate', (CAP, RHO_SITE, K_GATE), doc='Where the dock can saturate at all: only once the load outgrows the doors.')"
     },
     "Optimization/simconfig/models/dock.py::W_MAX": {
       "decorators": [],

@@ -91,6 +91,9 @@ def sections():
         (dock.DOCK, dock.DOCK.evaluate({
             'lam_T': 28.0, 'W_T': 34_500.0, 'team': 10, 'overhead': 0.08, 'doors': 4,
             'S': 28_800.0}), 'When the dock saturates'),
+        (dock.SITE, dock.SITE.evaluate({
+            'W': 730_834.0, 'crew': 30, 'doors': 4, 'team': 10, 'S': 28_800.0,
+            'W_1': 557_625.0, 'r': 1.02}), 'Whether the dock can saturate at all (400k)'),
         (dock.AISLE, dock.AISLE.evaluate({'S': 28_800.0, 'W_max': 2_251.0}),
          'When picking stops keeping up'),
     ]
