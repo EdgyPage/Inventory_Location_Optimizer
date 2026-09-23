@@ -15,17 +15,18 @@ from the pack) against height multiplier M.  Four levels (`assets/s17_order_priz
 | λ·h | any pack order | the SKU's handling rate |
 | expected weight | any pack order | **h_s · q_pack · (1 − e^{−λ_s(H − t − ℓ)})**: handling × units × the chance a later line reaches the pack in time |
 | trailers | whole trailers only, as FIFO loading packed them | trailers ranked by their mean expected weight |
+| within trailer | each trailer's packs resequenced, trailers kept in FIFO order (the yard's local policy) | expected weight |
 
 **Measurement.**  fifo-placement arms, the realistic FIFO put.  Change in pick time T against
 the order the run used:
 
-| run | oracle | λ·h | expected weight | whole trailers |
-|---|---|---|---|---|
-| 40k, k = 1 | −1.04% | +0.03% | +0.01% | +0.03% |
-| 40k, k = 10 | −3.94% | −0.12% | **−0.85%** | +0.02% |
-| 40k, k = 20 | −4.31% | −0.01% | **−1.06%** | +0.02% |
-| 40k, k = 30 | −4.24% | −0.04% | **−1.25%** | +0.02% |
-| 400k, k = 1 | −1.20% | −0.08% | −0.12% | +0.00% |
+| run | oracle | λ·h | expected weight | whole trailers | within trailer |
+|---|---|---|---|---|---|
+| 40k, k = 1 | −1.04% | +0.03% | +0.01% | +0.03% | +0.02% |
+| 40k, k = 10 | −3.94% | −0.12% | **−0.85%** | +0.02% | **−0.66%** |
+| 40k, k = 20 | −4.31% | −0.01% | **−1.06%** | +0.02% | — |
+| 40k, k = 30 | −4.24% | −0.04% | **−1.25%** | +0.02% | **−1.01%** |
+| 400k, k = 1 | −1.20% | −0.08% | −0.12% | +0.00% | −0.07% |
 
 **What it says.**
 
@@ -49,6 +50,10 @@ the order the run used:
 5. **Above the dock gate the order has a second, larger lever** (S12, S16): it decides which DAY
    a pack reaches the shelf.  That is where lifo beat fifo by 2–3% on fulfillment.
 
-**Next.**  The pallet-level version: the prize at the within-trailer local-order granularity,
-which is what the simulator's local policy can actually do.  And the S16 400k confirmation of
-the gate.
+6. **Within-trailer sequencing keeps most of the forecastable prize**: −0.66% of −0.85% at 10×,
+   −1.01% of −1.25% at 30×.  The lever a FIFO-put operation actually has is the order packs
+   come OFF each trailer (the simulator's local policy), ranked by expected pick weight,
+   not the order trailers are docked in.  At the declared demand even that is 0.07%, inside
+   the noise.  Churn is what makes it worth building.
+
+**Next.**  The S16 400k confirmation of the gate.

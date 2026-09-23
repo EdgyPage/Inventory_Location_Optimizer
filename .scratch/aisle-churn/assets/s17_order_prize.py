@@ -15,6 +15,8 @@ each a sort of the day's packs against the day's bins (per class, height multipl
              sequence they were put (FIFO loading makes that the dispatch order), cut into the
              day's trailer count; trailers sorted by their mean forecast, packs within a
              trailer kept in order
+  local      the expected-weight order applied INSIDE each trailer only (the yard's local
+             policy), trailers in FIFO order: each trailer's packs meet its own bin slots
 
 each reported as the change in fresh-pick at-location seconds against the order the run used,
 as a share of the window's pick time.
@@ -91,7 +93,7 @@ def main(root, cell, arm, H=40):
     for (sku, a, x, y), (b, sq) in place.items():
         g = geo.by_id[a]
         by_day[b].append((sq, (sku, a, x, y), g.key, _M(g.y_of(y), br)))
-    act = orac = fore = fore2 = trail = 0.0
+    act = orac = fore = fore2 = trail = local = 0.0
     for b, items in by_day.items():
         items.sort()
         f = {k: (orders[k[0]].demand.relative_frequency / tot_f)
@@ -124,11 +126,18 @@ def main(root, cell, arm, H=40):
             # the new trailer sequence -- the i-th bin handed out goes to the i-th pack
             new = sorted(range(len(ks)), key=lambda i: seq_rank[ks[i]])
             trail += sum(wr[i] * m for i, m in zip(new, Ms))
+            # within-trailer (the yard's LOCAL order): trailers stay in FIFO order, and each
+            # trailer's packs are resequenced to meet that trailer's own bin slots
+            for t in {chunk[k] for k in ks}:
+                idx = [i for i, k in enumerate(ks) if chunk[k] == t]
+                local += _pair([f2[ks[i]] for i in idx], [wr[i] for i in idx],
+                               [Ms[i] for i in idx])
     print(f'{arm}: fresh-pick at-location cost as run {act:,.0f} s ({act / T:.2%} of pick time T)')
     for name, v in (('oracle (hindsight, pack level)', orac),
                     ('forecast lambda*h, pack level', fore),
                     ('forecast h*q*P(re-pick), pack', fore2),
-                    ('forecast, whole trailers only', trail)):
+                    ('forecast, whole trailers only', trail),
+                    ('forecast, within each trailer', local)):
         print(f'  {name:32s} {v:12,.0f} s   change {(v - act) / T:+.3%} of T')
 
 
