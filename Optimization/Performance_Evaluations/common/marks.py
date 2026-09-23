@@ -332,7 +332,10 @@ def serial(ch, series, *, quantity, view, baseline, strategies, x_key, y_key,
         if smooth:
             ys = chartkit.rolling_mean(ys, smooth)
         if is_base:
-            chartkit.mark_baseline(ax, xs, ys)
+            # Named: a sweep whose baseline rule runs from two starts (or, on a coupled
+            # run, as two arm pairs) draws the OTHER one as an ordinary line, and a bare
+            # "FIFO baseline" beside a line labelled `fifo` reads as one member twice.
+            chartkit.mark_baseline(ax, xs, ys, label=f'FIFO baseline ({_stitle(s)})')
         else:
             ax.plot(xs, ys, color=chartkit.strategy_color(s, strategies),
                     ls=chartkit.strategy_dash(s), lw=1.4, label=_stitle(s))

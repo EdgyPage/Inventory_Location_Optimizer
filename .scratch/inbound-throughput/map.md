@@ -150,6 +150,7 @@ own results.
   ranks the page would show.
 - **01 RESOLVED 2026-09-22** -- the steady-state result is recorded in the phase-2 campaign map ("The result -- 2026-09-22") and memory `pick-owed-cannot-see-inbound-at-this-demand`; `run_unload_ranking` prices the census at the leaf mean, measures the floor per rule pair (0.080% winner / 0.017% rider), reads the rider as a control and the metric off the spec; on the finished root `chosen` became `ggated_h050, ggated_h025, gforecast` ([01](issues/01-record-the-steady-state-result-and-fix-the-ranking.md)). Publish is next.
 - **02 RESOLVED 2026-09-22** -- `Tests/bench/bench_pool_open.py` prices a pool open at the campaign shape in seconds for both winner-pair families (travel template 1.35x over eager, min-labour 1.22x; prologue 4.0 ms, 71% cursors) and weighs a helper replica at ~13.6 MiB for 25,200 bins; its smoke form is in the CLAUDE.md gate ([02](issues/02-bench-a-pool-open-at-campaign-shape.md)).
+- **09 RESOLVED 2026-09-22** -- site yard figures name the arm pair (the `rank` collapse was `_assignment_of` splitting the key on underscores), the detention rows are named, the scorecard fits, the register lists the speeds; Experiment 9's workaround caption goes at the next campaign re-analysis ([09](issues/09-the-yard-family-cannot-say-which-arm-is-which.md)).
 - Assumptions stated and accepted: both stock modes run as in the campaign; one ranking tool
   takes its metric from the spec and ranks both the era run and the fill trial; the probe's
   trace is a declared artifact, not log lines.

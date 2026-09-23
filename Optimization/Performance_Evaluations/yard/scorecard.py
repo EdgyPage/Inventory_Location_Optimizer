@@ -196,33 +196,49 @@ def render(ctx, params, site: bool = False):
         ctx.log.warning('  yard scorecard: no arm recorded a yard')
         return
 
-    ch = chartkit.make(panels=1, panel_w=12.0, legend='none',
-                       panel_h=chartkit.height_for_categories(len(rows), per=0.42,
-                                                              base=1.2))
+    import textwrap
+    # THE DEFINITIONS GO UNDER THE TABLE, not in the subtitle: at site scope they run to
+    # four lines, and a subtitle that long ran off the canvas (the 2026-09-22 SME round)
+    # and, wrapped, sat on the header row.  The table keeps the top of the axes; the notes
+    # get a band of their own below it, sized to their wrapped line count.
+    notes = textwrap.wrap(
+        'door count recorded by the run (derived as max free doors at freeze only on a run '
+        'that predates the recording, where utilization is then an upper bound) · receiver '
+        'busy = receiver-seconds ÷ crew × WORK days (door util is over CALENDAR span — the '
+        'clock only runs in working hours) · dock ceiling = cap × doors ÷ crew, the share of '
+        'the crew the dock can seat at once'
+        + (' · per channel = each leaf SHARE of that same site number (s = store, '
+           'f = fulfillment), printed beside it and never instead of it (a right site total '
+           'hides two wrong shares)' if site else ''), width=190)
+    note_in = 0.16 * len(notes) + 0.15
+    table_in = chartkit.height_for_categories(len(rows), per=0.42, base=1.2)
+    ch = chartkit.make(panels=1, panel_w=12.0, legend='none', panel_h=table_in + note_in)
     ax = ch.ax
     ax.axis('off')
     ax.grid(False)
-    tbl = ax.table(cellText=rows, colLabels=list(cols), cellLoc='center',
-                   bbox=[0.0, 0.0, 1.0, 1.0])
+    note_frac = note_in / (table_in + note_in)
+    # Headers wrap onto two lines rather than clip (`yard depth (mean/max)` did).
+    tbl = ax.table(cellText=rows, colLabels=[textwrap.fill(c, 14) for c in cols],
+                   cellLoc='center', bbox=[0.0, note_frac, 1.0, 1.0 - note_frac])
     tbl.auto_set_font_size(False)
     tbl.set_fontsize(8)
     cells = tbl.get_celld()
+    # The ARM column is sized to its longest label: a site arm pair names both halves'
+    # rules (`Uni|Rank_cartlabor+Rank_minlabor|noRSL`) and an equal share truncated it.
+    longest = max(len(str(r[0])) for r in rows)
+    w0 = min(0.30, max(0.08, 0.0052 * longest))
+    rest = (1.0 - w0) / (len(cols) - 1)
+    for (r, c), cell in cells.items():
+        cell.set_width(w0 if c == 0 else rest)
     for c in range(len(cols)):
         hc = cells[(0, c)]
         hc.set_facecolor('#34495e')
         hc.set_text_props(color='white', fontweight='bold', fontsize=7)
+    ax.text(0.0, note_frac - 0.02, '\n'.join(notes), transform=ax.transAxes, va='top',
+            ha='left', fontsize=7.5, color='#555555')
     ch.title('Yard read-outs',
-             'inspection only — none of these has a better direction · door count recorded '
-             'by the run (derived as max free doors at freeze only on a run that predates '
-             'the recording, where utilization is then an upper bound) · receiver busy = '
-             'receiver-seconds ÷ crew × WORK days (door util is over CALENDAR span — the '
-             'clock only runs in working hours) · dock ceiling = cap × doors ÷ crew, the share '
-             'of the crew the dock can seat at once'
-             + (' · per channel = each leaf SHARE of that same site number, printed beside '
-                'it and never instead of it (a right site total hides two wrong shares)'
-                if site else '')
-             + ' · free threshold '
-             + f'{ctx.fee_threshold_days():g} d')
+             'inspection only — none of these has a better direction · free threshold '
+             f'{ctx.fee_threshold_days():g} d')
     out = io.out_dir(ctx)
     ch.save(os.path.join(out, 'absolute_yard_scorecard.png'), view='absolute')
     ctx.log.info(f'  yard scorecard: {len(rows)} arms -> {out}')

@@ -1,7 +1,7 @@
 # 09 - the yard family labels rows `fifo`/`rank`, and ships no effect view
 
 Type: task
-Status: open
+Status: resolved
 
 Filed 2026-09-22 from the analysis-SME round that `publish-experiment` runs when the figure
 set changes, taken against the full-scale coupled leaf `k1_off_gforecast` of
@@ -58,3 +58,37 @@ The site yard figures name the arm pair on every row; the scorecard fits its can
 legends its abbreviations; the yard family either ships an effect view or declares why it
 cannot; `Tests/architecture/test_view_coverage.py` and `test_figure_registry.py` green;
 Experiment 9's captions lose the workaround sentence.
+
+## Answer
+
+Resolved 2026-09-22, verified by re-rendering the coupled priced toy
+(`comparison_whatif_20260922_190917`) and viewing the site yard PNGs.
+
+1. **Rows name the arm pair.** Root cause: `run_analysis._assignment_of` split the arm key on
+   underscores and took the second token, so `uni_rank_cartlabor_norsl` became `rank` and both
+   starting layouts of both placement pairs printed alike. `_pair_fields` now reads the store
+   half's display label from the strategy grid (as every leaf does), keeps its
+   initial/assignment/reslot (baseline selection unchanged: the rider still reads `FIFO`), and
+   adds a `title` naming both halves -- `Uni|Rank_cartlabor+Rank_minlabor|noRSL` -- which
+   `style._stitle` prefers. Every yard figure picks it up.
+2. **The serial mark's baseline says which member it is**: `FIFO baseline (Opt|FIFO+FIFO|noRSL)`,
+   so the other start's rider line no longer reads as the baseline twice.
+3. **The scorecard fits.** The definitions moved from the subtitle into a wrapped note band under
+   the table; the arm column is sized to its longest label; headers wrap onto two lines; the
+   per-channel column's `s` / `f` are legended.
+4. **The percent views say what zero is** (the baseline, by definition) and why there is no
+   interval.
+5. **Detention rows are named**: `boxplot` re-labelled the axis with its positions after
+   `category_axis` set the names; `manage_ticks=False` keeps them.
+6. **No effect view, by decision, now stated on the figure**: overage accrues per TRAILER, not
+   per batch, and trailers are not paired across arms (`yard.fee`'s `_entries` docstring
+   records why pairing on seq would be an unchecked assumption), so the paired-batch effect
+   machinery has nothing honest to draw. The percent view's subtitle carries that sentence.
+7. Suite-wide items (the significance family's contrast, the headline percent chart's missing
+   interval) stay with the analysis suite, as recorded above.
+8. **The factor register walks `x_speed` / `y_speed`**; the toy's `held_fixed.json` now lists
+   them.
+
+Experiment 9's captions carry a workaround sentence about the unlabelled rows; they lose it at
+the next re-analysis and re-stage of the campaign root, which this ticket does not run (a full
+analysis of the 400k run is hours). Recorded on the map.

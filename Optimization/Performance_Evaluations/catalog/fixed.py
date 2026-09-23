@@ -49,6 +49,11 @@ _CONFIG_FACTORS = (
     ('pick_intercept',   'per-pick setup seconds'),
     ('cart_capacity',    'cart capacity'),
     ('cart_swap_coef',   'cart-swap seconds'),
+    # The travel speeds, per leaf: the two channels run DIFFERENT and REVERSED pairs (store
+    # 3 / 2 ft/s cross- / along-aisle, fulfillment 2 / 4), and a register that claims its
+    # fixed list cannot be incomplete was silent on both (Experiment 9's WMS reader).
+    ('x_speed',          'cross-aisle travel speed'),
+    ('y_speed',          'along-aisle travel speed'),
     ('batch_mean_frac',  'wave size, as a share of the catalogue'),
     ('height_brackets',  'height multipliers'),
     # The four whole-catalogue averages the leaf record carries under `catalogue_scope:

@@ -381,7 +381,7 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
             pairs.append({'key': arm_pair, 'label': arm_pair,
                           # The pair is named by its STORE half for baseline selection:
                           # the diagonal is by rank and the reference pair is fifo/fifo.
-                          'assignment': _assignment_of(store_arm),
+                          **_pair_fields(store_arm, list(halves.values())),
                           'db_path': db, 'run_id': run_id, 'leaves': leaves})
         if not pairs or sim_result is None:
             continue
@@ -395,6 +395,30 @@ def _site_jobs(base_dir, rt, cell, preset_name, granularity, cli_set, log, only=
         else:
             jobs.append({**common, 'eval_keys': keys})
     return jobs
+
+
+def _pair_fields(store_arm: str, arms: list) -> dict:
+    """A SITE arm pair's display fields: the store half's `initial` / `assignment` /
+    `reslot` (what `core.baseline` and the colour maps read, exactly as a leaf's own
+    strategy entry carries them), plus a `title` that names BOTH halves' rules, which
+    `style._stitle` prefers.
+
+    Read off the strategy grid's own display label (`Uni|Rank_cartlabor|noRSL`), the one
+    `workunits._prepare_channel_run` decomposes for every leaf, never by splitting the key:
+    the key's rule field contains underscores, so `uni_rank_cartlabor_norsl.split('_')[1]`
+    is `rank` -- which is what every site yard figure printed for both starting layouts of
+    both placement pairs until 2026-09-22 (`.scratch/inbound-throughput/` 09).  A key the
+    grid does not know falls back to `_assignment_of`, whose baseline fallback says so.
+    """
+    from Optimization.config.strategies import STRATEGY_BY_KEY
+    labels = [getattr(STRATEGY_BY_KEY.get(a), 'label', None) for a in arms]
+    if not all(labels):
+        return {'assignment': _assignment_of(store_arm)}
+    parts = [(lb.split('|') + ['', '', ''])[:3] for lb in labels]
+    initial, assignment, reslot = parts[0]
+    rules = '+'.join(p[1] for p in parts)
+    return {'initial': initial, 'assignment': assignment, 'reslot': reslot,
+            'title': '|'.join(x for x in (initial, rules, reslot) if x)}
 
 
 def _assignment_of(arm_key: str) -> str:

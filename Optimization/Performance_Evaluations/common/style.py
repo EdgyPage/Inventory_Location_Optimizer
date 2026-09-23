@@ -67,7 +67,15 @@ def legend_right(ax, handles=None, *, anchor=(1.02, 1.0), **kw):
 
 
 def _stitle(s):
-    """Compact strategy label: initial|assignment|reslot (falls back to label/key)."""
+    """Compact strategy label: initial|assignment|reslot (falls back to label/key).
+
+    A member that carries its own `title` is labelled by it: a SITE arm pair (coupled run)
+    is two arms, and `initial|assignment|reslot` can name only one of them -- read off the
+    store half it printed `Uni|Rank_cartlabor|noRSL` for a pair whose fulfillment half is
+    `Rank_minlabor`, and before 2026-09-22 it printed only `rank` for all of them.
+    `run_analysis` builds the pair's title from both halves."""
+    if s.get('title'):
+        return s['title']
     parts = [p for p in (s.get('initial', ''), s.get('assignment', ''),
                          s.get('reslot', '')) if p]
     return '|'.join(parts) if parts else s.get('label', s.get('key', ''))

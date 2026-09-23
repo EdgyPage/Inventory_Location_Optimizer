@@ -80,7 +80,11 @@ def _distribution(ctx, frames, threshold, out):
     # `vert=False`, not `orientation='horizontal'`: the latter arrived in matplotlib 3.10
     # and `requirements.txt` floors at 3.7, so switching would break the floor to silence a
     # PendingDeprecationWarning. Change it when the floor moves, not before.
+    # `manage_ticks=False`: by default `boxplot` re-labels the axis with the POSITIONS it
+    # was handed, overwriting the arm names `category_axis` just set -- the figure printed
+    # rows `0, 1, 2, 3` until 2026-09-22 (`.scratch/inbound-throughput/` 09).
     ax.boxplot(vals, positions=pos, vert=False, widths=0.6, showfliers=True,
+               manage_ticks=False,
                flierprops=dict(marker='.', markersize=2.5, alpha=0.5),
                medianprops=dict(color='#1a4d7a', lw=1.4))
     base_key = ctx.base['key'] if ctx.base else None

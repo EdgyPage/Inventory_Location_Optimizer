@@ -1078,7 +1078,9 @@ class _SiteDock:
     def flush_trace(self, i: int) -> None:
         """Append batch `i`'s plan records to the sidecar, one JSON line each, and clear
         the sink.  A no-op on an unarmed dock and on an untraced batch."""
-        if not self._trace:
+        # `getattr`: a dock built bare (`__new__`, as the site-receiving tests do) never
+        # ran `__init__` and has no trace slot set; unarmed is what that means.
+        if not getattr(self, '_trace', None):
             return
         import json
         with open(self.trace_path, 'a', encoding='utf-8') as f:
@@ -1108,7 +1110,7 @@ class _SiteDock:
         day = self.release.day_of(i)
         _, put_deadline = pool.open_batch(day)
         base, recv_deadline = self.coord.open_batch(day)
-        if self._trace is not None:
+        if getattr(self, '_trace', None) is not None:
             # Arm the transit's sink for a traced batch and disarm it for every other, so
             # the untraced drains of a probe cell pay nothing (see `DockContext.plan_trace`).
             self.transit.plan_trace = self._trace if i % self.trace_every == 0 else None

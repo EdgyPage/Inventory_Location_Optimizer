@@ -37,8 +37,10 @@ _TITLES = {
     'absolute': ('Yard overage per arm',
                  'trailer-days held past the free threshold, censored trailers included'),
     'percent':  ('Yard overage vs baseline',
-                 'improvement against the baseline arm; an arm is absent where the '
-                 'baseline accrued no overage at all and the comparison is undefined'),
+                 'improvement against the baseline arm, which reads 0 by definition; the '
+                 'whole view is withheld when the baseline accrued no overage at all · no '
+                 'interval: trailers, not batches, are the instances, and they are not '
+                 'paired across arms'),
 }
 
 
