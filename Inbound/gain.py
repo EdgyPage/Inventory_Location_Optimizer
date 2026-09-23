@@ -223,7 +223,8 @@ class _Evaluator:
 
     __slots__ = ('_site', '_key', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
-                 '_wr', '_mom', '_tiers', '_tmpl', '_shared_excl', '_b', '_ps')
+                 '_wr', '_mom', '_tiers', '_tmpl', '_shared_excl', '_b', '_ps',
+                 'force_merge')
 
     #: The caches that are pure functions of (space, bundle) and may therefore be SHARED
     #: across the two rankings of one drain -- `shared` below, `DockContext.gain_cache`.
@@ -235,7 +236,12 @@ class _Evaluator:
     _SHARED_CACHES = ('_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
                       '_mom', '_tiers')
 
-    def __init__(self, bundle, space, window_rates=None, shared=None):
+    def __init__(self, bundle, space, window_rates=None, shared=None, force_merge=False):
+        #: PRICE A POOL FAMILY WITH THE MERGE RUNG instead of its own pool -- the
+        #: pool-free candidate reduction the plan trace measures (`.scratch/inbound-
+        #: throughput/` 03).  False everywhere in production: only `_traced` sets it, on an
+        #: evaluator of its own whose order is recorded and never served.
+        self.force_merge = bool(force_merge)
         if not hasattr(bundle, 'for_key'):
             raise TypeError(
                 f'the evaluator resolves its arm machinery per BinKey owner and always '
@@ -538,7 +544,7 @@ class _Evaluator:
             if self.b.uniform:
                 c, tk = self._place_uniform(gunits, chain, wp, xk, yk,
                                             excluded, predicted, avail_cache, alloc)
-            elif self.b.pool_factory is not None:
+            elif self.b.pool_factory is not None and not self.force_merge:
                 c, tk = self._place_pool(gunits, chain, wp, xk, yk,
                                          excluded, predicted, avail_cache)
             else:
@@ -825,7 +831,8 @@ def _window_rates(window) -> dict:
 
 def plan_order(candidates, bundle, space, *, predicted: bool,
                forced_prefix=(), window_rates=None, shared=None,
-               _ev: _Evaluator | None = None) -> list:
+               _ev: _Evaluator | None = None, trace: list | None = None,
+               force_merge: bool = False) -> list:
     """10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
     resolves through (`OneOwnerBundle` on a single-channel run), never a bare
     `GainBundle`.  `forced_prefix` is the urgency gate's FIFO head — consumed first,
@@ -835,7 +842,12 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
     ranking of the same drain share the seven pure structures that
     `_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists
     ONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure
-    the test perturbs); production callers never pass it."""
+    the test perturbs); production callers never pass it.
+
+    `trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining
+    candidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan
+    trace (`_traced`); None, the production value, records nothing and changes nothing.
+    `force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`)."""
     if _ev is not None and window_rates is not None:
         raise ValueError(
             'plan_order got both a pre-built evaluator and window_rates: the hook '
@@ -851,7 +863,7 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
             'other')
     ev = _ev if _ev is not None else _Evaluator(bundle, space,
                                                 window_rates=window_rates,
-                                                shared=shared)
+                                                shared=shared, force_merge=force_merge)
     loads: dict = {}          # id(trailer) -> remaining planned units, derived once
 
     def _load(t):
@@ -919,18 +931,180 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         # set nothing shares.
         ev._shared_excl = frozenset((id(ev.taken), id(B)))
         best = None
+        rec = [] if trace is not None else None
         for t, c, tk, ids in swept:
             hole = {i for i in ids if counts[i] == 1 and i not in ev.taken}
             defer_c, _tk = ev.place_load(_load(t), B - hole if hole else B, predicted)
             g = defer_c - c
+            if rec is not None:
+                rec.append([t.seq, c, defer_c, g])
             if best is None or g > best[1]:
                 best = (t, g, tk)
         t, _g, tk = best
+        if rec is not None:
+            trace.append({'cands': rec, 'winner': t.seq})
         ev.taken.update(map(id, tk))
         ev.drop_templates()      # `taken` moved in place; see `drop_templates`
         out.append(t)
         remaining = [r for r in remaining if r is not t]
     return out
+
+
+def plan_order_topm(candidates, bundle, space, *, predicted: bool, m: int,
+                    forced_prefix=(), window_rates=None, shared=None) -> tuple:
+    """The TOP-m LAZY plan: `(order, place_load calls)`.  A candidate reduction the plan
+    trace measures (`.scratch/inbound-throughput/` 03, variant (ii)); never served.
+
+    Round one is the exact round.  Every later round re-evaluates only the `m` candidates
+    with the best STALE gains (their gain from the round they were last priced in), keeps
+    every other candidate's stale gain and stale now-takes, and serves the best FRESH gain
+    among the `m`.  Two-phase per round like the exact plan -- every refreshed now-side
+    first, then the leave-one-out base `B` over the current take map, then the refreshed
+    defer sides -- so with `m` at least the number remaining, a round IS the exact round:
+    `m >= len(candidates)` reproduces `plan_order` exactly (pinned by a test), and the
+    reduction's only approximation is staleness.  Costs `2T` placements in round one and
+    `2 min(m, remaining)` after, against the exact `T(T+1)`.
+    """
+    if m < 1:
+        raise ValueError(f'top-m needs m >= 1, got {m}')
+    ev = _Evaluator(bundle, space, window_rates=window_rates, shared=shared)
+    loads: dict = {}
+
+    def _load(t):
+        got = loads.get(id(t))
+        if got is None:
+            got = loads[id(t)] = _load_units(t)
+        return got
+
+    calls = 0
+    out: list = []
+    ev._shared_excl = frozenset((id(ev.taken),))
+    for t in forced_prefix:
+        _c, takes = ev.place_load(_load(t), ev.taken, False)
+        calls += 1
+        ev.taken.update(map(id, takes))
+        ev.drop_templates()
+        out.append(t)
+    prefix_ids = {id(t) for t in out}
+    remaining = [t for t in candidates if id(t) not in prefix_ids]
+    #: id(t) -> [now cost, takes, take ids, gain] as last priced
+    state: dict = {}
+    first = True
+    while remaining:
+        if first:
+            fresh = list(remaining)
+        else:
+            by_stale = sorted(range(len(remaining)),
+                              key=lambda i: -state[id(remaining[i])][3])
+            fresh = [remaining[i] for i in sorted(by_stale[:m])]
+        alloc: dict = {}
+        for t in fresh:
+            c, tk = ev.place_load(_load(t), ev.taken, False, alloc=alloc)
+            calls += 1
+            state[id(t)] = [c, tk, set(map(id, tk)), None]
+        counts: dict = {}
+        for t in remaining:
+            for i in state[id(t)][2]:
+                counts[i] = counts.get(i, 0) + 1
+        B = ev.taken | set(counts)
+        ev._shared_excl = frozenset((id(ev.taken), id(B)))
+        best = None
+        for t in fresh:
+            c, tk, ids, _g = state[id(t)]
+            hole = {i for i in ids if counts[i] == 1 and i not in ev.taken}
+            defer_c, _tk = ev.place_load(_load(t), B - hole if hole else B, predicted)
+            calls += 1
+            g = defer_c - c
+            state[id(t)][3] = g
+            if best is None or g > best[1]:
+                best = (t, g)
+        t = best[0]
+        ev.taken.update(state[id(t)][2])
+        ev.drop_templates()
+        out.append(t)
+        remaining = [r for r in remaining if r is not t]
+        first = False
+    return out, calls
+
+
+#: The top-m widths the plan trace measures.  Chosen for cost: at the campaign's yard
+#: depth (T ~ 17) the three together cost about one exact plan.
+TRACE_TOPM = (1, 2, 4)
+
+
+def _traced(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(),
+            window_rates=None) -> list:
+    """Every gain entry's ONE call into the plan -- and, when the drain carries a trace
+    sink (`DockContext.plan_trace`, set only in a probe cell), the plan trace.
+
+    No sink: exactly the `plan_order` call each entry made before this existed.
+
+    A sink: the SAME exact plan (its order is what the entry returns, so a traced cell
+    ranks byte-identically to an untraced one) with its per-round gains recorded, then, on
+    the same frozen drain state and with evaluators of their own, the two candidate
+    reductions ticket 03 of `.scratch/inbound-throughput/` measures -- the merge rung
+    forced onto a pool family (variant i) and the top-m lazy plans (variant ii) -- each
+    with its order, its placement count and its wall seconds.  One record per call,
+    appended to the sink; the driver writes the sink out per batch and tags the batch.
+    """
+    shared = getattr(ctx, 'gain_cache', None)
+    sink = getattr(ctx, 'plan_trace', None)
+    if sink is None:
+        return plan_order(candidates, bundle, space, predicted=predicted,
+                          forced_prefix=forced_prefix, window_rates=window_rates,
+                          shared=shared)
+    from time import perf_counter
+    rounds: list = []
+    t0 = perf_counter()
+    order = plan_order(candidates, bundle, space, predicted=predicted,
+                       forced_prefix=forced_prefix, window_rates=window_rates,
+                       shared=shared, trace=rounds)
+    wall = {'exact': perf_counter() - t0}
+    n_rem = len(candidates) - len(forced_prefix)
+    calls = {'exact': len(forced_prefix) + n_rem * (n_rem + 1)}
+    t0 = perf_counter()
+    merge = plan_order(candidates, bundle, space, predicted=predicted,
+                       forced_prefix=forced_prefix, window_rates=window_rates,
+                       shared=shared, force_merge=True)
+    wall['merge'] = perf_counter() - t0
+    calls['merge'] = calls['exact']
+    topm: dict = {}
+    for m in TRACE_TOPM:
+        if m >= n_rem:
+            continue                    # m >= remaining IS the exact plan (see its docstring)
+        t0 = perf_counter()
+        got, n = plan_order_topm(candidates, bundle, space, predicted=predicted, m=m,
+                                 forced_prefix=forced_prefix, window_rates=window_rates,
+                                 shared=shared)
+        wall[f'top{m}'] = perf_counter() - t0
+        calls[f'top{m}'] = n
+        topm[str(m)] = [t.seq for t in got]
+    sink.append({
+        'entry': name, 'ranking': getattr(ctx, 'ranking', None),
+        'predicted': bool(predicted), 'T': len(candidates),
+        'pool': bundle_uses_pool(bundle),
+        'prefix': [t.seq for t in forced_prefix],
+        'exact': [t.seq for t in order], 'merge': [t.seq for t in merge], 'topm': topm,
+        'rounds': rounds, 'calls': calls, 'wall_s': wall,
+    })
+    return order
+
+
+def bundle_uses_pool(bundle) -> bool | None:
+    """Whether the owner(s) behind `bundle` price with a pool adapter -- the families the
+    merge rung is an APPROXIMATION for (for an extremal-D family the merge rung IS the
+    adapter, and the trace's merge order equals its exact order by construction).  None
+    when the provider exposes no owner to ask."""
+    by_regime = getattr(bundle, '_owners', None)            # SiteGainBundle: regime -> bundle
+    if isinstance(by_regime, dict):
+        owners = list(by_regime.values())
+    else:
+        one = getattr(bundle, 'bundle', None)                # OneOwnerBundle
+        owners = [one] if one is not None else []
+    if not owners:
+        return None
+    return any(getattr(o, 'pool_factory', None) is not None
+               and not getattr(o, 'uniform', False) for o in owners)
 
 
 def _require(ctx, name: str):
@@ -955,8 +1129,7 @@ def gain_myopic(candidates, ctx) -> list:
     """The unload plan over `ctx.space.empties` only — the predicted tier is
     invisible, so the arm's whole signal is contention for today's space."""
     bundle, space = _require(ctx, 'gain_myopic')
-    return plan_order(candidates, bundle, space, predicted=False,
-                      shared=getattr(ctx, 'gain_cache', None))
+    return _traced('gain_myopic', candidates, bundle, space, ctx, predicted=False)
 
 
 @ordering
@@ -964,8 +1137,7 @@ def gain_forecast(candidates, ctx) -> list:
     """The unload plan with the deferral pool including `predicted` — the standing
     demand's projected clears, the next drain's pool gain."""
     bundle, space = _require(ctx, 'gain_forecast')
-    return plan_order(candidates, bundle, space, predicted=True,
-                      shared=getattr(ctx, 'gain_cache', None))
+    return _traced('gain_forecast', candidates, bundle, space, ctx, predicted=True)
 
 
 @ordering
@@ -980,9 +1152,8 @@ def gain_gated(candidates, ctx) -> list:
               if t.arrived_s is not None
               and (now - t.arrived_s) / SECONDS_PER_DAY >= due_days]
     urgent.sort(key=lambda t: (t.arrived_s, t.seq))
-    return plan_order(candidates, bundle, space, predicted=True,
-                      forced_prefix=urgent,
-                      shared=getattr(ctx, 'gain_cache', None))
+    return _traced('gain_gated', candidates, bundle, space, ctx, predicted=True,
+                   forced_prefix=urgent)
 
 
 @ordering
@@ -1002,9 +1173,8 @@ def futuresight(candidates, ctx) -> list:
             'slices it from the precomputed batch script when the arm is named '
             '(INBOUND_FUTURESIGHT_BATCHES set, script present).  None means no feed '
             'ran; an empty window at the end of the script is (), which is legal')
-    return plan_order(candidates, bundle, space, predicted=True,
-                      window_rates=_window_rates(window),
-                      shared=getattr(ctx, 'gain_cache', None))
+    return _traced('futuresight', candidates, bundle, space, ctx, predicted=True,
+                   window_rates=_window_rates(window))
 
 
 # ── registration ──────────────────────────────────────────────────────────────────

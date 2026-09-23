@@ -1,6 +1,6 @@
 {
-  "schema_id": "sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13",
-  "schema_short": "99bd6249b3d5",
+  "schema_id": "sha256:645550a904b37d36cd1148d64a014390ecf0551fa4095013c67087345373ef16",
+  "schema_short": "645550a904b3",
   "generated_by": "Optimization/runschema/preflight.py",
   "axes": [
     "cell",
@@ -353,6 +353,12 @@
     "site_inbound_db": {
       "path": "{cell}/{pair}/_site/inbound_{strategy}.db",
       "format": "sqlite",
+      "scope": "pair",
+      "optional": true
+    },
+    "site_plan_trace": {
+      "path": "{cell}/{pair}/_site/plan_trace_{strategy}.jsonl",
+      "format": "jsonl",
       "scope": "pair",
       "optional": true
     },

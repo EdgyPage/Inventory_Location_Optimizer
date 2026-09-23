@@ -663,6 +663,11 @@ def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
             # torn-pair reconciler removes it with -- one spelling, so a repair and a write
             # cannot disagree about which file they mean.
             'site_db'  : _site_db_path(pair_dir, _ls['strategy'], _lf['strategy']),
+            # The plan-trace probe's sidecar, when this cell's inbound record arms it
+            # (`INBOUND_PLAN_TRACE`); None -- every production cell -- writes nothing.
+            'plan_trace_path': (
+                _site_trace_path(_site_db_path(pair_dir, _ls['strategy'], _lf['strategy']))
+                if (_ls.get('inbound') or {}).get('plan_trace') else None),
             'leaves'   : [_ls, _lf],
             # log_queue is NOT set here -- injected by the flat pool, as for a leaf unit.
         })
@@ -724,6 +729,16 @@ def _site_db_path(pair_dir: str, arm_store: str, arm_ful: str) -> str:
     two of the three.
     """
     return os.path.join(pair_dir, '_site', f'inbound_{arm_store}__{arm_ful}.db')
+
+
+def _site_trace_path(site_db: str) -> str:
+    """The plan-trace sidecar beside a unit's site DB -- the contract's
+    `site_plan_trace`, same directory, same arm-pair stem.  Derived FROM the site DB path
+    so the two cannot name different arm pairs; the same parent-builds-under-its-own-
+    directory rule `_site_db_path` states.  Only a probe cell's payload carries it."""
+    d, base = os.path.split(site_db)
+    stem = os.path.splitext(base)[0].split('inbound_', 1)[-1]
+    return os.path.join(d, 'plan_trace_' + stem + '.jsonl')
 
 
 def _forget_arms(run_dir: str, arms) -> None:

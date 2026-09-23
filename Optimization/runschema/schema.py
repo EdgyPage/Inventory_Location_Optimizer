@@ -470,6 +470,18 @@ ARTIFACTS = {
         'note': 'a sim DB carrying only the two yard tables and the site dock own '
                 'per-batch receiving totals, so every analysis broker binds it with no '
                 'new loader: they key on db_path and run_id alone.'},
+    'site_plan_trace': {
+        'path': '{cell}/{pair}/_site/plan_trace_{strategy}.jsonl', 'format': 'jsonl',
+        'scope': 'pair', 'optional': True,
+        'condition': 'PROBE cells only: a coupled standing run whose cell record sets '
+                     'INBOUND_PLAN_TRACE, on a gain policy. `{strategy}` is the ARM PAIR, '
+                     'as for site_inbound_db. Absent from every production run.',
+        'writer': 'flush_trace@Optimization/simdriver/strategy_runner.py',
+        'note': 'one JSON line per gain plan on a traced batch: the exact per-round '
+                'gains and order beside the merge-rung and top-m reductions priced on '
+                'the same frozen drain, with placement counts and wall seconds '
+                '(inbound-throughput 03). Read by '
+                '.scratch/inbound-throughput/assets/score_plan_trace.py.'},
 
     # ── per pair (inside a cell) ────────────────────────────────────────────────
     'warehouse_db': {

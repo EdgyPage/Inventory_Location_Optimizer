@@ -1,7 +1,7 @@
 # 03 - one instrumented probe, two fidelities measured offline
 
 Type: research
-Status: open
+Status: claimed
 
 The exact `plan_order` costs T(T+1) `place_load` calls per drain and exact memoisation is
 refuted (`the-gain-sweep-cannot-be-made-incremental`). Two cheaper plans are on the table and

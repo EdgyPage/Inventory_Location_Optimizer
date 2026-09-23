@@ -56,7 +56,8 @@ class DockContext:
     reason, as `put_policy`.
     """
 
-    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space', 'gain', 'gain_cache')
+    __slots__ = ('doors', 'free_doors', 'yard_depth', 'space', 'gain', 'gain_cache',
+                 'plan_trace', 'ranking')
 
     def __init__(self, doors: int, free_doors: int, yard_depth: int):
         self.doors = doors
@@ -86,6 +87,14 @@ class DockContext:
         # every candidate.  Two drain-frozen rankings; neither may see the other's virtual
         # state.  `Inbound.gain._Evaluator._SHARED_CACHES` names exactly what rides here.
         self.gain_cache = None
+        # THE PLAN TRACE SINK (`.scratch/inbound-throughput/` 03): a list the gain entries
+        # append one record per plan to, set at ctx-freeze only in a probe cell whose
+        # inbound record asks for it, and only on the batches its cadence picks.  None --
+        # the production value -- and the entries record nothing and compute nothing
+        # extra.  `ranking` names which of the drain's two rankings ('yard' or 'dock') is
+        # running, for the record only; set only when the sink is.
+        self.plan_trace = None
+        self.ranking = None
 
 
 def _fifo_trailer(trailer, ctx) -> float:

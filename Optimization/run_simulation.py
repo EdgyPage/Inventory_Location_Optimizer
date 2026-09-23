@@ -883,6 +883,14 @@ def _build_parser() -> argparse.ArgumentParser:
              '= pure FIFO. Hours and days never blend into one score — the gate is the '
              'only place they meet.')
     parser.add_argument(
+        '--inbound-plan-trace', type=int, metavar='N',
+        default=CONFIG['global']['inbound_plan_trace'],
+        help='PROBE INSTRUMENT: on a coupled run with a gain policy, record every Nth '
+             'batch\'s unload plans -- the exact per-round gains beside the merge-rung and '
+             'top-m reductions on the same frozen state -- into the site plan-trace '
+             'sidecar. Ranks byte-identically; costs wall on traced batches only. '
+             'Normally set per cell by a probe spec, not here.')
+    parser.add_argument(
         '--inbound-futuresight-batches', type=_futuresight_window, metavar='W',
         default=CONFIG['global']['inbound_futuresight_batches'],
         help="The futuresight arm's window, in SCRIPT BATCHES ahead of the one being "

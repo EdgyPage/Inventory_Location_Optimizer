@@ -381,6 +381,12 @@ PHASE2_RANKING = {
     'census_column': 'unservable_weight', 'exact_field': 'ss_pick_owed_exact',
 }
 
+#: The plan-trace probe's cadence, in batches: every fourth site day's plans are traced,
+#: ten of a forty-day run.  A traced drain prices the exact plan plus the merge rung plus the
+#: top-m plans (about 2.3x its gain cost), so a quarter keeps a gain unit within ~1.35x of
+#: its untraced wall while leaving ~20 plans per unit to score.
+PHASE2_PLAN_TRACE_EVERY = 4
+
 PHASE2_RUN_DEFAULTS = {
     **ERA_RUN_DEFAULTS,
     **INBOUND_ARRIVAL_REGIME,
@@ -721,6 +727,25 @@ SPECS = {
         'staffing_pin': PHASE2_STAFFING_PIN,
         'inbound': phase2_inbound_axis(
             keep=('fifo', 'gmyopic', f'gmyopic_k{PHASE2_BOUND_PROBE_K}')),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': PHASE2_RANKING,
+        'phase': 2,
+    },
+    # THE PLAN-TRACE PROBE (`.scratch/inbound-throughput/` 03): the fifo reference and the
+    # two gain policies, with the two gain cells TRACED every `PHASE2_PLAN_TRACE_EVERY`-th
+    # batch.  A traced cell ranks byte-identically -- the exact plan still decides, the
+    # reductions are priced beside it on the same frozen state and only recorded -- so its
+    # cells keep the campaign's names and `run_digest.py --cell k1_off_gmyopic` against the
+    # finished `inbound_unload` root is the proof the instrument is inert.  The sidecars
+    # are scored offline by `.scratch/inbound-throughput/assets/score_plan_trace.py`.
+    '_probe_plan_trace': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': [(n, {**ov, 'plan_trace': (PHASE2_PLAN_TRACE_EVERY if n != 'fifo'
+                                               else None)})
+                    for n, ov in phase2_inbound_axis(keep=('fifo', 'gmyopic', 'gforecast'))],
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
         'ranking': PHASE2_RANKING,

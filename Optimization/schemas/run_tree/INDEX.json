@@ -1,6 +1,6 @@
 {
-  "head": "sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13",
-  "source_fingerprint": "sha256:befaee7e57f74a14c6d382a7ebf1ccc03a99ed46a6f9ddf311d13e7343737cf7",
+  "head": "sha256:645550a904b37d36cd1148d64a014390ecf0551fa4095013c67087345373ef16",
+  "source_fingerprint": "sha256:689eca5b11a3edf26145c20124b7d62cc99fa88b28003f697db3020bdd852f42",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -214,6 +214,16 @@
       "label": "",
       "changes": [
         "artifact ADDED: run_history -> run_history.json"
+      ]
+    },
+    "sha256:645550a904b37d36cd1148d64a014390ecf0551fa4095013c67087345373ef16": {
+      "short": "645550a904b3",
+      "parent": "sha256:99bd6249b3d577a4b5c1f1fe3696b7a904f66a3f9a3d98e40920ed5184368b13",
+      "created": "2026-09-22T19:01:42",
+      "commit": "4c5ac3a4",
+      "label": "site_plan_trace: the plan-trace probe sidecar (inbound-throughput 03)",
+      "changes": [
+        "artifact ADDED: site_plan_trace -> {cell}/{pair}/_site/plan_trace_{strategy}.jsonl"
       ]
     }
   }

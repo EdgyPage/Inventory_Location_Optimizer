@@ -179,6 +179,10 @@ INBOUND_LEAD_SPREAD = 0.0        # sigma of the lognormal around that median, DI
 INBOUND_LOCAL_POLICY = 'fifo'    # load-pallet order within a trailer
 INBOUND_TRAILER_BOUND = None     # the dock's k_cap analog, in TRAILERS; None = unbounded
                                  # (inert under fifo -- shipped for the interface, by decision)
+INBOUND_PLAN_TRACE = None        # PROBE INSTRUMENT, not a policy: trace every Nth batch's gain
+                                 # plans (exact per-round gains + the merge and top-m reductions)
+                                 # into the site-scope `site_plan_trace` sidecar; None = off,
+                                 # which records and computes nothing (inbound-throughput 03)
 
 # ── the standing yard ────────────────────────────────────────────────────────────
 # Doors become REAL: at most INBOUND_DOCK_DOORS trailers staged, a trailer holds its door

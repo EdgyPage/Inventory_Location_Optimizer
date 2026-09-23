@@ -356,7 +356,7 @@ class YardTransit(TrailerTransit):
     STANDING = True
 
     __slots__ = ('allocation', 'door_team', '_yard_key', '_dock_key', '_staged', 'stamps',
-                 'gain_bundle')
+                 'gain_bundle', 'plan_trace')
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
@@ -393,6 +393,10 @@ class YardTransit(TrailerTransit):
         # owner PROVIDER the evaluator resolves through (`Inbound.gain.OneOwnerBundle`
         # over this leaf's one `GainBundle`), not the bundle itself.
         self.gain_bundle = None
+        # THE PLAN TRACE SINK the driver arms for a traced drain and clears otherwise
+        # (`_SiteDock`, probe cells only); handed to the drain's ctx at freeze.  None --
+        # every production run -- records nothing.
+        self.plan_trace = None
 
     # ── the calendar (all that release() does here) ───────────────────────────────
     def release(self, now_s: float | None = None) -> list:
@@ -468,16 +472,23 @@ class YardTransit(TrailerTransit):
         # `DockContext.gain_cache`.  Only a gain arm has anything to put in it.
         if self.gain_bundle is not None:
             ctx.gain_cache = {}
+            # The plan trace sink, when the driver armed one for THIS drain (a probe cell
+            # on a traced batch); None everywhere else.  See `DockContext.plan_trace`.
+            ctx.plan_trace = self.plan_trace
         return ctx
 
     def yard_order(self, ctx: DockContext) -> list:
         """The drain-frozen YARD ranking: which standing trailer takes the next freed
         door.  Consumed front-first by every same-drain refill — no mid-drain re-score."""
+        if ctx.plan_trace is not None:
+            ctx.ranking = 'yard'
         return bounded_order(list(self._yard), self._yard_key, ctx, self.bound)
 
     def dock_order(self, ctx: DockContext) -> list:
         """The drain-frozen DOCK ranking over staged trailers: the crew-allocation
         preference, and the canonical handoff order's first key."""
+        if ctx.plan_trace is not None:
+            ctx.ranking = 'dock'
         return bounded_order(list(self._staged), self._dock_key, ctx, self.bound)
 
     @property

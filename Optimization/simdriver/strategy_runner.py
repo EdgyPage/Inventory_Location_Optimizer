@@ -1026,7 +1026,8 @@ class _SiteDock:
     """
 
     __slots__ = ('coord', 'dock', 'transit', 'workers', 'release', 'db_path',
-                 'arm_pair', 'log', '_run_id', '_buf', '_yt', '_yd', '_sr')
+                 'arm_pair', 'log', '_run_id', '_buf', '_yt', '_yd', '_sr',
+                 'trace_path', 'trace_every', '_trace')
 
     def __init__(self, coord, workers, release, db_path: str, log):
         self.coord = coord
@@ -1056,6 +1057,34 @@ class _SiteDock:
         #: table.  Site-dock 15 section 7: the site half of the closure that
         #: `receiving_report.reconcile_pair` compares the two leaves' rows against.
         self._sr = self._buf.rows('site_receiving')
+        #: THE PLAN-TRACE PROBE (`.scratch/inbound-throughput/` 03), armed by `arm_trace`
+        #: in a probe cell only.  None everywhere else: no sink is ever handed to a drain.
+        self.trace_path = None
+        self.trace_every = None
+        self._trace = None
+
+    def arm_trace(self, path: str, every: int) -> None:
+        """Record every `every`-th batch's gain plans into `path` (the contract's
+        `site_plan_trace`).  The file is TRUNCATED here: a coupled unit always replays from
+        batch 0 (`_plan_strategy_start` refuses a batch-level resume), so a retried unit
+        rewrites its trace rather than appending a second copy of the early batches."""
+        if every is None or int(every) < 1:
+            raise ValueError(f'a plan trace needs a positive cadence, got {every!r}')
+        self.trace_path, self.trace_every, self._trace = path, int(every), []
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8'):
+            pass
+
+    def flush_trace(self, i: int) -> None:
+        """Append batch `i`'s plan records to the sidecar, one JSON line each, and clear
+        the sink.  A no-op on an unarmed dock and on an untraced batch."""
+        if not self._trace:
+            return
+        import json
+        with open(self.trace_path, 'a', encoding='utf-8') as f:
+            for rec in self._trace:
+                f.write(json.dumps({'batch': i, 'arm_pair': self.arm_pair, **rec}) + '\n')
+        self._trace.clear()
 
     def __repr__(self):
         return (f'_SiteDock({self.coord!r}, '
@@ -1079,6 +1108,10 @@ class _SiteDock:
         day = self.release.day_of(i)
         _, put_deadline = pool.open_batch(day)
         base, recv_deadline = self.coord.open_batch(day)
+        if self._trace is not None:
+            # Arm the transit's sink for a traced batch and disarm it for every other, so
+            # the untraced drains of a probe cell pay nothing (see `DockContext.plan_trace`).
+            self.transit.plan_trace = self._trace if i % self.trace_every == 0 else None
         # `now_s` is the SITE's drain instant: when the site's receivers start this day.
         # Never a leaf's `arm_clock` -- that is one PICK crew's release, and the yard's
         # calendar is the site's (`receive` refuses two epochs over one set of doors).
@@ -1112,6 +1145,7 @@ class _SiteDock:
                     f'would file the site\'s receiving labour under a batch it did not '
                     f'happen in')
             self._sr.append((i, *_tot))
+        self.flush_trace(i)
 
     # -- the run --------------------------------------------------------------
     def finish(self) -> None:
@@ -1261,7 +1295,26 @@ def _build_site_dock(args: dict, pool, log):
             'trailer and drain rows belong to neither leaf (ADR-0005) and a run that '
             'produced them with nowhere to put them would report an empty yard on both '
             'channels while the site was full')
-    return _SiteDock(_coord, _workers, _release, _db, log)
+    _sd = _SiteDock(_coord, _workers, _release, _db, log)
+    # THE PLAN-TRACE PROBE, armed only when this cell's inbound record asks for it and the
+    # payload names the sidecar (`workunits._site_trace_path`).  A dock with no gain policy
+    # has no plan to trace -- the fifo keys never reach `_traced` -- so it is NOT armed and
+    # writes no file (an empty sidecar would read like a measurement of nothing); it says so,
+    # because the run-wide `--inbound-plan-trace` flag reaches every cell of a matrix.
+    if _spec.get('plan_trace'):
+        _tp = args.get('plan_trace_path')
+        if not _tp:
+            raise ValueError('the cell arms a plan trace but the unit payload names no '
+                             'plan_trace_path; nothing would be written')
+        if any(p.startswith(('gain_', 'futuresight'))
+               for p in (_spec['yard_policy'], _spec['dock_policy'])):
+            _sd.arm_trace(_tp, _spec['plan_trace'])
+            log.info(f'  [plan trace] every {_spec["plan_trace"]} batch(es) -> '
+                     f'{os.path.basename(_tp)}')
+        else:
+            log.info(f'  [plan trace] not armed: this dock runs no gain policy '
+                     f'({_spec["yard_policy"]}/{_spec["dock_policy"]}), so it plans nothing')
+    return _sd
 
 
 def _site_unload_cost(leaf_args: dict):

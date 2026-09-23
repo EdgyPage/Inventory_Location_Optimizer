@@ -188,6 +188,7 @@ CONFIG = {
         'inbound_lead_spread'   : _s.INBOUND_LEAD_SPREAD,
         'inbound_local_policy'  : _s.INBOUND_LOCAL_POLICY,
         'inbound_trailer_bound' : _s.INBOUND_TRAILER_BOUND,
+        'inbound_plan_trace'    : _s.INBOUND_PLAN_TRACE,
         # The standing yard (real doors, split yard/dock priorities, door-team crews,
         # own unload coefficients).  All riding inbound_spec below, so the whole family
         # crosses the worker payload as one record.
@@ -486,7 +487,7 @@ KNOBS: tuple[Knob, ...] = (
              's_pick_store', 's_pick_ff', 's_put'), family='staffing', spec_from=None),
     *_knobs(('inbound_trailer_type', 'inbound_dock_doors',
              'inbound_lead_minutes', 'inbound_lead_spread',
-             'inbound_local_policy', 'inbound_trailer_bound',
+             'inbound_local_policy', 'inbound_trailer_bound', 'inbound_plan_trace',
              'inbound_standing_yard', 'inbound_crew_allocation',
              'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
              'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
@@ -872,6 +873,20 @@ def recv_crew_spec(size: int | None = None) -> dict | None:
     }
 
 
+def _plan_trace_every(raw):
+    """Normalize INBOUND_PLAN_TRACE: None (off) or a positive int cadence in batches.
+
+    A probe instrument (`.scratch/inbound-throughput/` 03), never a policy: a traced cell
+    ranks byte-identically to an untraced one and only writes a sidecar.  `True` is refused
+    rather than read as 1, for the same reason the futuresight window refuses bools."""
+    if raw is None:
+        return None
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        raise ValueError(f'INBOUND_PLAN_TRACE must be None or a positive integer cadence '
+                         f'in batches (trace every Nth batch); got {raw!r}')
+    return raw
+
+
 def _futuresight_batches(raw):
     """Normalize INBOUND_FUTURESIGHT_BATCHES for the spec: None | 'all' | int >= 0.
 
@@ -1050,6 +1065,9 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
         'lead_seed': int(seed_world()),
         'local_policy': str(g.get('inbound_local_policy') or 'fifo'),
         'bound': g.get('inbound_trailer_bound'),
+        # The plan-trace probe's cadence: None = off, else trace every Nth batch.
+        # Validated here like every count, so a typo raises at spec build.
+        'plan_trace': _plan_trace_every(g.get('inbound_plan_trace')),
         # The standing yard.  `standing` False keeps every key inert; the driver binds
         # the v1 transit and none of the rest is read.
         'standing': standing,
