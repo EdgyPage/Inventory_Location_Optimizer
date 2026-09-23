@@ -1,0 +1,185 @@
+{
+ "root": "H:\\Data\\Inventory_Optimizer_Data\\Optimization_Outputs\\comparison_whatif_20260923_103547",
+ "window": [
+  0,
+  40
+ ],
+ "P1": {
+  "fulfillment/opt_fifo_norsl": 0.5763970951295153,
+  "fulfillment/opt_rank_minlabor_norsl": 0.5550961213791882,
+  "fulfillment/uni_fifo_norsl": 0.5763970951295153,
+  "fulfillment/uni_rank_minlabor_norsl": 0.5763304350721051,
+  "store/opt_fifo_norsl": 0.30126731893098696,
+  "store/opt_rank_cartlabor_norsl": 0.30031300339196143,
+  "store/uni_fifo_norsl": 0.30126731893098696,
+  "store/uni_rank_cartlabor_norsl": 0.3010974297041141
+ },
+ "P3": {
+  "k1_off_fifo/store": {
+   "total_pct": -1.9909471356670538,
+   "paired_pct": -2.14916044836961,
+   "ci_pct": [
+    -3.752954911892257,
+    -1.0473169893841734
+   ]
+  },
+  "k1_off_fifo/fulfillment": {
+   "total_pct": 0.03703499164240398,
+   "paired_pct": 0.037044279462745515,
+   "ci_pct": [
+    -0.07590732076493506,
+    0.13472732451917643
+   ]
+  },
+  "k1_off_lifo/store": {
+   "total_pct": -1.808296946690613,
+   "paired_pct": -1.9302806834651043,
+   "ci_pct": [
+    -2.7043032403978753,
+    -1.2726602479928935
+   ]
+  },
+  "k1_off_lifo/fulfillment": {
+   "total_pct": -0.012772500205426862,
+   "paired_pct": -0.012671482101850423,
+   "ci_pct": [
+    -0.11357523969295047,
+    0.10195157207294211
+   ]
+  }
+ },
+ "P4": {
+  "fulfillment/opt_fifo_norsl": {
+   "total_pct": 0.02256691215634099,
+   "paired_pct": 0.023465900930587258,
+   "ci_pct": [
+    -0.07420483170323859,
+    0.09261619081123441
+   ]
+  },
+  "fulfillment/opt_rank_minlabor_norsl": {
+   "total_pct": 0.007338605025131173,
+   "paired_pct": 0.007979348114214501,
+   "ci_pct": [
+    -0.07014119524959239,
+    0.0896700879707606
+   ]
+  },
+  "fulfillment/uni_fifo_norsl": {
+   "total_pct": 0.02256691215634099,
+   "paired_pct": 0.023465900930587258,
+   "ci_pct": [
+    -0.07420483170323859,
+    0.09261619081123441
+   ]
+  },
+  "fulfillment/uni_rank_minlabor_norsl": {
+   "total_pct": -0.0272333761718091,
+   "paired_pct": -0.026232449762638565,
+   "ci_pct": [
+    -0.11229947613794065,
+    0.05794583839847678
+   ]
+  },
+  "store/opt_fifo_norsl": {
+   "total_pct": -0.09287349909919973,
+   "paired_pct": -0.03628568030061909,
+   "ci_pct": [
+    -0.3074859050830688,
+    0.1716574757131669
+   ]
+  },
+  "store/opt_rank_cartlabor_norsl": {
+   "total_pct": 0.08868686965346484,
+   "paired_pct": 0.11699283211715047,
+   "ci_pct": [
+    -0.16898795753830106,
+    0.3873869418231118
+   ]
+  },
+  "store/uni_fifo_norsl": {
+   "total_pct": -0.09287349909919973,
+   "paired_pct": -0.03628568030061909,
+   "ci_pct": [
+    -0.3074859050830688,
+    0.1716574757131669
+   ]
+  },
+  "store/uni_rank_cartlabor_norsl": {
+   "total_pct": 0.09331394993923325,
+   "paired_pct": 0.34225318155606665,
+   "ci_pct": [
+    -0.5772281361906646,
+    1.619132695022409
+   ]
+  }
+ },
+ "P5": {
+  "k1_off_fifo/store": {
+   "total_pct": -2.4018463205689233,
+   "paired_pct": -2.248773532412767,
+   "ci_pct": [
+    -3.7314403534389804,
+    -0.3906653396109069
+   ]
+  },
+  "k1_off_fifo/fulfillment": {
+   "total_pct": -0.037805661199386,
+   "paired_pct": -0.03588877964782279,
+   "ci_pct": [
+    -0.14012607470536168,
+    0.05687180201554914
+   ]
+  },
+  "k1_off_lifo/store": {
+   "total_pct": -2.406358055419089,
+   "paired_pct": -2.4862841624942376,
+   "ci_pct": [
+    -3.461455119772094,
+    -1.5629699351016746
+   ]
+  },
+  "k1_off_lifo/fulfillment": {
+   "total_pct": -0.003237336046502115,
+   "paired_pct": -0.0019283125887689379,
+   "ci_pct": [
+    -0.08641139850950293,
+    0.08937559628592365
+   ]
+  }
+ },
+ "P6": {
+  "fulfillment/opt_fifo_norsl": [
+   155630,
+   153983
+  ],
+  "fulfillment/opt_rank_minlabor_norsl": [
+   155630,
+   153467
+  ],
+  "fulfillment/uni_fifo_norsl": [
+   155630,
+   153983
+  ],
+  "fulfillment/uni_rank_minlabor_norsl": [
+   155630,
+   152908
+  ],
+  "store/opt_fifo_norsl": [
+   164783,
+   163461
+  ],
+  "store/opt_rank_cartlabor_norsl": [
+   164783,
+   163816
+  ],
+  "store/uni_fifo_norsl": [
+   164783,
+   163461
+  ],
+  "store/uni_rank_cartlabor_norsl": [
+   164783,
+   163825
+  ]
+ }
+}

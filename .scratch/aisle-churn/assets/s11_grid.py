@@ -25,6 +25,8 @@ POINTS = [  # (tag, store k, ff k, c, n_batches)
     ('k10_c95', 10, 10, 0.95, 40), ('k10_c80', 10, 10, 0.80, 40),
     ('k30_c95', 30, 10, 0.95, 40), ('k30_c80', 30, 10, 0.80, 40),
     ('k1_c95_h80', 1, 1, 0.95, 80),
+    # S12: bisecting the unloading-order threshold (dock contention), registered in S11
+    ('k20_c95', 20, 10, 0.95, 40), ('k25_c95', 25, 10, 0.95, 40),
 ]
 
 
