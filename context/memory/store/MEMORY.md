@@ -154,3 +154,4 @@
 - [Closed-form module usage](closed-form-module-usage.md) — kernel DSL + Mirror gate + models/ + render/docs_page; how to add a law
 - [Confidence lever saturates](confidence-lever-saturates-at-one-line.md) — c<=0.80 declares the one-line floor; k is the churn lever
 - [Aisle ceiling + dock gate](aisle-ceiling-and-dock-gate.md) — store picking caps at k*~12.8 (one picker per aisle-day); order matters only past rho_door=1
+- [Co-location needs the Palm probability](colocation-needs-the-palm-probability.md) — independent-visit tasks invert ff co-location; use P0_a(s)
