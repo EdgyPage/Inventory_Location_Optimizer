@@ -323,6 +323,25 @@ ARTIFACTS = {
         'condition': 'derived from the run tree alone, so present whenever the dossier is.',
         'evaluation': 'catalog.fixed',
         'writer': 'render@Optimization/Performance_Evaluations/catalog/fixed.py'},
+    'closed_form_json': {
+        'group': 'dossier',
+        'path': '_dossier/closed_form.json', 'format': 'json', 'scope': 'run',
+        'optional': True,
+        'condition': 'needs a readable planned inventory and a window (n_batches) in the '
+                     'run spec; the realised block also needs the sim DBs of the reference '
+                     'cell.',
+        'evaluation': 'closed_form.predicted',
+        'writer': 'render@Optimization/Performance_Evaluations/closed_form/evaluation.py',
+        'note': 'the closed-form models (Optimization/simconfig/models/) evaluated at the '
+                'record of the run itself, beside what the run did: levels, the fresh-bin '
+                'share.'},
+    'closed_form_pngs': {
+        'group': 'dossier',
+        'path': '_dossier/figures/closed_form/*.png', 'format': 'png', 'scope': 'run',
+        'optional': True,
+        'condition': 'written with the closed-form JSON when a realised share exists.',
+        'evaluation': 'closed_form.predicted',
+        'writer': 'render@Optimization/Performance_Evaluations/closed_form/evaluation.py'},
     'comparison_census_json': {
         'group': 'dossier',
         'path': '_dossier/comparison_census.json', 'format': 'json', 'scope': 'run',

@@ -1,6 +1,6 @@
 {
-  "head": "sha256:645550a904b37d36cd1148d64a014390ecf0551fa4095013c67087345373ef16",
-  "source_fingerprint": "sha256:1c061e55459b0062788c6b577c14a7434906a252354a0345982fde0e8a771b29",
+  "head": "sha256:d9ffe4d51503b71eda2460edf34548c1e333f092562f20528784bf1e7c89b57d",
+  "source_fingerprint": "sha256:820321a51bf4e9b5bd5ca73464facc43127279335b620b71ccfe18ddb7ab7a06",
   "schemas": {
     "sha256:e69b6d392929333bab41bd36f3f9c534d428c7002bbfc597d3d48084de0373f6": {
       "short": "e69b6d392929",
@@ -224,6 +224,17 @@
       "label": "site_plan_trace: the plan-trace probe sidecar (inbound-throughput 03)",
       "changes": [
         "artifact ADDED: site_plan_trace -> {cell}/{pair}/_site/plan_trace_{strategy}.jsonl"
+      ]
+    },
+    "sha256:d9ffe4d51503b71eda2460edf34548c1e333f092562f20528784bf1e7c89b57d": {
+      "short": "d9ffe4d51503",
+      "parent": "sha256:645550a904b37d36cd1148d64a014390ecf0551fa4095013c67087345373ef16",
+      "created": "2026-09-23T10:29:46",
+      "commit": "173194d3",
+      "label": "",
+      "changes": [
+        "artifact ADDED: closed_form_json -> _dossier/closed_form.json",
+        "artifact ADDED: closed_form_pngs -> _dossier/figures/closed_form/*.png"
       ]
     }
   }

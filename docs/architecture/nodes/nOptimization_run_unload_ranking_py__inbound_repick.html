@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a> <span class="sep">›</span> <span class="here"><code>inbound_repick</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>inbound_repick</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
-
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def inbound_repick(pick_rows, placement_rows) -&gt; dict</code></pre>
 <section class="doc">How much of what inbound put away inside the window was picked again inside it.
 
@@ -34,7 +34,7 @@ was already stocked when the placement topped it up counts its later picks again
 placed units first (a floor, since the earlier stock may have served some of them).
 `pick_rows` is the `pick_bins` named query (sku, batch_id, aisle_id, bayX, bayY, units);
 `placement_rows` is `load_bin_placements` (the `cause` column selects the reorders).</section>
-<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py___leaf_repick.html"><code>_leaf_repick</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_closed_form_evaluation_py___realised.html"><code>_realised</code></a> <span class="dim">Optimization/Performance_Evaluations/closed_form/evaluation.py</span></li><li><a href="nOptimization_run_unload_ranking_py___leaf_repick.html"><code>_leaf_repick</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py__inbound_repick">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20inbound_repick">Source ↗</a></p>
 </article>
 </main>

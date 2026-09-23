@@ -225,6 +225,13 @@ files:
       - {name: "draw_figures", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "function"}
       - {name: "main", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/closed_form/evaluation.py":
+    purpose: "Run-scope evaluation closed_form.predicted: levels and the fresh-bin share predicted from the run's own record and script, beside the realised share per arm, into the dossier."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "section_prediction", file: "Optimization/Performance_Evaluations/closed_form/evaluation.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/closed_form/evaluation.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/closed_form/render.py":
     purpose: "The closed-form visualiser: a model's dependency graph, sweep curves, predicted-vs-realised dots with intervals, and a Markdown page of models."
     layer: "evaluations"

@@ -2991,6 +2991,77 @@
       "kind": "function",
       "signature": "()"
     },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py": {
+      "decorators": [],
+      "doc": "closed_form.predicted \u2014 the closed-form models evaluated at a run's own record, against what\nthe run did.  A run-scope evaluation: it writes the contract's `closed_form_json` document at\nthe dossier root and one predicted-vs-realised figure (`closed_form_pngs`); both basenames and\nfolders come from the declarations, never from text here.\n\nPER CHANNEL SECTION, from the run's staffing record (the coverage calibration: lines per day,\nthe solved floor, the lead) and its frozen catalogue:\n\n  levels     `models.levels.LEVELS` for every SKU: the share on its line floor, the stock the\n             warehouse is sized for (sum Q), and the median cover Q / d in days;\n  fresh      the fresh-bin share phi over the run's window (`models.churn`), two ways --\n               declared: the unconditional law at the LINE SHARE the declaration prices\n                         (what the record alone predicts; S01 says the sampler bends it),\n               script:   the count-conditional law on the run's own batch script (exogenous\n                         demand, known before any placement);\n  realised   the share of units picked from bins a reorder filled inside the window, per arm\n             of the reference cell (`run_unload_ranking.inbound_repick`), and the free pool at\n             the window's two ends (the flow equilibrium: frees = placements).\n\nEvery equation in the JSON's `derivation` is `Model.to_markdown` of the tree that produced the\nnumber beside it.  The study behind it: `.scratch/aisle-churn/` S02, S08, S09.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_ARTIFACT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'closed_form_json'"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_BASENAME": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "_head_basename(_ARTIFACT)"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_FIG_SUBDIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'figures/closed_form'"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_coverage": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec: dict, pair: str) -> dict"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_head_basename": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(artifact: str) -> str"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_realised": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(db: str, arm: str, H: int) -> dict"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::_script": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, cell: str, pair: str, skus: set)"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::render": {
+      "decorators": [
+        "evaluation(key='closed_form.predicted', label='Closed-form predictions vs the run', scope='run', needs=('catalogue',), out_subdir=('', _FIG_SUBDIR))"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ctx, params)"
+    },
+    "Optimization/Performance_Evaluations/closed_form/evaluation.py::section_prediction": {
+      "decorators": [],
+      "doc": "The record's own predictions for one section (no simulation output read).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, cov: dict, channel: str, H: int, script=None) -> dict"
+    },
     "Optimization/Performance_Evaluations/closed_form/render.py": {
       "decorators": [],
       "doc": "render \u2014 the closed-form models drawn and written (see the package docstring).",
@@ -6634,7 +6705,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed']"
+      "value_preview": "['cost.compute', 'cost.rollup', 'dossier.index', 'tables.census', 'catalog.rules', 'catalog.inventory', 'catalog.fixed', 'closed_form.predicted']"
     },
     "Optimization/Performance_Evaluations/presets.py::_SITE": {
       "decorators": [],
