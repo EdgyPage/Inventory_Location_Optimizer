@@ -111,9 +111,23 @@ _EPOCH_TOL: float = 1e-6
 
 #: How far the leaves' own accrued receiving seconds may sit from the dock's, and still be
 #: the same labour.  The two sums are the same `dur` values added in different orders, so
-#: the gap is float re-association over one batch and nothing else; a real leak is a whole
-#: unload (seconds, not nanoseconds).  Floats compare with a tolerance (CLAUDE.md section 2).
+#: the gap is float re-association and nothing else; a real leak is a whole unload (seconds,
+#: not nanoseconds).  Floats compare with a tolerance (CLAUDE.md section 2).
+#:
+#: RELATIVE past the absolute floor.  The per-leaf side is a difference of CUMULATIVE totals
+#: (`receiving_seconds` now minus at the last close), and re-association error grows with the
+#: magnitude summed: a 400k site at 2.2x the declared demand charges ~1.1 million dock seconds
+#: a day, and an absolute 1e-6 raised there on a 2.1e-6 s gap -- about 2 parts in 10^12 --
+#: killing a unit on day 33 of an otherwise healthy run (S16b, 2026-09-23).
 _SECONDS_TOL: float = 1e-6
+_SECONDS_RTOL: float = 1e-9
+
+
+def _seconds_agree(a: float, b: float) -> bool:
+    """True when two sums of the same unload seconds are the same labour: within the absolute
+    floor, or within `_SECONDS_RTOL` of the larger.  A missing unload is seconds, far outside
+    either."""
+    return abs(a - b) <= max(_SECONDS_TOL, _SECONDS_RTOL * max(abs(a), abs(b)))
 
 SITE_PHASES: tuple = (
     ('leaf', '_tick_batch'),
@@ -414,7 +428,7 @@ class SiteReceiving:
                     f'part of the other receiving, which is the site total wearing one '
                     f'channel name')
         got_s = sum(s['seconds'] for s in shares.values())
-        if abs(got_s - seconds) > _SECONDS_TOL:
+        if not _seconds_agree(got_s, seconds):
             raise RuntimeError(
                 f'the site dock charged {seconds!r} s in site day {self._open} and its '
                 f'leaves accrued {got_s!r} s; the per-leaf seconds come from each leaf own '
