@@ -72,3 +72,10 @@ revisions without convergence opens an issue for the user.
   is -0.60% height on fresh picks; fifo vs lifo is exchangeable, E = 0 +- 0.012%, the fill null
   retrodicted.
 - **Skipped so far:** S04 (yard) and S07 (g_b, fulfillment's co-location gap).
+- **S10-S12** closed: grid registered then run (9 + 2 bisection runs, 40k).  The fresh-bin law
+  holds at every k at c = 0.95; the store placement gap grows to k ~ 10 then plateaus; the
+  unloading order is null wherever the dock keeps up and matters only past its saturation
+  (24-27 trailers/day); breathing room appears only off the floor.
+- **S13** synthesis written; **Milestone 5** built (visualiser, generated docs page,
+  `closed_form.predicted` dossier evaluation).  Open: S04, S07, the carry term, the off-floor
+  drawdown law; proposed: the drain-order fix and one 400k confirmation.

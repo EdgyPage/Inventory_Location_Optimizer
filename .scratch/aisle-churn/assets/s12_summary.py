@@ -86,15 +86,15 @@ def main(book):
         g5_1 = statistics.mean(v['total_pct'] for k_, v in a5.items() if k_.endswith('/store')) \
             if a5 else None
         g5 = statistics.mean(v['total_pct'] for k_, v in m['P5'].items() if k_.endswith('/store'))
-        pred5 = None if g5_1 is None else g5_1 * p5_ratio(ks)
+        pred5 = None if g5_1 is None or ks not in P1['store'] else g5_1 * p5_ratio(ks)
         sig = sum(1 for v in m['P4'].values() if v['ci_pct'] and
                   (v['ci_pct'][0] > 0 or v['ci_pct'][1] < 0))
         drift = max(abs(b / a - 1.0) for a, b in m['P6'].values())
-        print(f'{tag:12s} {p1s:6.1%}/{P1["store"][ks]:5.1%}  {p1f:6.1%}/{P1["fulfillment"].get(kf, float("nan")):5.1%}  '
+        print(f'{tag:12s} {p1s:6.1%}/{P1["store"].get(ks, float("nan")):5.1%}  {p1f:6.1%}/{P1["fulfillment"].get(kf, float("nan")):5.1%}  '
               f'{g["k1_off_fifo"]:+7.2f}% | {g["k1_off_lifo"]:+7.2f}%          '
               f'{(pred3 if pred3 is not None else float("nan")):+7.2f}%  {g5:+6.2f}/{(pred5 if pred5 is not None else float("nan")):+6.2f}%  '
               f'{sig:3d}/{len(m["P4"])}  {drift:6.2%}')
-        if r['n_batches'] == 40:
+        if r['n_batches'] == 40 and ks in P1['store']:
             rows_p1.append({'label': f'store {tag}', 'predicted': 100 * P1['store'][ks],
                             'realised': 100 * p1s})
             rows_p1.append({'label': f'fulfillment {tag}',
