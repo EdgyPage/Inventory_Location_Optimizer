@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.Performance_Evaluations.closed_form · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_Performance_Evaluations_closed_form___init___py" data-id="Optimization/Performance_Evaluations/closed_form/__init__.py">
+<nav class="crumbs"><a href="../layers.html">evaluations</a> <span class="sep">›</span> <span class="here"><code>Optimization/Performance_Evaluations/closed_form/__init__.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.Performance_Evaluations.closed_form</code></h1>
+<p class="meta">layer <span class="chip">evaluations</span> · file <a href="../files/nOptimization_Performance_Evaluations_closed_form___init___py.html"><code>Optimization/Performance_Evaluations/closed_form/__init__.py</code></a></p>
+
+<pre class="sig"><code>Optimization.Performance_Evaluations.closed_form</code></pre>
+<section class="doc">closed_form — pictures and pages of the closed-form models (`Warehouse/kernel/closed_form.py`,
+`Optimization/simconfig/models/`).
+
+The kernel module writes an equation once and gets numbers, LaTeX and a dependency graph from the
+same tree.  This folder is where those turn into things a reader looks at, through `chartkit`
+like every figure in the suite:
+
+  render.model_graph            a model&#x27;s dependency graph, inputs to outputs, laid out by depth
+  render.sweep_chart            one or more outputs against a swept input
+  render.predicted_vs_realised  a closed form&#x27;s predictions against the simulator&#x27;s measurements,
+                                with the measurement&#x27;s interval -- the verification picture
+  render.write_page             a Markdown page (MathJax `$$...$$`) of several models, each
+                                optionally with its numbers substituted in
+
+Nothing here computes a model: every value comes from `Model.evaluate` / `Model.sweep`, and
+every equation printed is `Equation.latex` of the tree that produced the value.</section>
+<section class="rel"><h2>Imports <span class="count">(0)</span></h2></section><section class="rel"><h2>Imported by <span class="count">(0)</span></h2></section><section class="rel"><h2>Defines <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_Performance_Evaluations_closed_form___init___py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/Performance_Evaluations/closed_form/__init__.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

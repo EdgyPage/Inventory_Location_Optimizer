@@ -2909,6 +2909,129 @@
       "kind": "function",
       "signature": "(ctx, params)"
     },
+    "Optimization/Performance_Evaluations/closed_form/__init__.py": {
+      "decorators": [],
+      "doc": "closed_form \u2014 pictures and pages of the closed-form models (`Warehouse/kernel/closed_form.py`,\n`Optimization/simconfig/models/`).\n\nThe kernel module writes an equation once and gets numbers, LaTeX and a dependency graph from the\nsame tree.  This folder is where those turn into things a reader looks at, through `chartkit`\nlike every figure in the suite:\n\n  render.model_graph            a model's dependency graph, inputs to outputs, laid out by depth\n  render.sweep_chart            one or more outputs against a swept input\n  render.predicted_vs_realised  a closed form's predictions against the simulator's measurements,\n                                with the measurement's interval -- the verification picture\n  render.write_page             a Markdown page (MathJax `$$...$$`) of several models, each\n                                optionally with its numbers substituted in\n\nNothing here computes a model: every value comes from `Model.evaluate` / `Model.sweep`, and\nevery equation printed is `Equation.latex` of the tree that produced the value.",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py": {
+      "decorators": [],
+      "doc": "docs_page \u2014 `docs/closed-form-models.md`, written by the models themselves.\n\nEvery equation on the page is `Equation.latex` of the tree the simulator's mirror tests hold\nequal to the code, and every worked number is `Model.evaluate` of the inputs listed here -- so\nthe page cannot say something the models do not compute.  `Tests/unit/test_closed_form_render.py`\nregenerates the Markdown and fails when the committed page differs: edit a model, then run\n\n    python -m Optimization.Performance_Evaluations.closed_form.docs_page --write\n\n(`--check` exits 1 on drift; `--write` also redraws the page's figures under\n`docs/images/closed-form/`, which are not byte-reproducible and so are not part of the check).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::FIGURES_NOTE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\n## The fresh-bin share over demand density\\n\\n![fresh-bin share](images/closed-form/fresh_share.png)\\n\\nA SKU drawn once in a window has no line an inbound decision could serve; the share climbs..."
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::FIG_DIR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(_REPO, 'docs', 'images', 'closed-form')"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::INTRO": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "\"\\nClosed forms for what the simulator charges and why: where a SKU's stock level comes from,\\nwhen it reorders, what one pick costs, how much of the picking an inbound decision can reach,\\nand how..."
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::PAGE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.join(_REPO, 'docs', 'closed-form-models.md')"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::_REPO": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::_store_pick_law": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::main": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(argv=None) -> int"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::render": {
+      "decorators": [],
+      "doc": "The page's Markdown, deterministic.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> str"
+    },
+    "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections": {
+      "decorators": [],
+      "doc": "`[(model, result, heading), ...]` in page order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Optimization/Performance_Evaluations/closed_form/render.py": {
+      "decorators": [],
+      "doc": "render \u2014 the closed-form models drawn and written (see the package docstring).",
+      "kind": "module",
+      "signature": null
+    },
+    "Optimization/Performance_Evaluations/closed_form/render.py::layers": {
+      "decorators": [],
+      "doc": "`{name: depth}`: inputs at 0, each equation one past the deepest thing it reads.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(model) -> dict"
+    },
+    "Optimization/Performance_Evaluations/closed_form/render.py::model_graph": {
+      "decorators": [],
+      "doc": "Draw `model` as a left-to-right graph: inputs (square boxes) in the first column, each\nequation in the column after the deepest symbol it reads, an arrow per dependency.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(model, path, *, title=None, subtitle=None) -> str"
+    },
+    "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised": {
+      "decorators": [],
+      "doc": "One row per quantity: the closed form's prediction (hollow diamond) and the simulator's\nmeasurement (filled dot, with its interval when `lo`/`hi` are given).\n`rows`: `[{'label', 'predicted', 'realised', 'lo'?, 'hi'?}, ...]`, top row first.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows, path, *, title, subtitle=None, unit='%') -> str"
+    },
+    "Optimization/Performance_Evaluations/closed_form/render.py::sweep_chart": {
+      "decorators": [],
+      "doc": "`outputs` of `model` against input `name` swept over `values` (other inputs fixed).\n`scale` multiplies every output (100 for a share printed in %).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(model, name, values, inputs, outputs, path, *, xlabel=None, ylabel=None, title=None, subtitle=None, logx=False, scale=None) -> str"
+    },
+    "Optimization/Performance_Evaluations/closed_form/render.py::write_page": {
+      "decorators": [],
+      "doc": "A Markdown page of several models: `sections` is `[(model, result_or_None), ...]` or\n`[(model, result_or_None, heading), ...]`.  Every equation is the model's own rendering.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sections, path, *, title, intro='') -> str"
+    },
     "Optimization/Performance_Evaluations/common/__init__.py": {
       "decorators": [],
       "doc": null,

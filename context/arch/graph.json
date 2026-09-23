@@ -2146,6 +2146,141 @@
       "src": "Optimization/Performance_Evaluations/catalog/rules.py::render"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/closed_form/docs_page.py::main",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/simconfig/__init__.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/simconfig/models/levels.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/simconfig/models/reorders.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::_build_pick_cfg",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::_store_pick_law"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/render.py::model_graph",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/render.py::sweep_chart",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py::FRESH",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures"
+    },
+    {
+      "dst": "Optimization/simconfig/models/levels.py::LEVELS",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::main"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/docs_page.py::render",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::main"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::render"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/docs_page.py::_store_pick_law",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py::FRESH",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py::GAP_CHAIN",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/churn.py::STEADY",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/levels.py::LEVELS",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/reorders.py::REORDERS",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/closed_form/render.py::layers",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py::model_graph"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py::model_graph"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::height_for_categories",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/common/chartkit.py::make",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/closed_form/render.py::sweep_chart"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/common/io.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/common/chartkit.py"
@@ -27154,6 +27289,150 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/catalog/rules.py",
       "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/__init__.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/__init__.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/closed_form/__init__.py",
+      "name": "Optimization.Performance_Evaluations.closed_form",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "Optimization.Performance_Evaluations.closed_form.docs_page",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::FIGURES_NOTE",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "FIGURES_NOTE",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::FIG_DIR",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "FIG_DIR",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::INTRO",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "INTRO",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::PAGE",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "PAGE",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::_REPO",
+      "kind": "const",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "_REPO",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::_store_pick_law",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "_store_pick_law",
+      "public": false
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::draw_figures",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "draw_figures",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::main",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "main",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::render",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/docs_page.py",
+      "name": "sections",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "kind": "module",
+      "module": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "name": "Optimization.Performance_Evaluations.closed_form.render",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/render.py::layers",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "name": "layers",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/render.py::model_graph",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "name": "model_graph",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/render.py::predicted_vs_realised",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "name": "predicted_vs_realised",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/render.py::sweep_chart",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "name": "sweep_chart",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "id": "Optimization/Performance_Evaluations/closed_form/render.py::write_page",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/closed_form/render.py",
+      "name": "write_page",
       "public": true
     },
     {

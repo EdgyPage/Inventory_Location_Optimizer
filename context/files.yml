@@ -212,6 +212,29 @@ files:
       - {name: "catalog", file: "Optimization/Performance_Evaluations/catalog/rules.py", kind: "function"}
       - {name: "render", file: "Optimization/Performance_Evaluations/catalog/rules.py", kind: "function"}
     notes: ""
+  "Optimization/Performance_Evaluations/closed_form/docs_page.py":
+    purpose: "Generates docs/closed-form-models.md from the closed-form models (equations and worked numbers from the same trees); --check is its freshness gate."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "PAGE", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "const"}
+      - {name: "FIG_DIR", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "const"}
+      - {name: "INTRO", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "const"}
+      - {name: "FIGURES_NOTE", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "const"}
+      - {name: "sections", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "function"}
+      - {name: "render", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "function"}
+      - {name: "draw_figures", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "function"}
+      - {name: "main", file: "Optimization/Performance_Evaluations/closed_form/docs_page.py", kind: "function"}
+    notes: ""
+  "Optimization/Performance_Evaluations/closed_form/render.py":
+    purpose: "The closed-form visualiser: a model's dependency graph, sweep curves, predicted-vs-realised dots with intervals, and a Markdown page of models."
+    layer: "evaluations"
+    key_symbols:
+      - {name: "layers", file: "Optimization/Performance_Evaluations/closed_form/render.py", kind: "function"}
+      - {name: "model_graph", file: "Optimization/Performance_Evaluations/closed_form/render.py", kind: "function"}
+      - {name: "sweep_chart", file: "Optimization/Performance_Evaluations/closed_form/render.py", kind: "function"}
+      - {name: "predicted_vs_realised", file: "Optimization/Performance_Evaluations/closed_form/render.py", kind: "function"}
+      - {name: "write_page", file: "Optimization/Performance_Evaluations/closed_form/render.py", kind: "function"}
+    notes: ""
   "Optimization/Performance_Evaluations/common/chartkit.py":
     purpose: "the one rendering contract every figure in the suite draws through."
     layer: "evaluations"
@@ -4140,6 +4163,15 @@ files:
       - {name: "test_the_mirrored_bracket_table_is_the_simulators", file: "Tests/unit/test_closed_form.py", kind: "function"}
       - {name: "test_the_handling_term_mirrors_every_transform_the_configs_use", file: "Tests/unit/test_closed_form.py", kind: "function"}
       - {name: "test_a_second_equation_under_a_registered_name_is_refused", file: "Tests/unit/test_closed_form.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_closed_form_render.py":
+    purpose: "Pins the closed-form visualiser: graph layering, every renderer writes a file, and the generated docs page is not stale."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_layers_put_inputs_first_and_each_equation_past_what_it_reads", file: "Tests/unit/test_closed_form_render.py", kind: "function"}
+      - {name: "test_every_renderer_writes_a_file", file: "Tests/unit/test_closed_form_render.py", kind: "function"}
+      - {name: "test_the_page_prints_each_models_own_equations", file: "Tests/unit/test_closed_form_render.py", kind: "function"}
+      - {name: "test_the_committed_docs_page_is_fresh", file: "Tests/unit/test_closed_form_render.py", kind: "function"}
     notes: ""
   "Tests/unit/test_cluster_map_choose_aisle_equivalence.py":
     purpose: "the fused lift scan returns the old answer."

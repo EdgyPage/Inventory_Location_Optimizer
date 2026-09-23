@@ -77,6 +77,7 @@ exclude_docs: |
 nav:
   - Home: index.md
   - Code map: code-graph.md
+  - Closed-form models: closed-form-models.md
   - Future experiment discussion: future-experiments.md
   # Experiment 9 is the current sweep and leads the nav RESULTS-FIRST: a reader meets the
   # numbers before any method page.  Everything after "Every cell" is progressively deeper
