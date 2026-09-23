@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>derive_fill · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_staffing_py__derive_fill" data-id="Optimization/simconfig/staffing.py::derive_fill">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a> <span class="sep">›</span> <span class="here"><code>derive_fill</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>derive_fill</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_staffing_py.html"><code>Optimization/simconfig/staffing.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def derive_fill(*, declared: dict, s_put: dict, span_days: float, ratio: float, day_seconds: float, rho_put: float, rho_recv: float) -&gt; dict</code></pre>
+<section class="doc">The fill trial&#x27;s two site crews, sized from the declaration over the fill span.
+
+ADR-0004&#x27;s shape, applied to a different quantity: demand declared (the stock
+declaration, received once over `span_days` site days), crew derived --
+`crew_size(load / span, S, rho)` for put-away and receiving alike, with put-away priced
+at each channel&#x27;s own `s_put` exactly as `derive` prices the steady state.  The fill&#x27;s
+DEPTH is not an understaffing: it comes from `ratio`, the arrival pressure the worker
+dispatches at (`_FillDispatch`), which is why this block records the totals the worker
+turns into a dispatch rate rather than a rate -- the rate depends on the cell&#x27;s door
+count, which this per-pair derivation does not know.
+
+`declared` maps a channel to `declared_work`&#x27;s dict; `s_put` maps it to its recorded put
+constant (`{&#x27;value&#x27;: ...}`).</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_staffing_py__crew_size.html"><code>crew_size</code></a> <span class="dim">Optimization/simconfig/staffing.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_staffing_py__derive_fill">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/staffing.py#:~:text=def%20derive_fill">Source ↗</a></p>
+</article>
+</main>
+</body></html>

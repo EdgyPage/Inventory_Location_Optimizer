@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_FillDispatch · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___FillDispatch" data-id="Optimization/simdriver/strategy_runner.py::_FillDispatch">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <span class="here"><code>_FillDispatch</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_FillDispatch</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+
+<pre class="sig"><code>class _FillDispatch</code></pre>
+<section class="doc">THE FILL TRIAL&#x27;s dispatcher (CONTEXT.md: Fill trial; `.scratch/inbound-throughput/` 05).
+
+Holds the whole site&#x27;s declaration as lots in ONE seeded world order -- both channels&#x27;
+lots shuffled together, keyed by the world seed and `_FILL_ORDER_TAG`, so trailer N
+carries the same packs in every cell of a run and a mixed load is mixed exactly as a
+reorder&#x27;s is (decision Q21: by frequency would be an unloading policy in disguise).  Each
+site day `dispatch` sends the next slice into the one yard at the declared pressure --
+`units_per_day` is the parent&#x27;s `staffing.fill_dispatch_rate`, the ratio times what the
+SEATED receiving crew can unload -- and books each lot on its owning leaf&#x27;s ledger
+exactly where a reorder is booked.
+
+The fill ENDS on the first day every lot has been sent, nothing stands in the yard or at
+a door or on the dock floor, and every leaf reports its units binned (`settled`).  Then
+`end` shrinks both site crews to the pick stage&#x27;s in place -- the clock lists the pool,
+the dock and every bound queue share -- and the driver starts the pick stage.  A fill
+that has not settled by `max_days` raises with the census: at a ratio below one the yard
+clears within days of the last dispatch, so a fill still running then is a unit no bin
+will take, and a pick stage that never starts is not a run.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simdriver_strategy_runner_py___build_fill.html"><code>_build_fill</code></a> <span class="dim">Optimization/simdriver/strategy_runner.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___FillDispatch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=class%20_FillDispatch">Source ↗</a></p>
+</article>
+</main>
+</body></html>

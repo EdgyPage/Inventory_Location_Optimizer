@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fill_spec · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_config_sim_config_py__fill_spec" data-id="Optimization/config/sim_config.py::fill_spec">
+<nav class="crumbs"><a href="../layers.html">opt_config</a> <span class="sep">›</span> <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a> <span class="sep">›</span> <span class="here"><code>fill_spec</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>fill_spec</code></h1>
+<p class="meta">layer <span class="chip">opt_config</span> · file <a href="../files/nOptimization_config_sim_config_py.html"><code>Optimization/config/sim_config.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def fill_spec() -&gt; dict | None</code></pre>
+<section class="doc">The FILL TRIAL&#x27;s record (CONTEXT.md: Fill trial), or None -- every run that is not one.
+
+`{&#x27;span_days&#x27;, &#x27;ratio&#x27;}`: the site days the fill crews are derived over, and the arrival
+pressure the declaration is dispatched at (dispatch rate over the seated receiving rate).
+Both are declared; the crews, the dispatch rate and the fill&#x27;s length are derived from
+them (`staffing.derive_fill`, the worker&#x27;s `_FillDispatch`).
+
+Refused rather than degraded, every one of them a run that would complete under the fill&#x27;s
+name without being one:
+  * a fill with no trailer pipeline -- nothing would ever arrive, and the pick stage would
+    never start;
+  * a fill without the standing yard -- v1 drains everything at once, so there is no
+    queue for the unloading order to act on;
+  * a fill under a trailer bound -- refuted for ranking (memory
+    `the-trailer-bound-buys-wall-with-discrimination`) and the fill trial&#x27;s cells exclude
+    it by decision (inbound-throughput Q23);
+  * a ratio outside (0, 1) -- at or above 1 the yard grows without bound and the policies
+    converge on arrival order (Q15/Q20), at or below 0 nothing is dispatched.
+The coupled era is checked where the flags are (`run_simulation._check_era_flags`).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nOptimization_config_sim_config_py__inbound_spec.html"><code>inbound_spec</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_simdriver_workunits_py___channel_strategies.html"><code>_channel_strategies</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___derive_staffing_for_pair.html"><code>_derive_staffing_for_pair</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_config_sim_config_py__fill_spec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/config/sim_config.py#:~:text=def%20fill_spec">Source ↗</a></p>
+</article>
+</main>
+</body></html>

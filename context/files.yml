@@ -64,6 +64,9 @@ files:
     layer: "inbound"
     key_symbols:
       - {name: "plan_order", file: "Inbound/gain.py", kind: "function"}
+      - {name: "plan_order_topm", file: "Inbound/gain.py", kind: "function"}
+      - {name: "TRACE_TOPM", file: "Inbound/gain.py", kind: "const"}
+      - {name: "bundle_uses_pool", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_myopic", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_forecast", file: "Inbound/gain.py", kind: "function"}
       - {name: "gain_gated", file: "Inbound/gain.py", kind: "function"}
@@ -761,6 +764,9 @@ files:
       - {name: "INBOUND_LEAD_SPREAD", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_LOCAL_POLICY", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_TRAILER_BOUND", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_PLAN_TRACE", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_FILL_SPAN_DAYS", file: "Optimization/config/settings.py", kind: "const"}
+      - {name: "INBOUND_FILL_RATIO", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_STANDING_YARD", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_CREW_ALLOCATION", file: "Optimization/config/settings.py", kind: "const"}
       - {name: "INBOUND_YARD_POLICY", file: "Optimization/config/settings.py", kind: "const"}
@@ -850,6 +856,7 @@ files:
       - {name: "shift_seconds", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "work_day_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "recv_crew_spec", file: "Optimization/config/sim_config.py", kind: "function"}
+      - {name: "fill_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "inbound_lead_law", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "inbound_spec", file: "Optimization/config/sim_config.py", kind: "function"}
       - {name: "put_queues_spec", file: "Optimization/config/sim_config.py", kind: "function"}
@@ -892,6 +899,10 @@ files:
       - {name: "PILOT_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE1_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_RANKING", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_PLAN_TRACE_EVERY", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_DOOR_PROBE_LEVELS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "PHASE2_DOOR_LEVELS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "door_scarcity_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "PHASE2_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_BOUND_PROBE_K", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -1443,6 +1454,9 @@ files:
       - {name: "expected_utilization", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "constant", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "derive", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "declared_work", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "derive_fill", file: "Optimization/simconfig/staffing.py", kind: "function"}
+      - {name: "fill_dispatch_rate", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "derived_differs", file: "Optimization/simconfig/staffing.py", kind: "function"}
       - {name: "PIN_SIGFIGS", file: "Optimization/simconfig/staffing.py", kind: "const"}
       - {name: "pin_of", file: "Optimization/simconfig/staffing.py", kind: "function"}
@@ -2247,6 +2261,23 @@ files:
     purpose: "perf benchmark for warehouse planning."
     layer: "tests"
     key_symbols: []
+    notes: ""
+  "Tests/bench/bench_pool_open.py":
+    purpose: "price one gain-evaluator pool open in seconds, at the campaign shape."
+    layer: "tests"
+    key_symbols:
+      - {name: "Shape", file: "Tests/bench/bench_pool_open.py", kind: "class"}
+      - {name: "CAMPAIGN", file: "Tests/bench/bench_pool_open.py", kind: "const"}
+      - {name: "SMALL", file: "Tests/bench/bench_pool_open.py", kind: "const"}
+      - {name: "Scene", file: "Tests/bench/bench_pool_open.py", kind: "class"}
+      - {name: "build_scene", file: "Tests/bench/bench_pool_open.py", kind: "function"}
+      - {name: "FAMILIES", file: "Tests/bench/bench_pool_open.py", kind: "const"}
+      - {name: "open_pool", file: "Tests/bench/bench_pool_open.py", kind: "function"}
+      - {name: "seat", file: "Tests/bench/bench_pool_open.py", kind: "function"}
+      - {name: "walk_only", file: "Tests/bench/bench_pool_open.py", kind: "function"}
+      - {name: "measure", file: "Tests/bench/bench_pool_open.py", kind: "function"}
+      - {name: "replica_bytes", file: "Tests/bench/bench_pool_open.py", kind: "function"}
+      - {name: "main", file: "Tests/bench/bench_pool_open.py", kind: "function"}
     notes: ""
   "Tests/bench/bench_ranked_assign.py":
     purpose: "perf benchmark for _ranked_assign_impl (lift waves)."
@@ -3750,6 +3781,16 @@ files:
       - {name: "test_build_plan_bell_branch_sets_bell_specs", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
       - {name: "test_build_plan_uniform_branch_keeps_baseline", file: "Tests/unit/test_bell_freq_profile.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_bench_pool_open.py":
+    purpose: "the pool-open bench still measures what it says it measures."
+    layer: "tests"
+    key_symbols:
+      - {name: "scene", file: "Tests/unit/test_bench_pool_open.py", kind: "function"}
+      - {name: "test_the_walk_replica_matches_the_real_prologue", file: "Tests/unit/test_bench_pool_open.py", kind: "function"}
+      - {name: "test_eager_and_template_opens_seat_the_same_units", file: "Tests/unit/test_bench_pool_open.py", kind: "function"}
+      - {name: "test_measure_reports_every_timing_and_refuses_a_divergent_sequence", file: "Tests/unit/test_bench_pool_open.py", kind: "function"}
+      - {name: "test_the_replica_weight_is_positive_and_grows_with_the_tier", file: "Tests/unit/test_bench_pool_open.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_bin_empty_timing.py":
     purpose: "the pick loop knows when a bin ran dry; now it says so."
     layer: "tests"
@@ -4244,6 +4285,18 @@ files:
       - {name: "test_a_tables_only_declaration_would_have_a_DIFFERENT_id", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
       - {name: "test_the_roster_matches_the_tuple_the_writer_iterates", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_door_scarcity.py":
+    purpose: "fewer doors is an understaffed dock, and its cells always have a twin."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_scarce_cell_has_its_four_door_twin", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+      - {name: "test_without_the_reference_only_scarce_cells_are_built", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+      - {name: "test_the_door_team_rides_every_scarce_cell", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+      - {name: "test_the_priced_levels_are_short_and_the_campaign_door_count_is_not", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+      - {name: "test_the_priced_levels_are_measured_by_the_depth_probe_first", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+      - {name: "test_the_specs_build_their_cells", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+      - {name: "test_no_staffing_derivation_reads_the_door_count", file: "Tests/unit/test_door_scarcity.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_door_team_cap.py":
     purpose: "the door-team cap is trailer physics, and off it changes nothing."
     layer: "tests"
@@ -4484,6 +4537,39 @@ files:
       - {name: "test_a_typed_min_headroom_without_the_era_is_an_error", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
       - {name: "test_a_cells_derivation_keeps_the_coverage_the_freeze_recorded", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
       - {name: "test_the_run_spec_records_the_typed_fills_as_none_under_the_era_and_a_none_is_skipped", file: "Tests/unit/test_fill_headroom.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_fill_trial.py":
+    purpose: "the FILL TRIAL's driver mode (CONTEXT.md: Fill trial)."
+    layer: "tests"
+    key_symbols:
+      - {name: "S", file: "Tests/unit/test_fill_trial.py", kind: "const"}
+      - {name: "test_the_record_is_none_when_the_fill_is_off", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_record_carries_the_span_and_the_ratio", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_an_ordinary_inbound_record_says_no_fill", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fill_that_would_not_be_one_is_refused", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fill_with_no_trailers_raises_from_the_inbound_record_too", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_cli_refuses_a_fill_outside_the_coupled_era", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "pricing", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_declaration_is_priced_by_the_packer_the_sim_uses", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_an_undeclared_order_raises_rather_than_pricing_a_level_of_one", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_fill_crews_are_adr_0004_over_the_span", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_rate_is_the_ratio_of_what_the_seated_crew_unloads", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_crew_the_doors_cannot_seat_drains_at_the_seats_rate", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_an_uncapped_dock_seats_the_whole_crew", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_payload_prices_the_rate_off_the_cells_own_doors", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_world_order_is_one_seeded_shuffle_of_both_channels", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_quota_is_cumulative_and_sends_whole_lots", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_settled_needs_everything_sent_nothing_on_site_and_every_leaf_binned", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_crews_are_handed_back_in_place", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_leaf_without_lots_is_refused", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_declare_all_records_the_declaration_and_places_nothing", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fill_drops_the_uniform_stock_arms_and_an_ordinary_run_keeps_them", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fill_spec_refuses_its_unfillable_cells_before_anything_runs", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fill_refuses_the_unload_cost_overlays", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fresh_fill_fills_until_settled_then_runs_the_pick_stage", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_finished_fill_arm_resubmitted_runs_no_batch", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fill_unit_refuses_a_resume_from_the_middle", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_an_unsettled_fill_raises_at_its_cap", file: "Tests/unit/test_fill_trial.py", kind: "function"}
     notes: ""
   "Tests/unit/test_first_time_guarantee.py":
     purpose: "demand is declared, the picking crew and the line floor are derived from the joint first-time confidence (ADR-0004)."
@@ -5329,6 +5415,23 @@ files:
       - {name: "test_the_selection_does_not_walk_the_aisles", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
       - {name: "test_the_run_boundary_rebuild_is_exactly_one_pass_per_aisle", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
       - {name: "test_the_counter_can_tell_a_scan_from_a_heap", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_plan_trace.py":
+    purpose: "the plan-trace probe records the exact plan and changes nothing."
+    layer: "tests"
+    key_symbols:
+      - {name: "FAMILIES", file: "Tests/unit/test_plan_trace.py", kind: "const"}
+      - {name: "test_without_a_sink_the_entry_is_the_plan_it_always_was", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_with_a_sink_the_returned_order_is_still_the_exact_plan", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_the_record_reproduces_the_exact_plan_round_by_round", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_top_m_at_least_the_candidate_count_is_the_exact_plan", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_top_m_costs_two_t_then_two_m_a_round", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_the_merge_rung_bypasses_the_pool", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_bundle_uses_pool_tells_a_pool_family_from_the_merge_one", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_the_site_dock_arms_traced_batches_only_and_writes_one_line_per_plan", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_an_unarmed_site_dock_never_hands_a_drain_a_sink", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_the_transit_hands_its_sink_to_the_drain_and_labels_the_ranking", file: "Tests/unit/test_plan_trace.py", kind: "function"}
+      - {name: "test_the_spec_refuses_a_cadence_that_is_not_a_positive_count", file: "Tests/unit/test_plan_trace.py", kind: "function"}
     notes: ""
   "Tests/unit/test_positive_int_flags.py":
     purpose: "a count that is meaningless at zero fails at the parser."

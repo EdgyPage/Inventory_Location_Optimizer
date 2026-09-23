@@ -875,6 +875,13 @@
       "kind": "module",
       "signature": null
     },
+    "Inbound/gain.py::TRACE_TOPM": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(1, 2, 4)"
+    },
     "Inbound/gain.py::_Evaluator": {
       "decorators": [],
       "doc": "One plan's virtual placement state \u2014 built per entry call, dies with it.\n\nOwns the sort-once structures (per-key bins in arm-D order, computed lazily the\nfirst time a key is touched and NEVER rebuilt \u2014 the structure the Tier-1 sabotage\ntest perturbs), the consumed-bin set the greedy advances, and the pricing.  Reads\nthe frozen `SpaceView` and the bundle provider; its only writes are its own\nbookkeeping.\n\n# \u2500\u2500 the owner cursor, and why ONE evaluator can serve two leaves \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\n`b` is not a field: it resolves `provider.for_key(self._key)`, and `_key` is set in\n`_params` \u2014 which `place_load` calls exactly once per BinKey group, before it\nbranches on the adapter, so every read that follows a group's `_params` sees that\ngroup's arm.  Under `OneOwnerBundle` that is one instance for every key and the\nindirection is inert; under `SiteGainBundle` it is the WHOLE dispatch, at the\ngranularity the loop already has.\n\nThe property this rests on: **a spill chain never crosses regimes.**  `_chain`\nvaries only `size`, holding `handling` / `category` / `unit_category` fixed, and\nregime is read off exactly those three (`inventory_common`: regime is itself a\nBinKey component).  Every other cache here \u2014 `_sorted_now`, `_sorted_pred`, `_wp`,\n`_chain_cache`, `_worst`, `_mom`, `taken` \u2014 is BinKey- or bin-id-keyed.  So two\nowners share this object with zero cross-talk, and nothing here needs to know which\nof them it is serving.  Take that property away and the caches, not the cursor, are\nwhat goes wrong.\n\nOne read precedes any cursor: `place_load` calls `self.b.binkey_of(u)` to key the\ngroups in the first place, with `_key` still None.  That is lawful because the\nthree site-wide fields (`binkey_of`, `tier_ranks_for`, `put_speed`) are the same\nobject for every owner \u2014 a provider that made THEM vary per key would be answering\na different question than this evaluator asks.",
@@ -886,7 +893,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, bundle, space, window_rates=None, shared=None)"
+      "signature": "(self, bundle, space, window_rates=None, shared=None, force_merge=False)"
     },
     "Inbound/gain.py::_Evaluator._avail": {
       "decorators": [],
@@ -1030,12 +1037,26 @@
       "kind": "function",
       "signature": "(ctx, name: str)"
     },
+    "Inbound/gain.py::_traced": {
+      "decorators": [],
+      "doc": "Every gain entry's ONE call into the plan -- and, when the drain carries a trace\nsink (`DockContext.plan_trace`, set only in a probe cell), the plan trace.\n\nNo sink: exactly the `plan_order` call each entry made before this existed.\n\nA sink: the SAME exact plan (its order is what the entry returns, so a traced cell\nranks byte-identically to an untraced one) with its per-round gains recorded, then, on\nthe same frozen drain state and with evaluators of their own, the two candidate\nreductions ticket 03 of `.scratch/inbound-throughput/` measures -- the merge rung\nforced onto a pool family (variant i) and the top-m lazy plans (variant ii) -- each\nwith its order, its placement count and its wall seconds.  One record per call,\nappended to the sink; the driver writes the sink out per batch and tags the batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(), window_rates=None) -> list"
+    },
     "Inbound/gain.py::_window_rates": {
       "decorators": [],
       "doc": "Aggregate the view's window into `{sku: (total qty, events)}` \u2014 the realized\ndemand mass and the number of window batches that carry the SKU.  Once per entry\ncall, so the pricing loop reads a dict, not w of them.",
       "is_async": false,
       "kind": "function",
       "signature": "(window) -> dict"
+    },
+    "Inbound/gain.py::bundle_uses_pool": {
+      "decorators": [],
+      "doc": "Whether the owner(s) behind `bundle` price with a pool adapter -- the families the\nmerge rung is an APPROXIMATION for (for an extremal-D family the merge rung IS the\nadapter, and the trace's merge order equals its exact order by construction).  None\nwhen the provider exposes no owner to ask.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(bundle) -> bool | None"
     },
     "Inbound/gain.py::futuresight": {
       "decorators": [
@@ -1075,12 +1096,26 @@
     },
     "Inbound/gain.py::plan_order": {
       "decorators": [],
-      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.",
+      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.\n\n`trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining\ncandidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan\ntrace (`_traced`); None, the production value, records nothing and changes nothing.\n`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None) -> list"
+      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False) -> list"
     },
     "Inbound/gain.py::plan_order._load": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(t)"
+    },
+    "Inbound/gain.py::plan_order_topm": {
+      "decorators": [],
+      "doc": "The TOP-m LAZY plan: `(order, place_load calls)`.  A candidate reduction the plan\ntrace measures (`.scratch/inbound-throughput/` 03, variant (ii)); never served.\n\nRound one is the exact round.  Every later round re-evaluates only the `m` candidates\nwith the best STALE gains (their gain from the round they were last priced in), keeps\nevery other candidate's stale gain and stale now-takes, and serves the best FRESH gain\namong the `m`.  Two-phase per round like the exact plan -- every refreshed now-side\nfirst, then the leave-one-out base `B` over the current take map, then the refreshed\ndefer sides -- so with `m` at least the number remaining, a round IS the exact round:\n`m >= len(candidates)` reproduces `plan_order` exactly (pinned by a test), and the\nreduction's only approximation is staleness.  Costs `2T` placements in round one and\n`2 min(m, remaining)` after, against the exact `T(T+1)`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, bundle, space, *, predicted: bool, m: int, forced_prefix=(), window_rates=None, shared=None) -> tuple"
+    },
+    "Inbound/gain.py::plan_order_topm._load": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -3998,7 +4033,7 @@
     },
     "Optimization/Performance_Evaluations/common/style.py::_stitle": {
       "decorators": [],
-      "doc": "Compact strategy label: initial|assignment|reslot (falls back to label/key).",
+      "doc": "Compact strategy label: initial|assignment|reslot (falls back to label/key).\n\nA member that carries its own `title` is labelled by it: a SITE arm pair (coupled run)\nis two arms, and `initial|assignment|reslot` can name only one of them -- read off the\nstore half it printed `Uni|Rank_cartlabor|noRSL` for a pair whose fulfillment half is\n`Rank_minlabor`, and before 2026-09-22 it printed only `rank` for all of them.\n`run_analysis` builds the pair's title from both halves.",
       "is_async": false,
       "kind": "function",
       "signature": "(s)"
@@ -7244,7 +7279,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "{'absolute': ('Yard overage per arm', 'trailer-days held past the free threshold, censored trailers included'), 'percent': ('Yard overage vs baseline', 'improvement against the baseline arm; an arm..."
+      "value_preview": "{'absolute': ('Yard overage per arm', 'trailer-days held past the free threshold, censored trailers included'), 'percent': ('Yard overage vs baseline', 'improvement against the baseline arm, which ..."
     },
     "Optimization/Performance_Evaluations/yard/fee.py::_censored_note": {
       "decorators": [],
@@ -7755,6 +7790,20 @@
       "signature": null,
       "value_preview": "DEFAULT_FEE_THRESHOLD_DAYS"
     },
+    "Optimization/config/settings.py::INBOUND_FILL_RATIO": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.95"
+    },
+    "Optimization/config/settings.py::INBOUND_FILL_SPAN_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
+    },
     "Optimization/config/settings.py::INBOUND_FUTURESIGHT_BATCHES": {
       "decorators": [],
       "doc": null,
@@ -7782,6 +7831,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_PLAN_TRACE": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "None"
     },
     "Optimization/config/settings.py::INBOUND_STANDING_YARD": {
       "decorators": [],
@@ -8322,6 +8378,13 @@
       "kind": "function",
       "signature": "(names, **kw)"
     },
+    "Optimization/config/sim_config.py::_plan_trace_every": {
+      "decorators": [],
+      "doc": "Normalize INBOUND_PLAN_TRACE: None (off) or a positive int cadence in batches.\n\nA probe instrument (`.scratch/inbound-throughput/` 03), never a policy: a traced cell\nranks byte-identically to an untraced one and only writes a sidecar.  `True` is refused\nrather than read as 1, for the same reason the futuresight window refuses bools.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(raw)"
+    },
     "Optimization/config/sim_config.py::_setup_logging": {
       "decorators": [],
       "doc": null,
@@ -8391,6 +8454,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "() -> float"
+    },
+    "Optimization/config/sim_config.py::fill_spec": {
+      "decorators": [],
+      "doc": "The FILL TRIAL's record (CONTEXT.md: Fill trial), or None -- every run that is not one.\n\n`{'span_days', 'ratio'}`: the site days the fill crews are derived over, and the arrival\npressure the declaration is dispatched at (dispatch rate over the seated receiving rate).\nBoth are declared; the crews, the dispatch rate and the fill's length are derived from\nthem (`staffing.derive_fill`, the worker's `_FillDispatch`).\n\nRefused rather than degraded, every one of them a run that would complete under the fill's\nname without being one:\n  * a fill with no trailer pipeline -- nothing would ever arrive, and the pick stage would\n    never start;\n  * a fill without the standing yard -- v1 drains everything at once, so there is no\n    queue for the unloading order to act on;\n  * a fill under a trailer bound -- refuted for ranking (memory\n    `the-trailer-bound-buys-wall-with-discrimination`) and the fill trial's cells exclude\n    it by decision (inbound-throughput Q23);\n  * a ratio outside (0, 1) -- at or above 1 the yard grows without bound and the policies\n    converge on arrival order (Q15/Q20), at or below 0 nothing is dispatched.\nThe coupled era is checked where the flags are (`run_simulation._check_era_flags`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> dict | None"
     },
     "Optimization/config/sim_config.py::inbound_lead_law": {
       "decorators": [],
@@ -8798,6 +8868,20 @@
       "signature": null,
       "value_preview": "4"
     },
+    "Optimization/config/whatif_config.py::PHASE2_DOOR_LEVELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(2,)"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_DOOR_PROBE_LEVELS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "(3, 2, 1)"
+    },
     "Optimization/config/whatif_config.py::PHASE2_DOOR_TEAM": {
       "decorators": [],
       "doc": null,
@@ -8839,6 +8923,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "[('rank_cartlabor', 'rank_minlabor'), ('rank_minlabor', 'tmin'), ('rank_labor', 'rank_labor'), ('tmin', 'rank_cartlabor'), ('rank_random', 'rank_popularity'), ('fifo', 'fifo')]"
+    },
+    "Optimization/config/whatif_config.py::PHASE2_PLAN_TRACE_EVERY": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "4"
     },
     "Optimization/config/whatif_config.py::PHASE2_RANKING": {
       "decorators": [],
@@ -8924,6 +9015,13 @@
       "kind": "function",
       "signature": "(spec, policies) -> list"
     },
+    "Optimization/config/whatif_config.py::_refuse_unfillable_cells": {
+      "decorators": [],
+      "doc": "Refuse a FILL TRIAL spec whose cells the fill would refuse one at a time.\n\n`sim_config.fill_spec` refuses an inbound-off cell (no trailers: nothing would land) and a\ntrailer-bound cell -- but only when that cell is PREPARED, which under the flat work pool\ncan be hours into a matrix.  The same two facts are readable off the spec, so they are\nrefused here, before anything runs (inbound-throughput Q23), together with the regime a\nfill needs at all: the coupled era.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec, name: str) -> None"
+    },
     "Optimization/config/whatif_config.py::_refuse_unrunnable_cells": {
       "decorators": [],
       "doc": "Refuse a spec whose DECLARED cells the run would decline at their first drain.\n\nTHE CLASS OF DEFECT (inbound-optimization 31, 33): two honest files that nothing\nchecks against each other.  `phase2_inbound_axis()` declared ten cells and\n`Inbound/site_space.py` refused two of them under coupling; both were right, both were\ntested, and the campaign carried two dead cells from the day site-dock closed until a\nprobe run paid its freeze and watched 24 units fail.  The shape reaches this spec\nregistry from two directions and both are checked here:\n\n* **The inbound axis** names a yard/dock policy that reads a `SpaceView` structure a\n  COUPLED composition does not carry (`uncomposable_policies`).  Conditional on\n  coupling: a single-leaf composition is the view by identity, so the same policy is\n  perfectly runnable uncoupled and refusing it there would be false.\n* **The arm axis** names a restock rule the gain evaluator has no faithful bundle for\n  (`FAITHFUL_GAIN_FAMILIES`), while some cell names a gain policy.  `rule_pairs` is a\n  HAND-COPIED artifact field and the artifact legitimately reports families that still\n  need `_gain_bundle_for` extended (`needs_bundle_extension`), so copying a ranking\n  before that extension lands is a reachable edit, not a typo.\n\nNeither is visible to the refusals above it: `validate_spec` reads the spec's SHAPE,\nand both of these are properties of what the named POLICY and the named RULE can do.",
@@ -8944,6 +9042,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(spec, channels) -> dict | None"
+    },
+    "Optimization/config/whatif_config.py::door_scarcity_axis": {
+      "decorators": [],
+      "doc": "The phase-2 axis for `policies` at each door count in `levels`, cells suffixed\n`_d<doors>`, plus (when `reference_doors`) the policies at the campaign's own four doors\nunder their campaign names -- so every scarce cell has its four-door twin in the same\nmatrix and a door count is read as a DIFFERENCE, never as a level on its own.  Built from\n`phase2_inbound_axis(doors=...)`, which already threads the count to the dock.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(policies, levels=PHASE2_DOOR_LEVELS, *, reference_doors=True)"
     },
     "Optimization/config/whatif_config.py::get_spec": {
       "decorators": [],
@@ -11210,6 +11315,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(total: dict, part: dict) -> None"
+    },
+    "Optimization/run_analysis.py::_pair_fields": {
+      "decorators": [],
+      "doc": "A SITE arm pair's display fields: the store half's `initial` / `assignment` /\n`reslot` (what `core.baseline` and the colour maps read, exactly as a leaf's own\nstrategy entry carries them), plus a `title` that names BOTH halves' rules, which\n`style._stitle` prefers.\n\nRead off the strategy grid's own display label (`Uni|Rank_cartlabor|noRSL`), the one\n`workunits._prepare_channel_run` decomposes for every leaf, never by splitting the key:\nthe key's rule field contains underscores, so `uni_rank_cartlabor_norsl.split('_')[1]`\nis `rank` -- which is what every site yard figure printed for both starting layouts of\nboth placement pairs until 2026-09-22 (`.scratch/inbound-throughput/` 09).  A key the\ngrid does not know falls back to `_assignment_of`, whose baseline fallback says so.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(store_arm: str, arms: list) -> dict"
     },
     "Optimization/run_analysis.py::_parse_set": {
       "decorators": [],
@@ -14690,12 +14802,26 @@
       "kind": "function",
       "signature": "(capacity_s: float, s_pick: float) -> float"
     },
+    "Optimization/simconfig/staffing.py::declared_work": {
+      "decorators": [],
+      "doc": "What receiving the WHOLE stock declaration costs, once: `{units, packs, recv_s}`.\n\nThe fill trial's supply side (CONTEXT.md: Fill trial).  Each SKU's declared level is one\nlot, arriving exactly -- a declaration has no supply jitter, it is the level the warehouse\nwas sized from -- and it packs into the storage units the sim's own packer produces\n(`Inbound.pack.receive`, honouring a `stock_plan`), priced by the same exact unload law\n`implied_reorders` uses.  So the fill is priced in the same seconds an era crew is sized\nfrom, over a different quantity.\n\nRAISES on an undeclared order, for `inventory_common._equilibrium_qty`'s reason: a level\nof 1 here would size the fill crews for a warehouse an order of magnitude too small.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, pricing: PricingConfig, *, put_intercept_scale: float, put_item_ratio: float, recv_intercept_scale: float) -> dict"
+    },
     "Optimization/simconfig/staffing.py::derive": {
       "decorators": [],
       "doc": "The derived block, from declared inputs + resolved constants + the script.\n\n`inputs` is the staffing record's INPUTS (`sim_config.staffing_spec()` shape:\n`rho_put/rho_recv`, `f_put/f_recv`, `band_tol`, `put_crew_mode`, plus the three\ncrew-cost scales the harness copies in; `rho_pick` is NOT read here since ADR-0004).\n`constants` is `{'s_pick': {channel: constant}, 's_put': {channel: constant}}` as the\nharness resolves them (the expectation, or a declared override).  BOTH are keyed by\nchannel: a site-wide put price is what this derivation used to get wrong, and there is\nno longer anywhere to put one.  `channels` maps a channel name to its stage-A dict:\n`pickers` (the crew stage A SOLVED from the first-time confidence -- `solve_pickers`),\n`daily_demand_units` (the declared day's DEMANDED units), `analytic`, `batch`,\n`n_skus`, `expected` (the expected day at the declared line count, recorded beside the\nconstant), and optionally `demand` and `guarantee` (the declaration and the solve's\nstamp, carried through verbatim); `scripts` maps it to its `ScriptTotals`.  Channels\nabsent from `channels` (a store-only catalogue) are recorded as absent and contribute\nnothing.\n\nTHE PICKING LOAD IS THE SAMPLED SCRIPT'S DEMANDED UNITS at `s_pick` (\"Fit the store's\nwindow to its own steady state\", decision 5: the derivation prices the actual script,\nthe declared law is what the guarantee was made against, both are stamped and named\napart).  Its expected utilization is that load against the granted day `K \u00d7 S` -- a\nDERIVED number near 0.72 on the reference store, never a target.\n\nThe put and receiving crews are SITE totals: one crew each, summing both channels'\nper-day loads.  Each channel leaf's expected utilization for those two departments is\nits own load against the WHOLE site crew, which is why it sits well below \u03c1.",
       "is_async": false,
       "kind": "function",
       "signature": "(*, inputs: dict, constants: dict, day_seconds: float, channels: dict, scripts: dict, pricing_names: dict) -> dict"
+    },
+    "Optimization/simconfig/staffing.py::derive_fill": {
+      "decorators": [],
+      "doc": "The fill trial's two site crews, sized from the declaration over the fill span.\n\nADR-0004's shape, applied to a different quantity: demand declared (the stock\ndeclaration, received once over `span_days` site days), crew derived --\n`crew_size(load / span, S, rho)` for put-away and receiving alike, with put-away priced\nat each channel's own `s_put` exactly as `derive` prices the steady state.  The fill's\nDEPTH is not an understaffing: it comes from `ratio`, the arrival pressure the worker\ndispatches at (`_FillDispatch`), which is why this block records the totals the worker\nturns into a dispatch rate rather than a rate -- the rate depends on the cell's door\ncount, which this per-pair derivation does not know.\n\n`declared` maps a channel to `declared_work`'s dict; `s_put` maps it to its recorded put\nconstant (`{'value': ...}`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*, declared: dict, s_put: dict, span_days: float, ratio: float, day_seconds: float, rho_put: float, rho_recv: float) -> dict"
     },
     "Optimization/simconfig/staffing.py::derived_differs": {
       "decorators": [],
@@ -14717,6 +14843,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(load_seconds_per_day: float, crew: int, day_seconds: float) -> float"
+    },
+    "Optimization/simconfig/staffing.py::fill_dispatch_rate": {
+      "decorators": [],
+      "doc": "Units per site day the fill dispatches, and whether the doors bind the drain.\n\nThe DECLARED rule (inbound-throughput Q15/Q20): arrivals press the drain at `ratio` of\nits rate.  The drain rate is what the SEATED crew can unload: a door team of `cap` at\neach of `doors` doors seats at most `doors x cap` receivers however many the fill\nderived, so a fill crew the dock cannot seat drains at the seats' rate -- and a dispatch\npriced off the whole crew would press it past 1 and never be a queue at all.  Returns\n`{units_per_day, seated, seat_bound, dispatch_days}`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(fill: dict, *, doors: int, door_team: int | None, day_seconds: float) -> dict"
     },
     "Optimization/simconfig/staffing.py::fired_lots": {
       "decorators": [],
@@ -16109,7 +16242,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, exact_ctx, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope, sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt)"
+      "signature": "(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0, _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers, _recv_day, _recv_workers, _release, _roll_over, _seed_terms, _shift_seconds, _space_tl, affinity, arm_clock, audit, batch_cfg, batches, bin_rec, checkpoint, ckpt_win, cov, ctx, db_path, denom, exact_ctx, expected_pick, fi, freq_by_idx, freq_by_sku, inventory, k_pickers, keyframe_interval, kf_db, last_dur, lift_cache, log, map_lap_pct, mgr, n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt, put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope, sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop, t_precompute, timers, warehouse, we, wp, yd, yt, fill_lots=None)"
     },
     "Optimization/simdriver/strategy_runner.py::_CKPT_REPLACE_ATTEMPTS": {
       "decorators": [],
@@ -16124,6 +16257,54 @@
       "kind": "const",
       "signature": null,
       "value_preview": "0.1"
+    },
+    "Optimization/simdriver/strategy_runner.py::_FILL_ORDER_TAG": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "61713"
+    },
+    "Optimization/simdriver/strategy_runner.py::_FillDispatch": {
+      "decorators": [],
+      "doc": "THE FILL TRIAL's dispatcher (CONTEXT.md: Fill trial; `.scratch/inbound-throughput/` 05).\n\nHolds the whole site's declaration as lots in ONE seeded world order -- both channels'\nlots shuffled together, keyed by the world seed and `_FILL_ORDER_TAG`, so trailer N\ncarries the same packs in every cell of a run and a mixed load is mixed exactly as a\nreorder's is (decision Q21: by frequency would be an unloading policy in disguise).  Each\nsite day `dispatch` sends the next slice into the one yard at the declared pressure --\n`units_per_day` is the parent's `staffing.fill_dispatch_rate`, the ratio times what the\nSEATED receiving crew can unload -- and books each lot on its owning leaf's ledger\nexactly where a reorder is booked.\n\nThe fill ENDS on the first day every lot has been sent, nothing stands in the yard or at\na door or on the dock floor, and every leaf reports its units binned (`settled`).  Then\n`end` shrinks both site crews to the pick stage's in place -- the clock lists the pool,\nthe dock and every bound queue share -- and the driver starts the pick stage.  A fill\nthat has not settled by `max_days` raises with the census: at a ratio below one the yard\nclears within days of the last dispatch, so a fill still running then is a unit no bin\nwill take, and a pick stage that never starts is not a run.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Optimization/simdriver/strategy_runner.py::_FillDispatch.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, record: dict, leaves, coord, pool, *, seed_world: int, pick_put: int, pick_recv: int, log)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_FillDispatch.census": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Optimization/simdriver/strategy_runner.py::_FillDispatch.dispatch": {
+      "decorators": [],
+      "doc": "Send the declaration up to `day x units_per_day` units, cumulatively, at `now_s`.\n\nWhole lots: a lot is one SKU's declared level, and splitting it would invent a\npartial shipment the declaration never made.  The quota is cumulative so a large\nlot that overshoots one day's share is paid back by the next day sending less.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, now_s: float) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_FillDispatch.end": {
+      "decorators": [],
+      "doc": "The fill ended with batch `i`: hand the site back its pick-stage crews.\n\nIN PLACE, because the pool, the dock and every put queue bound to the pool hold the\nSAME clock lists (`crew_clock.reset` keeps that identity for the same reason).  Between\ntwo site days every clock has been reset, so nothing in flight is cut.\n\nEach leaf manager's `_put_size` still names the FILL crew afterwards; it is read only\nby `_bind_put_crews`, which runs at build, so a later rebind would refuse the\nmismatch rather than bind silently.  The declaration is released here -- every lot\nis on a shelf, and holding the list would pin it for the whole pick stage.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_FillDispatch.settled": {
+      "decorators": [],
+      "doc": "Every lot sent, nothing on site, every unit binned.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
     },
     "Optimization/simdriver/strategy_runner.py::_GC_THRESHOLD_DEFAULT": {
       "decorators": [],
@@ -16167,6 +16348,13 @@
       "kind": "function",
       "signature": "(self)"
     },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.arm_trace": {
+      "decorators": [],
+      "doc": "Record every `every`-th batch's gain plans into `path` (the contract's\n`site_plan_trace`).  The file is TRUNCATED here: a coupled unit always replays from\nbatch 0 (`_plan_strategy_start` refuses a batch-level resume), so a retried unit\nrewrites its trace rather than appending a second copy of the early batches.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, path: str, every: int) -> None"
+    },
     "Optimization/simdriver/strategy_runner.py::_SiteDock.collect": {
       "decorators": [],
       "doc": "Take this batch's SITE-scoped yard rows off the coordinator and the transit.\n\nEvery batch, unconditionally -- all three sources RESET, so a collection that rode a\ncondition would compound rows and hand whatever finally reads them several batches'\nworth stamped as one.  The leaves' own `drain_yard_*` accessors REFUSE under a site\nscope, so there is exactly one collector and it is this one.\n\nTHE SITE DOCK'S OWN TOTALS come with the coordinator's day index on them and are\nre-stamped with `i` only after the two are checked to agree.  Both are `day_of(i)`\nby construction (`drive` opens the day the release schedule names), and the pool\nrefuses any grid that is not one batch per site day -- so the check costs nothing\nand is the one place that structural promise is READ rather than restated.  A\nsilently re-indexed row would land the site's day-3 labour under batch 1 and put\nthe closure check's per-batch localisation onto the wrong batch for the whole run.",
@@ -16187,6 +16375,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_SiteDock.flush_trace": {
+      "decorators": [],
+      "doc": "Append batch `i`'s plan records to the sidecar, one JSON line each, and clear\nthe sink.  A no-op on an unarmed dock and on an untraced batch.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int) -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_arm_expected_pick": {
       "decorators": [],
@@ -16209,6 +16404,13 @@
       "kind": "function",
       "signature": "() -> None"
     },
+    "Optimization/simdriver/strategy_runner.py::_build_fill": {
+      "decorators": [],
+      "doc": "The unit's `_FillDispatch`, bound onto the site dock -- or None off a fill trial.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(args: dict, leaves, site, pool, log)"
+    },
     "Optimization/simdriver/strategy_runner.py::_build_leaf": {
       "decorators": [],
       "doc": "One channel leaf, built but not yet run \u2014 the setup half of a work unit.\n\nEverything here is per channel and stays so under coupling: one inventory partition, one\nwarehouse view, one manager, one set of crews, one DB, one resume plan.  What it returns\nis the leaf's two halves as closures over that setup \u2014 `step(i)`, one batch, and\n`finish()`, the run-end flush and the result dict \u2014 so a caller can drive ONE leaf (every\nrun today) or step two leaves through one batch loop (the coupled unit, site-dock 02 \u00a72).\n\n`pool` is the SITE PUT POOL (`Inbound.putaway_pool.PutawayPool`), built above the leaves\nand injected: when it is present this leaf's put queues are bound to the pool's shared\nclock list rather than minting their own, its put rows are stamped with the pool's\nworkers and the pool's site-wide epoch, and phase 5 of every batch belongs to the pool.\nNone is every uncoupled run and every flag-off leaf, which then fields its own put crew\nexactly as it always did \u2014 double count and all, structurally, because the pool is not\nCONSTRUCTED rather than constructed and bypassed.\n\n`site_gain` is the SITE GAIN BUNDLE (`Inbound.gain.SiteGainBundle`), built above the\nleaves the same way and for the same reason: one mixed trailer is priced per unit by\nthe OWNING channel's arm, and only a scope that sees both leaves can hold both arms.\nThis leaf binds its own bundle into it and hands the composite to its transit. None is\nevery uncoupled run, which wraps its one bundle in a `OneOwnerBundle` exactly as it\nalways did \u2014 so a single-owner run reads the very object `_gain_bundle_for` returned.\n\n`site` is the SITE DOCK (`_SiteDock`), built above the leaves for the third time and\nfor the third version of the same reason: one dock, one yard and one receiving crew\nserve the whole site, so only a scope that sees both leaves can build them once. When\nit is present this leaf receives the site's dock, the site's transit and the site's\nreceiving roster instead of minting its own, binds itself onto the coordinator, and\nstops running phases 0-5 in its own `replenish` \u2014 the unit drives them once for every\nleaf (`SiteReceiving.drain`). None is every uncoupled run AND the coupled inbound-OFF\npole, which names no trailer pipeline and therefore has no site inbound to build.\n\nThe closures are why the setup is not forked: `_run_strategy_worker_impl` used to be this\nfunction with the loop inline, and the split moved the loop body and the tail VERBATIM.\nThey rebind the enclosing locals through `nonlocal`, which is what makes a batch's carries\n(`arm_clock`, `put_clock`, `recv_clock`, the checkpoint accumulators) survive between\ncalls exactly as they survived between iterations.\n\nUses DeferredPickSimulation for parallel Phase-1 picker execution within\neach batch.  Log records travel through a multiprocessing.Queue to the\nQueueListener in the main process so they appear in real time.",
@@ -16216,12 +16418,33 @@
       "kind": "function",
       "signature": "(args: dict, unit: dict | None=None, pool=None, site_gain=None, site=None) -> '_Leaf'"
     },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._begin_pick": {
+      "decorators": [],
+      "doc": "The fill ended after batch `off - 1`: the pick stage's script starts at batch\n`off`, and the arm now runs `off + n_script` batches in all.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(off: int) -> None"
+    },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._charge": {
       "decorators": [],
       "doc": "Charge a span measured OUTSIDE this leaf to one of its sections.\n\nCoupled units only: the driver times the site drive once and hands every leaf the\nsame number, because the drive is the SITE's receive and put drain done on every\nleaf's behalf.  Charged rather than lapped so that no leaf's lap is ever open while\nanother leaf, or the site, is running -- which is the whole discipline that keeps a\nleaf's sections a partition of that leaf's own work.",
       "is_async": false,
       "kind": "function",
       "signature": "(section: str, seconds: float) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._fill_credit": {
+      "decorators": [],
+      "doc": "The dispatcher sent `qty` of this leaf's `sku` to the yard: on order from now,\nexactly where `_fire_reorders` books a reorder, so `accept` debits it as it lands.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(sku: int, qty: int) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._fill_settled": {
+      "decorators": [],
+      "doc": "Is every unit this leaf was sent binned?  Nothing on order and nothing waiting\nfor a bin.  The yard and the dock are the SITE's and the dispatcher checks them.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> bool"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._finish": {
       "decorators": [],
@@ -16243,6 +16466,20 @@
       "is_async": false,
       "kind": "function",
       "signature": "(i: int) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._script_batch": {
+      "decorators": [],
+      "doc": "The demand batch `i` releases: the shared script's entry (or its inline twin), or\nan EMPTY batch on a fill day.  The empty one is fresh per call and carries only\n`items`, the one field a batch that yields no tasks is read for.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(i: int)"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._script_j": {
+      "decorators": [],
+      "doc": "Batch `i`'s index into the pick SCRIPT -- `i` itself on every run but a fill\ntrial's, whose pick stage starts at `script_off`; None on a FILL day, which has no\ndemand at all.  `i - 0` is `i`, so the ordinary run reads the script exactly as it\nalways did.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(i: int)"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._step": {
       "decorators": [],
@@ -16929,6 +17166,13 @@
       "kind": "function",
       "signature": "(inventory) -> tuple[bool, list[tuple]]"
     },
+    "Optimization/simdriver/workunits.py::_channel_strategies": {
+      "decorators": [],
+      "doc": "The arms one channel runs: its restock subset, less the uniform-stock arms in a FILL\nTRIAL.  A fill has no initial stock, so the one thing that mode governs does not exist,\nand the worker refuses it (`_build_arm`); dropping them HERE keeps a fill matrix from\nplanning units it knows will fail.  One helper, because the arm list is read twice -- by\nthe prepare and by the coupled-pair reconciler -- and two spellings could disagree about\nwhich arms a pair holds.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ch) -> list"
+    },
     "Optimization/simdriver/workunits.py::_check_campaign_pin": {
       "decorators": [],
       "doc": "Refuse a pair whose fresh derivation is not the one the campaign pinned.\n\n`pin` is `run_spec['staffing']['pin']` -- `whatif_config.PHASE2_STAFFING_PIN`, stamped on\nthe run at launch, and None on every run that is not a phase-2 campaign, which is the\nno-op path.  The digest is `staffing.pin_digest` over a rounded projection of the derived\nblock (\"Re-size the funnel in site days\").\n\nTHIS IS THE HALF `validate_spec` CANNOT DO.  The spec check fires before a directory\nexists, so all it can see is that a pin was declared; the derivation is per pair and only\nexists once the catalogue is read, the warehouse built and the script precomputed -- here.\nTwo refusals, one question: is phase 2 running the warehouse phase 1 ranked?\n\nA pin that names no labels at all, or does not name THIS one, is a refusal too. Phase 1\nranked the pairs it ran; a pair phase 2 adds afterwards was never ranked, and letting it\nthrough unchecked is the silent case the pin exists to end.",
@@ -16942,6 +17186,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(shared: dict, channel_runs: list, mixed: bool, pair_dir: str, log: logging.Logger, workers: int=1) -> tuple"
+    },
+    "Optimization/simdriver/workunits.py::_fill_payload": {
+      "decorators": [],
+      "doc": "A coupled unit's FILL record: `staffing.derive_fill`'s crews plus the dispatch rate\nthis CELL's dock implies (`staffing.fill_dispatch_rate`), or None when the cell declares\nno fill.\n\nComputed here, per cell, rather than in the per-pair derivation: the rate is priced off\nthe SEATED receiving crew, and the seats are the cell's door count times its door team --\nwhich the door-scarcity axis varies across the cells of one pair.  `max_days` is the\nfill's length cap: twice the dispatch span plus ten days.  At a declared ratio below one\nthe yard is a queue and clears within days of the last dispatch, so a fill that has not\nsettled by then is a fill that CANNOT (a unit no bin will take), and the worker raises\nwith the census rather than running a pick stage that never starts.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(leaf: dict) -> dict | None"
     },
     "Optimization/simdriver/workunits.py::_forget_arms": {
       "decorators": [],
@@ -17033,6 +17284,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(pair_dir: str, arm_store: str, arm_ful: str) -> str"
+    },
+    "Optimization/simdriver/workunits.py::_site_trace_path": {
+      "decorators": [],
+      "doc": "The plan-trace sidecar beside a unit's site DB -- the contract's\n`site_plan_trace`, same directory, same arm-pair stem.  Derived FROM the site DB path\nso the two cannot name different arm pairs; the same parent-builds-under-its-own-\ndirectory rule `_site_db_path` states.  Only a probe cell's payload carries it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(site_db: str) -> str"
     },
     "Optimization/simdriver/workunits.py::_stamp_identity": {
       "decorators": [],
@@ -21529,6 +21787,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, deadline: float | None) -> None"
+    },
+    "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.declare_all": {
+      "decorators": [],
+      "doc": "Declare `orders` WITHOUT placing them: the FILL TRIAL's intake (CONTEXT.md).\n\n`enqueue_all`'s bookkeeping minus its admission.  The templates and their declared\nlevels are recorded exactly as intake records them -- `_originals` is what every\nreorder, `plan_lot` and `owned_skus` read, so a fill that skipped it would receive\nits own declaration as SKUs nobody owns -- but no unit is packed, admitted or\ncredited as queued.  The declaration arrives through the site yard instead, and the\ndispatcher credits each lot to `_deferred_qty` as it DISPATCHES it, which is where a\nreorder's quantity sits too; crediting it here would count units still on a\nloading plan as on order, and the transit census would disagree with the ledger.\n\nReturns `(sku, qty, unit_volume)` per order with a positive level, in the order\ngiven: the lots the dispatcher shuffles into the world order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, orders: list[Order]) -> list[tuple[int, int, float]]"
     },
     "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.dock_depth": {
       "decorators": [

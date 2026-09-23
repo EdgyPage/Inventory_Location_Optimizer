@@ -1081,7 +1081,27 @@
       "src": "Inbound/gain.py::_Evaluator.place_load"
     },
     {
+      "dst": "Inbound/gain.py::bundle_uses_pool",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_traced"
+    },
+    {
+      "dst": "Inbound/gain.py::plan_order",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_traced"
+    },
+    {
+      "dst": "Inbound/gain.py::plan_order_topm",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_traced"
+    },
+    {
       "dst": "Inbound/gain.py::_require",
+      "kind": "calls",
+      "src": "Inbound/gain.py::futuresight"
+    },
+    {
+      "dst": "Inbound/gain.py::_traced",
       "kind": "calls",
       "src": "Inbound/gain.py::futuresight"
     },
@@ -1091,17 +1111,12 @@
       "src": "Inbound/gain.py::futuresight"
     },
     {
-      "dst": "Inbound/gain.py::plan_order",
-      "kind": "calls",
-      "src": "Inbound/gain.py::futuresight"
-    },
-    {
       "dst": "Inbound/gain.py::_require",
       "kind": "calls",
       "src": "Inbound/gain.py::gain_forecast"
     },
     {
-      "dst": "Inbound/gain.py::plan_order",
+      "dst": "Inbound/gain.py::_traced",
       "kind": "calls",
       "src": "Inbound/gain.py::gain_forecast"
     },
@@ -1111,7 +1126,7 @@
       "src": "Inbound/gain.py::gain_gated"
     },
     {
-      "dst": "Inbound/gain.py::plan_order",
+      "dst": "Inbound/gain.py::_traced",
       "kind": "calls",
       "src": "Inbound/gain.py::gain_gated"
     },
@@ -1121,7 +1136,7 @@
       "src": "Inbound/gain.py::gain_myopic"
     },
     {
-      "dst": "Inbound/gain.py::plan_order",
+      "dst": "Inbound/gain.py::_traced",
       "kind": "calls",
       "src": "Inbound/gain.py::gain_myopic"
     },
@@ -1134,6 +1149,16 @@
       "dst": "Inbound/gain.py::_load_units",
       "kind": "calls",
       "src": "Inbound/gain.py::plan_order._load"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator",
+      "kind": "calls",
+      "src": "Inbound/gain.py::plan_order_topm"
+    },
+    {
+      "dst": "Inbound/gain.py::_load_units",
+      "kind": "calls",
+      "src": "Inbound/gain.py::plan_order_topm._load"
     },
     {
       "dst": "Inbound/gain_cow.py",
@@ -7421,6 +7446,16 @@
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
     {
+      "dst": "Optimization/config/settings.py::INBOUND_FILL_RATIO",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_FILL_SPAN_DAYS",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
       "dst": "Optimization/config/settings.py::INBOUND_FUTURESIGHT_BATCHES",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
@@ -7437,6 +7472,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::INBOUND_LOCAL_POLICY",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_PLAN_TRACE",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -7742,6 +7782,16 @@
     },
     {
       "dst": "Optimization/config/sim_config.py::_futuresight_batches",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::inbound_spec"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::_plan_trace_every",
+      "kind": "calls",
+      "src": "Optimization/config/sim_config.py::inbound_spec"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::fill_spec",
       "kind": "calls",
       "src": "Optimization/config/sim_config.py::inbound_spec"
     },
@@ -8136,6 +8186,11 @@
       "src": "Optimization/config/whatif_config.py"
     },
     {
+      "dst": "Optimization/config/whatif_config.py::door_scarcity_axis",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::SPECS"
+    },
+    {
       "dst": "Optimization/config/whatif_config.py::phase2_inbound_axis",
       "kind": "calls",
       "src": "Optimization/config/whatif_config.py::SPECS"
@@ -8166,6 +8221,11 @@
       "src": "Optimization/config/whatif_config.py::channel_restocks_for"
     },
     {
+      "dst": "Optimization/config/whatif_config.py::phase2_inbound_axis",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::door_scarcity_axis"
+    },
+    {
       "dst": "Optimization/config/whatif_config.py::validate_spec",
       "kind": "calls",
       "src": "Optimization/config/whatif_config.py::get_spec"
@@ -8179,6 +8239,11 @@
       "dst": "Optimization/config/whatif_config.py::rule_pairs_of",
       "kind": "calls",
       "src": "Optimization/config/whatif_config.py::swept_rules_of"
+    },
+    {
+      "dst": "Optimization/config/whatif_config.py::_refuse_unfillable_cells",
+      "kind": "calls",
+      "src": "Optimization/config/whatif_config.py::validate_spec"
     },
     {
       "dst": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells",
@@ -9231,6 +9296,11 @@
       "src": "Optimization/run_analysis.py"
     },
     {
+      "dst": "Optimization/config/strategies.py",
+      "kind": "imports",
+      "src": "Optimization/run_analysis.py"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py",
       "kind": "imports",
       "src": "Optimization/run_analysis.py"
@@ -9341,6 +9411,11 @@
       "src": "Optimization/run_analysis.py::_config_jobs"
     },
     {
+      "dst": "Optimization/run_analysis.py::_assignment_of",
+      "kind": "calls",
+      "src": "Optimization/run_analysis.py::_pair_fields"
+    },
+    {
       "dst": "Optimization/run_analysis.py::_coerce",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_parse_set"
@@ -9401,7 +9476,7 @@
       "src": "Optimization/run_analysis.py::_site_jobs"
     },
     {
-      "dst": "Optimization/run_analysis.py::_assignment_of",
+      "dst": "Optimization/run_analysis.py::_pair_fields",
       "kind": "calls",
       "src": "Optimization/run_analysis.py::_site_jobs"
     },
@@ -13136,6 +13211,16 @@
       "src": "Optimization/simconfig/staffing.py::cut_share_sd"
     },
     {
+      "dst": "Inbound/pack.py::receive",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::declared_work"
+    },
+    {
+      "dst": "Inbound/unload.py::unload_cost",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::declared_work"
+    },
+    {
       "dst": "Optimization/simconfig/staffing.py::constant",
       "kind": "calls",
       "src": "Optimization/simconfig/staffing.py::derive"
@@ -13149,6 +13234,11 @@
       "dst": "Optimization/simconfig/staffing.py::expected_utilization",
       "kind": "calls",
       "src": "Optimization/simconfig/staffing.py::derive"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::crew_size",
+      "kind": "calls",
+      "src": "Optimization/simconfig/staffing.py::derive_fill"
     },
     {
       "dst": "Optimization/simconfig/staffing.py::_levels",
@@ -14606,6 +14696,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.__init__"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_SiteDock.flush_trace",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.collect"
+    },
+    {
       "dst": "Optimization/persistence/Picking_Data.py::create_run",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_SiteDock.finish"
@@ -14811,6 +14906,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
     },
     {
+      "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.declare_all",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
+    },
+    {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.enable_putaway_timing",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm"
@@ -14916,6 +15016,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_arm._arm_aisle_state"
     },
     {
+      "dst": "Optimization/simdriver/strategy_runner.py::_FillDispatch",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_fill"
+    },
+    {
       "dst": "Optimization/simdriver/batch_state.py::BatchState",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
@@ -14929,6 +15034,11 @@
       "dst": "Optimization/simdriver/strategy_runner.py::_build_arm",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_arm_expected_pick",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._begin_pick"
     },
     {
       "dst": "Optimization/persistence/Picking_Data.py::build_run_indices",
@@ -14968,7 +15078,7 @@
     {
       "dst": "Warehouse/picking/Workload_Builder.py::Batch",
       "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._script_batch"
     },
     {
       "dst": "Optimization/metrics/Simulation_Analytics.py::extract_batch_stats",
@@ -15047,11 +15157,6 @@
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::save_worker_checkpoint",
-      "kind": "calls",
-      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
-    },
-    {
-      "dst": "Warehouse/picking/Workload_Builder.py::Batch",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._step"
     },
@@ -15224,6 +15329,11 @@
       "dst": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker"
+    },
+    {
+      "dst": "Optimization/simdriver/strategy_runner.py::_build_fill",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_build_leaf",
@@ -15676,12 +15786,12 @@
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
     {
-      "dst": "Optimization/config/strategies.py::strategies_for",
+      "dst": "Optimization/simdriver/workunits.py::_channel_runs_for",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
     {
-      "dst": "Optimization/simdriver/workunits.py::_channel_runs_for",
+      "dst": "Optimization/simdriver/workunits.py::_channel_strategies",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_build_work_units"
     },
@@ -15766,6 +15876,16 @@
       "src": "Optimization/simdriver/workunits.py::_channel_runs_for"
     },
     {
+      "dst": "Optimization/config/sim_config.py::fill_spec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_channel_strategies"
+    },
+    {
+      "dst": "Optimization/config/strategies.py::strategies_for",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_channel_strategies"
+    },
+    {
       "dst": "Optimization/simconfig/staffing.py::pin_digest",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_check_campaign_pin"
@@ -15776,7 +15896,17 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
+      "dst": "Optimization/config/sim_config.py::couple_channels",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
       "dst": "Optimization/config/sim_config.py::crew_cost_spec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::fill_spec",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -15801,7 +15931,17 @@
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
     {
+      "dst": "Optimization/simconfig/staffing.py::declared_work",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
       "dst": "Optimization/simconfig/staffing.py::derive",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::derive_fill",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
     },
@@ -15864,6 +16004,16 @@
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_derive_staffing_for_pair"
+    },
+    {
+      "dst": "Optimization/config/sim_config.py::work_day_spec",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_fill_payload"
+    },
+    {
+      "dst": "Optimization/simconfig/staffing.py::fill_dispatch_rate",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_fill_payload"
     },
     {
       "dst": "Optimization/runschema/sim_manifest.py::_load_resume",
@@ -16016,6 +16166,11 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py::_channel_strategies",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py::_plan_strategy_start",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_channel_run"
@@ -16041,12 +16196,22 @@
       "src": "Optimization/simdriver/workunits.py::_prepare_site_run"
     },
     {
+      "dst": "Optimization/simdriver/workunits.py::_fill_payload",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_site_run"
+    },
+    {
       "dst": "Optimization/simdriver/workunits.py::_prepare_channel_run",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_site_run"
     },
     {
       "dst": "Optimization/simdriver/workunits.py::_site_db_path",
+      "kind": "calls",
+      "src": "Optimization/simdriver/workunits.py::_prepare_site_run"
+    },
+    {
+      "dst": "Optimization/simdriver/workunits.py::_site_trace_path",
       "kind": "calls",
       "src": "Optimization/simdriver/workunits.py::_prepare_site_run"
     },
@@ -19709,6 +19874,11 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._top_up_own_bins"
+    },
+    {
+      "dst": "Warehouse/inventory/inventory_common.py::_equilibrium_qty",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.declare_all"
     },
     {
       "dst": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._refuse_site_scope",
@@ -23669,6 +23839,14 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::TRACE_TOPM",
+      "kind": "const",
+      "module": "Inbound/gain.py",
+      "name": "TRACE_TOPM",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator",
       "kind": "class",
       "module": "Inbound/gain.py",
@@ -23845,11 +24023,27 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_traced",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_traced",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_window_rates",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_window_rates",
       "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::bundle_uses_pool",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "bundle_uses_pool",
+      "public": true
     },
     {
       "file": "Inbound/gain.py",
@@ -23894,6 +24088,22 @@
     {
       "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::plan_order._load",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_load",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::plan_order_topm",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "plan_order_topm",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::plan_order_topm._load",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_load",
@@ -31437,6 +31647,22 @@
     },
     {
       "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_FILL_RATIO",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_FILL_RATIO",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_FILL_SPAN_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_FILL_SPAN_DAYS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
       "id": "Optimization/config/settings.py::INBOUND_FUTURESIGHT_BATCHES",
       "kind": "const",
       "module": "Optimization/config/settings.py",
@@ -31465,6 +31691,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "INBOUND_LOCAL_POLICY",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_PLAN_TRACE",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_PLAN_TRACE",
       "public": true
     },
     {
@@ -32085,6 +32319,14 @@
     },
     {
       "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::_plan_trace_every",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "_plan_trace_every",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
       "id": "Optimization/config/sim_config.py::_setup_logging",
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
@@ -32161,6 +32403,14 @@
       "kind": "function",
       "module": "Optimization/config/sim_config.py",
       "name": "ff_fill",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/sim_config.py",
+      "id": "Optimization/config/sim_config.py::fill_spec",
+      "kind": "function",
+      "module": "Optimization/config/sim_config.py",
+      "name": "fill_spec",
       "public": true
     },
     {
@@ -32629,6 +32879,22 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_DOOR_LEVELS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_DOOR_LEVELS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_DOOR_PROBE_LEVELS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_DOOR_PROBE_LEVELS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::PHASE2_DOOR_TEAM",
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
@@ -32673,6 +32939,14 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "PHASE2_PAIRS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::PHASE2_PLAN_TRACE_EVERY",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "PHASE2_PLAN_TRACE_EVERY",
       "public": true
     },
     {
@@ -32773,6 +33047,14 @@
     },
     {
       "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::_refuse_unfillable_cells",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "_refuse_unfillable_cells",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
       "id": "Optimization/config/whatif_config.py::_refuse_unrunnable_cells",
       "kind": "function",
       "module": "Optimization/config/whatif_config.py",
@@ -32793,6 +33075,14 @@
       "kind": "function",
       "module": "Optimization/config/whatif_config.py",
       "name": "channel_restocks_for",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::door_scarcity_axis",
+      "kind": "function",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "door_scarcity_axis",
       "public": true
     },
     {
@@ -35393,6 +35683,14 @@
       "kind": "function",
       "module": "Optimization/run_analysis.py",
       "name": "_merge_tally",
+      "public": false
+    },
+    {
+      "file": "Optimization/run_analysis.py",
+      "id": "Optimization/run_analysis.py::_pair_fields",
+      "kind": "function",
+      "module": "Optimization/run_analysis.py",
+      "name": "_pair_fields",
       "public": false
     },
     {
@@ -39365,10 +39663,26 @@
     },
     {
       "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::declared_work",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "declared_work",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
       "id": "Optimization/simconfig/staffing.py::derive",
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
       "name": "derive",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::derive_fill",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "derive_fill",
       "public": true
     },
     {
@@ -39393,6 +39707,14 @@
       "kind": "function",
       "module": "Optimization/simconfig/staffing.py",
       "name": "expected_utilization",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/staffing.py",
+      "id": "Optimization/simconfig/staffing.py::fill_dispatch_rate",
+      "kind": "function",
+      "module": "Optimization/simconfig/staffing.py",
+      "name": "fill_dispatch_rate",
       "public": true
     },
     {
@@ -41013,6 +41335,62 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FILL_ORDER_TAG",
+      "kind": "const",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_FILL_ORDER_TAG",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FillDispatch",
+      "kind": "class",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_FillDispatch",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FillDispatch.__init__",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FillDispatch.census",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "census",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FillDispatch.dispatch",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "dispatch",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FillDispatch.end",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "end",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_FillDispatch.settled",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "settled",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_GC_THRESHOLD_DEFAULT",
       "kind": "const",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -41061,6 +41439,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_SiteDock.arm_trace",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "arm_trace",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_SiteDock.collect",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -41081,6 +41467,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "finish",
+      "public": true
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_SiteDock.flush_trace",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "flush_trace",
       "public": true
     },
     {
@@ -41109,6 +41503,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_fill",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_build_fill",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_build_leaf",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -41117,10 +41519,34 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._begin_pick",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_begin_pick",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._charge",
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_charge",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._fill_credit",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_fill_credit",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._fill_settled",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_fill_settled",
       "public": false
     },
     {
@@ -41145,6 +41571,22 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_replenish",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._script_batch",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_script_batch",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._script_j",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_script_j",
       "public": false
     },
     {
@@ -41933,6 +42375,14 @@
     },
     {
       "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_channel_strategies",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_channel_strategies",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
       "id": "Optimization/simdriver/workunits.py::_check_campaign_pin",
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
@@ -41945,6 +42395,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_derive_staffing_for_pair",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_fill_payload",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_fill_payload",
       "public": false
     },
     {
@@ -42049,6 +42507,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/workunits.py",
       "name": "_site_db_path",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/workunits.py",
+      "id": "Optimization/simdriver/workunits.py::_site_trace_path",
+      "kind": "function",
+      "module": "Optimization/simdriver/workunits.py",
+      "name": "_site_trace_path",
       "public": false
     },
     {
@@ -47201,6 +47667,14 @@
       "kind": "function",
       "module": "Warehouse/inventory/Inventory_Management.py",
       "name": "count_put_cut",
+      "public": true
+    },
+    {
+      "file": "Warehouse/inventory/Inventory_Management.py",
+      "id": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager.declare_all",
+      "kind": "function",
+      "module": "Warehouse/inventory/Inventory_Management.py",
+      "name": "declare_all",
       "public": true
     },
     {

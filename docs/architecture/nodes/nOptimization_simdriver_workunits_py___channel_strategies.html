@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_channel_strategies · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_workunits_py___channel_strategies" data-id="Optimization/simdriver/workunits.py::_channel_strategies">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a> <span class="sep">›</span> <span class="here"><code>_channel_strategies</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_channel_strategies</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_workunits_py.html"><code>Optimization/simdriver/workunits.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
+<pre class="sig"><code>def _channel_strategies(ch) -&gt; list</code></pre>
+<section class="doc">The arms one channel runs: its restock subset, less the uniform-stock arms in a FILL
+TRIAL.  A fill has no initial stock, so the one thing that mode governs does not exist,
+and the worker refuses it (`_build_arm`); dropping them HERE keeps a fill matrix from
+planning units it knows will fail.  One helper, because the arm list is read twice -- by
+the prepare and by the coupled-pair reconciler -- and two spellings could disagree about
+which arms a pair holds.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nOptimization_config_sim_config_py__fill_spec.html"><code>fill_spec</code></a> <span class="dim">Optimization/config/sim_config.py</span></li><li><a href="nOptimization_config_strategies_py__strategies_for.html"><code>strategies_for</code></a> <span class="dim">Optimization/config/strategies.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nOptimization_simdriver_workunits_py___build_work_units.html"><code>_build_work_units</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li><li><a href="nOptimization_simdriver_workunits_py___prepare_channel_run.html"><code>_prepare_channel_run</code></a> <span class="dim">Optimization/simdriver/workunits.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_workunits_py___channel_strategies">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/workunits.py#:~:text=def%20_channel_strategies">Source ↗</a></p>
+</article>
+</main>
+</body></html>

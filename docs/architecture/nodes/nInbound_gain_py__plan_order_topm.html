@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plan_order_topm · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py__plan_order_topm" data-id="Inbound/gain.py::plan_order_topm">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <span class="here"><code>plan_order_topm</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>plan_order_topm</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+
+<pre class="sig"><code>def plan_order_topm(candidates, bundle, space, *, predicted: bool, m: int, forced_prefix=(), window_rates=None, shared=None) -&gt; tuple</code></pre>
+<section class="doc">The TOP-m LAZY plan: `(order, place_load calls)`.  A candidate reduction the plan
+trace measures (`.scratch/inbound-throughput/` 03, variant (ii)); never served.
+
+Round one is the exact round.  Every later round re-evaluates only the `m` candidates
+with the best STALE gains (their gain from the round they were last priced in), keeps
+every other candidate&#x27;s stale gain and stale now-takes, and serves the best FRESH gain
+among the `m`.  Two-phase per round like the exact plan -- every refreshed now-side
+first, then the leave-one-out base `B` over the current take map, then the refreshed
+defer sides -- so with `m` at least the number remaining, a round IS the exact round:
+`m &gt;= len(candidates)` reproduces `plan_order` exactly (pinned by a test), and the
+reduction&#x27;s only approximation is staleness.  Costs `2T` placements in round one and
+`2 min(m, remaining)` after, against the exact `T(T+1)`.</section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___traced.html"><code>_traced</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py__plan_order_topm">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20plan_order_topm">Source ↗</a></p>
+</article>
+</main>
+</body></html>

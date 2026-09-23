@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dispatch · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simdriver_strategy_runner_py___FillDispatch_dispatch" data-id="Optimization/simdriver/strategy_runner.py::_FillDispatch.dispatch">
+<nav class="crumbs"><a href="../layers.html">opt_simdriver</a> <span class="sep">›</span> <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a> <span class="sep">›</span> <a href="nOptimization_simdriver_strategy_runner_py___FillDispatch.html"><code>_FillDispatch</code></a> <span class="sep">›</span> <span class="here"><code>dispatch</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>dispatch</code></h1>
+<p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_strategy_runner_py.html"><code>Optimization/simdriver/strategy_runner.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def dispatch(self, now_s: float) -&gt; None</code></pre>
+<section class="doc">Send the declaration up to `day x units_per_day` units, cumulatively, at `now_s`.
+
+Whole lots: a lot is one SKU&#x27;s declared level, and splitting it would invent a
+partial shipment the declaration never made.  The quota is cumulative so a large
+lot that overshoots one day&#x27;s share is paid back by the next day sending less.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simdriver_strategy_runner_py___FillDispatch_dispatch">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simdriver/strategy_runner.py#:~:text=def%20dispatch">Source ↗</a></p>
+</article>
+</main>
+</body></html>
