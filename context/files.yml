@@ -429,6 +429,7 @@ files:
       - {name: "Request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "class"}
       - {name: "REQUEST_SCOPE", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "const"}
       - {name: "request", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
+      - {name: "pick_stage", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "batch_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
       - {name: "task_frame", file: "Optimization/Performance_Evaluations/core/requests.py", kind: "function"}
@@ -906,6 +907,11 @@ files:
       - {name: "PHASE2_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_H_MULTIPLES", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "PHASE2_BOUND_PROBE_K", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "FILL_SPAN_DAYS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "FILL_RATIO", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "FILL_RUN_DEFAULTS", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "FILL_RANKING", file: "Optimization/config/whatif_config.py", kind: "const"}
+      - {name: "FILL_AXIS_EXCLUDED", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "phase2_inbound_axis", file: "Optimization/config/whatif_config.py", kind: "function"}
       - {name: "SPECS", file: "Optimization/config/whatif_config.py", kind: "const"}
       - {name: "COUPLED_CHANNELS", file: "Optimization/config/whatif_config.py", kind: "const"}
@@ -1200,6 +1206,7 @@ files:
     key_symbols:
       - {name: "WIN", file: "Optimization/run_whatif_delta.py", kind: "const"}
       - {name: "REQUIRES", file: "Optimization/run_whatif_delta.py", kind: "const"}
+      - {name: "fill_start", file: "Optimization/run_whatif_delta.py", kind: "function"}
       - {name: "run", file: "Optimization/run_whatif_delta.py", kind: "function"}
       - {name: "main", file: "Optimization/run_whatif_delta.py", kind: "function"}
     notes: ""
@@ -4047,6 +4054,30 @@ files:
       - {name: "test_no_flag_default_diverges_from_its_config_key", file: "Tests/unit/test_cli_surface.py", kind: "function"}
       - {name: "test_every_none_sentinel_flag_is_resolved_with_an_is_not_none_test", file: "Tests/unit/test_cli_surface.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_closed_form.py":
+    purpose: "one expression tree: evaluated, rendered, and held to the simulator."
+    layer: "tests"
+    key_symbols:
+      - {name: "DECLARING_MODULES", file: "Tests/unit/test_closed_form.py", kind: "const"}
+      - {name: "test_operators_build_trees_that_evaluate_like_python", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_sums_associate_left_to_right_like_the_code_they_mirror", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_rendering_parenthesises_by_precedence", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_substitution_renders_values_in_place_of_symbols", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_piecewise_takes_the_first_true_case_in_order", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_sum_binds_its_per_item_symbols_and_reads_the_rest", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_call_wraps_an_opaque_function_of_the_trees_values", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_numbers_print_readably", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_model_runs_in_dependency_order_whatever_the_declaration_order", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_model_refuses_cycles_duplicates_and_missing_inputs", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_sweep_evaluates_once_per_value", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_the_page_renders_every_equation_bare_and_substituted", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_the_graph_draws_inputs_and_dependencies", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_every_declaring_module_registers_equations", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_every_registered_equation_equals_the_simulator_function_it_mirrors", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_the_mirrored_bracket_table_is_the_simulators", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_the_handling_term_mirrors_every_transform_the_configs_use", file: "Tests/unit/test_closed_form.py", kind: "function"}
+      - {name: "test_a_second_equation_under_a_registered_name_is_refused", file: "Tests/unit/test_closed_form.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_cluster_map_choose_aisle_equivalence.py":
     purpose: "the fused lift scan returns the old answer."
     layer: "tests"
@@ -4156,6 +4187,19 @@ files:
       - {name: "test_the_real_parent_chain_resolves_end_to_end", file: "Tests/unit/test_contractstore.py", kind: "function"}
       - {name: "test_the_adapter_really_delegates", file: "Tests/unit/test_contractstore.py", kind: "function"}
       - {name: "test_the_two_adapters_are_separate_stores", file: "Tests/unit/test_contractstore.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_cost_laws.py":
+    purpose: "each cost class's `closed_form` law equals what that class charges."
+    layer: "tests"
+    key_symbols:
+      - {name: "TRANSFORMS", file: "Tests/unit/test_cost_laws.py", kind: "const"}
+      - {name: "BRACKETS", file: "Tests/unit/test_cost_laws.py", kind: "const"}
+      - {name: "test_the_pick_law_is_the_pick_time", file: "Tests/unit/test_cost_laws.py", kind: "function"}
+      - {name: "test_the_put_law_is_what_a_put_bills", file: "Tests/unit/test_cost_laws.py", kind: "function"}
+      - {name: "test_the_unload_law_is_what_a_pack_costs", file: "Tests/unit/test_cost_laws.py", kind: "function"}
+      - {name: "test_every_registered_config_and_its_derived_crews_charge_their_laws", file: "Tests/unit/test_cost_laws.py", kind: "function"}
+      - {name: "test_each_law_leaves_exactly_the_event_unbound", file: "Tests/unit/test_cost_laws.py", kind: "function"}
+      - {name: "test_a_law_renders_with_its_coefficients_substituted", file: "Tests/unit/test_cost_laws.py", kind: "function"}
     notes: ""
   "Tests/unit/test_couple_channels_param.py":
     purpose: "The five seams of `--couple-channels`, the site-dock switch. Pins that the fifth seam is STRUCTURAL -- a worker reads no coupling flag, its payload either carries `leaves` or does not -- that the switch is DECLARED rather than derived from the inbound flag (the campaign couples its inbound-off pole), and that the run-tree marker is declared in both the JSON schema and the artifact catalogue."
@@ -4566,10 +4610,15 @@ files:
       - {name: "test_a_fill_drops_the_uniform_stock_arms_and_an_ordinary_run_keeps_them", file: "Tests/unit/test_fill_trial.py", kind: "function"}
       - {name: "test_a_fill_spec_refuses_its_unfillable_cells_before_anything_runs", file: "Tests/unit/test_fill_trial.py", kind: "function"}
       - {name: "test_a_fill_refuses_the_unload_cost_overlays", file: "Tests/unit/test_fill_trial.py", kind: "function"}
-      - {name: "test_a_fresh_fill_fills_until_settled_then_runs_the_pick_stage", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_fresh_fill_fills_until_settled_idles_then_picks_from_the_declared_start", file: "Tests/unit/test_fill_trial.py", kind: "function"}
       - {name: "test_a_finished_fill_arm_resubmitted_runs_no_batch", file: "Tests/unit/test_fill_trial.py", kind: "function"}
       - {name: "test_a_fill_unit_refuses_a_resume_from_the_middle", file: "Tests/unit/test_fill_trial.py", kind: "function"}
       - {name: "test_an_unsettled_fill_raises_at_its_cap", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_pick_stage_drops_the_fill_and_idle_days_and_nothing_else", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_whatif_writers_find_the_pick_start_on_the_arms_meta", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_steady_state_window_never_reaches_back_into_the_fill", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_the_fill_trial_spec_is_the_nine_cells_ranked_on_pick_labour", file: "Tests/unit/test_fill_trial.py", kind: "function"}
+      - {name: "test_a_rule_pair_spec_runs_unpinned_only_with_a_stated_reason", file: "Tests/unit/test_fill_trial.py", kind: "function"}
     notes: ""
   "Tests/unit/test_first_time_guarantee.py":
     purpose: "demand is declared, the picking crew and the line floor are derived from the joint first-time confidence (ADR-0004)."
@@ -7247,6 +7296,52 @@ files:
     key_symbols:
       - {name: "POLICIES", file: "Warehouse/kernel/allocation.py", kind: "const"}
       - {name: "partition", file: "Warehouse/kernel/allocation.py", kind: "function"}
+    notes: ""
+  "Warehouse/kernel/closed_form.py":
+    purpose: "equations written once: evaluated to numbers AND rendered to LaTeX."
+    layer: "wh_kernel"
+    key_symbols:
+      - {name: "SIG_FIGS", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "fmt_num", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "Expr", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Const", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Sym", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Add", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Mul", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Div", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Pow", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Neg", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Cmp", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Fn", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "exp", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "ln", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "sqrt", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "ceil", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "floor", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "rnd", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "absv", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "fmax", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "fmin", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "Piecewise", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Sum", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Call", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Mirror", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Equation", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "register", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "Result", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Model", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "Law", file: "Warehouse/kernel/closed_form.py", kind: "class"}
+      - {name: "INCHES_PER_FOOT", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "PER_PICK", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "TRAVEL", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "handle_var_equation", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "HANDLE_VAR", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "height_multiplier_equation", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "DEFAULT_HEIGHT_BRACKETS", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "HEIGHT_MULTIPLIER", file: "Warehouse/kernel/closed_form.py", kind: "const"}
+      - {name: "pick_event_model", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "put_event_model", file: "Warehouse/kernel/closed_form.py", kind: "function"}
+      - {name: "unload_event_model", file: "Warehouse/kernel/closed_form.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/cost_model.py":
     purpose: "single source of truth for the pick-cost primitives."

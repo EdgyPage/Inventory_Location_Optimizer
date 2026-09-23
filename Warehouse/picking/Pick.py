@@ -8,6 +8,7 @@ from Warehouse.layout.Storage_Primitive import StorageCart, StoreCart
 from Warehouse.picking.Workload_Builder import Task
 # Cost-model primitives live in cost_model (single source of truth).  Re-exported here so
 # `from Pick import DEFAULT_HEIGHT_BRACKETS, height_multiplier` keeps working.
+from Warehouse.kernel import closed_form as _cf
 from Warehouse.kernel.allocation import partition
 from Warehouse.kernel.cost_model import (
     aisle_exit_cost, DEFAULT_HEIGHT_BRACKETS, DEFAULT_PICK_INTERCEPT, DEFAULT_PICK_PER_ITEM,
@@ -57,6 +58,18 @@ class PickConfig:
     # byte-identical; 'lpt' = load-balance the fixed work to minimise makespan (higher throughput,
     # unchanged total labor) by minimising the EXACT per-picker load (travel+handling + real cart).
     scheduler: str          = 'round_robin'
+
+    @property
+    def closed_form(self) -> '_cf.Law':
+        """This channel's pick-line law as ONE expression tree -- `M(y)·(I + q·p + q·v)` at
+        these coefficients (`Warehouse.kernel.closed_form.pick_event_model`).  Evaluates what
+        `_pick_time` charges for an event (`y, w, vol, q`); the cart-swap penalty is a separate
+        timed step and is not in it.  `Tests/unit/test_cost_laws.py` holds the two equal."""
+        return _cf.Law(_cf.pick_event_model(tuple(self.height_brackets), self.pick_weight_fn,
+                                            self.pick_volume_fn),
+                       output='at_location',
+                       fixed={'I': self.pick_intercept, 'p': self.pick_per_item,
+                              'cw': self.pick_weight_coef, 'cv': self.pick_volume_coef})
 
     def __post_init__(self):
         # A non-positive speed is NaN-poison, not a slow picker — see validate_speeds().

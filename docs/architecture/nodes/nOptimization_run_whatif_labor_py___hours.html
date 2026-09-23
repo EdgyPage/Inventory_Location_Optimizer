@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_hours</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_whatif_labor_py.html"><code>Optimization/run_whatif_labor.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _hours(db: str)</code></pre>
+<pre class="sig"><code>def _hours(db: str, start: int=0)</code></pre>
 <section class="doc">Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.
 
 Read-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened

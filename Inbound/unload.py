@@ -49,6 +49,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Warehouse.kernel import closed_form as _cf
 from Warehouse.kernel.cost_model import DEFAULT_RECV_INTERCEPT_SCALE, handle_var, per_pick
 from Warehouse.operations.putaway import PutawayCost
 
@@ -95,6 +96,17 @@ class UnloadCost:
             weight_fn=put.weight_fn,
             volume_fn=put.volume_fn,
         )
+
+    @property
+    def closed_form(self) -> '_cf.Law':
+        """This dock's unload law as ONE expression tree -- `p + (I + q·v)` per pack at these
+        coefficients (`Warehouse.kernel.closed_form.unload_event_model`).  Evaluates what
+        `unload_cost` charges for an event (`w, vol, q`); `Tests/unit/test_cost_laws.py` holds
+        the two equal."""
+        return _cf.Law(_cf.unload_event_model(self.weight_fn, self.volume_fn),
+                       output='unload',
+                       fixed={'I': self.intercept, 'p': self.per_item,
+                              'cw': self.weight_coef, 'cv': self.volume_coef})
 
 
 def unload_cost(weight: float, volume: float, quantity: int, cost: UnloadCost) -> float:

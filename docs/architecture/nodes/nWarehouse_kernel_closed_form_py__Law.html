@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Law · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_kernel_closed_form_py__Law" data-id="Warehouse/kernel/closed_form.py::Law">
+<nav class="crumbs"><a href="../layers.html">wh_kernel</a> <span class="sep">›</span> <a href="../files/nWarehouse_kernel_closed_form_py.html"><code>Warehouse/kernel/closed_form.py</code></a> <span class="sep">›</span> <span class="here"><code>Law</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>Law</code></h1>
+<p class="meta">layer <span class="chip">wh_kernel</span> · file <a href="../files/nWarehouse_kernel_closed_form_py.html"><code>Warehouse/kernel/closed_form.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>@dataclass(eq=False)
+class Law</code></pre>
+<section class="doc">A model BOUND to one object&#x27;s coefficients: what that object charges for one event.
+
+The form a cost class carries as its `closed_form` attribute (`PutawayCost`, `UnloadCost`,
+`PickConfig`): `model` is the law&#x27;s equations, `fixed` the object&#x27;s own coefficients bound
+to their symbols, `output` the equation whose value is the charge.  What is left unbound is
+the EVENT -- where the bin is, how much is moved, how heavy it is -- and `evaluate` takes
+exactly that:  `PutawayCost(...).closed_form.evaluate(x=..., y=..., q=..., ...)`.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(3)</span></h2><ul><li><a href="nInbound_unload_py__UnloadCost_closed_form.html"><code>closed_form</code></a> <span class="dim">Inbound/unload.py</span></li><li><a href="nWarehouse_operations_putaway_py__PutawayCost_closed_form.html"><code>closed_form</code></a> <span class="dim">Warehouse/operations/putaway.py</span></li><li><a href="nWarehouse_picking_Pick_py__PickConfig_closed_form.html"><code>closed_form</code></a> <span class="dim">Warehouse/picking/Pick.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_kernel_closed_form_py__Law">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/kernel/closed_form.py#:~:text=class%20Law">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_leaf_batch_rows</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_run_unload_ranking_py.html"><code>Optimization/run_unload_ranking.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def _leaf_batch_rows(rt, run, arm: str) -&gt; tuple | None</code></pre>
+<pre class="sig"><code>def _leaf_batch_rows(rt, run, arm: str, start: int=0) -&gt; tuple | None</code></pre>
 <section class="doc">`(rows, n_batches)` for one arm of one leaf, or None when the leaf DB is absent or
 holds no run: its `batch_stats` rows sorted by batch -- the per-batch form of the
 score, which the series document carries only SMOOTHED (`series._series` rolls it
@@ -22,7 +22,12 @@ over `_SMOOTH` batches) and which the floor and the adjustment both need raw -- 
 the batch count the ARM itself recorded (`simulation_runs.n_batches`, on the
 guaranteed surface), which is the prefix the worker weighted the script over
 (`batches[:n_batches]`).  The row count is the fallback when an older vintage did not
-stamp it, and a leaf that finalized short of its plan is not the rows&#x27; business.</section>
+stamp it, and a leaf that finalized short of its plan is not the rows&#x27; business.
+
+`start` is a FILL TRIAL arm&#x27;s pick-stage start (`fill_batches`; 0 elsewhere): the fill&#x27;s
+and idle days are dropped, so the score, the floor and the adjustment are all read over
+the pick stage.  The start is one declared batch in every cell of a fill run, so the
+per-batch pairing across cells stays aligned.</section>
 <section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nOptimization_persistence_Picking_Data_py__find_run.html"><code>find_run</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__load_batch_stats.html"><code>load_batch_stats</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li><li><a href="nOptimization_persistence_Picking_Data_py__run_identity.html"><code>run_identity</code></a> <span class="dim">Optimization/persistence/Picking_Data.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_run_unload_ranking_py___units_of_cell.html"><code>_units_of_cell</code></a> <span class="dim">Optimization/run_unload_ranking.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_run_unload_ranking_py___leaf_batch_rows">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/run_unload_ranking.py#:~:text=def%20_leaf_batch_rows">Source ↗</a></p>
 </article>

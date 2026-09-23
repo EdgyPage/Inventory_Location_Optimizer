@@ -1726,6 +1726,11 @@
       "src": "Inbound/transit.py::YardTransit.yard_order"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Inbound/unload.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Inbound/unload.py"
@@ -1734,6 +1739,16 @@
       "dst": "Warehouse/operations/putaway.py",
       "kind": "imports",
       "src": "Inbound/unload.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Law",
+      "kind": "calls",
+      "src": "Inbound/unload.py::UnloadCost.closed_form"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::unload_event_model",
+      "kind": "calls",
+      "src": "Inbound/unload.py::UnloadCost.closed_form"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::handle_var",
@@ -3056,6 +3071,11 @@
       "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.footer"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::pick_stage",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/context.py::SiteContext.leaf_batch_df"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/context.py::_column_evidence",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/context.py::_probe_capabilities"
@@ -3691,6 +3711,11 @@
       "src": "Optimization/Performance_Evaluations/core/requests.py::era_shortfall"
     },
     {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::pick_stage",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::frame"
+    },
+    {
       "dst": "Optimization/Performance_Evaluations/core/requests.py::frame",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::free_index_frame"
@@ -3762,6 +3787,11 @@
     },
     {
       "dst": "Optimization/Performance_Evaluations/common/frames.py::_bdf",
+      "kind": "calls",
+      "src": "Optimization/Performance_Evaluations/core/requests.py::site_batch_frame"
+    },
+    {
+      "dst": "Optimization/Performance_Evaluations/core/requests.py::pick_stage",
       "kind": "calls",
       "src": "Optimization/Performance_Evaluations/core/requests.py::site_batch_frame"
     },
@@ -10786,6 +10816,11 @@
       "src": "Optimization/run_whatif_delta.py::_scan"
     },
     {
+      "dst": "Optimization/run_whatif_delta.py::fill_start",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_delta.py::_scan"
+    },
+    {
       "dst": "Optimization/run_whatif_delta.py::_cell_labels",
       "kind": "calls",
       "src": "Optimization/run_whatif_delta.py::_write_delta_json"
@@ -10992,6 +11027,11 @@
     },
     {
       "dst": "Optimization/run_whatif_delta.py::_metrics",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_labor.py::_scan_labor"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::fill_start",
       "kind": "calls",
       "src": "Optimization/run_whatif_labor.py::_scan_labor"
     },
@@ -11417,6 +11457,11 @@
     },
     {
       "dst": "Optimization/run_whatif_delta.py::_channel_of",
+      "kind": "calls",
+      "src": "Optimization/run_whatif_volume.py::scan"
+    },
+    {
+      "dst": "Optimization/run_whatif_delta.py::fill_start",
       "kind": "calls",
       "src": "Optimization/run_whatif_volume.py::scan"
     },
@@ -20701,6 +20746,471 @@
       "src": "Warehouse/inventory/put_rungs.py::DECLINED"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_paren",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Add.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Call.__post_init__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmt_num",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Const.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation.evaluate",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Equation.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmt_num",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Equation.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Add",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__add__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__add__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Cmp",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__ge__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__ge__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Cmp",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__gt__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__gt__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Cmp",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__le__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__le__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Cmp",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__lt__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__lt__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mul",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__mul__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__mul__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Neg",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__neg__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Pow",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__pow__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__pow__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Add",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__radd__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__radd__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mul",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rmul__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rmul__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Pow",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rpow__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rpow__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Add",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rsub__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Neg",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rsub__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rsub__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Div",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rtruediv__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__rtruediv__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Add",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__sub__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Neg",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__sub__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__sub__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Div",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__truediv__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Expr.__truediv__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Fn.__init__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::handle_var_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::HANDLE_VAR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::HANDLE_VAR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::height_multiplier_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::HEIGHT_MULTIPLIER"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::HEIGHT_MULTIPLIER"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::INCHES_PER_FOOT"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Law.result",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Law.evaluate"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Law.result",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Law.to_markdown"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror.resolve",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Mirror.call"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model._toposort",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Model.__post_init__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Result",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Model.evaluate"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model.evaluate",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Model.sweep"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmt_num",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Model.to_markdown"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_paren",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Mul.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_prints_numeric",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Mul.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_paren",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Neg.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::PER_PICK"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::PER_PICK"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::PER_PICK"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_paren",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Pow.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmt_num",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::Sym.latex"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::TRAVEL"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::TRAVEL"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::register",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::TRAVEL"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::_e"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::_transform_expr"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::_transform_expr"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::ln",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::_transform_expr"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::sqrt",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::_transform_expr"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::absv"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::ceil"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::exp"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::floor"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::fmax"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::fmin"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::handle_var_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::handle_var_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::_transform_expr",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::handle_var_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::height_multiplier_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::height_multiplier_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::height_multiplier_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Piecewise",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::height_multiplier_equation"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::ln"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::pick_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::handle_var_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::pick_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::height_multiplier_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::pick_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::put_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::put_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::put_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::handle_var_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::put_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::height_multiplier_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::put_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::rnd"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::sqrt"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::unload_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::unload_event_model"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::handle_var_equation",
+      "kind": "calls",
+      "src": "Warehouse/kernel/closed_form.py::unload_event_model"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py::sec_per_inch",
       "kind": "calls",
       "src": "Warehouse/kernel/cost_model.py::SpeedProfile.__post_init__"
@@ -20921,9 +21431,24 @@
       "src": "Warehouse/operations/__init__.py"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Warehouse/operations/putaway.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/operations/putaway.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Law",
+      "kind": "calls",
+      "src": "Warehouse/operations/putaway.py::PutawayCost.closed_form"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::put_event_model",
+      "kind": "calls",
+      "src": "Warehouse/operations/putaway.py::PutawayCost.closed_form"
     },
     {
       "dst": "Warehouse/operations/putaway.py::put_seconds_at",
@@ -20971,6 +21496,11 @@
       "src": "Warehouse/picking/Pick.py"
     },
     {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Warehouse/picking/Pick.py"
+    },
+    {
       "dst": "Warehouse/kernel/cost_model.py",
       "kind": "imports",
       "src": "Warehouse/picking/Pick.py"
@@ -20994,6 +21524,16 @@
       "dst": "Warehouse/kernel/cost_model.py::validate_speeds",
       "kind": "calls",
       "src": "Warehouse/picking/Pick.py::PickConfig.__post_init__"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Law",
+      "kind": "calls",
+      "src": "Warehouse/picking/Pick.py::PickConfig.closed_form"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::pick_event_model",
+      "kind": "calls",
+      "src": "Warehouse/picking/Pick.py::PickConfig.closed_form"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
@@ -25767,6 +26307,14 @@
     },
     {
       "file": "Inbound/unload.py",
+      "id": "Inbound/unload.py::UnloadCost.closed_form",
+      "kind": "function",
+      "module": "Inbound/unload.py",
+      "name": "closed_form",
+      "public": true
+    },
+    {
+      "file": "Inbound/unload.py",
       "id": "Inbound/unload.py::UnloadCost.from_putaway",
       "kind": "function",
       "module": "Inbound/unload.py",
@@ -29019,6 +29567,14 @@
       "kind": "function",
       "module": "Optimization/Performance_Evaluations/core/requests.py",
       "name": "missed_frame",
+      "public": true
+    },
+    {
+      "file": "Optimization/Performance_Evaluations/core/requests.py",
+      "id": "Optimization/Performance_Evaluations/core/requests.py::pick_stage",
+      "kind": "function",
+      "module": "Optimization/Performance_Evaluations/core/requests.py",
+      "name": "pick_stage",
       "public": true
     },
     {
@@ -32843,6 +33399,46 @@
       "kind": "const",
       "module": "Optimization/config/whatif_config.py",
       "name": "ERA_RUN_DEFAULTS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::FILL_AXIS_EXCLUDED",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "FILL_AXIS_EXCLUDED",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::FILL_RANKING",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "FILL_RANKING",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::FILL_RATIO",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "FILL_RATIO",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::FILL_RUN_DEFAULTS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "FILL_RUN_DEFAULTS",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/whatif_config.py",
+      "id": "Optimization/config/whatif_config.py::FILL_SPAN_DAYS",
+      "kind": "const",
+      "module": "Optimization/config/whatif_config.py",
+      "name": "FILL_SPAN_DAYS",
       "public": true
     },
     {
@@ -36684,6 +37280,14 @@
       "module": "Optimization/run_whatif_delta.py",
       "name": "_med",
       "public": false
+    },
+    {
+      "file": "Optimization/run_whatif_delta.py",
+      "id": "Optimization/run_whatif_delta.py::fill_start",
+      "kind": "function",
+      "module": "Optimization/run_whatif_delta.py",
+      "name": "fill_start",
+      "public": true
     },
     {
       "file": "Optimization/run_whatif_delta.py",
@@ -49734,6 +50338,990 @@
       "public": true
     },
     {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py",
+      "kind": "module",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Warehouse.kernel.closed_form",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Add",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Add",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Add.__init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Add.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Add.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Add.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Call",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Call",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Call.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Call.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Call.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Call.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Cmp",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Cmp",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Cmp.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Cmp.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Cmp.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Const",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Const",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Const.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Const.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Const.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::DEFAULT_HEIGHT_BRACKETS",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "DEFAULT_HEIGHT_BRACKETS",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Div",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Div",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Div.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Div.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Div.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Equation",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Equation.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Equation.inputs",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "inputs",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Equation.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Expr",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__add__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__add__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__ge__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__ge__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__gt__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__gt__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__le__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__le__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__lt__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__lt__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__mul__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__mul__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__neg__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__neg__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__pow__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__pow__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__radd__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__radd__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__rmul__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__rmul__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__rpow__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__rpow__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__rsub__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__rsub__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__rtruediv__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__rtruediv__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__sub__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__sub__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.__truediv__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__truediv__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Expr.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Fn",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Fn.__init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Fn.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Fn.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Fn.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::HANDLE_VAR",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "HANDLE_VAR",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::HEIGHT_MULTIPLIER",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "HEIGHT_MULTIPLIER",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::INCHES_PER_FOOT",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "INCHES_PER_FOOT",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Law",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Law",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Law.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Law.event_inputs",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "event_inputs",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Law.result",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "result",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Law.to_markdown",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "to_markdown",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mirror",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Mirror",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mirror.call",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "call",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mirror.resolve",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "resolve",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Model",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.__post_init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__post_init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model._toposort",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_toposort",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model._toposort.visit",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "visit",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.equation",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "equation",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.inputs",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "inputs",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.sweep",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "sweep",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.to_dot",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "to_dot",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Model.to_markdown",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "to_markdown",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mul",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Mul",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mul.__init__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mul.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mul.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Mul.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Neg",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Neg",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Neg.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Neg.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Neg.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::PER_PICK",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "PER_PICK",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Piecewise",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Piecewise",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Piecewise.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Piecewise.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Piecewise.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Pow",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Pow",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Pow.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Pow.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Pow.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Result",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Result",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Result.__getitem__",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::SIG_FIGS",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "SIG_FIGS",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sum",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Sum",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sum.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sum.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sum.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "class",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "Sym",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sym.evaluate",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "evaluate",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sym.latex",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "latex",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::Sym.symbols",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "symbols",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::TRAVEL",
+      "kind": "const",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "TRAVEL",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::_e",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_e",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::_paren",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_paren",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::_prints_numeric",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_prints_numeric",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::_transform_expr",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "_transform_expr",
+      "public": false
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::absv",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "absv",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::ceil",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "ceil",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::exp",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "exp",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::floor",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "floor",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::fmax",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "fmax",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::fmin",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "fmin",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::fmt_num",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "fmt_num",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::handle_var_equation",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "handle_var_equation",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::height_multiplier_equation",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "height_multiplier_equation",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::ln",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "ln",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::pick_event_model",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "pick_event_model",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::put_event_model",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "put_event_model",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::register",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "register",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::rnd",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "rnd",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::sqrt",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "sqrt",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/closed_form.py",
+      "id": "Warehouse/kernel/closed_form.py::unload_event_model",
+      "kind": "function",
+      "module": "Warehouse/kernel/closed_form.py",
+      "name": "unload_event_model",
+      "public": true
+    },
+    {
       "file": "Warehouse/kernel/cost_model.py",
       "id": "Warehouse/kernel/cost_model.py",
       "kind": "module",
@@ -50791,6 +52379,14 @@
     },
     {
       "file": "Warehouse/operations/putaway.py",
+      "id": "Warehouse/operations/putaway.py::PutawayCost.closed_form",
+      "kind": "function",
+      "module": "Warehouse/operations/putaway.py",
+      "name": "closed_form",
+      "public": true
+    },
+    {
+      "file": "Warehouse/operations/putaway.py",
       "id": "Warehouse/operations/putaway.py::PutawayCost.from_pick",
       "kind": "function",
       "module": "Warehouse/operations/putaway.py",
@@ -50956,6 +52552,14 @@
       "module": "Warehouse/picking/Pick.py",
       "name": "__post_init__",
       "public": false
+    },
+    {
+      "file": "Warehouse/picking/Pick.py",
+      "id": "Warehouse/picking/Pick.py::PickConfig.closed_form",
+      "kind": "function",
+      "module": "Warehouse/picking/Pick.py",
+      "name": "closed_form",
+      "public": true
     },
     {
       "file": "Warehouse/picking/Pick.py",

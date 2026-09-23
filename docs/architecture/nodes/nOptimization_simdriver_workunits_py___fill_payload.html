@@ -22,7 +22,9 @@ no fill.
 Computed here, per cell, rather than in the per-pair derivation: the rate is priced off
 the SEATED receiving crew, and the seats are the cell&#x27;s door count times its door team --
 which the door-scarcity axis varies across the cells of one pair.  `max_days` is the
-fill&#x27;s length cap: twice the dispatch span plus ten days.  At a declared ratio below one
+fill&#x27;s length cap -- twice the dispatch span plus ten days -- AND the declared batch the
+pick stage starts at in every cell, whichever day that cell&#x27;s fill settled on, so the
+pick stage&#x27;s batch ids align across the cells of a run at one door count.  At a declared ratio below one
 the yard is a queue and clears within days of the last dispatch, so a fill that has not
 settled by then is a fill that CANNOT (a unit no bin will take), and the worker raises
 with the census rather than running a pick stage that never starts.</section>

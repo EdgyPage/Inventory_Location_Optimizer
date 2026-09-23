@@ -2573,6 +2573,15 @@
       "kind": "class",
       "signature": ""
     },
+    "Inbound/unload.py::UnloadCost.closed_form": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "This dock's unload law as ONE expression tree -- `p + (I + q\u00b7v)` per pack at these\ncoefficients (`Warehouse.kernel.closed_form.unload_event_model`).  Evaluates what\n`unload_cost` charges for an event (`w, vol, q`); `Tests/unit/test_cost_laws.py` holds\nthe two equal.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> '_cf.Law'"
+    },
     "Inbound/unload.py::UnloadCost.from_putaway": {
       "decorators": [
         "classmethod"
@@ -5441,7 +5450,7 @@
     },
     "Optimization/Performance_Evaluations/core/requests.py::frame": {
       "decorators": [],
-      "doc": "One strategy's frame of `kind`, memoised per kind and key.",
+      "doc": "One strategy's frame of `kind`, memoised per kind and key -- over the pick stage\nalone on a fill trial (`pick_stage`).",
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, kind: str, key)"
@@ -5466,6 +5475,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(ctx, key)"
+    },
+    "Optimization/Performance_Evaluations/core/requests.py::pick_stage": {
+      "decorators": [],
+      "doc": "`rows` from batch `start` on -- a FILL TRIAL's pick stage (CONTEXT.md: Fill trial).\n\nA fill trial's arm tables hold its fill and idle days as batches `0 .. start - 1` and\nits pick stage from `start` (`fill_batches` on the arm's sim_meta entry, the same\ndeclared batch in every cell of the run).  Every per-batch quantity the suite reports\nis a PICK-stage quantity, so this is applied where each arm's rows are loaded.\n\nRows carry their batch as `batch_id` (a dataclass or a dict).  A row without one -- a\ntrailer, a yard drain (keyed `batch`, deliberately not read here), a shift day -- passes\nthrough, so the YARD family reads the whole run: on a fill trial the fill IS the yard's\nexperiment, and cutting it off would leave that family describing an idle dock.\n`start` None or 0 returns `rows` itself: every run that is not a fill is untouched.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rows: list, start) -> list"
     },
     "Optimization/Performance_Evaluations/core/requests.py::record_error": {
       "decorators": [],
@@ -8840,6 +8856,41 @@
       "signature": null,
       "value_preview": "{'shift_drain_or_cap': True, 'releases_per_day': 1, 'roll_over_unpicked': True, 'cut_at_day_end': True}"
     },
+    "Optimization/config/whatif_config.py::FILL_AXIS_EXCLUDED": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('inb_off', f'gmyopic_k{PHASE2_BOUND_PROBE_K}')"
+    },
+    "Optimization/config/whatif_config.py::FILL_RANKING": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{'quantity': 'pick_labour_s', 'field': 'ss_prod_hours', 'column': 'task_makespan', 'census_quantity': None, 'census_field': None, 'census_column': None, 'exact_field': None}"
+    },
+    "Optimization/config/whatif_config.py::FILL_RATIO": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "0.95"
+    },
+    "Optimization/config/whatif_config.py::FILL_RUN_DEFAULTS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "{**PHASE2_RUN_DEFAULTS, 'inbound_fill_span_days': FILL_SPAN_DAYS, 'inbound_fill_ratio': FILL_RATIO}"
+    },
+    "Optimization/config/whatif_config.py::FILL_SPAN_DAYS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "40.0"
+    },
     "Optimization/config/whatif_config.py::INBOUND_ARRIVAL_REGIME": {
       "decorators": [],
       "doc": null,
@@ -11970,10 +12021,10 @@
     },
     "Optimization/run_unload_ranking.py::_leaf_batch_rows": {
       "decorators": [],
-      "doc": "`(rows, n_batches)` for one arm of one leaf, or None when the leaf DB is absent or\nholds no run: its `batch_stats` rows sorted by batch -- the per-batch form of the\nscore, which the series document carries only SMOOTHED (`series._series` rolls it\nover `_SMOOTH` batches) and which the floor and the adjustment both need raw -- and\nthe batch count the ARM itself recorded (`simulation_runs.n_batches`, on the\nguaranteed surface), which is the prefix the worker weighted the script over\n(`batches[:n_batches]`).  The row count is the fallback when an older vintage did not\nstamp it, and a leaf that finalized short of its plan is not the rows' business.",
+      "doc": "`(rows, n_batches)` for one arm of one leaf, or None when the leaf DB is absent or\nholds no run: its `batch_stats` rows sorted by batch -- the per-batch form of the\nscore, which the series document carries only SMOOTHED (`series._series` rolls it\nover `_SMOOTH` batches) and which the floor and the adjustment both need raw -- and\nthe batch count the ARM itself recorded (`simulation_runs.n_batches`, on the\nguaranteed surface), which is the prefix the worker weighted the script over\n(`batches[:n_batches]`).  The row count is the fallback when an older vintage did not\nstamp it, and a leaf that finalized short of its plan is not the rows' business.\n\n`start` is a FILL TRIAL arm's pick-stage start (`fill_batches`; 0 elsewhere): the fill's\nand idle days are dropped, so the score, the floor and the adjustment are all read over\nthe pick stage.  The start is one declared batch in every cell of a fill run, so the\nper-batch pairing across cells stays aligned.",
       "is_async": false,
       "kind": "function",
-      "signature": "(rt, run, arm: str) -> tuple | None"
+      "signature": "(rt, run, arm: str, start: int=0) -> tuple | None"
     },
     "Optimization/run_unload_ranking.py::_leaf_repick": {
       "decorators": [],
@@ -12154,7 +12205,7 @@
       "doc": "Steady-state means (last WIN batches) of the four success metrics from batch_stats:\n\n    task_ms   = task makespan  = \u03a3 task time = total labor        (metric a)\n    batch_ms  = batch makespan = last-picker finish (wall-clock)  (metric b)\n    thr_batch = items / batch makespan                            (metric d)\n    thr_task  = items / task makespan                             (metric c)\n\nNew runs carry task_makespan/thr_task as columns; legacy DBs fall back to the task_stats join.\nA VETTED file binds to its own vintage (`_bind`) and the column probe is answered from the\nBOUND SHAPE (`ds.has`), never a PRAGMA; only an unvetted file (synthetic fixtures, cold\narchives) keeps the frozen PRAGMA probe.  The aggregate SQL itself is untouched either way \u2014\nfloat drift on published CSVs is forbidden.\n\nRead-only + immutable, never a plain `sqlite3.connect`: these DBs are written in WAL mode, so\nany writable open \u2014 including a bare read \u2014 makes SQLite drop `-wal`/`-shm` sidecars beside a\n~1 GB archived file.  That is exactly what `scripts/archive_cells.py::_quick_check` exists to\ndefend against (`_bind` passes the same immutable promise through `dataset.bind`).",
       "is_async": false,
       "kind": "function",
-      "signature": "(db: str)"
+      "signature": "(db: str, start: int=0)"
     },
     "Optimization/run_whatif_delta.py::_pct": {
       "decorators": [],
@@ -12183,6 +12234,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(vs, key)"
+    },
+    "Optimization/run_whatif_delta.py::fill_start": {
+      "decorators": [],
+      "doc": "The batch a FILL TRIAL arm's pick stage starts at (`fill_batches` on its sim_meta\nentry), else 0 -- every run that is not a fill, and any arm whose meta is unreadable.\n\nThe three what-if writers read `batch_stats` with their own SQL, around the analysis\nsuite's loader (`core.requests.pick_stage`), so they select the pick stage here: a fill's\nfill and idle days are zero-work batches, and a COUNT, a mean or a last-WIN window over\nthem reads an idle dock as part of the run.  0 makes every query below select every row,\nso an ordinary run's numbers are the ones it always had.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(rt, cr, db: str) -> int"
     },
     "Optimization/run_whatif_delta.py::main": {
       "decorators": [],
@@ -12293,7 +12351,7 @@
       "doc": "Full-run SUMS over ALL batches (the true totals): labor/batch hours + items + n_batches.\n\nRead-only + immutable for the same reason as `run_whatif_delta._metrics`: a WAL-mode DB opened\nany other way leaves `-wal`/`-shm` sidecars beside an archived ~1 GB file.\n\nAND IT THREADS `REQUIRES`, which it did not until ticket 15. This module DECLARED what it\nreads and then opened the file without it -- so the declaration was validated in CI against\nthe guaranteed surface and enforced against nothing, while its sibling\n`run_whatif_volume._series` threaded the identical shape. A vetted file that cannot serve\nthe declared read now fails LOUDLY instead of returning whatever the vintage happens to\nhave; an unvetted one (synthetic fixtures, cold archives) still takes the plain read-only\npath, which is the historical behaviour.",
       "is_async": false,
       "kind": "function",
-      "signature": "(db: str)"
+      "signature": "(db: str, start: int=0)"
     },
     "Optimization/run_whatif_labor.py::_labor_saved_bars": {
       "decorators": [],
@@ -12460,7 +12518,7 @@
       "doc": "(hours, items) cumulative arrays for one arm, ordered by batch.\n\nA VETTED file binds to its own schema vintage (`Schema.dataset.bind`, immutable=True \u2014 the\nescape-hatch `.con` still carries the same aggregate SQL, unchanged); an unvetted one\n(synthetic fixtures, cold archives) opens through `Schema.connect.read_only` with the same\nread-only + immutable promise, replacing the hand-built `?mode=ro&immutable=1` URI this\nfunction used to assemble.  Either way no `-wal`/`-shm` sidecar is ever left beside an\narchived copy.",
       "is_async": false,
       "kind": "function",
-      "signature": "(db: str)"
+      "signature": "(db: str, start: int=0)"
     },
     "Optimization/run_whatif_volume.py::_writer_tree": {
       "decorators": [],
@@ -16420,10 +16478,10 @@
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._begin_pick": {
       "decorators": [],
-      "doc": "The fill ended after batch `off - 1`: the pick stage's script starts at batch\n`off`, and the arm now runs `off + n_script` batches in all.",
+      "doc": "The fill has settled (after `settled` site days): the pick stage's script starts\nat the declared batch `off`, and the arm now runs `off + n_script` batches in all.\nBatches `settled .. off - 1` are idle.",
       "is_async": false,
       "kind": "function",
-      "signature": "(off: int) -> None"
+      "signature": "(off: int, settled: int | None=None) -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._charge": {
       "decorators": [],
@@ -17189,7 +17247,7 @@
     },
     "Optimization/simdriver/workunits.py::_fill_payload": {
       "decorators": [],
-      "doc": "A coupled unit's FILL record: `staffing.derive_fill`'s crews plus the dispatch rate\nthis CELL's dock implies (`staffing.fill_dispatch_rate`), or None when the cell declares\nno fill.\n\nComputed here, per cell, rather than in the per-pair derivation: the rate is priced off\nthe SEATED receiving crew, and the seats are the cell's door count times its door team --\nwhich the door-scarcity axis varies across the cells of one pair.  `max_days` is the\nfill's length cap: twice the dispatch span plus ten days.  At a declared ratio below one\nthe yard is a queue and clears within days of the last dispatch, so a fill that has not\nsettled by then is a fill that CANNOT (a unit no bin will take), and the worker raises\nwith the census rather than running a pick stage that never starts.",
+      "doc": "A coupled unit's FILL record: `staffing.derive_fill`'s crews plus the dispatch rate\nthis CELL's dock implies (`staffing.fill_dispatch_rate`), or None when the cell declares\nno fill.\n\nComputed here, per cell, rather than in the per-pair derivation: the rate is priced off\nthe SEATED receiving crew, and the seats are the cell's door count times its door team --\nwhich the door-scarcity axis varies across the cells of one pair.  `max_days` is the\nfill's length cap -- twice the dispatch span plus ten days -- AND the declared batch the\npick stage starts at in every cell, whichever day that cell's fill settled on, so the\npick stage's batch ids align across the cells of a run at one door count.  At a declared ratio below one\nthe yard is a queue and clears within days of the last dispatch, so a fill that has not\nsettled by then is a fill that CANNOT (a unit no bin will take), and the worker raises\nwith the census rather than running a pick stage that never starts.",
       "is_async": false,
       "kind": "function",
       "signature": "(leaf: dict) -> dict | None"
@@ -23616,6 +23674,894 @@
       "kind": "function",
       "signature": "(items: Iterable[Any], n: int, *, policy: str='round_robin', cost_of: Callable[[Any], float] | None=None, order_key: Callable[[Any], Any] | None=None) -> list[list]"
     },
+    "Warehouse/kernel/closed_form.py": {
+      "decorators": [],
+      "doc": "closed_form.py \u2014 equations written once: evaluated to numbers AND rendered to LaTeX.\n\nTHE GAP THIS CLOSES.  The repo's closed forms (`Optimization/simconfig/expected_travel.py`,\n`coverage.py`, `staffing.py`, `fragmentation.py`) are Python functions whose mathematics lives\nonly in docstrings and scratch derivations, and `Optimization/config/objectives.py` says of\nits own LaTeX that it is NOT derived from the Python.  A formula written twice -- once as code,\nonce as prose -- is two things to rot, and the prose rots silently: nothing executes it.\n\nHere an equation is ONE expression tree.  The same tree\n\n  * evaluates to a number (`Equation.evaluate`, `Model.evaluate`);\n  * renders to LaTeX, bare or with the numbers substituted (`Equation.latex`, `Model.to_markdown`,\n    MathJax-compatible, which the docs site already renders through `pymdownx.arithmatex`);\n  * draws its dependency graph (`Model.to_dot`);\n  * and, when it models a simulator function, names that function (`Mirror`) so\n    `Tests/unit/test_closed_form.py` can hold the two equal on seeded random inputs.  That test\n    is what makes the rendered LaTeX trustworthy: the formula on the page and the number the\n    test compared against the simulator come from the same tree.\n\nWHY IT LIVES IN THE KERNEL, AND IS STDLIB ONLY.  `architecture.yml` forbids `wh_kernel -> *`, so\neverything may import this and it may import nothing in the repo -- which is what lets the pick,\nput-away and receiving classes carry their own laws as attributes (`PutawayCost.closed_form`,\n`UnloadCost.closed_form`, `PickConfig.closed_form`) while the analysis composes them into models\n(`Optimization/simconfig/models/`).  The same rule is why the kernel's OWN cost laws are declared\nat the bottom of this module rather than in `cost_model.py`: a kernel module may not import a\nsibling (the reason `SpeedProfile` lives inside `cost_model`), so they mirror `cost_model`'s\nfunctions BY NAME and the mirror test imports both.\n\nWHAT IT IS NOT.  Not a computer-algebra system: there is no simplification, differentiation or\nsolving -- `sympy` is not a declared dependency, and a model here is a record of what the\nsimulator charges, not a derivation engine.  Anything that is not closed algebra (a Panjer\nrecursion, the expected-routing chain) enters as a `Call` node: an opaque, named callable with\nits own LaTeX name, evaluated as a function of the tree's other values.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/kernel/closed_form.py::Add": {
+      "decorators": [
+        "dataclass(eq=False, init=False)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Add.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *terms)"
+    },
+    "Warehouse/kernel/closed_form.py::Add.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Add.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Add.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Call": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "An OPAQUE named callable: how a closed form that is not algebra (a Panjer recursion, the\nexpected-routing chain, a bisection) enters a model.  `args` maps the callable's keyword\nparameters to expressions; `tex` is the name printed, e.g. `\\operatorname{fill}`.",
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Call.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Call.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Call.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Call.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Cmp": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "A comparison, for `Piecewise` conditions.  Evaluates to a bool.",
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Cmp.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Cmp.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Cmp.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Const": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Const.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Const.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Const.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::DEFAULT_HEIGHT_BRACKETS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "((96.0, 1.0), (240.0, 1.2), (float('inf'), 1.4))"
+    },
+    "Warehouse/kernel/closed_form.py::Div": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Div.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Div.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Div.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Equation": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "`symbol = expr`.  `name` is the key the value is stored under in a model's results\nand the name other equations read it by; `symbol` is its LaTeX.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/closed_form.py::Equation.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env: dict) -> float"
+    },
+    "Warehouse/kernel/closed_form.py::Equation.inputs": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> set"
+    },
+    "Warehouse/kernel/closed_form.py::Equation.latex": {
+      "decorators": [],
+      "doc": "`symbol = expr`; with `env`, `symbol = expr = substituted = value`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env: dict | None=None) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::Expr": {
+      "decorators": [],
+      "doc": "A node of an expression tree.  Python operators build trees, so an equation reads as\nthe mathematics it states:  `M * (I + q * p + q * v)`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__add__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__ge__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__gt__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__le__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__lt__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__mul__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__neg__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__pow__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__radd__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__rmul__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__rpow__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__rsub__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__rtruediv__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__sub__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.__truediv__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, o)"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env: dict) -> float"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.latex": {
+      "decorators": [],
+      "doc": "LaTeX for this node; with `env`, every bound symbol is replaced by its value.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env: dict | None=None) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::Expr.symbols": {
+      "decorators": [],
+      "doc": "The free symbol names this node reads.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> set"
+    },
+    "Warehouse/kernel/closed_form.py::Fn": {
+      "decorators": [
+        "dataclass(eq=False, init=False)"
+      ],
+      "doc": "A named elementary function: exp, ln, sqrt, ceil, floor, round, abs, max, min.",
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Fn.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name: str, *args)"
+    },
+    "Warehouse/kernel/closed_form.py::Fn.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Fn.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Fn.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::HANDLE_VAR": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('kernel.handle_var', handle_var_equation())"
+    },
+    "Warehouse/kernel/closed_form.py::HEIGHT_MULTIPLIER": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('kernel.height_multiplier', height_multiplier_equation(DEFAULT_HEIGHT_BRACKETS))"
+    },
+    "Warehouse/kernel/closed_form.py::INCHES_PER_FOOT": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "Const(12.0, '12')"
+    },
+    "Warehouse/kernel/closed_form.py::Law": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "A model BOUND to one object's coefficients: what that object charges for one event.\n\nThe form a cost class carries as its `closed_form` attribute (`PutawayCost`, `UnloadCost`,\n`PickConfig`): `model` is the law's equations, `fixed` the object's own coefficients bound\nto their symbols, `output` the equation whose value is the charge.  What is left unbound is\nthe EVENT -- where the bin is, how much is moved, how heavy it is -- and `evaluate` takes\nexactly that:  `PutawayCost(...).closed_form.evaluate(x=..., y=..., q=..., ...)`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/closed_form.py::Law.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, **event) -> float"
+    },
+    "Warehouse/kernel/closed_form.py::Law.event_inputs": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> set"
+    },
+    "Warehouse/kernel/closed_form.py::Law.result": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, **event) -> Result"
+    },
+    "Warehouse/kernel/closed_form.py::Law.to_markdown": {
+      "decorators": [],
+      "doc": "The law as a page; with a complete event, every number substituted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *, title: str | None=None, **event) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::Mirror": {
+      "decorators": [
+        "dataclass(frozen=True)"
+      ],
+      "doc": "The simulator function an equation models, and how to call it from the equation's\ninputs.  `target` is `'package.module:function'`; `args` maps the function's keyword\nparameters to SYMBOL names (or to fixed values through `fixed`); `domain` gives each input\nsymbol a `(lo, hi)` range the mirror test draws from.  `rel_tol` is the float tolerance --\nfloats compare with a tolerance in this repo, never with `==`.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/closed_form.py::Mirror.call": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, values: dict) -> float"
+    },
+    "Warehouse/kernel/closed_form.py::Mirror.resolve": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> Callable"
+    },
+    "Warehouse/kernel/closed_form.py::Model": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "Equations composed into a dependency graph by symbol: an equation that reads a symbol\nanother equation defines depends on it.  Everything not defined by an equation is an\nINPUT.  Evaluation runs in topological order; a cycle raises at construction.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/closed_form.py::Model.__post_init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Model._toposort": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> tuple"
+    },
+    "Warehouse/kernel/closed_form.py::Model._toposort.visit": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(n, path)"
+    },
+    "Warehouse/kernel/closed_form.py::Model.equation": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name: str) -> Equation"
+    },
+    "Warehouse/kernel/closed_form.py::Model.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, inputs: dict) -> Result"
+    },
+    "Warehouse/kernel/closed_form.py::Model.inputs": {
+      "decorators": [
+        "property"
+      ],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> set"
+    },
+    "Warehouse/kernel/closed_form.py::Model.sweep": {
+      "decorators": [],
+      "doc": "Evaluate once per value of input `name`; return `[{name: v, out: ...}, ...]`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name: str, values: Iterable, inputs: dict, outputs: Iterable) -> list"
+    },
+    "Warehouse/kernel/closed_form.py::Model.to_dot": {
+      "decorators": [],
+      "doc": "The dependency graph in Graphviz DOT: inputs as boxes, equations as ellipses.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::Model.to_markdown": {
+      "decorators": [],
+      "doc": "The model as a page: every equation rendered from its own tree, in evaluation order,\neach with its doc line and -- given a `result` -- the numbers substituted in.  Inputs\nare listed first, with their values when known.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, result: Result | None=None, *, title: str | None=None, input_tex: dict | None=None) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::Mul": {
+      "decorators": [
+        "dataclass(eq=False, init=False)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Mul.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *factors)"
+    },
+    "Warehouse/kernel/closed_form.py::Mul.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Mul.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Mul.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Neg": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Neg.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Neg.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Neg.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::PER_PICK": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('kernel.per_pick', Equation('at_location', 'c_{\\\\mathrm{loc}}', M * (I + Q * P_ITEM + Q * V), unit='s', doc='the at-location labour of one visit: one intercept per line, a per-unit charge ..."
+    },
+    "Warehouse/kernel/closed_form.py::Piecewise": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "`cases` is a sequence of `(value, condition)`, taken in order: the FIRST whose condition\nholds wins; `otherwise` when none does.  The order is the semantics -- it mirrors code that\nwalks a list and returns on the first match (`cost_model.height_multiplier`).",
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Piecewise.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Piecewise.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Piecewise.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Pow": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": null,
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Pow.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Pow.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Pow.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Result": {
+      "decorators": [
+        "dataclass"
+      ],
+      "doc": "A model's values: its inputs plus every equation's output, and the order they ran in.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/kernel/closed_form.py::Result.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, name)"
+    },
+    "Warehouse/kernel/closed_form.py::SIG_FIGS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "4"
+    },
+    "Warehouse/kernel/closed_form.py::Sum": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "\u03a3 over the items of a collection.  `env[over]` is a sequence of dicts, each binding the\nper-item symbols named in `binds`; `body` is evaluated once per item with those bindings\nlaid over the environment.  `index` is the LaTeX index letter.",
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Sum.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Sum.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Sum.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::Sym": {
+      "decorators": [
+        "dataclass(eq=False)"
+      ],
+      "doc": "A named quantity.  `name` is the key in an environment; `tex` its LaTeX.",
+      "kind": "class",
+      "signature": "(Expr)"
+    },
+    "Warehouse/kernel/closed_form.py::Sym.evaluate": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env)"
+    },
+    "Warehouse/kernel/closed_form.py::Sym.latex": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, env=None)"
+    },
+    "Warehouse/kernel/closed_form.py::Sym.symbols": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/kernel/closed_form.py::TRAVEL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "register('kernel.travel', Equation('travel', 't_{\\\\mathrm{travel}}', X / (INCHES_PER_FOOT * VX) + Y / (INCHES_PER_FOOT * VY), unit='s', doc='mouth-to-bin travel: inches over (12 in/ft \u00b7 ft/s) on ea..."
+    },
+    "Warehouse/kernel/closed_form.py::_e": {
+      "decorators": [],
+      "doc": "Coerce a Python number to a `Const`; pass an `Expr` through.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x) -> 'Expr'"
+    },
+    "Warehouse/kernel/closed_form.py::_paren": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(s: str, child_prec: int, ctx_prec: int) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::_prints_numeric": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(node, env) -> bool"
+    },
+    "Warehouse/kernel/closed_form.py::_transform_expr": {
+      "decorators": [],
+      "doc": "The handling term's base function as an expression -- `cost_model.resolve_transform`'s\nspec language: 'log' / 'log:e' (ln, clamped at 1), 'log:b', 'linear', 'sqrt' (clamped at 0),\n'pow:p' (clamped at 0).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spec: str, x: Expr) -> Expr"
+    },
+    "Warehouse/kernel/closed_form.py::absv": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::ceil": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::exp": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::floor": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::fmax": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*xs)"
+    },
+    "Warehouse/kernel/closed_form.py::fmin": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(*xs)"
+    },
+    "Warehouse/kernel/closed_form.py::fmt_num": {
+      "decorators": [],
+      "doc": "`x` for the page: integers exactly, other floats to `SIG_FIGS` significant figures.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x) -> str"
+    },
+    "Warehouse/kernel/closed_form.py::handle_var_equation": {
+      "decorators": [],
+      "doc": "The per-unit handling term `v_s = c_w\u00b7f_w(w) + c_v\u00b7f_v(vol)` for one pair of base\nfunctions -- one equation per config, because the functions are a config's choice.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(weight_fn: str='log', volume_fn: str='log') -> Equation"
+    },
+    "Warehouse/kernel/closed_form.py::height_multiplier_equation": {
+      "decorators": [],
+      "doc": "`M(y)` for one bracket table: the first bracket whose threshold exceeds `y`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(brackets: tuple) -> Equation"
+    },
+    "Warehouse/kernel/closed_form.py::ln": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::pick_event_model": {
+      "decorators": [
+        "lru_cache(maxsize=None)"
+      ],
+      "doc": "What one pick LINE costs at the bin: `M(y)\u00b7(I + q\u00b7p + q\u00b7v)` (`Pick._pick_time`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(brackets: tuple=DEFAULT_HEIGHT_BRACKETS, weight_fn: str='log', volume_fn: str='log') -> Model"
+    },
+    "Warehouse/kernel/closed_form.py::put_event_model": {
+      "decorators": [
+        "lru_cache(maxsize=None)"
+      ],
+      "doc": "What one put costs: travel from the aisle mouth plus the at-location term, at the\nput crew's coefficients (`putaway.put_cost`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(brackets: tuple=DEFAULT_HEIGHT_BRACKETS, weight_fn: str='log', volume_fn: str='log') -> Model"
+    },
+    "Warehouse/kernel/closed_form.py::register": {
+      "decorators": [],
+      "doc": "Record `eq` under `qualified` (e.g. `'kernel.per_pick'`) and return it.  A second,\ndifferent equation under the same name is refused: two laws answering to one name is the\ndrift this module exists to end.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(qualified: str, eq: Equation) -> Equation"
+    },
+    "Warehouse/kernel/closed_form.py::rnd": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::sqrt": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(x)"
+    },
+    "Warehouse/kernel/closed_form.py::unload_event_model": {
+      "decorators": [
+        "lru_cache(maxsize=None)"
+      ],
+      "doc": "What one pack costs to take off a trailer: `p + (I + q\u00b7v)` -- no height bracket (a\ntrailer floor is one height) and the per-item charge ONCE PER PACK (`unload.unload_cost`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(weight_fn: str='log', volume_fn: str='log') -> Model"
+    },
     "Warehouse/kernel/cost_model.py": {
       "decorators": [],
       "doc": "cost_model.py \u2014 single source of truth for the pick-cost primitives.\n\nThese three helpers (height multiplier, per-unit handling, travel) were previously\ncopy-pasted across Pick, Workload, Assignment_Functions, Inventory_Management, Order\nand Capacity_Reloader.  Centralising them keeps the simulated pick time, the analytical\nworkload W, the placement scorers, and the optimal-layout/map computations in lockstep.\n\nDepends only on `math` + `functools`, so every layer (Warehouse + Optimization) can import it\nwithout introducing a cycle or a layer violation.",
@@ -24564,6 +25510,15 @@
       "kind": "class",
       "signature": ""
     },
+    "Warehouse/operations/putaway.py::PutawayCost.closed_form": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "This crew's put law as ONE expression tree -- `travel + M(y)\u00b7(I + q\u00b7p + q\u00b7v)` at\nthese coefficients (`Warehouse.kernel.closed_form.put_event_model`).  Evaluates what\n`put_cost` bills for an event (`x, y, vx, vy, w, vol, q`) and renders the same tree as\nLaTeX; `Tests/unit/test_cost_laws.py` holds the two equal.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> '_cf.Law'"
+    },
     "Warehouse/operations/putaway.py::PutawayCost.from_pick": {
       "decorators": [
         "classmethod"
@@ -24712,6 +25667,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self)"
+    },
+    "Warehouse/picking/Pick.py::PickConfig.closed_form": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "This channel's pick-line law as ONE expression tree -- `M(y)\u00b7(I + q\u00b7p + q\u00b7v)` at\nthese coefficients (`Warehouse.kernel.closed_form.pick_event_model`).  Evaluates what\n`_pick_time` charges for an event (`y, w, vol, q`); the cart-swap penalty is a separate\ntimed step and is not in it.  `Tests/unit/test_cost_laws.py` holds the two equal.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> '_cf.Law'"
     },
     "Warehouse/picking/Pick.py::PickConfig.speed": {
       "decorators": [

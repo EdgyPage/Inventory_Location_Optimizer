@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>closed_form · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_operations_putaway_py__PutawayCost_closed_form" data-id="Warehouse/operations/putaway.py::PutawayCost.closed_form">
+<nav class="crumbs"><a href="../layers.html">wh_operations</a> <span class="sep">›</span> <a href="../files/nWarehouse_operations_putaway_py.html"><code>Warehouse/operations/putaway.py</code></a> <span class="sep">›</span> <a href="nWarehouse_operations_putaway_py__PutawayCost.html"><code>PutawayCost</code></a> <span class="sep">›</span> <span class="here"><code>closed_form</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>closed_form</code></h1>
+<p class="meta">layer <span class="chip">wh_operations</span> · file <a href="../files/nWarehouse_operations_putaway_py.html"><code>Warehouse/operations/putaway.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>@property
+def closed_form(self) -&gt; &#x27;_cf.Law&#x27;</code></pre>
+<section class="doc">This crew&#x27;s put law as ONE expression tree -- `travel + M(y)·(I + q·p + q·v)` at
+these coefficients (`Warehouse.kernel.closed_form.put_event_model`).  Evaluates what
+`put_cost` bills for an event (`x, y, vx, vy, w, vol, q`) and renders the same tree as
+LaTeX; `Tests/unit/test_cost_laws.py` holds the two equal.</section>
+<section class="rel"><h2>Callees <span class="count">(2)</span></h2><ul><li><a href="nWarehouse_kernel_closed_form_py__Law.html"><code>Law</code></a> <span class="dim">Warehouse/kernel/closed_form.py</span></li><li><a href="nWarehouse_kernel_closed_form_py__put_event_model.html"><code>put_event_model</code></a> <span class="dim">Warehouse/kernel/closed_form.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_operations_putaway_py__PutawayCost_closed_form">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/operations/putaway.py#:~:text=def%20closed_form">Source ↗</a></p>
+</article>
+</main>
+</body></html>

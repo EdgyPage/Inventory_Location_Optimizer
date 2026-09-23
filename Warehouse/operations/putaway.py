@@ -34,6 +34,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from Warehouse.kernel import closed_form as _cf
+
 from Warehouse.kernel.cost_model import (
     DEFAULT_HEIGHT_BRACKETS, DEFAULT_PICK_INTERCEPT, DEFAULT_PICK_PER_ITEM,
     DEFAULT_PICK_VOLUME_COEF, DEFAULT_PICK_VOLUME_FN, DEFAULT_PICK_WEIGHT_COEF,
@@ -93,6 +95,18 @@ class PutawayCost:
             volume_fn=cfg.pick_volume_fn,
             height_brackets=tuple(cfg.height_brackets),
         )
+
+    @property
+    def closed_form(self) -> '_cf.Law':
+        """This crew's put law as ONE expression tree -- `travel + M(y)·(I + q·p + q·v)` at
+        these coefficients (`Warehouse.kernel.closed_form.put_event_model`).  Evaluates what
+        `put_cost` bills for an event (`x, y, vx, vy, w, vol, q`) and renders the same tree as
+        LaTeX; `Tests/unit/test_cost_laws.py` holds the two equal."""
+        return _cf.Law(_cf.put_event_model(tuple(self.height_brackets), self.weight_fn,
+                                           self.volume_fn),
+                       output='put',
+                       fixed={'I': self.intercept, 'p': self.per_item,
+                              'cw': self.weight_coef, 'cv': self.volume_coef})
 
 
 def put_seconds_at(x_phys: float, y_phys: float, *, speed: SpeedProfile,
