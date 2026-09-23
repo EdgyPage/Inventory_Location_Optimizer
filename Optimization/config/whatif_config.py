@@ -905,6 +905,23 @@ SPECS = {
         'ranking': FILL_RANKING,
         'phase': 'fill',
     },
+    # THE CHURN PROBE (`.scratch/aisle-churn/`, S10-S12): how much a placement rule and an
+    # unloading order move pick labour as the aisles churn faster.  ONE spec, run once per grid
+    # point of demand density x stock depth by the RUN-LEVEL flags (`--store-demand`,
+    # `--ff-demand`, `--first-time-confidence`), because both levers are era inputs the
+    # derivation reads, never cell overrides.  fifo and lifo only (no evaluator: two
+    # velocity-blind orders are EXCHANGEABLE, so their gap is the order question's null, S09),
+    # the winner pair and the fifo rider, both stock modes -- 8 units per grid point.  Ranked
+    # on pick labour like the fill trial; not a fill.
+    '_churn_probe': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'lifo')],
+        'unpinned': 'the churn grid moves the declared demand and confidence at every point, so no single staffing derivation describes it; it binds the 40k perf catalogue',
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': FILL_RANKING,
+    },
     # The door lever's toy: fifo at the campaign's four doors and at one, where the door-team
     # cap seats 10 of the crew.  Proves a scarce cell builds, runs and records its own door
     # count end to end in ~2 minutes, before `_probe_door_depth` spends campaign hours on it.
