@@ -387,6 +387,37 @@ PHASE2_RANKING = {
 #: its untraced wall while leaving ~20 plans per unit to score.
 PHASE2_PLAN_TRACE_EVERY = 4
 
+#: DOOR SCARCITY.  Doors are the lever that makes the dock SHORT without touching the derived
+#: crews (ADR-0004): no staffing derivation reads the door count, only the runtime staging cap
+#: and the door-team cap do.  With a door team of 10 and the site's derived receiving crew of
+#: ~23, four or three doors seat every receiver (a deal of 23 over three is 8/8/7) and a door
+#: count only limits how many trailers stand at once; two doors seat 20 and one seats 10, so
+#: below three the dock is an understaffed unloader by physics rather than by an authored
+#: headcount -- the regime Experiment 9 could not test and its readers asked about.
+#:
+#: The levels are chosen against the yard's queue, not by feel.  The campaign's projected
+#: rho_recv is ~0.82 at four doors (memory `inbound-yard-is-a-stable-queue-under-the-era`);
+#: seating only `s` of the crew scales it by crew / s, so two doors run near 0.82 x 23 / 20 =
+#: 0.94 -- stable, but a yard several times deeper -- and one door near 1.9, an UNSTABLE queue
+#: whose depth grows with the run and ranks nothing but overload.  Hence two level sets:
+#: the fifo-only depth probe measures all three (it is cheap, and 1 is the control that shows
+#: the knee), the priced spec runs 2 alone until the probe says how deep 2 actually stands.
+PHASE2_DOOR_PROBE_LEVELS = (3, 2, 1)
+PHASE2_DOOR_LEVELS = (2,)
+
+
+def door_scarcity_axis(policies, levels=PHASE2_DOOR_LEVELS, *, reference_doors=True):
+    """The phase-2 axis for `policies` at each door count in `levels`, cells suffixed
+    `_d<doors>`, plus (when `reference_doors`) the policies at the campaign's own four doors
+    under their campaign names -- so every scarce cell has its four-door twin in the same
+    matrix and a door count is read as a DIFFERENCE, never as a level on its own.  Built from
+    `phase2_inbound_axis(doors=...)`, which already threads the count to the dock."""
+    axis = list(phase2_inbound_axis(keep=tuple(policies))) if reference_doors else []
+    for d in levels:
+        axis.extend((f'{n}_d{d}', ov)
+                    for n, ov in phase2_inbound_axis(doors=d, keep=tuple(policies)))
+    return axis
+
 PHASE2_RUN_DEFAULTS = {
     **ERA_RUN_DEFAULTS,
     **INBOUND_ARRIVAL_REGIME,
@@ -732,6 +763,35 @@ SPECS = {
         'ranking': PHASE2_RANKING,
         'phase': 2,
     },
+    # HOW DEEP THE YARD STANDS WHEN THE DOCK IS SHORT -- FIFO only, so it is cheap (a fifo
+    # unit runs no evaluator) and answers the sizing question before anything priced is
+    # run under scarcity: the gain evaluator costs T(T+1) placements per plan, so a door count
+    # that doubles the yard depth roughly quadruples every gain cell (`.scratch/
+    # inbound-throughput/` 10).  Fifo at 4, 3, 2 and 1 doors, both rule pairs.
+    '_probe_door_depth': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': door_scarcity_axis(('fifo',), PHASE2_DOOR_PROBE_LEVELS),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': PHASE2_RANKING,
+        'phase': 2,
+    },
+    # DOES A SHORT DOCK MAKE UNLOADING ORDER MATTER?  The phase-2 question re-asked where
+    # doors bind: the reference, the cheapest-yard gain rule and the gated rule the Experiment
+    # 9 ask names, at 4 and 2 doors.  Registered, not yet launched: its gain cells need the
+    # cheaper evaluator (ticket 04), or the depth probe's word that 2 doors stand shallow enough.
+    'door_scarcity': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'], 'rule_pairs': [PHASE2_WINNER, PHASE2_RIDER],
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'inbound': door_scarcity_axis(('fifo', 'gforecast', 'ggated_h050')),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': PHASE2_RANKING,
+        'phase': 2,
+    },
     # THE PLAN-TRACE PROBE (`.scratch/inbound-throughput/` 03): the fifo reference and the
     # two gain policies, with the two gain cells TRACED every `PHASE2_PLAN_TRACE_EVERY`-th
     # batch.  A traced cell ranks byte-identically -- the exact plan still decides, the
@@ -768,6 +828,17 @@ SPECS = {
         'schedulers': ['lpt'],
         'arms': ('fifo', 'rank_random', 'rank_popularity', 'rank_cartlabor', 'rank_minlabor'),
         'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'gmyopic')],
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+    },
+    # The door lever's toy: fifo at the campaign's four doors and at one, where the door-team
+    # cap seats 10 of the crew.  Proves a scarce cell builds, runs and records its own door
+    # count end to end in ~2 minutes, before `_probe_door_depth` spends campaign hours on it.
+    '_toy_doors': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'arms': ('fifo', 'rank_cartlabor'),
+        'inbound': door_scarcity_axis(('fifo',), (1,)),
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
     },
