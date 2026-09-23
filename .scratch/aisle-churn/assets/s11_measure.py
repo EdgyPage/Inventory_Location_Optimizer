@@ -81,7 +81,11 @@ def main(root, lo=0, hi=40, out=None):
     # the run root by NAME (relative to COMPARISON_OUTPUT_DIR): a tracked result never
     # carries a machine-local path (CLAUDE.md section 5)
     res = {'root': os.path.basename(os.path.normpath(root)), 'window': [lo, hi], 'P1': {}, 'P3': {}, 'P4': {}, 'P5': {}, 'P6': {}}
-    rank = {'store': 'rank_cartlabor', 'fulfillment': 'rank_minlabor'}
+    # every non-fifo rule the run swept, per channel (the winner pair, or S15's supplement)
+    rank = defaultdict(set)
+    for (_c, ch, arm) in dbs:
+        if arm.startswith('uni_') and not arm.startswith('uni_fifo'):
+            rank[ch].add(arm[len('uni_'):-len('_norsl')])
 
     def row(tag, key, g):
         tot, mean, ci = g
@@ -103,16 +107,20 @@ def main(root, lo=0, hi=40, out=None):
     cells = sorted({c for c, _ch, _a in dbs})
     print('P3 placement gap, uni rank vs uni fifo:')
     for cell in cells:
-        for ch, r in rank.items():
-            a, b = S.get((cell, ch, f'uni_{r}_norsl')), S.get((cell, ch, 'uni_fifo_norsl'))
-            if a and b:
-                row(f'{cell}/{ch}', 'P3', _gap(a, b))
+        for ch, rules in rank.items():
+            for r in sorted(rules):
+                a, b = S.get((cell, ch, f'uni_{r}_norsl')), S.get((cell, ch, 'uni_fifo_norsl'))
+                tag = f'{cell}/{ch}' if len(rules) == 1 else f'{cell}/{ch}/{r}'
+                if a and b:
+                    row(tag, 'P3', _gap(a, b))
     print('P5 initial layout, opt rank vs uni rank:')
     for cell in cells:
-        for ch, r in rank.items():
-            a, b = S.get((cell, ch, f'opt_{r}_norsl')), S.get((cell, ch, f'uni_{r}_norsl'))
-            if a and b:
-                row(f'{cell}/{ch}', 'P5', _gap(a, b))
+        for ch, rules in rank.items():
+            for r in sorted(rules):
+                a, b = S.get((cell, ch, f'opt_{r}_norsl')), S.get((cell, ch, f'uni_{r}_norsl'))
+                tag = f'{cell}/{ch}' if len(rules) == 1 else f'{cell}/{ch}/{r}'
+                if a and b:
+                    row(tag, 'P5', _gap(a, b))
     print('P4 unloading order, lifo cell vs fifo cell:')
     for (cell, ch, arm) in sorted(dbs):
         if cell != 'k1_off_lifo':

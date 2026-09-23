@@ -922,6 +922,23 @@ SPECS = {
         'run_defaults': PHASE2_RUN_DEFAULTS,
         'ranking': FILL_RANKING,
     },
+    # THE CHURN PROBE'S RULE SUPPLEMENT (`.scratch/aisle-churn/` S15): the plan's other
+    # placement rules on BOTH channels -- the demand-dispersing ranked rule, the min-labor LPT,
+    # and the velocity-aware optimal map (the one kind the S09 frontier law says can hold a
+    # ground share above its own occupancy) -- beside the fifo rider, fifo/lifo unloading, both
+    # stock modes.  Same run-level grid flags as `_churn_probe`; run below the dock gate and
+    # the aisle ceiling (k <= 10).
+    '_churn_rules': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'rule_pairs': [('rank_popularity', 'rank_popularity'),
+                       ('rank_minlabor', 'rank_minlabor'), ('map', 'map'), PHASE2_RIDER],
+        'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'lifo')],
+        'unpinned': 'the churn grid moves the declared demand and confidence at every point, so no single staffing derivation describes it; it binds the 40k perf catalogue',
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': FILL_RANKING,
+    },
     # The door lever's toy: fifo at the campaign's four doors and at one, where the door-team
     # cap seats 10 of the crew.  Proves a scarce cell builds, runs and records its own door
     # count end to end in ~2 minutes, before `_probe_door_depth` spends campaign hours on it.
