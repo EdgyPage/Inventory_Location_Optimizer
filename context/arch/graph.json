@@ -2171,6 +2171,11 @@
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
     },
     {
+      "dst": "Optimization/simconfig/models/dock.py",
+      "kind": "imports",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
+    },
+    {
       "dst": "Optimization/simconfig/models/levels.py",
       "kind": "imports",
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py"
@@ -2237,6 +2242,16 @@
     },
     {
       "dst": "Optimization/simconfig/models/churn.py::STEADY",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/dock.py::AISLE",
+      "kind": "ref",
+      "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
+    },
+    {
+      "dst": "Optimization/simconfig/models/dock.py::DOCK",
       "kind": "ref",
       "src": "Optimization/Performance_Evaluations/closed_form/docs_page.py::sections"
     },
@@ -13559,6 +13574,51 @@
       "dst": "Optimization/simconfig/models/churn.py::beta_inc_int",
       "kind": "calls",
       "src": "Optimization/simconfig/models/churn.py::served_given_count"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py",
+      "kind": "imports",
+      "src": "Optimization/simconfig/models/dock.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::AISLE"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Model",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::DOCK"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::K_STAR"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::OCC_EQ"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Equation",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::RHO"
+    },
+    {
+      "dst": "Warehouse/kernel/closed_form.py::Sym",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::W_MAX"
+    },
+    {
+      "dst": "Optimization/simconfig/models/dock.py::erlang_c",
+      "kind": "calls",
+      "src": "Optimization/simconfig/models/dock.py::yard_wait"
     },
     {
       "dst": "Optimization/simconfig/coverage.py",
@@ -41255,6 +41315,86 @@
       "kind": "function",
       "module": "Optimization/simconfig/models/churn.py",
       "name": "water_level",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py",
+      "kind": "module",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "Optimization.simconfig.models.dock",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::AISLE",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "AISLE",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::DOCK",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "DOCK",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::K_STAR",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "K_STAR",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::OCC_EQ",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "OCC_EQ",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::RHO",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "RHO",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::W_MAX",
+      "kind": "const",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "W_MAX",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::erlang_c",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "erlang_c",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::overflow",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "overflow",
+      "public": true
+    },
+    {
+      "file": "Optimization/simconfig/models/dock.py",
+      "id": "Optimization/simconfig/models/dock.py::yard_wait",
+      "kind": "function",
+      "module": "Optimization/simconfig/models/dock.py",
+      "name": "yard_wait",
       "public": true
     },
     {

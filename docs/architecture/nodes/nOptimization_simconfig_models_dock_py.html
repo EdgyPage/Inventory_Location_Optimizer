@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Optimization.simconfig.models.dock · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nOptimization_simconfig_models_dock_py" data-id="Optimization/simconfig/models/dock.py">
+<nav class="crumbs"><a href="../layers.html">optimization</a> <span class="sep">›</span> <span class="here"><code>Optimization/simconfig/models/dock.py</code></span></nav>
+<h1><span class="kind kind-module">module</span> <code>Optimization.simconfig.models.dock</code></h1>
+<p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_models_dock_py.html"><code>Optimization/simconfig/models/dock.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>Optimization.simconfig.models.dock</code></pre>
+<section class="doc">dock.py -- the two throughput gates behind the aisle-churn thresholds (S04 of the study,
+`.scratch/aisle-churn/whiteboard/S04-dock-and-aisle-gates.md`).
+
+THE DOCK.  A trailer holds one door for its whole unload, and a door is worked by at most a
+door team, so a door is occupied for the trailer&#x27;s work divided by the team, plus the time
+lost to indivisible packs (an overhead measured at ~8%).  The dock&#x27;s utilisation is
+
+    rho_door = lambda_T * E[occ] / (doors * S),      E[occ] = W_T / team * (1 + overhead)
+
+where lambda_T is trailers per day, W_T the unload seconds in one trailer and S the shift.  A
+yard queue that is stable below rho = 1 grows without bound above it (the S12 bisection:
+0.93 held at ~8 h waits, 1.01 climbed 7 -&gt; 25 h over 40 days), and the unloading ORDER moves pick
+labour only above it.  The queueing wait below the gate is Allen-Cunneen&#x27;s M/G/c form,
+`yard_wait`.  NOTE lambda_T is the REALISED inbound flow: it is units picked, not units
+declared (below).
+
+THE AISLE CEILING.  The simulator hands each aisle&#x27;s day of picking to one picker, so a day&#x27;s
+work is divisible only across aisles.  With W_a the aisle&#x27;s daily task seconds at the declared
+demand, the day-cut backlog of the busiest aisles grows once k W_a &gt; S:
+
+    k* = S / max_a W_a,      overflow(k) = sum_a (k W_a - S)^+ / sum_a k W_a
+
+Past k*, picking falls behind demand whatever the crew; reorders -- and so trailers -- follow
+the picks, which is why the dock saw less than the declaration at high density.</section>
+<section class="rel"><h2>Imports <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_closed_form_py.html"><code>Warehouse.kernel.closed_form</code></a> <span class="dim">Warehouse/kernel/closed_form.py</span></li></ul></section><section class="rel"><h2>Imported by <span class="count">(1)</span></h2><ul><li><a href="nOptimization_Performance_Evaluations_closed_form_docs_page_py.html"><code>Optimization.Performance_Evaluations.closed_form.docs_page</code></a> <span class="dim">Optimization/Performance_Evaluations/closed_form/docs_page.py</span></li></ul></section><section class="rel"><h2>Defines <span class="count">(9)</span></h2><ul><li><a href="nOptimization_simconfig_models_dock_py__AISLE.html"><code>AISLE</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__DOCK.html"><code>DOCK</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__K_STAR.html"><code>K_STAR</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__OCC_EQ.html"><code>OCC_EQ</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__RHO.html"><code>RHO</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__W_MAX.html"><code>W_MAX</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__erlang_c.html"><code>erlang_c</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__overflow.html"><code>overflow</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li><li><a href="nOptimization_simconfig_models_dock_py__yard_wait.html"><code>yard_wait</code></a> <span class="dim">Optimization/simconfig/models/dock.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_models_dock_py">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/models/dock.py">Source ↗</a></p>
+</article>
+</main>
+</body></html>

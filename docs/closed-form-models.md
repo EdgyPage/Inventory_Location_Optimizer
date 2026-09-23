@@ -192,6 +192,42 @@ The height mechanism of a ranked rule's pick gap (S09 section 3).
 $$ \Delta T / T = \frac{\varphi\,U\,\bar h\,\left(\bar M_{\mathrm{rank}} - \bar M_{\mathrm{free}}\right)}{T} = \frac{0.086 \cdot 258{,}930 \cdot 59\,\left(1.162 - 1.263\right)}{26{,}845{,}232} = -0.004943 $$
 
 
+## When the dock saturates
+
+The site dock as doors held for whole trailers.
+
+**Inputs**
+
+- $S = 28{,}800$
+- $W_T = 34{,}500$
+- $n_{doors} = 4$
+- $\lambda_T = 28$
+- $\omega = 0.08$
+- $n_{team} = 10$
+
+**occ** (s) — door occupancy per trailer: its unload work over the door team, plus the loss to packs one worker must carry alone
+
+$$ \mathbb{E}[o] = \frac{W_T}{n_{team}}\,\left(1 + \omega\right) = \frac{34{,}500}{10}\,\left(1 + 0.08\right) = 3726\ \mathrm{s} $$
+
+**rho_door** — door utilisation; the yard is unstable at or above 1
+
+$$ \rho_{\mathrm{door}} = \frac{\lambda_T\,\mathbb{E}[o]}{n_{doors}\,S} = \frac{28 \cdot 3726}{4 \cdot 28{,}800} = 0.9056 $$
+
+
+## When picking stops keeping up
+
+Where picking stops keeping up with demand whatever the crew.
+
+**Inputs**
+
+- $S = 28{,}800$
+- $\max_a W_a = 2{,}251$
+
+**k_star** — the demand density at which the busiest aisle's day of picking outlasts the shift (one picker per aisle per day)
+
+$$ k^* = \frac{S}{\max_a W_a} = \frac{28{,}800}{2{,}251} = 12.79 $$
+
+
 ## The fresh-bin share over demand density
 
 ![fresh-bin share](images/closed-form/fresh_share.png)

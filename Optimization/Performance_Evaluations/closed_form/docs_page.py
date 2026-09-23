@@ -55,7 +55,7 @@ def _store_pick_law():
 
 def sections():
     """`[(model, result, heading), ...]` in page order."""
-    from Optimization.simconfig.models import churn, levels, reorders
+    from Optimization.simconfig.models import churn, dock, levels, reorders
     law = _store_pick_law()
     n_store, skus = 58.585998, 23_880
     return [
@@ -75,6 +75,11 @@ def sections():
         (churn.GAP_CHAIN, churn.GAP_CHAIN.evaluate({
             'phi': 0.086, 'U': 258_930.0, 'hbar': 59.0, 'M_rank': 1.162, 'M_free': 1.263,
             'T': 26_845_232.0}), 'What the placement rule is worth on the picks'),
+        (dock.DOCK, dock.DOCK.evaluate({
+            'lam_T': 28.0, 'W_T': 34_500.0, 'team': 10, 'overhead': 0.08, 'doors': 4,
+            'S': 28_800.0}), 'When the dock saturates'),
+        (dock.AISLE, dock.AISLE.evaluate({'S': 28_800.0, 'W_max': 2_251.0}),
+         'When picking stops keeping up'),
     ]
 
 
