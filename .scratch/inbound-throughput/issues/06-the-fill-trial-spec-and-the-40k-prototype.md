@@ -89,3 +89,31 @@ check`), which is the asymmetry the ticket already names.  No schema move.
 
 **Labour's own census, open.**  A policy that strands lines unservable picks less and reads
 cheaper.  The write-up reads served units beside the rank; `FILL_RANKING` adjusts nothing.
+
+## The depth probe's answer (2026-09-23): at 40k even lifo does not move pick labour
+
+`_probe_fill_depth` (`comparison_whatif_20260923_023109`, 40k perf catalogue, fifo + lifo, winner
+pair + rider, opt arms), analysed and ranked by `run_unload_ranking` on `FILL_RANKING`:
+
+- **The fill works as built.** 568,573 declared units in 40,000 lots, dispatched over 36 days at
+  16,150/day; crews put 38 / receiving 29 (all 29 seated: NOT door-bound at 40k); settled after
+  44-46 site days; pick stage from the declared batch 100.
+- **The fill's yard is deep:** over the fill days a median of 29 trailers standing, max 41
+  (the campaign's plans ran at 14-25).
+- **The adversarial control does not separate from the reference on pick labour.**  lifo vs fifo:
+  -0.175% on the rider pair (floor 0.243%, measured) and +0.013% on the winner pair (floor
+  0.241%) -- ONE TIE GROUP on both.  Yard overage separates enormously (8.3 vs 68.5 trailer-
+  days), so the policies did run differently; the placement they produced does not price
+  differently.  The keyframe closed form at the fill's end agrees to four figures.
+- **Why, in the run's own numbers:** 100% of picked units come from inbound-placed bins (the
+  fill placed everything), but only 7.7% of the store's placed units and 33% of fulfillment's
+  are picked again inside the 40-batch pick stage.  The store section is sized for coverage far
+  beyond 40 days, so most of what the unloading order decided is never asked for.
+
+**Reading.**  This is the map's fog realised ("at 40k the pick stage may again be a
+placement-rule question wearing an unloading name"): the two most different unloading orders
+available produce placements that 40 days of demand cannot tell apart, while the placement
+RULES differ by 2-4%.  The nine-cell prototype would, on this evidence, return one tie group
+at a cost of hours of gain-evaluator wall.  **It is not launched; this needs the user's
+direction** (a longer pick stage, a demand-dense catalogue, a score that reads the whole
+placement rather than the picked part -- or the result recorded as the fill trial's answer).
