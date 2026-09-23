@@ -143,11 +143,15 @@ def _absorb_success(res, uid, sa, meta, done_uids, log, cell, run_root):
     # recorded -- one value copied onto both arms -- is gone because the value is
     # no longer one: each leaf returns its own, positionally with `group_keys`.
     for _gk, _r in zip(_gks, _results):
-        if _r.get('expected_pick') is None:
+        # THE FILL'S LENGTH rides the same way (inbound-throughput 05): the pick stage of a
+        # fill trial is batches `fill_batches ..` of the arm's tables, and sim_meta is where
+        # a reader of one leaf finds it.  Absent off a fill -- nothing written, byte-identical.
+        _extra = {k: _r[k] for k in ('expected_pick', 'fill_batches') if _r.get(k) is not None}
+        if not _extra:
             continue
         for _s in meta[_gk]['sim_skeleton'].get('strategies', []):
             if _s.get('key') == _r['strategy']:
-                _s['expected_pick'] = _r['expected_pick']
+                _s.update(_extra)
     if run_root:                         # parent-side runtime-metrics DB (best-effort)
         # PER LEAF, from the leaf's OWN group key and arm. Never from the uid:
         # its four slots mean `(pair, config, channel, arm)` on a one-leaf unit

@@ -183,6 +183,16 @@ INBOUND_PLAN_TRACE = None        # PROBE INSTRUMENT, not a policy: trace every N
                                  # plans (exact per-round gains + the merge and top-m reductions)
                                  # into the site-scope `site_plan_trace` sidecar; None = off,
                                  # which records and computes nothing (inbound-throughput 03)
+INBOUND_FILL_SPAN_DAYS = None    # THE FILL TRIAL (CONTEXT.md): None = off, every run today.
+                                 # Else the run starts EMPTY, the whole stock declaration is
+                                 # dispatched through the site yard, and the pick stage
+                                 # (N_BATCHES) begins once every declared unit is binned.  The
+                                 # value is the site days the FILL crews are derived over
+                                 # (ADR-0004: demand declared, crew derived).  Needs the coupled
+                                 # standing yard under the era (inbound-throughput 05).
+INBOUND_FILL_RATIO = 0.95        # the fill's arrival pressure: dispatch rate over the SEATED
+                                 # receiving rate, in (0, 1) -- at 1 the yard is no longer a
+                                 # queue and every policy converges on arrival order
 
 # ── the standing yard ────────────────────────────────────────────────────────────
 # Doors become REAL: at most INBOUND_DOCK_DOORS trailers staged, a trailer holds its door

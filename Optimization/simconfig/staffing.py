@@ -858,6 +858,105 @@ def derive(*, inputs: dict, constants: dict, day_seconds: float, channels: dict,
     return out
 
 
+# ── the fill trial: the declaration, received once ──────────────────────────────────────
+
+def declared_work(orders, pricing: PricingConfig, *, put_intercept_scale: float,
+                  put_item_ratio: float, recv_intercept_scale: float) -> dict:
+    """What receiving the WHOLE stock declaration costs, once: `{units, packs, recv_s}`.
+
+    The fill trial's supply side (CONTEXT.md: Fill trial).  Each SKU's declared level is one
+    lot, arriving exactly -- a declaration has no supply jitter, it is the level the warehouse
+    was sized from -- and it packs into the storage units the sim's own packer produces
+    (`Inbound.pack.receive`, honouring a `stock_plan`), priced by the same exact unload law
+    `implied_reorders` uses.  So the fill is priced in the same seconds an era crew is sized
+    from, over a different quantity.
+
+    RAISES on an undeclared order, for `inventory_common._equilibrium_qty`'s reason: a level
+    of 1 here would size the fill crews for a warehouse an order of magnitude too small.
+    """
+    recv_cost = pricing.recv(put_intercept_scale=put_intercept_scale,
+                             put_item_ratio=put_item_ratio,
+                             recv_intercept_scale=recv_intercept_scale)
+    units = packs = 0
+    recv_s = 0.0
+    for c in orders:
+        q = getattr(c, 'equilibrium_qty', None)
+        if q is None:
+            raise ValueError(f'SKU {c.sku} carries no declared level (equilibrium_qty); a '
+                             f'fill receives the declaration, so there is nothing to price')
+        if q <= 0:
+            continue
+        plan = _receive(c, int(q))
+        # DECLARED units, not packed ones: the dispatcher meters the declared quantity, so
+        # the per-unit receiving price (recv_s / units) must be over the same count.
+        units += int(q)
+        packs += plan.unit_count
+        recv_s += sum(unload_cost(c.weight, c.volume(), u.quantity, recv_cost)
+                      for u in plan.units)
+    return {'units': int(units), 'packs': int(packs), 'recv_s': float(recv_s)}
+
+
+def derive_fill(*, declared: dict, s_put: dict, span_days: float, ratio: float,
+                day_seconds: float, rho_put: float, rho_recv: float) -> dict:
+    """The fill trial's two site crews, sized from the declaration over the fill span.
+
+    ADR-0004's shape, applied to a different quantity: demand declared (the stock
+    declaration, received once over `span_days` site days), crew derived --
+    `crew_size(load / span, S, rho)` for put-away and receiving alike, with put-away priced
+    at each channel's own `s_put` exactly as `derive` prices the steady state.  The fill's
+    DEPTH is not an understaffing: it comes from `ratio`, the arrival pressure the worker
+    dispatches at (`_FillDispatch`), which is why this block records the totals the worker
+    turns into a dispatch rate rather than a rate -- the rate depends on the cell's door
+    count, which this per-pair derivation does not know.
+
+    `declared` maps a channel to `declared_work`'s dict; `s_put` maps it to its recorded put
+    constant (`{'value': ...}`).
+    """
+    if not declared:
+        raise ValueError('a fill with no declared channel has nothing to receive')
+    S = float(day_seconds)
+    span = float(span_days)
+    units = sum(int(d['units']) for d in declared.values())
+    recv_s = sum(float(d['recv_s']) for d in declared.values())
+    put_s = sum(float(d['units']) * float(s_put[n]['value']) for n, d in declared.items())
+    put_load = put_s / span
+    recv_load = recv_s / span
+    return {
+        'span_days': span,
+        'ratio': float(ratio),
+        'declared': {n: dict(d) for n, d in declared.items()},
+        'units': units,
+        'recv_s': recv_s,
+        'put': {'crew': crew_size(put_load, S, float(rho_put)),
+                'load_seconds_per_day': put_load},
+        'receiving': {'crew': crew_size(recv_load, S, float(rho_recv)),
+                      'load_seconds_per_day': recv_load},
+    }
+
+
+def fill_dispatch_rate(fill: dict, *, doors: int, door_team: int | None,
+                       day_seconds: float) -> dict:
+    """Units per site day the fill dispatches, and whether the doors bind the drain.
+
+    The DECLARED rule (inbound-throughput Q15/Q20): arrivals press the drain at `ratio` of
+    its rate.  The drain rate is what the SEATED crew can unload: a door team of `cap` at
+    each of `doors` doors seats at most `doors x cap` receivers however many the fill
+    derived, so a fill crew the dock cannot seat drains at the seats' rate -- and a dispatch
+    priced off the whole crew would press it past 1 and never be a queue at all.  Returns
+    `{units_per_day, seated, seat_bound, dispatch_days}`.
+    """
+    crew = int(fill['receiving']['crew'])
+    seated = crew if door_team is None else min(crew, int(doors) * int(door_team))
+    if seated < 1 or fill['recv_s'] <= 0 or fill['units'] <= 0:
+        raise ValueError(f'a fill with {seated} seated receiver(s), {fill["units"]} unit(s) '
+                         f'and {fill["recv_s"]} receiving second(s) dispatches nothing')
+    per_unit_s = float(fill['recv_s']) / float(fill['units'])
+    units_per_day = float(fill['ratio']) * seated * float(day_seconds) / per_unit_s
+    return {'units_per_day': units_per_day, 'seated': seated,
+            'seat_bound': seated < crew,
+            'dispatch_days': float(fill['units']) / units_per_day}
+
+
 def derived_differs(a: dict | None, b: dict | None, *, rel_tol: float = 1e-9) -> list[str]:
     """The paths at which two derived blocks disagree, for the restore drift check.
 

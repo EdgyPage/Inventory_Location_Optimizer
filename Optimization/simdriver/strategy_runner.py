@@ -35,6 +35,7 @@ import random
 import sys
 import copy as _copy
 import time
+from types import SimpleNamespace as _SimpleNamespace
 
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units as _vsu
@@ -841,6 +842,14 @@ class _Leaf:
     # ran its own composition inside `replenish` and already has the answer.
     note_triggered: object            # (dict) -> None
     charge   : object                 # (str, float) -> None -- a span timed by the driver
+    # THE FILL TRIAL's four ports, None on every other run: the declared lots, the credit
+    # the dispatcher books a sent lot with, "is everything I was sent binned?", and the
+    # switch that starts the pick stage.  Ports rather than the manager, for the reason the
+    # rest of this record is callables: a driver sequences leaves, it does not reach in.
+    fill_lots   : object = None       # [(sku, qty, unit_volume)] | None
+    fill_credit : object = None       # (int, int) -> None
+    fill_settled: object = None       # () -> bool
+    begin_pick  : object = None       # (int) -> None
 
 
 def _check_declared_crew(args: dict, k_pickers: int, *, site_crews: bool = True) -> None:
@@ -955,11 +964,17 @@ def _build_put_pool(args: dict):
             'pool and no recorded expectation to divide the day by; coupling is an era '
             'feature (the crews are derived, never declared)')
     _pc = args['put_crew']
+    # A FILL TRIAL starts on the fill's crew and ends on the pick stage's
+    # (`_FillDispatch.end`): the CLOCKS are the fill's, the ROSTER covers the larger of the
+    # two so either stage names only people who exist.  Off, both are the one crew.
+    _fill = args.get('fill')
+    _n_clocks = _pc['size'] if _fill is None else int(_fill['put_crew'])
     _crew = _Crew(role=_Role.PUT, mode=_Mode.of(_pc['mode']),
-                  speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']), size=_pc['size'])
+                  speed=_SpeedProfile(_pc['x_speed'], _pc['y_speed']),
+                  size=max(_pc['size'], _n_clocks))
     _first_uid = max(int(la['k_pickers']) for la in _leaves)
     return _PutawayPool(
-        _new_clocks(_crew.size, 'site put pool'), _crew.workers(_first_uid),
+        _new_clocks(_n_clocks, 'site put pool'), _crew.workers(_first_uid),
         _derived['put']['expected_utilization'], _work_day_of(_leaves[0]),
         channels=tuple(la['channel_name'] for la in _leaves),
         releases_per_day=_wd.get('releases_per_day'),
@@ -1027,7 +1042,7 @@ class _SiteDock:
 
     __slots__ = ('coord', 'dock', 'transit', 'workers', 'release', 'db_path',
                  'arm_pair', 'log', '_run_id', '_buf', '_yt', '_yd', '_sr',
-                 'trace_path', 'trace_every', '_trace')
+                 'trace_path', 'trace_every', '_trace', 'fill')
 
     def __init__(self, coord, workers, release, db_path: str, log):
         self.coord = coord
@@ -1062,6 +1077,9 @@ class _SiteDock:
         self.trace_path = None
         self.trace_every = None
         self._trace = None
+        #: THE FILL TRIAL's dispatcher (`_FillDispatch`), bound once the leaves exist; None
+        #: on every other run, and then `drive` dispatches nothing.
+        self.fill = None
 
     def arm_trace(self, path: str, every: int) -> None:
         """Record every `every`-th batch's gain plans into `path` (the contract's
@@ -1110,6 +1128,11 @@ class _SiteDock:
         day = self.release.day_of(i)
         _, put_deadline = pool.open_batch(day)
         base, recv_deadline = self.coord.open_batch(day)
+        if getattr(self, 'fill', None) is not None:
+            # The day's slice of the declaration, dispatched at the site's drain instant and
+            # BEFORE the drain, so it loads and departs in this drain's phases exactly as a
+            # reorder fired in phase 3 would.
+            self.fill.dispatch(base)
         if getattr(self, '_trace', None) is not None:
             # Arm the transit's sink for a traced batch and disarm it for every other, so
             # the untraced drains of a probe cell pay nothing (see `DockContext.plan_trace`).
@@ -1202,6 +1225,146 @@ class _SiteDock:
                       f'{os.path.basename(self.db_path)}')
 
 
+#: The fill's world-order tag in the world seed's `SeedSequence` -- beside the trailer
+#: leads' `0x1EAD` (`Inbound.transit`), so the two draws can never share a stream.
+_FILL_ORDER_TAG = 0xF111
+
+
+class _FillDispatch:
+    """THE FILL TRIAL's dispatcher (CONTEXT.md: Fill trial; `.scratch/inbound-throughput/` 05).
+
+    Holds the whole site's declaration as lots in ONE seeded world order -- both channels'
+    lots shuffled together, keyed by the world seed and `_FILL_ORDER_TAG`, so trailer N
+    carries the same packs in every cell of a run and a mixed load is mixed exactly as a
+    reorder's is (decision Q21: by frequency would be an unloading policy in disguise).  Each
+    site day `dispatch` sends the next slice into the one yard at the declared pressure --
+    `units_per_day` is the parent's `staffing.fill_dispatch_rate`, the ratio times what the
+    SEATED receiving crew can unload -- and books each lot on its owning leaf's ledger
+    exactly where a reorder is booked.
+
+    The fill ENDS on the first day every lot has been sent, nothing stands in the yard or at
+    a door or on the dock floor, and every leaf reports its units binned (`settled`).  Then
+    `end` shrinks both site crews to the pick stage's in place -- the clock lists the pool,
+    the dock and every bound queue share -- and the driver starts the pick stage.  A fill
+    that has not settled by `max_days` raises with the census: at a ratio below one the yard
+    clears within days of the last dispatch, so a fill still running then is a unit no bin
+    will take, and a pick stage that never starts is not a run.
+    """
+
+    __slots__ = ('coord', 'pool', 'lots', 'credits', 'settles', 'units_per_day', 'record',
+                 'pick_put', 'pick_recv', 'log', '_next', '_sent', '_day', '_last_day',
+                 'n_lots')
+
+    def __init__(self, record: dict, leaves, coord, pool, *, seed_world: int,
+                 pick_put: int, pick_recv: int, log):
+        import numpy as _np
+        lots = []
+        for k, lf in enumerate(leaves):
+            if lf.fill_lots is None:
+                raise ValueError(f'the {lf.channel} leaf of a fill unit declared no lots; a '
+                                 f'fill receives BOTH channels\' declarations through one yard')
+            lots.extend((sku, qty, vol, k) for sku, qty, vol in lf.fill_lots)
+        # Canonical before the shuffle: by SKU, which is unique across a partition, so the
+        # world order is a pure function of the declaration and the seed.
+        lots.sort(key=lambda r: r[0])
+        perm = _np.random.default_rng(
+            _np.random.SeedSequence([int(seed_world), _FILL_ORDER_TAG])).permutation(len(lots))
+        self.lots = [lots[int(j)] for j in perm]
+        self.n_lots = len(self.lots)
+        self.credits = [lf.fill_credit for lf in leaves]
+        self.settles = [lf.fill_settled for lf in leaves]
+        self.coord = coord
+        self.pool = pool
+        self.record = record
+        self.units_per_day = float(record['units_per_day'])
+        self.pick_put = int(pick_put)
+        self.pick_recv = int(pick_recv)
+        self.log = log
+        self._next = 0
+        self._sent = 0
+        self._day = 0
+        self._last_day = 0
+
+    def dispatch(self, now_s: float) -> None:
+        """Send the declaration up to `day x units_per_day` units, cumulatively, at `now_s`.
+
+        Whole lots: a lot is one SKU's declared level, and splitting it would invent a
+        partial shipment the declaration never made.  The quota is cumulative so a large
+        lot that overshoots one day's share is paid back by the next day sending less."""
+        self._day += 1
+        quota = self._day * self.units_per_day
+        transit = self.coord.transit
+        while self._next < self.n_lots and self._sent < quota:
+            sku, qty, vol, k = self.lots[self._next]
+            transit.dispatch(sku, qty, 0, unit_volume=vol, now_s=now_s)
+            self.credits[k](sku, qty)
+            self._sent += qty
+            self._next += 1
+            self._last_day = self._day
+
+    def settled(self) -> bool:
+        """Every lot sent, nothing on site, every unit binned."""
+        return (self._next >= self.n_lots
+                and self.coord.transit.depth == 0
+                and self.coord.dock.depth == 0
+                and all(f() for f in self.settles))
+
+    def census(self) -> str:
+        return (f'{self._next:,}/{self.n_lots:,} lot(s) sent ({self._sent:,} unit(s)), '
+                f'transit depth {self.coord.transit.depth}, dock floor '
+                f'{self.coord.dock.depth}, leaves settled '
+                f'{[f() for f in self.settles]}')
+
+    def end(self, i: int) -> None:
+        """The fill ended with batch `i`: hand the site back its pick-stage crews.
+
+        IN PLACE, because the pool, the dock and every put queue bound to the pool hold the
+        SAME clock lists (`crew_clock.reset` keeps that identity for the same reason).  Between
+        two site days every clock has been reset, so nothing in flight is cut.
+
+        Each leaf manager's `_put_size` still names the FILL crew afterwards; it is read only
+        by `_bind_put_crews`, which runs at build, so a later rebind would refuse the
+        mismatch rather than bind silently.  The declaration is released here -- every lot
+        is on a shelf, and holding the list would pin it for the whole pick stage."""
+        self.lots = []
+        for clocks, n in ((self.pool.clocks, self.pick_put),
+                          (self.coord.dock.clocks, self.pick_recv)):
+            if n < len(clocks):
+                del clocks[n:]
+            else:
+                clocks.extend([0.0] * (n - len(clocks)))
+        self.log.info(
+            f'  [fill] settled after {i + 1} site day(s): {self.n_lots:,} lot(s), '
+            f'{self._sent:,} unit(s) dispatched over {self._last_day} day(s) at '
+            f'{self.units_per_day:,.0f}/day; crews put {self.record["put_crew"]}->'
+            f'{self.pick_put}, receiving {self.record["recv_crew"]}->{self.pick_recv}; '
+            f'the pick stage is batch {i + 1} on')
+
+
+def _build_fill(args: dict, leaves, site, pool, log):
+    """The unit's `_FillDispatch`, bound onto the site dock -- or None off a fill trial."""
+    rec = args.get('fill')
+    if rec is None:
+        return None
+    if site is None:
+        raise ValueError('a FILL TRIAL fills through the site yard, and this unit fields no '
+                         'site dock (an inbound-off cell places nothing in a fill)')
+    fd = _FillDispatch(rec, leaves, site.coord, pool,
+                       seed_world=args['leaves'][0]['seed_world'],
+                       pick_put=int(args['put_crew']['size']),
+                       pick_recv=int(args['recv_crew']['size']), log=log)
+    site.fill = fd
+    for lf in leaves:
+        lf.fill_lots.clear()             # the dispatcher holds the world order; free the copies
+    log.info(f'  [fill] {fd.n_lots:,} declared lot(s), {rec["units"]:,} unit(s): '
+             f'dispatching {rec["units_per_day"]:,.0f} unit(s)/day over ~'
+             f'{rec["dispatch_days"]:.1f} day(s) at ratio {rec["ratio"]:g}; '
+             f'crews put {rec["put_crew"]}, receiving {rec["recv_crew"]} '
+             f'({rec["seated"]} seated{", DOOR-BOUND" if rec["seat_bound"] else ""}); '
+             f'cap {rec["max_days"]} day(s)')
+    return fd
+
+
 def _build_site_dock(args: dict, pool, log):
     """The SITE's dock, yard and receiving coordinator -- or None when the unit fields none.
 
@@ -1257,9 +1420,13 @@ def _build_site_dock(args: dict, pool, log):
             'a coupled unit names a standing yard and derives NO receiving crew, so nothing '
             'would ever unload a trailer: the yard would fill, every reorder would stay in '
             'transit for the whole run, and no row would say why')
+    # The fill's receiving crew on the dock's clocks, the larger crew on the roster -- the
+    # put pool's rule (`_build_put_pool`), for the same reason.
+    _fill = args.get('fill')
+    _n_recv = _recv['size'] if _fill is None else int(_fill['recv_crew'])
     _crew = _Crew(role=_Role.RECEIVE, mode=_Mode.of(_recv['mode']),
                   speed=_SpeedProfile(_recv['x_speed'], _recv['y_speed']),
-                  size=_recv['size'])
+                  size=max(_recv['size'], _n_recv))
     # THE UID BLOCK CHAINS OFF THE PUT POOL'S, not off either leaf's own crews (site-dock
     # 19 rule 2): the pool's block starts above BOTH channels' dense picker uids, so a
     # cursor left at one leaf's `k_pickers + put_size` would put the smaller leaf's
@@ -1278,7 +1445,7 @@ def _build_site_dock(args: dict, pool, log):
     # KEYED BY REGIME, because `Dock.unload_seconds` resolves with `regime_of(unit)`.
     # `Channel.name` and `Channel.regime` are independent fields, so keying by name would
     # price correctly only on a site whose channels happen to be named after their regimes.
-    _dock = _Dock(_DockSpec(size=_recv['size'], sources=('reorder', 'trailer')),
+    _dock = _Dock(_DockSpec(size=_n_recv, sources=('reorder', 'trailer')),
                   costs={la['channel_regime']: _site_unload_cost(la)
                          for la in _leaves})
     _wd = _leaves[0].get('work_day') or {}
@@ -1383,7 +1550,11 @@ class ArmAssembly:
                   'pk', 'pm', 'pq', 'pqs', 'pt', 'put_clock', 'qty_by_sku',
                   'recv_clock', 'reloader', 'run_dir', 'run_id', 'sd', 'seed_batches', 'shift',
                   'scope', 'skipped', 'start_i', 'strat', 'strategy', 't_loop', 't_precompute',
-                  'timers', 'warehouse', 'we', 'wp', 'yd', 'yt')
+                  'timers', 'warehouse', 'we', 'wp', 'yd', 'yt',
+                  # THE FILL TRIAL: the declared lots until the dispatcher takes them, the
+                  # script offset (0 on every other run, None while the fill runs), the
+                  # pick stage's own length, and the fill's length once it has one.
+                  'fill_lots', 'script_off', 'n_script', 'fill_batches')
 
     def __init__(self, *, buf, n_catalogue, n_skus, _cut_at_day_end, _drain_or_cap, _fs_w, _gc_detail, _gc_stats0,
                          _gc_thresh, _pending, _pick_workers, _put_crews, _put_workers,
@@ -1396,8 +1567,15 @@ class ArmAssembly:
                          n_batches, opt_x, opt_y, pb, pe, pick_cfg, pk, pm, pq, pqs, pt,
                          put_clock, qty_by_sku, recv_clock, reloader, run_dir, run_id, scope,
                          sd, seed_batches, shift, skipped, start_i, strat, strategy, t_loop,
-                         t_precompute, timers, warehouse, we, wp, yd, yt):
+                         t_precompute, timers, warehouse, we, wp, yd, yt, fill_lots=None):
         self.buf = buf
+        self.fill_lots = fill_lots
+        # The batch counter IS the script index on every run but a fill trial's, whose
+        # pick stage starts wherever the fill ends: `_script_j` subtracts this, and 0 makes
+        # the subtraction the identity.  None means "a fill day: there is no demand".
+        self.script_off = 0 if fill_lots is None else None
+        self.n_script = n_batches
+        self.fill_batches = None
         self.n_catalogue = n_catalogue
         self.n_skus = n_skus
         self._cut_at_day_end = _cut_at_day_end
@@ -1813,7 +1991,42 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
         if strat.needs_demand:
             mgr.init_demand_state(inventory, wp, terms=_seed_terms)  # wp ⇒ the labor twin
 
-    if strat.stock_mode == 'policy':
+    # ── THE FILL TRIAL (CONTEXT.md; `.scratch/inbound-throughput/` 05) ──────────────
+    # The warehouse starts EMPTY.  The declaration is recorded (`declare_all`: templates and
+    # levels, exactly as intake records them) and handed to the unit's `_FillDispatch`,
+    # which sends it through the site yard in a seeded world order; the arm's own rule
+    # places each unit as it comes off a trailer, through the same `plan_lot` -> put queue
+    # -> put drain path every reorder takes.  The arm is BUILT first, as the policy branch
+    # builds it, because the first trailer lands on day 0.
+    #
+    # THE UNIFORM STOCK MODE IS REFUSED, not approximated.  Its campaign meaning is "the
+    # initial stock is placed by the manager's default placement, the reorders by the arm",
+    # and a fill has no initial stock: everything is a receipt.  Placing the fill uniformly
+    # would make the gain evaluator price every trailer by the arm's rule (it reads the
+    # policy record, never `mgr.placement`) while a different rule placed it -- an unloading
+    # policy optimising an objective nothing enacts.  Running it by the arm's rule would make
+    # `uni_*` a byte-for-byte copy of `opt_*`.  Which of those the fill trial wants is a
+    # decision, recorded on ticket 05; until it is made, a uniform fill is not a run.
+    _fill = (args.get('inbound') or {}).get('fill')
+    fill_lots = None
+    if _fill is not None:
+        if strat.stock_mode != 'policy':
+            raise ValueError(
+                f'{strat.key}: a FILL TRIAL has no initial stock for the uniform stock mode to '
+                f'place, so `{strat.stock_mode}` has no meaning here yet (inbound-throughput 05 '
+                f'records the open decision); run the fill on the opt_* arms')
+        log.info(f'Initial stock: NONE -- fill trial: {n_skus:,} SKUs declared, arriving '
+                 f'through the site yard ({strat.key})...')
+        if strat.needs_affinity:
+            mgr._affinity = affinity
+        if strat.needs_demand:
+            mgr.init_demand_state(inventory, wp, terms=_seed_terms)
+        if strat.uses_aisle_index:
+            mgr.init_travel_costs(wp)
+        t_precompute = _timed_build(strat, mgr, ctx)
+        fill_lots = mgr.declare_all(inventory.orders)
+        _arm_aisle_state()                   # over the empty warehouse: the fill's start
+    elif strat.stock_mode == 'policy':
         log.info(f'Initial stock: {n_skus:,} SKUs  via own policy ({strat.key})...')
         # Per-SKU products must exist before placement (the labor wave reads
         # _sku_pick_load_product); aisle sums seed to 0 over the empty warehouse and
@@ -1837,7 +2050,10 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
         t_precompute = _timed_build(strat, mgr, ctx)
     map_lap_pct = _map_lap_pct(mgr)
     # The arm's own expected day, off the placement it just made (None flag-off).
-    expected_pick = _arm_expected_pick(args, warehouse, inventory.orders, pick_cfg, log)
+    # A fill has no initial placement to expect a day over -- the warehouse is empty here --
+    # so the arm records none rather than the expectation of an empty shelf.
+    expected_pick = (None if fill_lots is not None
+                     else _arm_expected_pick(args, warehouse, inventory.orders, pick_cfg, log))
     # The same expectation's inputs, kept so the batch loop can RE-TAKE it over the
     # placement the run is standing in at each keyframe.  That is the only check that can
     # fail `pick_owed_s` as a proxy: a different model, over the same bins, at the same
@@ -1991,7 +2207,11 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
     # `list[float]`, so `crew_clock.charge` books every put to whichever putter is free
     # earliest across both channels.  The sharing is identity -- `reset` mutates in place
     # -- which is why the pool, and not either manager, owns the reset.
-    mgr.enable_putaway_timing(_put_crew.speed, cost=_pcost, size=_put_crew.size,
+    # A FILL TRIAL's pool starts on the FILL crew (`_build_put_pool`), so the queues bind to
+    # that many clocks; the pick-stage size is what the pool shrinks back to at the boundary.
+    mgr.enable_putaway_timing(_put_crew.speed, cost=_pcost,
+                              size=(_put_crew.size if _unit.get('fill') is None
+                                    else len(scope.put_clocks)),
                               clocks=scope.put_clocks)
     scope.bind_put(mgr, args['channel_name'])
 
@@ -2379,7 +2599,8 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
                       scope=scope, sd=sd, seed_batches=seed_batches, shift=shift,
                       skipped=skipped, start_i=start_i, strat=strat, strategy=strategy,
                       t_loop=t_loop, t_precompute=t_precompute, timers=timers,
-                      warehouse=warehouse, we=we, wp=wp, yd=yd, yt=yt)
+                      warehouse=warehouse, we=we, wp=wp, yd=yd, yt=yt,
+                      fill_lots=fill_lots)
     return asm
 
 
@@ -2432,6 +2653,24 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
     # names an arm carries; the 60 construction temporaries never leave it.
     asm = _build_arm(args, unit, pool, site_gain, site)
     bstate = BatchState()
+
+    def _script_j(i: int):
+        """Batch `i`'s index into the pick SCRIPT -- `i` itself on every run but a fill
+        trial's, whose pick stage starts at `script_off`; None on a FILL day, which has no
+        demand at all.  `i - 0` is `i`, so the ordinary run reads the script exactly as it
+        always did."""
+        return None if asm.script_off is None else i - asm.script_off
+
+    def _script_batch(i: int):
+        """The demand batch `i` releases: the shared script's entry (or its inline twin), or
+        an EMPTY batch on a fill day.  The empty one is fresh per call and carries only
+        `items`, the one field a batch that yields no tasks is read for."""
+        j = _script_j(i)
+        if j is None:
+            return _SimpleNamespace(items={})
+        return (asm.batches[j] if asm.batches is not None
+                else Batch(asm.batch_cfg, asm.inventory, affinity=asm.affinity,
+                           rng=random.Random(asm.seed_batches + j)))
 
 
     def _replenish(i: int) -> None:
@@ -2503,9 +2742,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # path never samples twice.
         bstate.early = None
         if asm._space_tl is not None:
-            bstate.early = (asm.batches[i] if asm.batches is not None
-                            else Batch(asm.batch_cfg, asm.inventory, affinity=asm.affinity,
-                                       rng=random.Random(asm.seed_batches + i)))
+            bstate.early = _script_batch(i)
             _inj = dict(bstate.early.items)
             for _sku, _q in asm._pending.items():
                 _inj[_sku] = _inj.get(_sku, 0) + _q
@@ -2517,7 +2754,11 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # no window is ever built that nothing reads.
             _window = None
             if asm._fs_w is not None:
-                _window = _futuresight_window(asm.batches, i, asm._fs_w, asm.n_batches)
+                # On a fill day the window is the pick stage's OPENING demand (index -1:
+                # script batches 0 .. w-1): the stock being placed is placed for it.
+                _j = _script_j(i)
+                _window = _futuresight_window(asm.batches, -1 if _j is None else _j,
+                                              asm._fs_w, asm.n_script)
             asm._space_tl.inject_demand(_inj, released_at=asm.arm_clock, window=_window)
         if asm.reloader is not None:
             # Evict targeted pallets into the queue; check_reorders' ranked drain
@@ -2723,10 +2964,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # case we sample inline here — bit-identical, just not deduplicated across arms.
         # (`bstate.early` is the same object, fetched above for the standing-demand
         # injection; reusing it just skips a second inline sample.)
-        batch    = (bstate.early if bstate.early is not None
-                    else asm.batches[i] if asm.batches is not None
-                    else Batch(asm.batch_cfg, asm.inventory, affinity=asm.affinity,
-                               rng=random.Random(asm.seed_batches + i)))
+        batch    = (bstate.early if bstate.early is not None else _script_batch(i))
         asm.timers.split('sample', 'build')
         # `_shortfall` is demand NO BIN could satisfy -- the pre-simulation cause, and the
         # only one knowable before the sim runs.  It rolls over with the other two below.
@@ -2921,6 +3159,30 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                     asm.cov.append((i, 'unpicked_unstocked', _sku, _un))
                 if _q - _un:
                     asm.cov.append((i, 'unpicked_notasks', _sku, _q - _un))
+            if asm.script_off is None and len(asm.pb) >= asm.checkpoint:
+                # A FILL DAY FLUSHES.  The checkpoint flush sits on the picked path, and a fill
+                # is tens of skipped days in a row, each receiving and binning thousands of
+                # units -- so without this every put and receive row of the whole fill would
+                # sit in memory until the first pick.  Same drain, same writer, same marker.
+                _t0 = time.perf_counter()
+                _bp, _be = asm.bin_rec.drain()
+                asm.buf.add('bin_placements', _bp)
+                asm.buf.add('bin_evictions', _be)
+                asm.buf.flush(asm.db_path, asm.run_id)
+                # NO CHECKPOINT MARKER ON A FILL DAY.  Markers are in PICK-STAGE batches (see
+                # the picked path's flush), because every planner that reads one --
+                # `_plan_strategy_start`, `_reconcile_coupled_unit` -- compares it against the
+                # pick stage's `n_batches`; a marker counting fill days would read a pair
+                # killed mid-fill as FINISHED.  A fill is replayed from batch 0 (a coupled
+                # unit refuses a batch-level resume anyway), so there is nothing to mark.
+                _dt = time.perf_counter() - _t0
+                asm.timers.add('save', _dt)
+                asm.log.info(f'  Fill day {i+1:4d}  fill={len(asm.mgr._unavailable) / max(asm.denom, 1):.1%}'
+                             f'  q={asm.mgr.queue_depth}  db={_dt:.2f}s')
+                # Close the windows the picked path's log line closes, so the first pick
+                # batch's line reads its own window and not every fill day's.
+                asm.timers.roll()
+                asm.ckpt_win.roll(time.perf_counter())
             return
 
         # The clock CARRIES.  Every picker starts this batch at the arm's current instant,
@@ -3137,7 +3399,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             t_s1 = time.perf_counter()
             _census = asm.buf.flush(asm.db_path, asm.run_id)
             t_s2 = time.perf_counter()
-            save_worker_checkpoint(asm.run_dir, asm.strategy, i + 1)
+            # In PICK-STAGE batches: `script_off` is 0 on every run but a fill trial's, whose
+            # planners compare the marker against the pick stage's `n_batches`.
+            save_worker_checkpoint(asm.run_dir, asm.strategy, i + 1 - asm.script_off)
             t_s3 = time.perf_counter()
             t_save = t_s3 - t_s0
             t_drain, t_sqlite, t_pickle = t_s1 - t_s0, t_s2 - t_s1, t_s3 - t_s2
@@ -3292,8 +3556,11 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         # flushed above but the marker didn't advance.  Pin it to n_batches so a later --resume of
         # a not-yet-finalized group treats this arm as done (empty loop) instead of re-INSERTing
         # its tail rows.  Idempotent when the marker already reached n_batches.
+        # Pinned in PICK-STAGE batches (`n_script`, which IS `n_batches` off a fill), so a
+        # finished fill arm reads finished to the planners and is never replayed into its
+        # own DB.
         if asm.n_batches > asm.start_i:
-            save_worker_checkpoint(asm.run_dir, asm.strategy, asm.n_batches)
+            save_worker_checkpoint(asm.run_dir, asm.strategy, asm.n_script)
 
         elapsed = time.perf_counter() - asm.t_loop
         done    = asm.n_batches - asm.start_i - asm.skipped
@@ -3357,6 +3624,10 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                  f'frozen_residual={gc.get_freeze_count()}')
 
         return {
+            # THE FILL'S LENGTH, on a fill trial only: the pick stage is batches
+            # `fill_batches .. fill_batches + n_batches - 1` of this arm's tables, and this is
+            # the one number a reader needs to select it.  Absent on every other run.
+            **({'fill_batches': asm.fill_batches} if asm.fill_batches is not None else {}),
             'strategy': asm.strategy,
             'run_id'  : asm.run_id,
             'elapsed' : elapsed,
@@ -3397,11 +3668,36 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
 
 
 
+    def _fill_credit(sku: int, qty: int) -> None:
+        """The dispatcher sent `qty` of this leaf's `sku` to the yard: on order from now,
+        exactly where `_fire_reorders` books a reorder, so `accept` debits it as it lands."""
+        asm.mgr._deferred_qty[sku] = asm.mgr._deferred_qty.get(sku, 0) + qty
+
+    def _fill_settled() -> bool:
+        """Is every unit this leaf was sent binned?  Nothing on order and nothing waiting
+        for a bin.  The yard and the dock are the SITE's and the dispatcher checks them."""
+        return (not any(q > 0 for q in asm.mgr._deferred_qty.values())
+                and asm.mgr.queue_depth == 0)
+
+    def _begin_pick(off: int) -> None:
+        """The fill ended after batch `off - 1`: the pick stage's script starts at batch
+        `off`, and the arm now runs `off + n_script` batches in all."""
+        asm.script_off = off
+        asm.fill_batches = off
+        asm.n_batches = off + asm.n_script
+        asm.fill_lots = None                 # the dispatcher holds its own copy
+        # The arm's expected day, taken HERE rather than at build: a fill's shelf is empty at
+        # build, and this is the placement the pick stage is served from.
+        asm.expected_pick = _arm_expected_pick(args, asm.warehouse, asm.inventory.orders,
+                                               asm.pick_cfg, asm.log)
+
     return _Leaf(strategy=asm.strategy, start_i=asm.start_i, n_batches=asm.n_batches,
                  channel=args.get('channel_name'),
                  n_catalogue=asm.n_catalogue, n_skus=asm.n_skus,
                  replenish=_replenish, step=_step, finish=_finish,
-                 note_triggered=_note_triggered, charge=_charge)
+                 note_triggered=_note_triggered, charge=_charge,
+                 fill_lots=asm.fill_lots, fill_credit=_fill_credit,
+                 fill_settled=_fill_settled, begin_pick=_begin_pick)
 
 
 def _run_strategy_worker_impl(args: dict) -> dict:
@@ -3415,7 +3711,11 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     """
     _coupled = args.get('leaves') is not None
     _sitedock = None
+    _fill = None
     if not _coupled:
+        if (args.get('inbound') or {}).get('fill') is not None:
+            raise ValueError('a FILL TRIAL is a coupled run: it fills through the site\'s one '
+                             'yard, and an uncoupled leaf has none')
         leaves = [_build_leaf(args)]
     else:
         # THE SITE CREWS, verified ONCE and then handed down. `_check_site_crews` against the
@@ -3459,6 +3759,8 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 f'matches nothing is a silently empty channel, not an error, which is why '
                 f'this is checked rather than assumed '
                 f'({[(lf.channel, lf.n_skus) for lf in leaves]})')
+        # THE FILL TRIAL's dispatcher, once every leaf has declared its lots.
+        _fill = _build_fill(args, leaves, _sitedock, _pool, _site_log)
     # One range for the unit. Leaves of a coupled unit share `start_i` by construction --
     # batch-grain resume REFUSES a coupled unit (site-dock 10), so both replay from the same
     # batch -- and `n_batches` is a global. Asserted rather than assumed: a silent mismatch
@@ -3476,7 +3778,26 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # later leaf's put queue does not exist until its own arrivals have been released.
     # Run whole-batch-per-leaf instead, that residue pass lands AFTER the earlier leaf has
     # snapshotted its queues and stamped its rows, and nothing raises.
-    for i in range(leaves[0].start_i, leaves[0].n_batches):
+    #
+    # THE FILL, THEN THE PICK STAGE (inbound-throughput Q16).  Off a fill trial `_off` is 0
+    # from the start and this is `for i in range(start_i, n_batches)` exactly.  On one, `_off`
+    # is None -- every batch is a FILL day, released like any other and picking nothing --
+    # until the dispatcher reports the site settled after some batch `i`; then the pick
+    # stage's script starts at `i + 1` and runs its `n_batches` from there.
+    _n_pick = leaves[0].n_batches
+    _off = 0 if _fill is None else None
+    i = leaves[0].start_i
+    if _fill is not None and i > 0:
+        # A fill unit is replayed from 0 or not at all.  A FINISHED one arrives here at its
+        # pinned marker (`n_script`, in pick-stage batches) to be re-finalized -- the empty
+        # loop an ordinary finished arm gets -- and must not run a second fill into its own
+        # tables.  Anything between is a batch-level resume, which a coupled unit refuses
+        # upstream; refused again here rather than run a fill from the middle.
+        if i < _n_pick:
+            raise RuntimeError(f'a fill unit cannot resume at batch {i}: the fill is replayed '
+                               f'from batch 0 or, finished, not at all')
+        _off = i - _n_pick                   # the loop below then runs no batch at all
+    while _off is None or i < _off + _n_pick:
         for lf in leaves:
             lf.replenish(i)
         if _sitedock is not None:
@@ -3506,6 +3827,19 @@ def _run_strategy_worker_impl(args: dict) -> dict:
             # that rode a condition would hand whatever finally reads them several batches'
             # rows stamped as one.
             _sitedock.collect(i)
+        if _off is None:
+            if _fill.settled():
+                _off = i + 1
+                _fill.end(i)
+                for lf in leaves:
+                    lf.begin_pick(_off)
+            elif i + 1 >= int(args['fill']['max_days']):
+                raise RuntimeError(
+                    f'the fill did not settle in {args["fill"]["max_days"]} site day(s) (twice '
+                    f'its dispatch span plus ten): {_fill.census()}. At a ratio below one the '
+                    f'yard clears within days of the last dispatch, so a fill still running is '
+                    f'stock no bin will take -- the pick stage would never start')
+        i += 1
     results = [lf.finish() for lf in leaves]
     if _sitedock is not None:
         # AFTER the leaves finish, because the censored tail is a run-end read and the

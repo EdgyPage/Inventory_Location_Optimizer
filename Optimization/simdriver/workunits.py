@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from dataclasses import replace as _dc_replace
 
@@ -19,6 +20,7 @@ from Optimization.config.sim_config import (
     crew_cost_spec,
     channel_pickers, staffing_spec, _PICKERS_KEY, CALIBRATION_KEYS, era_on,
     couple_channels,
+    fill_spec,
     inbound_spec,
     recv_crew_spec,
     work_day_spec,
@@ -387,7 +389,10 @@ def _prepare_channel_run(
     ch = channel
     # This channel's strategy arms — a restock subset (e.g. store: fifo + rank_labor) or the
     # full grid (fulfillment).  All per-channel work below iterates ch_strategies.
-    ch_strategies = strategies_for(ch.restocks)
+    ch_strategies = _channel_strategies(ch)
+    if len(ch_strategies) != len(strategies_for(ch.restocks)):
+        log.info(f'  [{ch.name}] fill trial: the uniform-stock arms are not run (a fill has no '
+                 f'initial stock for that mode to place; inbound-throughput 05)')
     ch_run_dir = os.path.join(run_dir, ch.name) if mixed else run_dir
     os.makedirs(ch_run_dir, exist_ok=True)
     ch_db_path = {s.key: _arm_db_path(ch_run_dir, s.key) for s in ch_strategies}
@@ -669,9 +674,57 @@ def _prepare_site_run(channel_runs, mixed: bool, shared: dict, pair_dir: str,
                 _site_trace_path(_site_db_path(pair_dir, _ls['strategy'], _lf['strategy']))
                 if (_ls.get('inbound') or {}).get('plan_trace') else None),
             'leaves'   : [_ls, _lf],
+            # THE FILL TRIAL (inbound-throughput 05): the fill's crews, dispatch rate and
+            # length cap, or None -- every run that is not one.
+            'fill'     : _fill_payload(_ls),
             # log_queue is NOT set here -- injected by the flat pool, as for a leaf unit.
         })
     return unit_args, skeletons
+
+
+def _channel_strategies(ch) -> list:
+    """The arms one channel runs: its restock subset, less the uniform-stock arms in a FILL
+    TRIAL.  A fill has no initial stock, so the one thing that mode governs does not exist,
+    and the worker refuses it (`_build_arm`); dropping them HERE keeps a fill matrix from
+    planning units it knows will fail.  One helper, because the arm list is read twice -- by
+    the prepare and by the coupled-pair reconciler -- and two spellings could disagree about
+    which arms a pair holds."""
+    arms = strategies_for(ch.restocks)
+    if fill_spec() is None:
+        return arms
+    return [s for s in arms if s.stock_mode == 'policy']
+
+
+def _fill_payload(leaf: dict) -> dict | None:
+    """A coupled unit's FILL record: `staffing.derive_fill`'s crews plus the dispatch rate
+    this CELL's dock implies (`staffing.fill_dispatch_rate`), or None when the cell declares
+    no fill.
+
+    Computed here, per cell, rather than in the per-pair derivation: the rate is priced off
+    the SEATED receiving crew, and the seats are the cell's door count times its door team --
+    which the door-scarcity axis varies across the cells of one pair.  `max_days` is the
+    fill's length cap: twice the dispatch span plus ten days.  At a declared ratio below one
+    the yard is a queue and clears within days of the last dispatch, so a fill that has not
+    settled by then is a fill that CANNOT (a unit no bin will take), and the worker raises
+    with the census rather than running a pick stage that never starts.
+    """
+    spec = (leaf.get('inbound') or {}).get('fill')
+    if spec is None:
+        return None
+    fill = ((leaf.get('staffing') or {}).get('derived') or {}).get('fill')
+    if not fill:
+        raise ValueError(
+            'the cell declares a FILL TRIAL but its staffing record derived no fill crews; '
+            'the fill derives its crews from the declaration (ADR-0004), so there is nothing '
+            'to receive it with')
+    _inb = leaf['inbound']
+    day_s = float(work_day_spec()['seconds'])
+    rate = _staffing.fill_dispatch_rate(fill, doors=_inb['doors'],
+                                        door_team=_inb.get('door_team'), day_seconds=day_s)
+    return {'span_days': fill['span_days'], 'ratio': fill['ratio'],
+            'put_crew': int(fill['put']['crew']), 'recv_crew': int(fill['receiving']['crew']),
+            'units': int(fill['units']), **rate,
+            'max_days': int(math.ceil(2.0 * rate['dispatch_days'])) + 10}
 
 
 # ── the coupled pair's completeness, and the torn-pair repair ──────────────────
@@ -1093,6 +1146,32 @@ def _derive_staffing_for_pair(shared: dict, channel_runs: list, mixed: bool, pai
                   for n, a in stage_a.items()},
         scripts=scripts,
         pricing_names={n: a['pricing'].name for n, a in stage_a.items()})
+    # THE FILL TRIAL'S CREWS (inbound-throughput 05), derived beside the steady state's and
+    # never instead of them: the fill stage fields these, the pick stage the ones above.  The
+    # declaration is priced off the SAME per-channel orders and pricing stage A read, and
+    # put-away at the SAME `s_put` stage B recorded, so the two blocks differ only in the
+    # quantity received.  Absent unless a fill is declared -- a run that is not one records
+    # nothing new.
+    _fs = fill_spec()
+    if _fs is not None:
+        if not couple_channels():
+            raise ValueError('a FILL TRIAL fills through the site one yard; it needs '
+                             'coupled channels (COUPLE_CHANNELS)')
+        declared = {n: _staffing.declared_work(
+                        a['orders'], a['pricing'],
+                        put_intercept_scale=cc['put_intercept_scale'],
+                        put_item_ratio=cc['put_item_ratio'],
+                        recv_intercept_scale=cc['recv_intercept_scale'])
+                    for n, a in stage_a.items()}
+        derived['fill'] = _staffing.derive_fill(
+            declared=declared, s_put=constants['s_put'], span_days=_fs['span_days'],
+            ratio=_fs['ratio'], day_seconds=S, rho_put=float(inputs['rho_put']),
+            rho_recv=float(inputs['rho_recv']))
+        _f = derived['fill']
+        log.info(f"  [staffing] FILL over {_f['span_days']:g} site day(s): "
+                 f"{_f['units']:,} declared unit(s), "
+                 f"put crew={_f['put']['crew']}, receiving crew={_f['receiving']['crew']} "
+                 f"(ratio {_f['ratio']:g})")
     calibration = {
         'method': 'expected_travel', 'placement': 'uniform',
         'geometry_fingerprint': geometry_fp,
@@ -1433,7 +1512,7 @@ def _build_work_units(pairs, base_dir, shared_by_pair, log, log_queue, max_worke
             # question cannot be asked inside a one-leaf prepare, and the reset must happen
             # parent-side before any worker reopens a file (`reset_strategy_db`, Windows).
             _leaves = [(os.path.join(pair_dir, _cfg_names[ch.name], ch.name),
-                        [s.key for s in strategies_for(ch.restocks)])
+                        [s.key for s in _channel_strategies(ch)])
                        for ch, _ in channel_runs]
             if skip_completed and _reconcile_coupled_unit(
                     pair_dir, _leaves, CONFIG['global']['n_batches'], log,

@@ -62,6 +62,8 @@ class Profile:
     timeout_s: int
     free_gb: int
     note: str
+    #: The stages this profile runs when `--stages` is not given; None = all of `STAGES`.
+    stages: tuple | None = None
 
 
 PROFILES = {
@@ -91,6 +93,21 @@ PROFILES = {
                              '--max-skus', '8000', '--coverage-days', '1',
                              '--max-tasks-per-child', '1'),
                     timeout_s=3600, free_gb=15, note='pipeline shakeout; target < 20 min'),
+
+    # The FILL TRIAL at the tiny size (`.scratch/inbound-throughput/` 05): the run starts empty,
+    # the declaration arrives through the coupled site yard, and the pick stage starts once it
+    # is binned -- two cells (fifo, gmyopic), opt arms only, both channels, the site DB with
+    # its yard tables.  Its own profile because `scheduler_ab` fields no yard at all.
+    'fill': Profile('fill', ('--spec', '_toy_fill', '--n-batches', '6',
+                             '--keyframe-interval', '3',
+                             '--max-skus', '8000', '--coverage-days', '1',
+                             '--max-tasks-per-child', '1'),
+                    timeout_s=3600, free_gb=15, note='fill-trial shakeout; target < 10 min',
+                    # NO WEBSITE, MKDOCS OR ARCHIVE.  The ingest's curated figure list names
+                    # the two-starting-layout views (`percent_both_levers`, `effect_heatmap`)
+                    # a fill cannot draw -- it runs the opt arms alone -- and the site stages
+                    # are `tiny`'s to prove, on the full grid they were curated for.
+                    stages=('preconditions', 'simulate', 'analyze', 'verify_tree')),
 
     # The first 20k SKUs are ~40% fulfillment (SKU ids interleave the families), so the catalogue
     # stays MIXED and the optional <channel> level still appears. A sizing that produced a
@@ -425,8 +442,18 @@ _DOSSIER = ('dossier_json', 'dossier_tables_csv', 'dossier_cost_pngs',
 # from the tree: site_inbound_db needs the dock to have actually received something, and the
 # yard figures need an arm with trailer rows (the yard request is DENIED, not emptied, when
 # no arm has any).
-_COUPLED_ONLY = ('site_inbound_db', 'figures_site_yard_pngs')
+_COUPLED_ONLY = ('site_inbound_db', 'figures_site_yard_pngs',
+                 # The plan-trace probe's sidecar: a coupled pair's site dir, and only in a
+                 # cell that arms the trace AND names a gain policy (inbound-throughput 03).
+                 'site_plan_trace')
 _YARD_ONLY = ('figures_yard_pngs',)
+# -- uncoupled-only -------------------------------------------------------------------------
+# The whole-warehouse rollup SUMS the channels' savings, and `run_channel_rollup.rollup`
+# declines a coupled run by design ("savings are not additive under one site dock").  So on a
+# coupled run these are must_absent -- a rollup there would be the sum that decision refuses --
+# and on an uncoupled one they stay required, as schema.py declares them.  No coupled profile
+# existed until `fill`, which is why this stage had never met the case.
+_UNCOUPLED_ONLY = ('channel_rollup_csv', 'channel_rollup_summary_csv')
 
 
 def _run_shape(rt) -> dict:
@@ -532,6 +559,9 @@ def _stage_verify_tree(ctx: _Ctx) -> StageResult:
             allowed |= set(names)
         else:
             must_absent |= set(names)
+    if shape['coupled']:
+        required -= set(_UNCOUPLED_ONLY)
+        must_absent |= set(_UNCOUPLED_ONLY)
 
     # Force a new artifact in schema.py to be classified here rather than silently ignored.
     classified = (required | cond_req | must_absent | allowed
@@ -997,7 +1027,7 @@ def run(profile: str = 'smoke', *, workers: int = WORKER_CAP, stages=None,
         raise ValueError(f'unknown profile {profile!r}; choices: {sorted(PROFILES)}')
     prof = PROFILES[profile]
     workers = max(1, min(int(workers), WORKER_CAP, os.cpu_count() or 1))
-    wanted = list(stages) if stages else list(STAGES)
+    wanted = list(stages) if stages else list(prof.stages or STAGES)
     bad = [s for s in wanted if s not in _STAGE_FNS]
     if bad:
         raise ValueError(f'unknown stage(s) {bad}; choices: {list(STAGES)}')

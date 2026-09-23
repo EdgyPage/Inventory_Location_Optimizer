@@ -75,6 +75,12 @@ PARENT_ONLY = {
         'width/height are consumed by sim_assets.plan_warehouse and run_simulation'
         "'s structural floor check, both of which run before a worker exists. The worker "
         'receives the BUILT warehouse, never the geometry that shaped it',
+    'fill_spec':
+        'the FILL TRIAL record reaches the worker TWICE over without being threaded itself: '
+        '`inbound_spec()` embeds it as its `fill` key (so every leaf payload carries it), and '
+        'the unit payload carries `workunits._fill_payload`, the crews and dispatch rate the '
+        'parent derived from it. Called directly only by the parent-side staffing derivation '
+        'and the arm filter (`_channel_strategies`)',
 }
 
 #: Accessors that are STRUCTURALLY OFF under the pristine CONFIG and answer `None` whatever
@@ -87,6 +93,10 @@ GATE_ON = {
     'inbound_spec':      {'inbound_trailer_type': '53', 'recv_crew_size': 2},
     'put_queues_spec':   {'put_queue_split': True},
     'recv_crew_spec':    {'recv_crew_size': 2},
+    # A fill trial is a standing-yard feature with a span: trailers, the yard, and a span
+    # are its whole gate (`fill_spec` refuses each missing one rather than returning None).
+    'fill_spec':         {'inbound_trailer_type': '53', 'inbound_standing_yard': True,
+                          'inbound_fill_span_days': 40.0},
 }
 
 #: The worker entry module.  Anything it imports is, by definition, in a spawned worker.

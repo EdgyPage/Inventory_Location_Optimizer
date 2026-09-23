@@ -362,6 +362,17 @@ def _check_era_flags(args, explicit: set) -> list[str]:
     Raises `SystemExit` with the reason; returns the completion notes otherwise.
     Module-level so a test can hand it a Namespace.
     """
+    # THE FILL TRIAL is a coupled era run by construction (inbound-throughput 05): its
+    # crews are DERIVED from the declaration over the fill span, and the yard it fills
+    # through is the site's one yard.  Flag-off or uncoupled, a fill would either declare
+    # nothing to derive from or field two yards and two receiving crews.
+    if getattr(args, 'inbound_fill_span_days', None) is not None and not (
+            getattr(args, 'shift_drain_or_cap', False)
+            and getattr(args, 'couple_channels', False)):
+        raise SystemExit(
+            '--inbound-fill-span-days runs a FILL TRIAL, which derives its crews from the '
+            'declaration (the era) and fills through the site\'s one yard (coupling); it '
+            'needs both --shift-drain-or-cap and --couple-channels.')
     if not getattr(args, 'shift_drain_or_cap', False):
         # The era-only inputs (ADR-0004) typed WITHOUT the era: nothing reads them
         # flag-off -- the script's content is the channel's batch mean and the crew is
@@ -882,6 +893,19 @@ def _build_parser() -> argparse.ArgumentParser:
              'threshold are served FIFO ahead of the plan. 0 ~ pure gain; >= the threshold '
              '= pure FIFO. Hours and days never blend into one score — the gate is the '
              'only place they meet.')
+    parser.add_argument(
+        '--inbound-fill-span-days', type=_positive_float, metavar='DAYS',
+        default=CONFIG['global']['inbound_fill_span_days'],
+        help='FILL TRIAL: start EMPTY, dispatch the whole stock declaration through the site '
+             'yard, and begin the --n-batches pick stage once every declared unit is binned. '
+             'The value is the site days the fill crews are derived over. Needs '
+             '--couple-channels, --shift-drain-or-cap and the standing yard. Normally set by '
+             'a fill spec\'s run defaults, not here.')
+    parser.add_argument(
+        '--inbound-fill-ratio', type=_positive_float, metavar='R',
+        default=CONFIG['global']['inbound_fill_ratio'],
+        help='FILL TRIAL arrival pressure: the dispatch rate over the seated receiving rate, '
+             'strictly between 0 and 1. Read only with --inbound-fill-span-days.')
     parser.add_argument(
         '--inbound-plan-trace', type=int, metavar='N',
         default=CONFIG['global']['inbound_plan_trace'],

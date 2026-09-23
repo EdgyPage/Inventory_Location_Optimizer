@@ -516,6 +516,31 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
         self._stock()
         return self
 
+    def declare_all(self, orders: list[Order]) -> list[tuple[int, int, float]]:
+        """Declare `orders` WITHOUT placing them: the FILL TRIAL's intake (CONTEXT.md).
+
+        `enqueue_all`'s bookkeeping minus its admission.  The templates and their declared
+        levels are recorded exactly as intake records them -- `_originals` is what every
+        reorder, `plan_lot` and `owned_skus` read, so a fill that skipped it would receive
+        its own declaration as SKUs nobody owns -- but no unit is packed, admitted or
+        credited as queued.  The declaration arrives through the site yard instead, and the
+        dispatcher credits each lot to `_deferred_qty` as it DISPATCHES it, which is where a
+        reorder's quantity sits too; crediting it here would count units still on a
+        loading plan as on order, and the transit census would disagree with the ledger.
+
+        Returns `(sku, qty, unit_volume)` per order with a positive level, in the order
+        given: the lots the dispatcher shuffles into the world order.
+        """
+        lots: list[tuple[int, int, float]] = []
+        for order in orders:
+            qty = _equilibrium_qty(order)
+            if order.sku not in self._originals and not getattr(order, '_is_reorder', False):
+                self._originals[order.sku] = order
+                self._initial_quantities[order.sku] = qty
+            if qty > 0:
+                lots.append((order.sku, int(qty), order.volume()))
+        return lots
+
     def init_placement_state(self, affinity: AffinityStore) -> None:
         """Rebuild every index derived from WHERE things are currently placed.
 

@@ -189,6 +189,8 @@ CONFIG = {
         'inbound_local_policy'  : _s.INBOUND_LOCAL_POLICY,
         'inbound_trailer_bound' : _s.INBOUND_TRAILER_BOUND,
         'inbound_plan_trace'    : _s.INBOUND_PLAN_TRACE,
+        'inbound_fill_span_days': _s.INBOUND_FILL_SPAN_DAYS,
+        'inbound_fill_ratio'    : _s.INBOUND_FILL_RATIO,
         # The standing yard (real doors, split yard/dock priorities, door-team crews,
         # own unload coefficients).  All riding inbound_spec below, so the whole family
         # crosses the worker payload as one record.
@@ -488,6 +490,7 @@ KNOBS: tuple[Knob, ...] = (
     *_knobs(('inbound_trailer_type', 'inbound_dock_doors',
              'inbound_lead_minutes', 'inbound_lead_spread',
              'inbound_local_policy', 'inbound_trailer_bound', 'inbound_plan_trace',
+             'inbound_fill_span_days', 'inbound_fill_ratio',
              'inbound_standing_yard', 'inbound_crew_allocation',
              'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
              'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
@@ -887,6 +890,65 @@ def _plan_trace_every(raw):
     return raw
 
 
+def fill_spec() -> dict | None:
+    """The FILL TRIAL's record (CONTEXT.md: Fill trial), or None -- every run that is not one.
+
+    `{'span_days', 'ratio'}`: the site days the fill crews are derived over, and the arrival
+    pressure the declaration is dispatched at (dispatch rate over the seated receiving rate).
+    Both are declared; the crews, the dispatch rate and the fill's length are derived from
+    them (`staffing.derive_fill`, the worker's `_FillDispatch`).
+
+    Refused rather than degraded, every one of them a run that would complete under the fill's
+    name without being one:
+      * a fill with no trailer pipeline -- nothing would ever arrive, and the pick stage would
+        never start;
+      * a fill without the standing yard -- v1 drains everything at once, so there is no
+        queue for the unloading order to act on;
+      * a fill under a trailer bound -- refuted for ranking (memory
+        `the-trailer-bound-buys-wall-with-discrimination`) and the fill trial's cells exclude
+        it by decision (inbound-throughput Q23);
+      * a ratio outside (0, 1) -- at or above 1 the yard grows without bound and the policies
+        converge on arrival order (Q15/Q20), at or below 0 nothing is dispatched.
+    The coupled era is checked where the flags are (`run_simulation._check_era_flags`).
+    """
+    g = CONFIG['global']
+    span = g.get('inbound_fill_span_days')
+    if span is None:
+        return None
+    if isinstance(span, bool) or not isinstance(span, (int, float)) or not span > 0:
+        raise ValueError(f'INBOUND_FILL_SPAN_DAYS must be None (no fill) or a positive number '
+                         f'of site days; got {span!r}')
+    ratio = g.get('inbound_fill_ratio')
+    if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) \
+            or not 0.0 < float(ratio) < 1.0:
+        raise ValueError(f'INBOUND_FILL_RATIO must lie strictly between 0 and 1 (arrivals '
+                         f'over the seated drain rate); got {ratio!r}')
+    if not g.get('inbound_trailer_type'):
+        raise ValueError(
+            'a FILL TRIAL needs a trailer pipeline (INBOUND_TRAILER_TYPE): the declaration '
+            'arrives by trailer, so with none nothing would ever land and the pick stage would '
+            'never start. An inbound-OFF cell places nothing in a fill (inbound-throughput Q23)')
+    if not g.get('inbound_standing_yard'):
+        raise ValueError(
+            'a FILL TRIAL needs INBOUND_STANDING_YARD: without real doors the v1 drain unloads '
+            'everything at once and there is no queue for an unloading policy to order')
+    _overlays = sorted(k for k in ('inbound_unload_intercept', 'inbound_unload_weight_coef',
+                                   'inbound_unload_volume_coef') if g.get(k) is not None)
+    if _overlays:
+        raise ValueError(
+            f'a FILL TRIAL refuses the unload-cost overlays {_overlays}: the fill crews and the '
+            f'dispatch rate are priced at the put-away-derived unload law '
+            f'(`staffing.declared_work`), so a dock charging a different price would press the '
+            f'yard at some ratio other than the declared one -- above 1, a queue that never '
+            f'clears')
+    if g.get('inbound_trailer_bound') is not None:
+        raise ValueError(
+            f'a FILL TRIAL refuses INBOUND_TRAILER_BOUND ({g["inbound_trailer_bound"]!r}): the '
+            f'bound was refuted as a ranking device and the fill trial excludes it by '
+            f'decision (inbound-throughput Q23)')
+    return {'span_days': float(span), 'ratio': float(ratio)}
+
+
 def _futuresight_batches(raw):
     """Normalize INBOUND_FUTURESIGHT_BATCHES for the spec: None | 'all' | int >= 0.
 
@@ -978,6 +1040,9 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
     g = CONFIG['global']
     ttype = g.get('inbound_trailer_type')
     standing = bool(g.get('inbound_standing_yard'))
+    # THE FILL TRIAL, validated ABOVE the no-trailer return: a fill with no trailer type
+    # would otherwise come back as `None` -- an inbound-off run under the fill's name.
+    _fill = fill_spec()
     lead_min = float(g.get('inbound_lead_minutes') or 0.0)
     lead_sigma = float(g.get('inbound_lead_spread') or 0.0)
     # The lead guards sit ABOVE the trailer-type return: with no type there is no standing
@@ -1068,6 +1133,8 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
         # The plan-trace probe's cadence: None = off, else trace every Nth batch.
         # Validated here like every count, so a typo raises at spec build.
         'plan_trace': _plan_trace_every(g.get('inbound_plan_trace')),
+        # The fill trial: None = off (every run today), else `fill_spec()`'s record.
+        'fill': _fill,
         # The standing yard.  `standing` False keeps every key inert; the driver binds
         # the v1 transit and none of the rest is read.
         'standing': standing,

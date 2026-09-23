@@ -831,6 +831,18 @@ SPECS = {
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
     },
+    # The FILL TRIAL's toy (`.scratch/inbound-throughput/` 05): the run starts empty, the
+    # declaration arrives through the site yard over a two-day fill span, then the pick stage
+    # runs `--n-batches`.  fifo and the cheapest gain rule, two placement rules, opt arms only
+    # (a fill refuses the uniform stock mode until that decision is made).
+    '_toy_fill': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'arms': ('fifo', 'rank_cartlabor'),
+        'inbound': [e for e in phase2_inbound_axis() if e[0] in ('fifo', 'gmyopic')],
+        'reference': 'k1_off_fifo',
+        'run_defaults': {**PHASE2_RUN_DEFAULTS, 'inbound_fill_span_days': 2.0},
+    },
     # The door lever's toy: fifo at the campaign's four doors and at one, where the door-team
     # cap seats 10 of the crew.  Proves a scarce cell builds, runs and records its own door
     # count end to end in ~2 minutes, before `_probe_door_depth` spends campaign hours on it.
@@ -1167,6 +1179,32 @@ def validate_spec(spec, name: str = '<spec>') -> None:
     # can DO rather than what the spec's shape says — and because the shape has to be sound
     # before `rule_pairs` can be read for the arm half.
     _refuse_unrunnable_cells(spec, name)
+    _refuse_unfillable_cells(spec, name)
+
+
+def _refuse_unfillable_cells(spec, name: str) -> None:
+    """Refuse a FILL TRIAL spec whose cells the fill would refuse one at a time.
+
+    `sim_config.fill_spec` refuses an inbound-off cell (no trailers: nothing would land) and a
+    trailer-bound cell -- but only when that cell is PREPARED, which under the flat work pool
+    can be hours into a matrix.  The same two facts are readable off the spec, so they are
+    refused here, before anything runs (inbound-throughput Q23), together with the regime a
+    fill needs at all: the coupled era.
+    """
+    rd = spec.get('run_defaults') or {}
+    if rd.get('inbound_fill_span_days') is None:
+        return
+    if not (rd.get('couple_channels') and rd.get('shift_drain_or_cap')):
+        raise ValueError(f'{name}: a FILL TRIAL needs the coupled era in its run defaults '
+                         f'(couple_channels and shift_drain_or_cap)')
+    bad = [n for n, ov in (spec.get('inbound') or [])
+           if ('trailer_type' in ov and ov['trailer_type'] is None)
+           or ov.get('trailer_bound') is not None]
+    if bad:
+        raise ValueError(
+            f'{name}: cell(s) {bad} cannot run a FILL TRIAL -- an inbound-off cell places '
+            f'nothing (the declaration arrives by trailer) and a trailer bound was refuted as a '
+            f'ranking device; the fill excludes both by decision (inbound-throughput Q23)')
 
 
 def get_spec(name):
