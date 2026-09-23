@@ -388,5 +388,7 @@ def test_every_family_declares_a_charter_and_a_scope():
         assert len(spec['charter'].split()) >= 6, fam
         assert 'views' not in spec and 'required' not in spec,             f'{fam} still carries an editorial view list'
     assert set(families.LEAF_FAMILIES) | set(families.RUN_SCOPE_FAMILIES) ==         set(families.FAMILIES)
-    assert families.RUN_SCOPE_FAMILIES == ('cost',)
+    # `closed_form` joined `cost` at run scope (2026-09-23): the closed-form models'
+    # predicted-vs-realised figure lands in the dossier, beside the compute cost
+    assert families.RUN_SCOPE_FAMILIES == ('closed_form', 'cost')
 

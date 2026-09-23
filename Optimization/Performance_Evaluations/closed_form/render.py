@@ -116,7 +116,7 @@ def predicted_vs_realised(rows, path, *, title, subtitle=None, unit='%',
     lim = [v for r in rows for v in (r.get('predicted'), r.get('realised'), r.get('lo'),
                                      r.get('hi')) if v is not None]
     if lim and min(lim) < 0 < max(lim):
-        ax.axvline(0.0, color='#999999', lw=0.8)
+        ck.reference_line(ax, 0.0, orient='x')     # the quantity is on x
     chart.title(title, subtitle)
     chart.legend([Line2D([], [], marker='D', ls='none', mfc='none', mec=_PRED, mew=1.4),
                   Line2D([], [], marker='o', ls='none', color=_REAL)],
