@@ -122,6 +122,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from heapq import merge as _hmerge
+from itertools import islice as _islice
 from math import isclose
 
 from Inbound import gain_cow as _cow          # READ THE TABLES THROUGH THE MODULE -- see
@@ -185,6 +186,27 @@ GAIN_POLICIES: frozenset = frozenset({'gain_myopic', 'gain_forecast', 'gain_gate
 #: `INBOUND_URGENCY_HORIZON_DAYS` read these.  CALENDAR days, like the divisor.
 #: Declared in `gain_bundle` beside the bundle that carries them, re-exported here
 #: because the ENTRIES below read them and every caller already imports this module.
+
+
+class _LazySeq:
+    """A read-once iterator dressed as the `[list, cursor]` slot's list: `len` is known
+    up front and `seq[i]` draws the iterator up to `i`.  `_place_merge` reads a slot's
+    list only as `len(lst)` and `lst[cur]` with `cur` rising by one, so a merged tail it
+    stops reading after a dozen units never pays for the thousands it did not reach."""
+
+    __slots__ = ('_it', '_buf', '_n')
+
+    def __init__(self, it, n: int):
+        self._it, self._buf, self._n = it, [], n
+
+    def __len__(self) -> int:
+        return self._n
+
+    def __getitem__(self, i: int):
+        buf = self._buf
+        while len(buf) <= i:
+            buf.append(next(self._it))
+        return buf[i]
 
 
 class _Evaluator:
@@ -506,6 +528,69 @@ class _Evaluator:
             cache[key] = got
         return got
 
+    def _slot_at(self, key, start, xk, yk, predicted, cache):
+        """`_avail` in FRONTIER form: the same `[list, cursor]` slot, read as an offset
+        into the tier's sorted array instead of a copy filtered by an exclusion set.
+
+        Exact wherever the exclusion set, restricted to this tier, IS the prefix
+        `sorted[:start(key)]` -- which is what `_plan_order_replay` proves of every set
+        a merge-only plan hands a placement (see its docstring).  The now side is the
+        array itself with the cursor at the offset: no copy.  With `predicted`, the
+        view is the same `heapq.merge` `_avail` builds, over the tail, drawn lazily --
+        so its tie rule (the now tier first on equal D, in both directions) is the
+        library's own rather than a restatement of it."""
+        got = cache.get(key)
+        if got is None:
+            off = start(key)
+            now = self._tier_sorted(key, xk, yk, False)
+            if predicted:
+                pred = self._tier_sorted(key, xk, yk, True)
+                dk = lambda b: xk * b.x_phys + yk * b.y_phys
+                tail = _LazySeq(_hmerge(_islice(now, off, None), pred, key=dk,
+                                        reverse=not self.b.minimize),
+                                max(0, len(now) - off) + len(pred))
+                got = [tail, 0]
+            else:
+                got = [now, off]
+            cache[key] = got
+        return got
+
+    def place_load_at(self, units, start, predicted: bool):
+        """`place_load` for a MERGE-ONLY load against a frontier instead of an exclusion
+        set: `start(key)` is the offset into each tier's sorted array below which every
+        bin is excluded.  Returns `(cost, takes, counts)`, `counts` being `{tier: bins
+        taken}` on the now side (None when `predicted`, whose tails are merged views and
+        whose takes nobody commits).
+
+        The grouping, the owner cursor, the unit order and the pricing are `place_load`'s
+        own -- the same loop, the same `_place_merge` -- so the floats are summed in the
+        same order and come out bit-identical.  Only the availability read differs."""
+        cost = 0.0
+        takes: list = []
+        avail_cache: dict = {}
+        groups: dict = {}
+        order: list = []
+        binkey_of = self.b.binkey_of
+        for u in units:
+            k = binkey_of(u)
+            g = groups.get(k)
+            if g is None:
+                groups[k] = g = []
+                order.append(k)
+            g.append(u)
+        for k in order:
+            gunits = groups[k]
+            wp, xk, yk = self._params(gunits[0], k)
+            chain = self._chain(gunits[0], k)
+            c, tk = self._place_merge(gunits, chain, wp, xk, yk, None, predicted,
+                                      avail_cache, start=start)
+            cost += c
+            takes.extend(tk)
+        if predicted:
+            return cost, takes, None
+        counts = {key: slot[1] - start(key) for key, slot in avail_cache.items()}
+        return cost, takes, counts
+
     # ── one virtual placement ─────────────────────────────────────────────────────
     def place_load(self, units, excluded, predicted: bool, *, alloc=None):
         """(cost, takes) of placing `units` against the availability that `excluded`
@@ -554,10 +639,16 @@ class _Evaluator:
             takes.extend(tk)
         return cost, takes
 
-    def _place_merge(self, gunits, chain, wp, xk, yk, excluded, predicted, cache):
+    def _place_merge(self, gunits, chain, wp, xk, yk, excluded, predicted, cache,
+                     start=None):
         """The k-cheapest merge: units in freq x labor_cost priority order take the
         class's extremal-D available bins in order (the pool's priority minus the
-        co-occurrence term — the proven residue)."""
+        co-occurrence term — the proven residue).
+
+        `start` is the FRONTIER form of `excluded` (`place_load_at`): a callable
+        `key -> offset` into the tier's sorted array, used in place of filtering that
+        array by an exclusion set.  None is the set form every caller but the replay
+        uses."""
         ordered = sorted(gunits, key=lambda u: -(u.order.demand.relative_frequency
                                                  * u.order.labor_cost))
         cost = 0.0
@@ -569,7 +660,9 @@ class _Evaluator:
                 if slot is None:
                     if ci >= len(chain):
                         break
-                    slot = self._avail(chain[ci], excluded, xk, yk, predicted, cache)
+                    slot = (self._avail(chain[ci], excluded, xk, yk, predicted, cache)
+                            if start is None else
+                            self._slot_at(chain[ci], start, xk, yk, predicted, cache))
                 lst, cur = slot
                 if cur < len(lst):
                     b = lst[cur]
@@ -832,7 +925,7 @@ def _window_rates(window) -> dict:
 def plan_order(candidates, bundle, space, *, predicted: bool,
                forced_prefix=(), window_rates=None, shared=None,
                _ev: _Evaluator | None = None, trace: list | None = None,
-               force_merge: bool = False) -> list:
+               force_merge: bool = False, replay: bool = True) -> list:
     """10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
     resolves through (`OneOwnerBundle` on a single-channel run), never a bare
     `GainBundle`.  `forced_prefix` is the urgency gate's FIFO head — consumed first,
@@ -847,7 +940,15 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
     `trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining
     candidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan
     trace (`_traced`); None, the production value, records nothing and changes nothing.
-    `force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`)."""
+    `force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).
+
+    `replay` (default True) runs a MERGE-ONLY plan through `_plan_order_replay`: the same
+    greedy, the same placements and the same floats, with every exclusion set read as
+    one integer frontier per tier instead of filtered out of the sorted arrays.  It
+    engages only when every group of every candidate resolves to the merge rung
+    (`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is
+    also an empty one -- takes the set-algebra path below, as does `replay=False`,
+    which the equality tests use as the oracle."""
     if _ev is not None and window_rates is not None:
         raise ValueError(
             'plan_order got both a pre-built evaluator and window_rates: the hook '
@@ -871,6 +972,9 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         if got is None:
             got = loads[id(t)] = _load_units(t)
         return got
+
+    if replay and _merge_only(ev, list(forced_prefix) + list(candidates), _load, predicted):
+        return _plan_order_replay(ev, candidates, forced_prefix, predicted, trace, _load)
 
     out: list = []
     # `taken` is handed to every now-placement of every round and its id never moves;
@@ -945,6 +1049,133 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
             trace.append({'cands': rec, 'winner': t.seq})
         ev.taken.update(map(id, tk))
         ev.drop_templates()      # `taken` moved in place; see `drop_templates`
+        out.append(t)
+        remaining = [r for r in remaining if r is not t]
+    return out
+
+
+def _merge_only(ev, loads, _load, predicted: bool) -> bool:
+    """True when `_plan_order_replay` is exact for this plan: every group of every load
+    resolves to the merge rung, the greedy starts from nothing taken, and (with
+    `predicted`) no predicted bin is also an empty bin of its tier -- the one way a
+    predicted bin could sit in an exclusion set, which the frontier form cannot see.
+
+    Resolution goes through the same `for_key` the placement will call; an owner that
+    raises there is left to raise on the set-algebra path, where the message was always
+    written, rather than here."""
+    if ev.taken:
+        return False
+    keys: set = set()
+    try:
+        # The same site-wide read `place_load` opens with (class docstring).
+        binkey_of = ev.b.binkey_of
+        for t in loads:
+            for u in _load(t):
+                keys.add(binkey_of(u))
+        for k in keys:
+            b = ev._site.for_key(k)
+            if b.uniform or (b.pool_factory is not None and not ev.force_merge):
+                return False
+    except Exception:          # noqa: BLE001 -- the set path raises it, with its message
+        return False
+    if predicted:
+        emp, pred = ev.space.empties, ev.space.predicted
+        for k, pbins in pred.items():
+            ebins = emp.get(k)
+            if ebins and not {id(b) for b in ebins}.isdisjoint(map(id, pbins)):
+                return False
+    return True
+
+
+def _defer_reach(s, i: int) -> int:
+    """How far past the frontier candidate `i`'s defer view starts in one tier, from that
+    tier's `[N, n2, unique-longest index]`: the unique longest reach gets its own hole
+    back (`n2`), everyone else starts past the whole sweep (`N`).  Step 3 of
+    `_plan_order_replay`'s docstring, named so its sabotage test can reach it."""
+    return s[1] if s[2] == i else s[0]
+
+
+def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _load):
+    """`plan_order`'s greedy for a MERGE-ONLY plan, every exclusion set read as a
+    frontier.  Returns the same order, writes the same trace records, leaves the same
+    `ev.taken` and `ev.unseated` (the set path is the oracle:
+    `Tests/unit/test_plan_order_merge_replay.py`).
+
+    Why every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):
+
+      1. `taken ∩ S_k` is a PREFIX `S_k[:F_k]`.  A now-side placement filters `S_k` by
+         `taken` and walks one cursor forward from the first survivor, so its takes in
+         tier k are `S_k[F_k : F_k + n_tk]`; a commit adds exactly those.
+      2. So a round's sweep is NESTED prefixes, `K ∩ S_k = S_k[F_k : F_k + N_k]` with
+         `N_k = max_t n_tk`, and position `F_k + j` is counted by `#{t: n_tk > j}`.
+      3. `counts == 1` therefore holds exactly on `[F_k + n2_k, F_k + N_k)` -- `n2_k` the
+         second-largest `n_tk`, counting multiplicity -- and only for the ONE candidate
+         holding the maximum.  That is its hole in tier k; everyone else's is empty.
+      4. So `S_k` filtered by `B - hole_t` is the SUFFIX from `F_k + n2_k` for tier k's
+         unique maximum and from `F_k + N_k` for every other candidate, and a tier no
+         candidate touched starts at `F_k`.
+
+    What goes away is the O(|tier|) filter per tier per placement and the O(|B|) set
+    difference per candidate; the placements themselves (`_place_merge`, pricing in
+    the same unit order) are the set path's own."""
+    F: dict = {}
+    fget = F.get
+
+    def now_at(key):
+        return fget(key, 0)
+
+    out: list = []
+    for t in forced_prefix:
+        _c, takes, n = ev.place_load_at(_load(t), now_at, False)
+        ev.taken.update(map(id, takes))
+        for k, v in n.items():
+            F[k] = fget(k, 0) + v
+        ev.drop_templates()
+        out.append(t)
+    prefix_ids = {id(t) for t in out}
+    remaining = [t for t in candidates if id(t) not in prefix_ids]
+    while remaining:
+        swept: list = []
+        #: tier -> [N (the longest reach), n2 (the second, with multiplicity),
+        #:          index of the unique longest, or -1 when two share it]
+        top: dict = {}
+        for i, t in enumerate(remaining):
+            c, tk, n = ev.place_load_at(_load(t), now_at, False)
+            swept.append((t, c, tk, n))
+            for k, v in n.items():
+                if v <= 0:
+                    continue
+                s = top.get(k)
+                if s is None:
+                    top[k] = [v, 0, i]
+                elif v > s[0]:
+                    s[1], s[0], s[2] = s[0], v, i
+                elif v == s[0]:
+                    s[1], s[2] = v, -1
+                elif v > s[1]:
+                    s[1] = v
+        best = None
+        rec = [] if trace is not None else None
+        for i, (t, c, tk, _n) in enumerate(swept):
+            def defer_at(key, _i=i):
+                f = fget(key, 0)
+                s = top.get(key)
+                if s is None:
+                    return f
+                return f + _defer_reach(s, _i)
+            defer_c, _tk, _ = ev.place_load_at(_load(t), defer_at, predicted)
+            g = defer_c - c
+            if rec is not None:
+                rec.append([t.seq, c, defer_c, g])
+            if best is None or g > best[1]:
+                best = (t, g, tk, _n)
+        t, _g, tk, n = best
+        if rec is not None:
+            trace.append({'cands': rec, 'winner': t.seq})
+        ev.taken.update(map(id, tk))
+        for k, v in n.items():
+            F[k] = fget(k, 0) + v
+        ev.drop_templates()
         out.append(t)
         remaining = [r for r in remaining if r is not t]
     return out

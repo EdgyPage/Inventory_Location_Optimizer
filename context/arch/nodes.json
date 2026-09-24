@@ -960,10 +960,10 @@
     },
     "Inbound/gain.py::_Evaluator._place_merge": {
       "decorators": [],
-      "doc": "The k-cheapest merge: units in freq x labor_cost priority order take the\nclass's extremal-D available bins in order (the pool's priority minus the\nco-occurrence term \u2014 the proven residue).",
+      "doc": "The k-cheapest merge: units in freq x labor_cost priority order take the\nclass's extremal-D available bins in order (the pool's priority minus the\nco-occurrence term \u2014 the proven residue).\n\n`start` is the FRONTIER form of `excluded` (`place_load_at`): a callable\n`key -> offset` into the tier's sorted array, used in place of filtering that\narray by an exclusion set.  None is the set form every caller but the replay\nuses.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache)"
+      "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache, start=None)"
     },
     "Inbound/gain.py::_Evaluator._place_pool": {
       "decorators": [],
@@ -978,6 +978,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, gunits, chain, wp, xk, yk, excluded, predicted, cache, alloc)"
+    },
+    "Inbound/gain.py::_Evaluator._slot_at": {
+      "decorators": [],
+      "doc": "`_avail` in FRONTIER form: the same `[list, cursor]` slot, read as an offset\ninto the tier's sorted array instead of a copy filtered by an exclusion set.\n\nExact wherever the exclusion set, restricted to this tier, IS the prefix\n`sorted[:start(key)]` -- which is what `_plan_order_replay` proves of every set\na merge-only plan hands a placement (see its docstring).  The now side is the\narray itself with the cursor at the offset: no copy.  With `predicted`, the\nview is the same `heapq.merge` `_avail` builds, over the tail, drawn lazily --\nso its tie rule (the now tier first on equal D, in both directions) is the\nlibrary's own rather than a restatement of it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, key, start, xk, yk, predicted, cache)"
     },
     "Inbound/gain.py::_Evaluator._tier_for": {
       "decorators": [],
@@ -1030,12 +1037,81 @@
       "kind": "function",
       "signature": "(self, units, excluded, predicted: bool, *, alloc=None)"
     },
+    "Inbound/gain.py::_Evaluator.place_load_at": {
+      "decorators": [],
+      "doc": "`place_load` for a MERGE-ONLY load against a frontier instead of an exclusion\nset: `start(key)` is the offset into each tier's sorted array below which every\nbin is excluded.  Returns `(cost, takes, counts)`, `counts` being `{tier: bins\ntaken}` on the now side (None when `predicted`, whose tails are merged views and\nwhose takes nobody commits).\n\nThe grouping, the owner cursor, the unit order and the pricing are `place_load`'s\nown -- the same loop, the same `_place_merge` -- so the floats are summed in the\nsame order and come out bit-identical.  Only the availability read differs.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units, start, predicted: bool)"
+    },
+    "Inbound/gain.py::_LazySeq": {
+      "decorators": [],
+      "doc": "A read-once iterator dressed as the `[list, cursor]` slot's list: `len` is known\nup front and `seq[i]` draws the iterator up to `i`.  `_place_merge` reads a slot's\nlist only as `len(lst)` and `lst[cur]` with `cur` rising by one, so a merged tail it\nstops reading after a dozen units never pays for the thousands it did not reach.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/gain.py::_LazySeq.__getitem__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int)"
+    },
+    "Inbound/gain.py::_LazySeq.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, it, n: int)"
+    },
+    "Inbound/gain.py::_LazySeq.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/gain.py::_defer_reach": {
+      "decorators": [],
+      "doc": "How far past the frontier candidate `i`'s defer view starts in one tier, from that\ntier's `[N, n2, unique-longest index]`: the unique longest reach gets its own hole\nback (`n2`), everyone else starts past the whole sweep (`N`).  Step 3 of\n`_plan_order_replay`'s docstring, named so its sabotage test can reach it.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(s, i: int) -> int"
+    },
     "Inbound/gain.py::_load_units": {
       "decorators": [],
       "doc": "The candidate's remaining planned load \u2014 pending[taken:], the plans-at-arrival\ncontract.  A candidate with no plan is a wiring error, never a silent zero: in\nproduction every yard/staged trailer was planned (or discarded) before any\nranking runs.",
       "is_async": false,
       "kind": "function",
       "signature": "(trailer) -> list"
+    },
+    "Inbound/gain.py::_merge_only": {
+      "decorators": [],
+      "doc": "True when `_plan_order_replay` is exact for this plan: every group of every load\nresolves to the merge rung, the greedy starts from nothing taken, and (with\n`predicted`) no predicted bin is also an empty bin of its tier -- the one way a\npredicted bin could sit in an exclusion set, which the frontier form cannot see.\n\nResolution goes through the same `for_key` the placement will call; an owner that\nraises there is left to raise on the set-algebra path, where the message was always\nwritten, rather than here.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ev, loads, _load, predicted: bool) -> bool"
+    },
+    "Inbound/gain.py::_plan_order_replay": {
+      "decorators": [],
+      "doc": "`plan_order`'s greedy for a MERGE-ONLY plan, every exclusion set read as a\nfrontier.  Returns the same order, writes the same trace records, leaves the same\n`ev.taken` and `ev.unseated` (the set path is the oracle:\n`Tests/unit/test_plan_order_merge_replay.py`).\n\nWhy every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):\n\n  1. `taken \u2229 S_k` is a PREFIX `S_k[:F_k]`.  A now-side placement filters `S_k` by\n     `taken` and walks one cursor forward from the first survivor, so its takes in\n     tier k are `S_k[F_k : F_k + n_tk]`; a commit adds exactly those.\n  2. So a round's sweep is NESTED prefixes, `K \u2229 S_k = S_k[F_k : F_k + N_k]` with\n     `N_k = max_t n_tk`, and position `F_k + j` is counted by `#{t: n_tk > j}`.\n  3. `counts == 1` therefore holds exactly on `[F_k + n2_k, F_k + N_k)` -- `n2_k` the\n     second-largest `n_tk`, counting multiplicity -- and only for the ONE candidate\n     holding the maximum.  That is its hole in tier k; everyone else's is empty.\n  4. So `S_k` filtered by `B - hole_t` is the SUFFIX from `F_k + n2_k` for tier k's\n     unique maximum and from `F_k + N_k` for every other candidate, and a tier no\n     candidate touched starts at `F_k`.\n\nWhat goes away is the O(|tier|) filter per tier per placement and the O(|B|) set\ndifference per candidate; the placements themselves (`_place_merge`, pricing in\nthe same unit order) are the set path's own.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(ev, candidates, forced_prefix, predicted: bool, trace, _load)"
+    },
+    "Inbound/gain.py::_plan_order_replay.defer_at": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(key, _i=i)"
+    },
+    "Inbound/gain.py::_plan_order_replay.now_at": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(key)"
     },
     "Inbound/gain.py::_require": {
       "decorators": [],
@@ -1103,10 +1179,10 @@
     },
     "Inbound/gain.py::plan_order": {
       "decorators": [],
-      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.\n\n`trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining\ncandidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan\ntrace (`_traced`); None, the production value, records nothing and changes nothing.\n`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).",
+      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.\n\n`trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining\ncandidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan\ntrace (`_traced`); None, the production value, records nothing and changes nothing.\n`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).\n\n`replay` (default True) runs a MERGE-ONLY plan through `_plan_order_replay`: the same\ngreedy, the same placements and the same floats, with every exclusion set read as\none integer frontier per tier instead of filtered out of the sorted arrays.  It\nengages only when every group of every candidate resolves to the merge rung\n(`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is\nalso an empty one -- takes the set-algebra path below, as does `replay=False`,\nwhich the equality tests use as the oracle.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False) -> list"
+      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False, replay: bool=True) -> list"
     },
     "Inbound/gain.py::plan_order._load": {
       "decorators": [],

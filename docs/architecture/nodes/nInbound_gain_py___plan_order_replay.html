@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_plan_order_replay · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py___plan_order_replay" data-id="Inbound/gain.py::_plan_order_replay">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <span class="here"><code>_plan_order_replay</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_plan_order_replay</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+
+<pre class="sig"><code>def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _load)</code></pre>
+<section class="doc">`plan_order`&#x27;s greedy for a MERGE-ONLY plan, every exclusion set read as a
+frontier.  Returns the same order, writes the same trace records, leaves the same
+`ev.taken` and `ev.unseated` (the set path is the oracle:
+`Tests/unit/test_plan_order_merge_replay.py`).
+
+Why every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):
+
+  1. `taken ∩ S_k` is a PREFIX `S_k[:F_k]`.  A now-side placement filters `S_k` by
+     `taken` and walks one cursor forward from the first survivor, so its takes in
+     tier k are `S_k[F_k : F_k + n_tk]`; a commit adds exactly those.
+  2. So a round&#x27;s sweep is NESTED prefixes, `K ∩ S_k = S_k[F_k : F_k + N_k]` with
+     `N_k = max_t n_tk`, and position `F_k + j` is counted by `#{t: n_tk &gt; j}`.
+  3. `counts == 1` therefore holds exactly on `[F_k + n2_k, F_k + N_k)` -- `n2_k` the
+     second-largest `n_tk`, counting multiplicity -- and only for the ONE candidate
+     holding the maximum.  That is its hole in tier k; everyone else&#x27;s is empty.
+  4. So `S_k` filtered by `B - hole_t` is the SUFFIX from `F_k + n2_k` for tier k&#x27;s
+     unique maximum and from `F_k + N_k` for every other candidate, and a tier no
+     candidate touched starts at `F_k`.
+
+What goes away is the O(|tier|) filter per tier per placement and the O(|B|) set
+difference per candidate; the placements themselves (`_place_merge`, pricing in
+the same unit order) are the set path&#x27;s own.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py__plan_order.html"><code>plan_order</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___plan_order_replay">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_plan_order_replay">Source ↗</a></p>
+</article>
+</main>
+</body></html>

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>plan_order</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>def plan_order(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False) -&gt; list</code></pre>
+<pre class="sig"><code>def plan_order(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False, replay: bool=True) -&gt; list</code></pre>
 <section class="doc">10&#x27;s greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
 resolves through (`OneOwnerBundle` on a single-channel run), never a bare
 `GainBundle`.  `forced_prefix` is the urgency gate&#x27;s FIFO head — consumed first,
@@ -29,8 +29,16 @@ the test perturbs); production callers never pass it.
 `trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining
 candidate&#x27;s `[seq, now cost, defer cost, gain]` and the winner&#x27;s seq -- for the plan
 trace (`_traced`); None, the production value, records nothing and changes nothing.
-`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___traced.html"><code>_traced</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).
+
+`replay` (default True) runs a MERGE-ONLY plan through `_plan_order_replay`: the same
+greedy, the same placements and the same floats, with every exclusion set read as
+one integer frontier per tier instead of filtered out of the sorted arrays.  It
+engages only when every group of every candidate resolves to the merge rung
+(`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is
+also an empty one -- takes the set-algebra path below, as does `replay=False`,
+which the equality tests use as the oracle.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___merge_only.html"><code>_merge_only</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___plan_order_replay.html"><code>_plan_order_replay</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___traced.html"><code>_traced</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py__plan_order">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20plan_order">Source ↗</a></p>
 </article>
 </main>

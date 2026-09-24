@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>place_load_at · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py___Evaluator_place_load_at" data-id="Inbound/gain.py::_Evaluator.place_load_at">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="sep">›</span> <span class="here"><code>place_load_at</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>place_load_at</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+<div class="badges"><span class="badge orphan">orphan</span></div>
+<pre class="sig"><code>def place_load_at(self, units, start, predicted: bool)</code></pre>
+<section class="doc">`place_load` for a MERGE-ONLY load against a frontier instead of an exclusion
+set: `start(key)` is the offset into each tier&#x27;s sorted array below which every
+bin is excluded.  Returns `(cost, takes, counts)`, `counts` being `{tier: bins
+taken}` on the now side (None when `predicted`, whose tails are merged views and
+whose takes nobody commits).
+
+The grouping, the owner cursor, the unit order and the pricing are `place_load`&#x27;s
+own -- the same loop, the same `_place_merge` -- so the floats are summed in the
+same order and come out bit-identical.  Only the availability read differs.</section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__chain.html"><code>_chain</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__params.html"><code>_params</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__place_merge.html"><code>_place_merge</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator_place_load_at">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20place_load_at">Source ↗</a></p>
+</article>
+</main>
+</body></html>

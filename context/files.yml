@@ -5724,6 +5724,20 @@ files:
       - {name: "test_the_run_boundary_rebuild_is_exactly_one_pass_per_aisle", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
       - {name: "test_the_counter_can_tell_a_scan_from_a_heap", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_plan_order_merge_replay.py":
+    purpose: "Pins plan_order's frontier replay for merge bundles bit-identical to the set path (order, trace, taken, unseated) on 600 randomised scenes, with sabotage of the hole, the frontier and the merge tie rule."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_replay_is_the_set_path_bit_for_bit", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_the_scenes_exercise_every_shape_the_derivation_turns_on", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_a_merge_plan_never_calls_the_set_path", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_a_non_merge_bundle_never_replays", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_a_pool_family_replays_only_when_priced_with_the_merge_rung", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_a_predicted_bin_that_is_also_empty_takes_the_set_path", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_dropping_the_hole_is_caught", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_an_off_by_one_frontier_is_caught", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+      - {name: "test_the_now_tier_first_tie_rule_is_caught", file: "Tests/unit/test_plan_order_merge_replay.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_plan_trace.py":
     purpose: "the plan-trace probe records the exact plan and changes nothing."
     layer: "tests"

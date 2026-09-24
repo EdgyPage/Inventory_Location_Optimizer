@@ -860,6 +860,24 @@ SPECS = {
         'reference': 'k1_off_fifo',
         'run_defaults': PHASE2_RUN_DEFAULTS,
     },
+    # The MERGE toy (`.scratch/placement-sortmatch/` S01): the byte-identity instrument for
+    # the merge rung's frontier replay (`Inbound.gain._plan_order_replay`).  `_toy_priced`
+    # carries no merge arm, so it cannot see that path at all; this one runs the two merge
+    # rules plus the fifo rider under the gain policies, on the calltree yard ladder's deep
+    # rung (`Tests/calltree/calltree_growth.py` 'yard': one door, a one-person door team,
+    # zero lead) so the yard actually stands many trailers deep when a plan is priced --
+    # the phase-2 regime leaves the toy fixture's yard one trailer deep, and a
+    # one-candidate plan exercises nothing.  Run it at `--max-skus 2400`.
+    '_toy_merge': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'arms': ('fifo', 'tmin', 'tmax'),
+        'inbound': phase2_inbound_axis(doors=1, door_team=1, lead_minutes=0.0,
+                                       lead_spread=0.0,
+                                       keep=('fifo', 'gmyopic', 'gforecast', 'ggated_h050')),
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+    },
     # The FILL TRIAL's toy (`.scratch/inbound-throughput/` 05): the run starts empty, the
     # declaration arrives through the site yard over a two-day fill span, then the pick stage
     # runs `--n-batches`.  fifo and the cheapest gain rule, two placement rules, opt arms only

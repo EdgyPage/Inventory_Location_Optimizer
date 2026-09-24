@@ -1011,6 +1011,11 @@
       "src": "Inbound/gain.py::_Evaluator._place_merge"
     },
     {
+      "dst": "Inbound/gain.py::_Evaluator._slot_at",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._place_merge"
+    },
+    {
       "dst": "Inbound/gain.py::_Evaluator._unseated_cost",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._place_merge"
@@ -1056,6 +1061,16 @@
       "src": "Inbound/gain.py::_Evaluator._place_uniform"
     },
     {
+      "dst": "Inbound/gain.py::_Evaluator._tier_sorted",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._slot_at"
+    },
+    {
+      "dst": "Inbound/gain.py::_LazySeq",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator._slot_at"
+    },
+    {
       "dst": "Inbound/gain.py::_Evaluator._pair_cost",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._unseated_cost"
@@ -1084,6 +1099,26 @@
       "dst": "Inbound/gain.py::_Evaluator._place_uniform",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator.place_load"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._chain",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator.place_load_at"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._params",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator.place_load_at"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator._place_merge",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_Evaluator.place_load_at"
+    },
+    {
+      "dst": "Inbound/gain.py::_defer_reach",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_plan_order_replay.defer_at"
     },
     {
       "dst": "Inbound/gain.py::bundle_uses_pool",
@@ -1147,6 +1182,16 @@
     },
     {
       "dst": "Inbound/gain.py::_Evaluator",
+      "kind": "calls",
+      "src": "Inbound/gain.py::plan_order"
+    },
+    {
+      "dst": "Inbound/gain.py::_merge_only",
+      "kind": "calls",
+      "src": "Inbound/gain.py::plan_order"
+    },
+    {
+      "dst": "Inbound/gain.py::_plan_order_replay",
       "kind": "calls",
       "src": "Inbound/gain.py::plan_order"
     },
@@ -25714,6 +25759,14 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator._slot_at",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_slot_at",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_Evaluator._tier_for",
       "kind": "function",
       "module": "Inbound/gain.py",
@@ -25770,11 +25823,91 @@
     },
     {
       "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_Evaluator.place_load_at",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "place_load_at",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_LazySeq",
+      "kind": "class",
+      "module": "Inbound/gain.py",
+      "name": "_LazySeq",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_LazySeq.__getitem__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__getitem__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_LazySeq.__init__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_LazySeq.__len__",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_defer_reach",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_defer_reach",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
       "id": "Inbound/gain.py::_load_units",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_load_units",
       "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_merge_only",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_merge_only",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_plan_order_replay",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "_plan_order_replay",
+      "public": false
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_plan_order_replay.defer_at",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "defer_at",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::_plan_order_replay.now_at",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "now_at",
+      "public": true
     },
     {
       "file": "Inbound/gain.py",

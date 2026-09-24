@@ -14,11 +14,16 @@
 <h1><span class="kind kind-function">function</span> <code>_place_merge</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>def _place_merge(self, gunits, chain, wp, xk, yk, excluded, predicted, cache)</code></pre>
+<pre class="sig"><code>def _place_merge(self, gunits, chain, wp, xk, yk, excluded, predicted, cache, start=None)</code></pre>
 <section class="doc">The k-cheapest merge: units in freq x labor_cost priority order take the
 class&#x27;s extremal-D available bins in order (the pool&#x27;s priority minus the
-co-occurrence term — the proven residue).</section>
-<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__avail.html"><code>_avail</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__pair_cost.html"><code>_pair_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__unseated_cost.html"><code>_unseated_cost</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator_place_load.html"><code>place_load</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+co-occurrence term — the proven residue).
+
+`start` is the FRONTIER form of `excluded` (`place_load_at`): a callable
+`key -&gt; offset` into the tier&#x27;s sorted array, used in place of filtering that
+array by an exclusion set.  None is the set form every caller but the replay
+uses.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator__avail.html"><code>_avail</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__pair_cost.html"><code>_pair_cost</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__slot_at.html"><code>_slot_at</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator__unseated_cost.html"><code>_unseated_cost</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(2)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator_place_load.html"><code>place_load</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___Evaluator_place_load_at.html"><code>place_load_at</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___Evaluator__place_merge">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_place_merge">Source ↗</a></p>
 </article>
 </main>
