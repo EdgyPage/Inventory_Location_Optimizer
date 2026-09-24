@@ -13,6 +13,8 @@ import math
 import random
 import heapq
 from collections import deque
+
+import numpy as np
 from typing import Any
 
 from Warehouse.catalog.Affinity_Store import AffinityStore
@@ -1683,6 +1685,99 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp, ledger,
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
+class _TravelVec:
+    """`_TravelBalancedPool`'s aisles as arrays: the head matrix, the running loads, and the
+    current SKU run's score vector.
+
+    Row i is the aisle at position i of `by_aisle` -- the heap's rank.  Column j is the j-th
+    bucket of that aisle in ITS OWN insertion order (`by_aisle[aid].items()`), holding the
+    bucket head's D (+inf when the bucket is empty) and the index of its height multiplier in
+    `mvals`.  Built once per pool; afterwards only the winner's row moves, at the one site
+    that moves a head.
+
+    WHY EVERY FLOAT IS THE SCAN'S, bit for bit:
+      * `pp[m] + D` is one IEEE double addition, the same one `_aisle_best` performs.
+      * `argmin(axis=1)` returns the FIRST minimum along a row, and `_aisle_best` keeps the
+        first minimum under a strict `<` walking the same buckets in the same order (an
+        empty bucket is +inf, which never beats a real cost and is what "skip" meant).
+      * `load + fq * best` and the cart hinge keep the scan's operation order; the hinge's
+        `np.maximum(0.0, x)` differs from `max(0.0, x)` only on x == -0.0, which
+        `v / cap - 1.0` cannot produce under round-to-nearest, and would change nothing
+        added to a non-negative score if it did.
+      * The winner is `argmin` over the scores: the first index at the minimum, which is the
+        heap's `(score, rank)` order.  Its refreshed score is computed by `_score_of`, the
+        method the heap re-pushed with.
+    `Tests/unit/test_travel_balanced_equivalence.py` (the frozen oracle) and
+    `Tests/unit/test_frozen_tier.py` hold the take sequences and scores equal.
+    """
+
+    __slots__ = ('aids', 'mvals', 'Dh', 'Mi', 'load', 'vol', 'sc', 'best', 'slot', '_rows')
+
+    def __init__(self, by_aisle, load, vol_load):
+        aids = list(by_aisle)
+        A = len(aids)
+        K = max((len(g) for g in by_aisle.values()), default=0) or 1
+        Dh = np.full((A, K), np.inf)
+        Mi = np.zeros((A, K), dtype=np.intp)
+        mvals: list = []
+        midx: dict = {}
+        for i, aid in enumerate(aids):
+            for j, (m, h) in enumerate(by_aisle[aid].items()):
+                k = midx.get(m)
+                if k is None:
+                    k = midx[m] = len(mvals)
+                    mvals.append(m)
+                Mi[i, j] = k
+                t = h.head
+                if t is not None:
+                    Dh[i, j] = t[0]
+        self.aids, self.mvals, self.Dh, self.Mi = aids, mvals, Dh, Mi
+        self.load = np.array([load[a] for a in aids], dtype=float)
+        self.vol = (np.array([vol_load[a] for a in aids], dtype=float)
+                    if vol_load is not None else None)
+        self._rows = np.arange(A)
+        self.sc = self.best = self.slot = None
+
+    def boundary(self, pp: dict, fq: float, sku, m_s: float, pool) -> None:
+        """Score every aisle for this SKU run: the vector form of the retired rebuild."""
+        PP = np.array([pp[m] for m in self.mvals], dtype=float)
+        cost = PP[self.Mi] + self.Dh
+        slot = cost.argmin(axis=1)
+        best = cost[self._rows, slot]
+        with np.errstate(invalid='ignore'):          # fq * inf on an exhausted aisle
+            sc = self.load + fq * best
+        if pool._cart_on:
+            ass = pool._ass
+            add = np.fromiter((0.0 if sku in ass[a] else m_s for a in self.aids),
+                              dtype=float, count=len(self.aids))
+            sc = sc + pool._cart_coef * np.maximum(0.0, (self.vol + add) / pool._cap_raw - 1.0)
+        sc[~np.isfinite(best)] = np.inf
+        self.sc, self.best, self.slot = sc, best, slot
+
+    def pick(self):
+        """The winning row, or None when every aisle is exhausted."""
+        if not len(self.sc):
+            return None
+        i = int(self.sc.argmin())
+        return i if self.sc[i] != np.inf else None
+
+    def choice(self, i: int, by_aisle) -> tuple:
+        """`(cost, mult, bin)` of row i as the boundary scored it -- `_aisle_best`'s answer."""
+        m = self.mvals[self.Mi[i, self.slot[i]]]
+        return float(self.best[i]), m, by_aisle[self.aids[i]][m].head[1]
+
+    def refresh(self, i: int, buckets, load: float, vol: float, score) -> None:
+        """The winner moved: its heads, its running totals, and its score in this run."""
+        row = self.Dh[i]
+        for j, (_m, h) in enumerate(buckets.items()):
+            t = h.head
+            row[j] = t[0] if t is not None else np.inf
+        self.load[i] = load
+        if self.vol is not None:
+            self.vol[i] = vol
+        self.sc[i] = np.inf if score is None else score
+
+
 class _TravelBalancedPool(_Pool):
     """`_travel_balanced_impl` as a pool -- Rank_labor, and Rank_cartlabor with `cart`.
 
@@ -1710,7 +1805,7 @@ class _TravelBalancedPool(_Pool):
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
                  '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_sel', '_led', '_writer',
-                 '_pp', '_hv')
+                 '_pp', '_hv', '_vx')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
@@ -1835,7 +1930,10 @@ class _TravelBalancedPool(_Pool):
         # see `_aisle_best`, which builds an entry lazily and is the only reader.  Dropped
         # for ONE aisle at the one site that moves a head.
         self._hv: dict = {}
-        self._sel: list = []          # (score, rank, aid) min-heap; see `take`
+        self._sel: list = []          # retired heap; see `take` and `_TravelVec`
+        #: The aisle-head matrix and the run's score vector (`_TravelVec`), built at the
+        #: pool's first SKU-run boundary and kept for its life.
+        self._vx = None
 
     def __len__(self):
         return sum(len(h) for g in self._by_aisle.values() for h in g.values())
@@ -1919,75 +2017,42 @@ class _TravelBalancedPool(_Pool):
         by_aisle = self._by_aisle
         c = unit.order
         sku = c.sku
-        if sku != self._run_sku:                 # run boundary: rebuild both caches
+        if sku != self._run_sku:                 # run boundary: re-score every aisle
             self._run_sku = sku
             self._var = var = c.handle_var
             self._fq = fq = self._fbs.get(sku, 0.0) * self._qbs.get(sku, 0.0)
             self._m_s = m_s = self._svp.get(sku, 0.0) if self._cart_on else 0.0
             self._ab_cache.clear()
-            sel = []
-            # THE HOT LOOP.  At campaign scale under the gain evaluator this ran 29 million
-            # aisle evaluations on a six-day coupled unit (nearly every unit opens a SKU run,
-            # because a load carries mostly distinct SKUs), and the method calls cost more
-            # than the arithmetic.  So: `pp` memoises `per_pick` per height multiplier for
-            # this var, the bucket `head` is a plain attribute, and `_score_of` is inlined
-            # here expression for expression (the method itself still serves the winner
-            # refresh below, which is what pins the two to the same floats).
-            pp = self._pp = {}
-            load, cart_on = self._load, self._cart_on
-            ab_cache = self._ab_cache
-            if cart_on:
-                ass, vol_load = self._ass, self._vol_load
-                cart_coef, cap_raw = self._cart_coef, self._cap_raw
-            # `enumerate` IS the rank -- see `_rank` in `__init__`.  `by_aisle` is walked in
-            # its own insertion order here exactly as the retired dict comprehension walked
-            # it, so `i` is the integer that dict would have returned for `aid`.
-            for i, aid in enumerate(by_aisle):
-                # ONE `_aisle_best` CALL PER LIVE AISLE, deliberately not inlined: the call
-                # is what `test_placement_selection_is_not_a_scan.py` counts to tell this
-                # rebuild from a per-take scan, and the per-call cost is now the loop over
-                # ~3 bucket heads (plain attributes) with `per_pick` memoised in `pp`.
-                best = self._aisle_best(aid, var, pp)
-                ab_cache[aid] = best
-                if best is not None:
-                    sc = load[aid] + fq * best[0]
-                    if cart_on:
-                        add = 0.0 if sku in ass[aid] else m_s
-                        sc += cart_coef * max(0.0, (vol_load[aid] + add) / cap_raw - 1.0)
-                    sel.append((sc, i, aid))
-            heapq.heapify(sel)                   # O(A) at C level, same as the old rebuild
-            self._sel = sel
+            # THE RUN BOUNDARY, VECTORISED (inbound-fullscale-perf O3; the user's decision
+            # 2026-09-24).  It was one `_aisle_best` call per live aisle at every boundary --
+            # 72% of a campaign-shaped pool open, and nearly every unit opens a run because a
+            # load carries mostly distinct SKUs.  The heads now live in a matrix built ONCE
+            # per pool (`_TravelVec`), and a boundary is a handful of numpy operations over
+            # it.  BYTE-IDENTICAL, not merely equivalent; `_TravelVec` states each clause.
+            vx = self._vx
+            if vx is None:
+                vx = self._vx = _TravelVec(by_aisle, self._load,
+                                           self._vol_load if self._cart_on else None)
+            self._pp = pp = {m: per_pick(m, self._intercept, var, 1, self._per_item)
+                             for m in vx.mvals}
+            vx.boundary(pp, fq, sku, m_s, self)
         else:
             var, fq, m_s = self._var, self._fq, self._m_s
 
-        # ── the argmin, as a SELECTION rather than a SCAN ──────────────────────────
-        # This was `for aid in by_aisle:` over every aisle, on every placement -- an O(A)
-        # linear scan solving a selection problem, and at campaign scale it was the single
-        # largest cost in the inbound gain evaluator: 4,852,858 takes x 224 aisles =
-        # 1.09 BILLION iterations, 71.2% of the receive drain (the candidate slice that was
-        # built to attack the other 28.8% could not touch one iteration of it).
-        #
-        # A heap is correct here for the reason the class docstring already states about the
-        # caches: within a SKU run every input a NON-winning aisle's score reads is frozen --
-        # `fq`/`var`/`m_s` are per-SKU constants, and `load`/`vol_load`/`aisle_sku_sets` and
-        # the deque heads all move for the WINNING aisle only.  So exactly one entry changes
-        # per placement, which is precisely the update a heap does cheaply.
-        #
-        # NO LAZY DELETION, and that is worth stating because it is the usual cost of this
-        # pattern: the heap holds exactly ONE entry per live aisle at all times.  The run
-        # boundary seeds one per aisle; each placement pops the winner and pushes back at most
-        # one refreshed entry; a non-winner is never touched.  So the top of the heap is always
-        # current and there is nothing stale to skip.
-        #
-        # Ordering is `(score, rank)` -- see `_rank` in `__init__` for why the rank is what
-        # keeps this byte-identical on a score tie rather than merely equivalent.
-        sel = self._sel
-        if not sel:
+        # -- the argmin, as a vector minimum --------------------------------------------
+        # The heap this replaced popped `(score, rank)`: the smallest score, and on a tie the
+        # smallest rank, which is the aisle's index in `by_aisle`.  `argmin` returns the FIRST
+        # index holding the minimum -- the same aisle.  Within a run only the winner's score
+        # moves, and it is rewritten below exactly as the heap re-pushed it; an exhausted aisle
+        # reads +inf, which is how it left the heap.
+        vx = self._vx
+        i = vx.pick()
+        if i is None:
             return None, None
-        _sc, _rk, best_aid = heapq.heappop(sel)   # score and rank ordered the pop, nothing more
-        # Non-None by construction: only aisles with a non-None `_aisle_best` are ever pushed,
-        # at the run boundary and on refresh alike, so the popped aisle always has a choice.
-        best_choice = self._ab_cache[best_aid]
+        best_aid = vx.aids[i]
+        # A winner refreshed earlier in this run carries its refreshed choice; every other
+        # aisle's is the boundary's.
+        best_choice = self._ab_cache.get(best_aid) or vx.choice(i, by_aisle)
         cost, m, chosen = best_choice
         marginal = fq * cost
         self._load[best_aid] += marginal
@@ -2007,23 +2072,21 @@ class _TravelBalancedPool(_Pool):
         # this bucket's cursor so the template every other open is reading is untouched;
         # over a plain dict it is the two lookups it always was (`_bucket_writer`).  Bins
         # only ever leave a pool and the exclusion set is fixed for its life, so no other
-        # path can invalidate this cache -- see `_aisle_best`.
-        del self._hv[best_aid]
+        # path can invalidate this cache -- see `_aisle_best`.  A POP, not a `del`: the
+        # vectorised boundary reads the heads from `_TravelVec`, so an aisle that has never
+        # been refreshed has no head vector to drop.
+        self._hv.pop(best_aid, None)
         # Only the winner's inputs changed (head advanced; load; maybe sku-set/vol_load):
         # refresh its cache entries; an exhausted aisle goes None and is skipped exactly
         # like the original `continue`.
         ab = self._aisle_best(best_aid, var, self._pp)
         self._ab_cache[best_aid] = ab
-        # An exhausted aisle is simply NOT pushed back -- that is how it leaves the heap, and it
-        # is exactly the `continue` the old scan did on a None `_aisle_best`.  It cannot come
-        # back, because bins only ever leave a pool; `by_aisle` keeps the (now empty) key, which
-        # is why the scan needed the None check at all and the heap does not.
-        if ab is not None:
-            sc = self._score_of(best_aid, ab, sku, fq, m_s)
-            # `_rk` is this aisle's rank, popped two dozen lines up from the entry this push
-            # replaces.  It is the same integer the retired `_rank` dict held for `best_aid`,
-            # because both come from one `enumerate(by_aisle)` and an aisle's rank never moves.
-            heapq.heappush(sel, (sc, _rk, best_aid))
+        vx.refresh(i, by_aisle[best_aid], self._load[best_aid],
+                   self._vol_load[best_aid] if self._cart_on else 0.0,
+                   None if ab is None else self._score_of(best_aid, ab, sku, fq, m_s))
+        # An exhausted aisle (`ab` None) reads +inf from here on -- how it left the heap, and
+        # exactly the `continue` the old scan did on a None `_aisle_best`.  It cannot come
+        # back, because bins only ever leave a pool.
         return chosen, marginal
 
 
@@ -2196,6 +2259,122 @@ def _ranked_minlabor_impl(units, candidates_fn, affinity, wp, ledger,
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
+class _MinLabVec:
+    """`_MinLaborPool`'s aisles as arrays: the bracket-end matrix, the run's best-bracket
+    cost per aisle, its sort key, the walk order, and the run's affinity deltas.
+
+    Row i is the aisle at position i of `by_aisle_brkt` -- the retired list's rank.  Column
+    j is the aisle's j-th bracket in its own insertion order, holding `D` of the bracket's
+    representative end (`_rep`: the near end minimising, the far end maximising), or the
+    identity of the extremum (+inf minimising, -inf maximising) when the bracket is empty.
+
+    WHY EVERY FLOAT AND EVERY TIE IS THE LOOP'S:
+      * `pp[m] + D` is the one IEEE addition `_aisle_best_cost` performs, and a row's
+        min (max) is the value its strict-`_better` walk keeps.
+      * The order is `argsort(key, kind='stable')` over the live rows: ascending key, and
+        on a tie ascending row -- exactly the sorted `(key, rank, aid)` tuples it replaces.
+        `key` is `fq * bc`, negated when maximising, the same expression.
+      * The walk: `base = fq * bc`, `score = base - lam * delta`, both elementwise as the
+        loop computed them.  The loop keeps the first STRICTLY better score and breaks at
+        the first position p >= 1 whose `base - max_reward >= best` (minimising) or
+        `base <= best` (maximising), `best` being the extreme of positions 0..p-1 -- a
+        running minimum (maximum).  So the break is the first True of that comparison
+        against the accumulated extreme, and the winner the first extreme before it.
+      * `delta` is the run's per-aisle affinity term: 0.0 with no partner row, the
+        inverse-folded `deltas` where the ledger has one, and otherwise the per-aisle fold
+        the loop ran, over every aisle rather than only the visited ones -- the same value
+        wherever the walk reads it.
+    """
+
+    __slots__ = ('aids', 'mvals', 'Dh', 'Mi', 'bc', 'key', 'order', 'delta', 'maximize',
+                 '_pad', '_pos', '_D_of', '_rep')
+
+    def __init__(self, by_aisle_brkt, D_of, rep, maximize: bool):
+        aids = list(by_aisle_brkt)
+        A = len(aids)
+        K = max((len(g) for g in by_aisle_brkt.values()), default=0) or 1
+        pad = -np.inf if maximize else np.inf
+        Dh = np.full((A, K), pad)
+        Mi = np.zeros((A, K), dtype=np.intp)
+        mvals: list = []
+        midx: dict = {}
+        for i, aid in enumerate(aids):
+            for j, (m, dq) in enumerate(by_aisle_brkt[aid].items()):
+                k = midx.get(m)
+                if k is None:
+                    k = midx[m] = len(mvals)
+                    mvals.append(m)
+                Mi[i, j] = k
+                if dq:
+                    Dh[i, j] = D_of[id(rep(dq))]
+        self.aids, self.mvals, self.Dh, self.Mi = aids, mvals, Dh, Mi
+        self.maximize, self._pad = maximize, pad
+        self._pos = {a: i for i, a in enumerate(aids)}
+        self._D_of, self._rep = D_of, rep
+        self.bc = self.key = self.order = self.delta = None
+
+    def boundary(self, pp: dict, fq: float) -> None:
+        PP = np.array([pp[m] for m in self.mvals], dtype=float)
+        cost = PP[self.Mi] + self.Dh
+        self.bc = cost.max(axis=1) if self.maximize else cost.min(axis=1)
+        self._rekey(fq)
+
+    def _rekey(self, fq: float) -> None:
+        live = np.flatnonzero(np.isfinite(self.bc))
+        key = fq * self.bc
+        if self.maximize:
+            key = -key
+        self.key = key
+        self.order = live[np.argsort(key[live], kind='stable')]
+
+    def set_delta(self, row_items, deltas, ais) -> None:
+        A = len(self.aids)
+        d = np.zeros(A)
+        if row_items:
+            if deltas is not None:
+                pos = self._pos
+                for aid, v in deltas.items():
+                    i = pos.get(aid)
+                    if i is not None:
+                        d[i] = v
+            else:
+                for i, aid in enumerate(self.aids):
+                    members = ais[aid]
+                    delta = 0.0
+                    for ci, w in row_items:
+                        if ci in members:
+                            delta += w
+                    d[i] = delta
+        self.delta = d
+
+    def live(self) -> bool:
+        return self.order is not None and len(self.order) > 0
+
+    def walk(self, fq: float, lam: float, max_reward: float) -> tuple:
+        """`(row, score)` of the walk's winner -- the retired prefix loop, in arrays."""
+        o = self.order
+        base = fq * self.bc[o]
+        score = base - lam * self.delta[o]
+        if self.maximize:
+            run = np.maximum.accumulate(score)
+            stop = base[1:] <= run[:-1]
+        else:
+            run = np.minimum.accumulate(score)
+            stop = (base[1:] - max_reward) >= run[:-1]
+        p = 1 + int(stop.argmax()) if stop.any() else len(score)
+        w = int(score[:p].argmax()) if self.maximize else int(score[:p].argmin())
+        return int(o[w]), float(score[w])
+
+    def update(self, i: int, brackets, bc, fq: float) -> None:
+        """The winner moved: its bracket ends, its cost, and the order."""
+        row = self.Dh[i]
+        D_of, rep, pad = self._D_of, self._rep, self._pad
+        for j, (_m, dq) in enumerate(brackets.items()):
+            row[j] = D_of[id(rep(dq))] if dq else pad
+        self.bc[i] = pad if bc is None else bc
+        self._rekey(fq)
+
+
 class _MinLaborPool(_Pool):
     """`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with
     `maximize=True` (one function, both arms, every extremum flipped).
@@ -2226,8 +2405,8 @@ class _MinLaborPool(_Pool):
     __slots__ = ('_aff', '_ass', '_ais', '_ads', '_amp', '_fbi', '_fbs', '_qbs', '_lam',
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku',
-                 '_bc_by_aid', '_row_items', '_max_reward', '_led',
-                 '_pp', '_row', '_deltas', '_sel', '_writer')
+                 '_row_items', '_max_reward', '_led',
+                 '_pp', '_row', '_deltas', '_writer', '_mx')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2273,8 +2452,9 @@ class _MinLaborPool(_Pool):
         self._writer = _bucket_writer(by_aisle_brkt, 2)
 
         self._last_sku = None
-        self._sel: list = []          # (score, rank, aid) min-heap; see `take`
-        self._bc_by_aid: dict = {}
+        #: The aisle-head matrix, the run's cost vector and its order (`_MinLabVec`), built
+        #: at the pool's first SKU-run boundary and kept for its life.
+        self._mx = None
         self._row_items: list = []
         self._max_reward = 0.0
         # THE PER-SKU-RUN CACHES (ticket 03, phase-2 campaign), all three rebuilt at the run
@@ -2291,6 +2471,24 @@ class _MinLaborPool(_Pool):
     @property
     def prefers_low(self):
         return not self._maximize      # rank_maxlabor is a worst-case control
+
+    @property
+    def _sel(self) -> list:
+        """The run's aisle order as the retired sorted list spelled it -- `(key, rank,
+        aid)` for every live aisle, ascending -- DERIVED from the vector state, for the
+        tests that read the order the walk follows."""
+        mx = self._mx
+        if mx is None or mx.order is None:
+            return []
+        return [(float(mx.key[i]), int(i), mx.aids[i]) for i in mx.order]
+
+    @property
+    def _bc_by_aid(self) -> dict:
+        """`{aisle: its best-bracket cost}` over the live aisles, derived likewise."""
+        mx = self._mx
+        if mx is None or mx.bc is None:
+            return {}
+        return {mx.aids[i]: float(mx.bc[i]) for i in mx.order}
 
     def sort_key(self, unit):
         """Costliest SKUs claim the best (or, for maxlabor, the worst) slots first."""
@@ -2400,92 +2598,31 @@ class _MinLaborPool(_Pool):
             self._row_items = row_items
             self._max_reward = lam * sum(w for _, w in row_items)
 
-            # Cheap per-aisle bin cost (O(brackets)); ordered so the affinity prune can fire.
-            pp = self._pp = {}
-            bc_by_aid = {}
-            sel = []
-            for i, aid in enumerate(by_aisle_brkt):
-                bc = self._aisle_best_cost(aid, var, pp)
-                if bc is not None:
-                    bc_by_aid[aid] = bc
-                    # `i` IS the rank, and it is the tie-break that makes the heap below
-                    # byte-identical to the stable sort it replaces -- see `take`'s
-                    # selection block.  Ranks come from one `enumerate(by_aisle_brkt)` and
-                    # never move, so an aisle's rank is the same integer wherever it is read.
-                    sel.append(((-(fq * bc) if maximize else fq * bc), i, aid))
-            # SORTED, not heapified.  See the selection block in `take` for why a heap is
-            # the wrong structure for this pool: one `sort` of plain tuples here, with no
-            # key function, and the list is then read front-to-back without being consumed.
-            sel.sort()
-            self._sel = sel
-            self._bc_by_aid = bc_by_aid
+            # THE RUN BOUNDARY AND THE WALK, VECTORISED (inbound-fullscale-perf O3; the user's
+            # decision 2026-09-24).  Every live aisle's best-bracket cost was one Python call
+            # per aisle and a sort of the lot at every boundary, and the walk a Python loop
+            # over the order that, on a `uni_` warehouse, rarely prunes.  Both now run over
+            # `_MinLabVec`'s arrays; `_MinLabVec` states why each float and each tie is the
+            # loop's.
+            mx = self._mx
+            if mx is None:
+                mx = self._mx = _MinLabVec(by_aisle_brkt, self._D_of, self._rep, maximize)
+            self._pp = pp = {m: per_pick(m, self._intercept, var, 1, self._per_item)
+                             for m in mx.mvals}
+            mx.boundary(pp, fq)
             self._row = _partner_row(self._aff, sku)
             self._deltas = self._partner_deltas(row_items) if row_items else {}
+            mx.set_delta(row_items, self._deltas, self._ais)
             self._last_sku = sku
 
-        bc_by_aid, row_items = self._bc_by_aid, self._row_items
+        mx = self._mx
         max_reward = self._max_reward
-        deltas = self._deltas
-        if not bc_by_aid:
+        if not mx.live():
             return None, None
         # minimise: ascending fq*bc, prune once base - max_reward >= best (reward can't save
         # it).  maximise: descending fq*bc, prune once base <= best (reward only lowers it).
-        #
-        # THIS WAS A FULL SORT, PER UNIT -- `sorted(bc_by_aid, key=lambda a: fq*bc_by_aid[a])`,
-        # ~1,400 lambda calls and ~14,700 comparisons on every placement, when within a SKU
-        # run only the WINNER's `bc` ever moves.  `self._sel` is that order, sorted ONCE at
-        # the run boundary and repaired one entry at a time.
-        #
-        # A SORTED LIST, AND NOT A HEAP, BECAUSE OF WHAT THIS LOOP DOES.  It walks a PREFIX
-        # of unknown length until the affinity prune fires; it does not extract a minimum.
-        # A heap can only be read in order by destroying it, so a deep walk costs a full
-        # drain and a full rebuild -- and that is not hypothetical: converted to a heap on
-        # 2026-09-20 this pool ran 28% SLOWER at 400k SKUs on a `uni_` warehouse, where the
-        # aisles are uniformly filled, an affinity row finds most of its partners placed,
-        # and `max_reward` swamps the spread of `fq*bc` so the prune never fires.  The
-        # sibling `_TravelBalancedPool` DOES extract exactly one minimum per take, which is
-        # why a heap is right there and wrong here; the two are not the same conversion.
-        #
-        # A list is at least as good in every regime: the walk reads tuples with no calls at
-        # all (against one `heappop` each), and the repair is one `bisect` delete plus one
-        # `insort` -- two memmoves of a few KB -- against a drain and a rebuild.
-        #
-        # BYTE-IDENTICAL, on two clauses rather than on hope.  (1) `sorted(key=...)` was
-        # stable, so equal `fq*bc` kept `bc_by_aid` insertion order, which is
-        # `by_aisle_brkt` order; the list carries that order as an explicit rank, and ranks
-        # are unique, so `(key, rank)` is a strict total order reproducing the stable sort.
-        # (2) The prune breaks on the same test at the same point because the list yields
-        # the aisles in that same sequence -- so the aisles VISITED, and the `self._better`
-        # first-wins-on-ties among them, are unchanged.
-        sel = self._sel
-        best_aid = None
-        best_score = None
-        win_ent = None
-        for ent in sel:
-            aid = ent[2]
-            base = fq * bc_by_aid[aid]
-            if best_score is not None:
-                if maximize:
-                    if base <= best_score:
-                        break
-                elif base - max_reward >= best_score:
-                    break
-            if row_items:
-                if deltas is not None:
-                    delta = deltas.get(aid, 0.0)
-                else:
-                    ais = self._ais[aid]
-                    delta = 0.0
-                    for ci, w in row_items:
-                        if ci in ais:
-                            delta += w
-            else:
-                delta = 0.0
-            score = base - lam * delta
-            if best_score is None or self._better(score, best_score):
-                best_score, best_aid, win_ent = score, aid, ent
-        if best_aid is None:
-            return None, None
+        wi, best_score = mx.walk(fq, lam, max_reward)
+        best_aid = mx.aids[wi]
 
         # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst
         # max-D per height band), with the centroid term pulling toward (min) or away from
@@ -2523,29 +2660,12 @@ class _MinLaborPool(_Pool):
         # every other open is reading is untouched; over a plain dict it is the two
         # lookups it always was (`_bucket_writer`).
         self._drop(self._writer(best_aid, chosen_m))
-        # THE ONE-ENTRY UPDATE, done here rather than at the head of the next `take`.  The
-        # retired `elif` branch refreshed the winner with the NEXT unit's `var`; within a SKU
-        # run `var` is constant, and across one the boundary rebuilds everything, so the
-        # value is the same wherever it is computed -- and doing it here is what lets the
-        # heap hold no stale entry at any point.
+        # THE ONE-ENTRY UPDATE: the winner's head moved, so its row, its cost and the order
+        # it files under are refreshed -- with the same `_aisle_best_cost` the retired list
+        # re-filed it with.  Within a SKU run `var` is constant, and across one the boundary
+        # rebuilds everything, so the value is the same wherever it is computed.
         bc = self._aisle_best_cost(best_aid, var, self._pp)
-        # THE ONE-ENTRY REPAIR.  `win_ent` is in `sel` and the list is sorted, so its
-        # position is a binary search; entries are unique because the rank is, so the search
-        # lands on it exactly.  A mismatch means the list stopped being sorted, which would
-        # mis-price silently -- it raises instead, the way `_check_tier` does.
-        i = bisect.bisect_left(sel, win_ent)
-        if i >= len(sel) or sel[i] is not win_ent:
-            raise RuntimeError(
-                f'the min-labor pool\'s aisle order is no longer sorted: {win_ent!r} is not '
-                f'at its own bisect position {i}. Every write to it goes through this one '
-                f'site, so this means the order key moved without the list being repaired')
-        del sel[i]
-        if bc is None:
-            bc_by_aid.pop(best_aid, None)       # exhausted: it leaves both books together
-        else:
-            bc_by_aid[best_aid] = bc
-            bisect.insort(sel, ((-(fq * bc) if maximize else fq * bc),
-                                win_ent[1], best_aid))
+        mx.update(wi, by_aisle_brkt[best_aid], bc, fq)
 
         if sku not in self._ass[best_aid]:
             self._led.add_sku(best_aid, sku, demand=fq)

@@ -22,11 +22,16 @@ WHAT IS PINNED, and the distinction is the finding this round measured:
     placement, whatever the warehouse looks like;
   * **the selection is NOT O(aisles)** — within a SKU run, growing the aisle count 8x must not
     grow the per-take work at all;
-  * **the run-boundary rebuild IS O(aisles)**, deliberately, and is pinned at exactly
-    `boundaries x live_aisles` so that a change to it is a decision rather than a drift. It
-    fits k = 1.912 against catalogue size and is this round's top refactor candidate
-    (`.scratch/complexity-round/issues/07-...`); pinning it here is what will make that
-    refactor's effect legible rather than invisible.
+  * **the run-boundary rebuild makes NO per-aisle Python call.**  RE-PINNED 2026-09-24 by
+    decision (the user's, `.scratch/inbound-fullscale-perf/` O3).  It was pinned at exactly
+    `boundaries x live_aisles` `_aisle_best` calls -- 72% of a campaign-shaped pool open, k =
+    1.912 against catalogue size -- so that changing it would be a decision rather than a
+    drift.  The decision: the aisles' bucket heads live in a matrix built ONCE per pool
+    (`Assignment_Functions._TravelVec`), and a boundary scores every aisle with a handful of
+    numpy operations over it, float for float what the scan computed.  The scan did not
+    disappear -- it moved into C, and its complexity class in the aisle count is unchanged --
+    so what is pinned now is the SHAPE of the new work: zero `_aisle_best` calls at a
+    boundary, one matrix build per pool, one vector boundary per SKU run.
 
 Run:  python -m pytest Tests/unit/test_placement_selection_is_not_a_scan.py -q
 """
@@ -48,6 +53,8 @@ from test_travel_balanced_equivalence import _Affinity, _mk_state, _rand_wave, _
 #: file did exactly that and reported 20 takes against 10.
 _ORIG_TAKE = AF._TravelBalancedPool.take
 _ORIG_AISLE_BEST = AF._TravelBalancedPool._aisle_best
+_ORIG_VEC_INIT = AF._TravelVec.__init__
+_ORIG_VEC_BOUNDARY = AF._TravelVec.boundary
 
 
 class _Counter:
@@ -61,8 +68,10 @@ class _Counter:
 
     def __init__(self):
         self.takes = self.boundaries = self.rebuild = self.refresh = 0
+        self.vec_builds = self.vec_boundaries = 0
         self.aisles_at_boundary: list[int] = []
         self._pending = 0
+        self._in_boundary = False
 
     def install(self, monkeypatch, base_take=None):
         Pool = AF._TravelBalancedPool
@@ -74,25 +83,35 @@ class _Counter:
             outer.takes += 1
             if unit.order.sku != getattr(self, '_run_sku', object()):
                 outer.boundaries += 1
-                a = len(self._by_aisle)
-                outer.aisles_at_boundary.append(a)
-                outer._pending = a
-            else:
-                outer._pending = 0
+                outer.aisles_at_boundary.append(len(self._by_aisle))
             return real_take(self, unit)
 
         def _aisle_best(self, aid, var, *rest):
             # `*rest`: the memo `pp` the pool passes since ticket 03 (phase-2 campaign) --
-            # counted the same, forwarded untouched.
-            if outer._pending > 0:
+            # counted the same, forwarded untouched.  A call made while a vector boundary
+            # is running would be a per-aisle rebuild; any other is the winner refresh.
+            if outer._in_boundary:
                 outer.rebuild += 1
-                outer._pending -= 1
             else:
                 outer.refresh += 1
             return real_ab(self, aid, var, *rest)
 
+        def vec_init(self, *a, **k):
+            outer.vec_builds += 1
+            return _ORIG_VEC_INIT(self, *a, **k)
+
+        def vec_boundary(self, *a, **k):
+            outer.vec_boundaries += 1
+            outer._in_boundary = True
+            try:
+                return _ORIG_VEC_BOUNDARY(self, *a, **k)
+            finally:
+                outer._in_boundary = False
+
         monkeypatch.setattr(Pool, 'take', take)
         monkeypatch.setattr(Pool, '_aisle_best', _aisle_best)
+        monkeypatch.setattr(AF._TravelVec, '__init__', vec_init)
+        monkeypatch.setattr(AF._TravelVec, 'boundary', vec_boundary)
         return self
 
 
@@ -154,21 +173,19 @@ def test_the_selection_does_not_walk_the_aisles(monkeypatch):
         f'campaign scale that scan was 4,852,858 takes x 224 aisles = 1.09 BILLION iterations.')
 
 
-def test_the_run_boundary_rebuild_is_exactly_one_pass_per_aisle(monkeypatch):
-    """The O(aisles) half, pinned so that changing it is a DECISION.
-
-    This is the term that fits k = 1.912 against catalogue size and is the round's top
-    candidate. Pinning the exact relationship now is what will make a lazy-bound refactor's
-    effect legible — a change here should show up as this assertion failing with a smaller
-    number, not as silence.
-    """
+def test_the_run_boundary_makes_no_per_aisle_call(monkeypatch):
+    """The boundary, RE-PINNED (see the module docstring): no `_aisle_best` call while a
+    boundary is scoring, ONE head-matrix build per pool however many runs it serves, and one
+    vector boundary per SKU run.  A regression to the per-aisle scan shows up here as
+    `rebuild` equal to the sum of live aisles, which is what this test used to require."""
     c, _ = _drive(monkeypatch, n_aisles=12)
-    assert c.boundaries > 1, 'only one SKU run — the rebuild path is barely exercised'
-    expected = sum(c.aisles_at_boundary)
-    assert c.rebuild == expected, (
-        f'{c.rebuild} rebuild calls against {expected} = sum of live aisles at each of '
-        f'{c.boundaries} boundaries. The rebuild is meant to touch each live aisle exactly '
-        f'once per SKU run.')
+    assert c.boundaries > 1, 'only one SKU run -- the rebuild path is barely exercised'
+    assert c.rebuild == 0, (
+        f'{c.rebuild} `_aisle_best` calls inside a run boundary; the vector boundary makes '
+        f'none (a per-aisle rebuild would make {sum(c.aisles_at_boundary)})')
+    assert c.vec_builds == 1, f'{c.vec_builds} head-matrix builds for one pool'
+    assert c.vec_boundaries == c.boundaries, (
+        f'{c.vec_boundaries} vector boundaries for {c.boundaries} SKU runs')
 
 
 def test_the_counter_can_tell_a_scan_from_a_heap(monkeypatch):

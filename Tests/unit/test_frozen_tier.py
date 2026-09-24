@@ -519,26 +519,43 @@ def test_the_min_labor_aisle_order_stays_sorted_through_a_whole_drive(seed, maxi
     assert seated, 'the pool seated nothing, so no repair was ever exercised'
 
 
-def test_a_broken_aisle_order_raises_rather_than_mispricing():
-    """The repair bisects for the winner's own entry.  If the order stopped being sorted,
-    a binary search would land somewhere else and the pool would quietly delete the wrong
-    aisle -- so it checks and raises, the way `_check_tier` does at a pool open."""
-    rng = random.Random(7)
-    bins = _bins(rng)
-    units, orders, skus = _units(rng)
-    aff, idx = _aff(skus, [])
-    fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
-    qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
-    st = _state_ml(range(1, 6))
-    pool = af._MinLaborPool(bins, aff, _wp(), st['ss'], st['ii'], st['dd'], st['mp'],
-                            {}, fbs, qbs, 0.5)
-    ordered = pool.order(list(units))
-    pool.take(ordered[0])                       # builds the run and its order
-    assert len(pool._sel) > 2, 'need a few live aisles to scramble'
-    pool._sel.reverse()                         # the sabotage: no longer sorted
-    with pytest.raises(RuntimeError, match='no longer sorted'):
-        for u in ordered[1:]:
-            pool.take(u)
+def test_the_walk_order_is_the_stable_argsort_of_the_live_costs():
+    """RE-PINNED 2026-09-24 (inbound-fullscale-perf O3).  The walk used to follow a sorted
+    list repaired one entry per take, and a list that stopped being sorted would have
+    mis-priced silently -- so the pool checked and raised.  The vectorised pool re-derives the
+    order (`argsort(key, kind='stable')` over the live rows) at every boundary and after every
+    take that moves a cost; this pins that it IS that argsort after every take, and -- the
+    non-vacuity half -- that the walk really reads it: scrambling the order inside a SKU run
+    moves some take on these scenes."""
+    import numpy as np
+
+    def drive(seed, scramble=False):
+        rng = random.Random(seed)
+        bins = _bins(rng)
+        units, orders, skus = _units(rng)
+        aff, idx = _aff(skus, [])
+        fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
+        qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
+        st = _state_ml(range(1, 6))
+        pool = af._MinLaborPool(list(bins), aff, _wp(), st['ss'], st['ii'], st['dd'],
+                                st['mp'], {}, fbs, qbs, 0.5)
+        out = []
+        for u in pool.order(list(units)):
+            mx = pool._mx
+            if (scramble and mx is not None and mx.order is not None
+                    and u.order.sku == pool._last_sku and len(mx.order) > 1):
+                mx.order = mx.order[::-1].copy()        # the sabotage, inside a run
+            b, score = pool.take(u)
+            out.append(None if b is None else (b.location[0], b.x_phys, b.y_phys, score))
+            mx = pool._mx
+            if not scramble and mx is not None and mx.bc is not None:
+                live = np.flatnonzero(np.isfinite(mx.bc))
+                want = live[np.argsort(mx.key[live], kind='stable')]
+                assert (mx.order == want).all(), 'the walk order drifted from its costs'
+        return out
+
+    moved = sum(drive(seed) != drive(seed, scramble=True) for seed in range(6))
+    assert moved >= 1, 'scrambling the walk order moved nothing: the order is not read'
 
 
 def test_the_fixtures_actually_plant_ties_and_reorderings():

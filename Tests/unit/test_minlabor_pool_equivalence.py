@@ -264,17 +264,24 @@ def test_the_delta_sum_stays_in_csr_column_order():
     import ast
     import inspect
     import textwrap
-    src = textwrap.dedent(inspect.getsource(af._MinLaborPool.take))
-    tree = ast.parse(src)
-    for node in ast.walk(tree):          # drop the docstring so its prose cannot match
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
-                             ast.Module)) and ast.get_docstring(node):
-            node.body = node.body[1:]
-    body = ast.unparse(tree)
-    assert '_delta_lift_from_row' not in body, (
-        '_MinLaborPool.take must not call _delta_lift_from_row — it flips summation order '
-        'as an aisle fills, which is the b91cf38 ulp bug')
-    assert 'for ci, w in row_items' in body, 'the inlined CSR-order delta loop is gone'
+    def _body(fn):
+        src = textwrap.dedent(inspect.getsource(fn))
+        tree = ast.parse(src)
+        for node in ast.walk(tree):      # drop the docstring so its prose cannot match
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                                 ast.Module)) and ast.get_docstring(node):
+                node.body = node.body[1:]
+        return ast.unparse(tree)
+
+    # The per-aisle fold moved with the vectorised walk (inbound-fullscale-perf O3,
+    # 2026-09-24): `take` computes the run's deltas through `_MinLabVec.set_delta`, which
+    # carries the SAME inlined CSR-order loop.  Both are held to the ratchet.
+    take, fold = _body(af._MinLaborPool.take), _body(af._MinLabVec.set_delta)
+    for name, body in (('_MinLaborPool.take', take), ('_MinLabVec.set_delta', fold)):
+        assert '_delta_lift_from_row' not in body, (
+            f'{name} must not call _delta_lift_from_row — it flips summation order '
+            f'as an aisle fills, which is the b91cf38 ulp bug')
+    assert 'for ci, w in row_items' in fold, 'the inlined CSR-order delta loop is gone'
 
 
 def test_the_centroid_term_actually_moves_a_bin_choice():
