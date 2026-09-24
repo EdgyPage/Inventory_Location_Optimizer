@@ -82,3 +82,33 @@ linear in k: W(k) = 0.140 M + 0.4376 M·k s/day (0.731 M at 1.35, 1.103 M at 2.2
 | C5 | fresh-bin share | store **18.1%**, fulfillment **50.5%** | ±25% |
 | C6 | store placement gap | −0.80% × (18.08 / 7.76) × 0.564 = **−1.05%** | ratio 0.7–1.3 |
 | C7 | aisle ceiling | k = 2.6 ≪ 10.1: no growing day-cut carry | — |
+
+## S16c measured: k = 2.6, 400k (`comparison_whatif_20260923_175345`)
+
+| # | predicted | measured | verdict |
+|---|---|---|---|
+| C1 ρ_site (offered) | 1.109 | **1.07** (late arrivals 37.3/day × 0.92 h ÷ 32 door-hours) | ✓ |
+| C2 yard | unstable | waits **13.7 → 49.6 h**; **199** trailers never unloaded by day 40 | ✓ |
+| C3 lifo vs fifo | ≥ 2 of 4 fulfillment arms significant | **1 of 4** (two more end exactly at 0.00); store **4 of 4**; **all 8 lifo-cheaper**, −0.41% to −0.89% | ✗ on the fulfillment count; the gate itself is confirmed |
+| C4 trailers/day | 38.3 | **37.3** | ✓ |
+| C5 fresh-bin share | 18.1% / 50.5% | **17.5% / 39.5%** | ✓ (fulfillment −22%) |
+| C6 store placement gap | −1.05% | **−0.98%** (ratio 0.93) | ✓ |
+| C7 aisle ceiling | not binding | **0** day-cut carry | ✓ |
+
+**The gate is confirmed at the reference scale.**  Across the three 400k points the order is
+significant on 0 of 8 arms at ρ = 0.85, 0 of 8 at 0.96, and 5 of 8 at 1.07.  All 8 arms are
+lifo-cheaper past the gate, as at 40k.  The effect is on BOTH channels at 400k, where at 40k it
+was fulfillment only.  The site dock is shared, so both channels' trailers queue.
+
+**Measure the gate on OFFERED load.**  Unloaded seconds cannot exceed the capacity once the dock
+saturates: realised ρ_site here reads 0.985.  The gate is arrivals × occupancy over the door
+hours (1.07), or the load the derivation declares.
+
+**Across the whole confirmation** (S16, S16b, S16c): the fresh-bin share (6 readings, fulfillment
+running 11–22% under in units, as at 40k), the store placement gap (ratios 0.87 / 0.93 / 0.93),
+trailers (within 6%), the aisle ceiling and the flow equilibrium all transfer from 40k to 400k.
+The one law that needed revising was the dock's: capacity is min(crew, doors × team), and the
+load is the realised W(k) = 0.140 M + 0.4376 M·k, not the k = 1 load scaled.
+
+Past the gate the fulfillment free pool grows 12.6% over the window, because trailers wait days
+in the yard.  That is breathing room made by congestion, not by churn.

@@ -50,7 +50,7 @@ s* = σ_G).**
 |---|---|---|
 | placement rule, store | everywhere (k ≥ 1); grows to k ≈ 10 (−1.9%), then plateaus | height on fresh picks: φ × ΔM̄, where ΔM̄ decays as the good bins are spent |
 | placement rule, fulfillment | once most stock is rule-placed (the 100-batch fill: −1.6% to −2.2%), or under dock saturation | co-location of co-drawn SKUs.  The independent-visit form INVERTS it; the Palm probability P⁰_a(s) prices it (S07) |
-| unloading order (any velocity-blind pair) | only past the dock gate ρ_door = λ_T·E[o]/(doors·S) = 1: **k\*_order = 29.6** (store k, fulfillment at 10, c = 0.95) | exchangeable pairings below it (0 of 56 readings); above it the order decides the DAY a pack lands (S04, S12) |
+| unloading order (any velocity-blind pair) | only past the site gate ρ_site = W/(min(crew, doors·team)·S) = 1: **k\*_order = 29.6** on the 40k grid (store k, fulfillment 10), **k = 2.31** at 400k (confirmed: 0/8 at 0.85 and 0.96, 5/8 at 1.07, all lifo-cheaper) | exchangeable pairings below it; above it the order decides the DAY a pack lands (S04, S12, S16) |
 | demand density itself | stops being a lever at **k\* = 12.8** on the store (40 on fulfillment) | one picker per aisle-day: past it the day-cut backlog grows whatever the crew (S04) |
 | breathing room (free pool grows) | only off the floor: fulfillment k ≥ 10 (+13% to +25%) | declared coverage stock drawn down to the order-up-to cycle; sign and scale predicted, fragmentation open (S14) |
 
