@@ -951,6 +951,11 @@
       "src": "Inbound/gain.py"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Inbound/gain.py"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py",
       "kind": "imports",
       "src": "Inbound/gain.py"
@@ -1116,6 +1121,11 @@
       "src": "Inbound/gain.py::_Evaluator.place_load_at"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py::count",
+      "kind": "calls",
+      "src": "Inbound/gain.py::_plan_order_replay"
+    },
+    {
       "dst": "Inbound/gain.py::_defer_reach",
       "kind": "calls",
       "src": "Inbound/gain.py::_plan_order_replay.defer_at"
@@ -1192,6 +1202,11 @@
     },
     {
       "dst": "Inbound/gain.py::_plan_order_replay",
+      "kind": "calls",
+      "src": "Inbound/gain.py::plan_order"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::count",
       "kind": "calls",
       "src": "Inbound/gain.py::plan_order"
     },
@@ -1391,6 +1406,11 @@
       "src": "Inbound/receiving.py"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Inbound/receiving.py"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py",
       "kind": "imports",
       "src": "Inbound/receiving.py"
@@ -1409,6 +1429,11 @@
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving._count_remainders"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::count",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._fill_doors"
     },
     {
       "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
@@ -1516,6 +1541,16 @@
       "src": "Inbound/receiving.py::SiteReceiving.drain"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.drain"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.drain"
+    },
+    {
       "dst": "Inbound/receiving.py::SiteReceiving._take",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.drain_records_for"
@@ -1582,6 +1617,31 @@
     },
     {
       "dst": "Inbound/site_space.py::compose_site_view",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::count",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::high",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::span",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
@@ -1686,6 +1746,11 @@
       "src": "Inbound/transit.py"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Inbound/transit.py"
+    },
+    {
       "dst": "Inbound/priorities.py::local_key",
       "kind": "calls",
       "src": "Inbound/transit.py::TrailerTransit.__init__"
@@ -1766,6 +1831,16 @@
       "src": "Inbound/transit.py::YardTransit.dock_order"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.dock_order"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.dock_order"
+    },
+    {
       "dst": "Inbound/priorities.py::DockContext",
       "kind": "calls",
       "src": "Inbound/transit.py::YardTransit.freeze_ctx"
@@ -1797,6 +1872,16 @@
     },
     {
       "dst": "Inbound/priorities.py::bounded_order",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.yard_order"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.yard_order"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
       "kind": "calls",
       "src": "Inbound/transit.py::YardTransit.yard_order"
     },
@@ -9646,6 +9731,11 @@
       "src": "Optimization/persistence/runtime_metrics.py::load_rows"
     },
     {
+      "dst": "Optimization/persistence/runtime_metrics.py::_migrate_setup_columns",
+      "kind": "calls",
+      "src": "Optimization/persistence/runtime_metrics.py::record_arm"
+    },
+    {
       "dst": "Optimization/persistence/runtime_metrics.py::_parse_arm",
       "kind": "calls",
       "src": "Optimization/persistence/runtime_metrics.py::record_arm"
@@ -15946,6 +16036,11 @@
       "src": "Optimization/simdriver/strategy_runner.py"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Optimization/simdriver/strategy_runner.py"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py",
       "kind": "imports",
       "src": "Optimization/simdriver/strategy_runner.py"
@@ -16386,6 +16481,11 @@
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py::drain",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._replenish"
+    },
+    {
       "dst": "Warehouse/picking/Workload_Builder.py::Batch",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_build_leaf._script_batch"
@@ -16667,6 +16767,11 @@
     },
     {
       "dst": "Optimization/simdriver/strategy_runner.py::_check_site_crews",
+      "kind": "calls",
+      "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::drain",
       "kind": "calls",
       "src": "Optimization/simdriver/strategy_runner.py::_run_strategy_worker_impl"
     },
@@ -20806,6 +20911,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/Inventory_Management.py"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py",
       "kind": "imports",
       "src": "Warehouse/inventory/Inventory_Management.py"
@@ -21097,6 +21207,21 @@
     },
     {
       "dst": "Warehouse/inventory/put_policy.py::key_for",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::count",
+      "kind": "calls",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
       "kind": "calls",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
@@ -21741,6 +21866,11 @@
       "src": "Warehouse/inventory/inventory_reorder.py"
     },
     {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Warehouse/inventory/inventory_reorder.py"
+    },
+    {
       "dst": "Warehouse/layout/Aisle_Storage.py",
       "kind": "imports",
       "src": "Warehouse/inventory/inventory_reorder.py"
@@ -21812,6 +21942,16 @@
     },
     {
       "dst": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.reclaim_emptied_bins",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
       "kind": "calls",
       "src": "Warehouse/inventory/inventory_reorder.py::ReorderMixin.check_reorders"
     },
@@ -44613,6 +44753,14 @@
     },
     {
       "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_INB_COUNTERS",
+      "kind": "const",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_INB_COUNTERS",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
       "id": "Optimization/simdriver/strategy_runner.py::_Leaf",
       "kind": "class",
       "module": "Optimization/simdriver/strategy_runner.py",
@@ -44745,6 +44893,14 @@
       "kind": "function",
       "module": "Optimization/simdriver/strategy_runner.py",
       "name": "_charge",
+      "public": false
+    },
+    {
+      "file": "Optimization/simdriver/strategy_runner.py",
+      "id": "Optimization/simdriver/strategy_runner.py::_build_leaf._charge_probe",
+      "kind": "function",
+      "module": "Optimization/simdriver/strategy_runner.py",
+      "name": "_charge_probe",
       "public": false
     },
     {
@@ -54169,6 +54325,62 @@
       "kind": "function",
       "module": "Warehouse/kernel/crew_clock.py",
       "name": "size_of",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py",
+      "kind": "module",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "Warehouse.kernel.perf_probe",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "function",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "add",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py::count",
+      "kind": "function",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "count",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py::drain",
+      "kind": "function",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "drain",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py::high",
+      "kind": "function",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "high",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py::now",
+      "kind": "const",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "now",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/perf_probe.py",
+      "id": "Warehouse/kernel/perf_probe.py::span",
+      "kind": "function",
+      "module": "Warehouse/kernel/perf_probe.py",
+      "name": "span",
       "public": true
     },
     {

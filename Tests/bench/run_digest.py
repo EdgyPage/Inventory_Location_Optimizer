@@ -116,7 +116,17 @@ EXCLUDED_COLS = {
                 'reord_s', 'build_s', 'pre_s', 'sim_s', 'extract_s', 'inv_s', 'save_s',
                 'smpl_s', 'task_s', 'kf_s', 'p1_s', 'p2_s',
                 'gc_pause_s', 'gc_gen2', 'peak_rss_mib', 'live_objects',
-                'precomp_s'},
+                'precomp_s',
+                # The inbound carve (2026-09-24): its SECONDS are wall-clock like every span
+                # above, and its two PLANNER WORK counters count computation an exact
+                # optimisation is built to remove (a lazy plan runs fewer rounds of the same
+                # greedy) -- a digest that hashed them would call a pure speed-up a change.
+                # The decision-driven counters (drains, yard depths, yard pulls, put opens and
+                # units) stay hashed: they move only when what the simulation DID moves.
+                'inb_pre_s', 'inb_freeze_s', 'inb_pack_s', 'inb_yplan_s', 'inb_dplan_s',
+                'inb_unload_s', 'inb_handoff_s', 'put_s', 'put_open_s',
+                'startup_s', 'sib_setup_s',
+                'plan_rounds', 'plan_places'},
 }
 
 

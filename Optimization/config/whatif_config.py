@@ -957,6 +957,31 @@ SPECS = {
         'run_defaults': PHASE2_RUN_DEFAULTS,
         'ranking': FILL_RANKING,
     },
+    # THE FULL-SCALE INBOUND PERFORMANCE PROBE (`.scratch/inbound-fullscale-perf/`, runs A and
+    # B): the campaign's two shapes of inbound cost at 400k -- an unpriced cell (fifo) and the
+    # cheapest priced one (gmyopic) -- under phase 1's winner pair, the merge rule tmin (the
+    # frontier replay's path) and the fifo rider, both stock modes; 12 units.  Run at
+    # `--n-batches 20 --profiles-dir <reference catalogue>`, the same flags for A and B, so
+    # every difference between the two roots' runtime rows is the code.  `rank_sortmatch`
+    # rides the companion spec below: it has no gain adapter, so a gmyopic cell refuses it.
+    '_inbound_perf_400k': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'rule_pairs': [PHASE2_WINNER, ('tmin', 'tmin'), PHASE2_RIDER],
+        'inbound': phase2_inbound_axis(keep=('fifo', 'gmyopic')),
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+    },
+    '_inbound_perf_400k_sm': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'rule_pairs': [('rank_sortmatch', 'rank_sortmatch'), PHASE2_RIDER],
+        'inbound': phase2_inbound_axis(keep=('fifo',)),
+        'staffing_pin': PHASE2_STAFFING_PIN,
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+    },
     # THE SORT-MATCH PROBE (`.scratch/placement-sortmatch/` S07): does the lab's finalist --
     # `rank_sortmatch`, a drain's packs by lifetime pick work onto its bins by D + hbar M --
     # keep its realised-work lead once the simulator routes pickers, swaps carts and bills

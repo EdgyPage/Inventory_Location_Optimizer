@@ -4,6 +4,7 @@ import heapq
 from collections import defaultdict, deque
 from typing import Any
 
+from Warehouse.kernel import perf_probe as _perf
 from Warehouse.catalog.Order import Order
 from Warehouse.layout.Warehouse_Builder import Warehouse
 from Warehouse.layout.Aisle_Storage import Aisle
@@ -2258,6 +2259,7 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 # POOLED: the DRAIN owns the order, the pool owns the choice.  One snapshot
                 # per group, exactly as the wave took -- the candidate set never depended on
                 # the order, because every unit in a group shares a BinKey.
+                _t = _perf.now()
                 pool = self.placement.open_pool(self._candidates(units[0]), units[0])
                 # A pool that decides its pairing for the WHOLE group (an index match:
                 # `Assignment_Functions._SortMatchPool`) is shown the group before anyone is
@@ -2266,6 +2268,9 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 prepare = getattr(pool, 'prepare', None)
                 if prepare is not None:
                     prepare(units)
+                _perf.add('put_open', _perf.now() - _t)
+                _perf.count('put_opens')
+                _perf.count('put_units', len(units))
                 taken = []
                 for unit in self._serve_order(pool, units, window, put_key):
                     bin_, score = pool.take(unit)

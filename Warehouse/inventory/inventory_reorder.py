@@ -13,6 +13,7 @@ import random
 from collections import deque
 from typing import NoReturn
 
+from Warehouse.kernel import perf_probe as _perf
 from Warehouse.kernel.allocation import partition
 from Warehouse.layout.Aisle_Storage import Aisle
 from Warehouse.layout.Storage_Primitive import viable_storage_units
@@ -820,12 +821,15 @@ class ReorderMixin:
         # on this clock; the batch countdown ignores it).  A field rather than a phase
         # parameter so every phase stays callable with no arguments — the ratchet.
         self._now_s = now_s
+        _t = _perf.now()
         self._tick_batch()
         self.reclaim_emptied_bins()
         self._advance_lead_queue()
         triggered = self._fire_reorders()
         arrivals = self._release_arrivals()
+        _perf.add('inb_pre', _perf.now() - _t)
         self._receive(arrivals, recv_deadline)
+        _t = _perf.now()
         # THE POOL OWNS PHASE 5 WHEN THERE IS ONE, exactly as `mgr.receiving` owns phase 4
         # under a standing yard: `Warehouse -> Inbound` is forbidden in both directions, so
         # it arrives by INJECTION and is reached through an attribute.  Under one crew of
@@ -836,4 +840,5 @@ class ReorderMixin:
             self.drain_putaway(put_deadline)
         else:
             self.putaway_pool.drain(self, put_deadline)
+        _perf.add('put', _perf.now() - _t)
         return triggered

@@ -11460,7 +11460,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "[('precomp_s', 'map precompute (setup, once per arm)')]"
+      "value_preview": "[('precomp_s', 'map precompute (setup, once per arm)'), ('startup_s', \"worker setup before this leaf's loop clock\")]"
     },
     "Optimization/persistence/runtime_metrics.py::PRE_STAMP_RUNTIME_SCHEMA_ID": {
       "decorators": [],
@@ -11481,7 +11481,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=('397b7e750e1d', 'c033ff9c85a5', PRE_STAMP_RUNTIME_SCHEMA_I..."
+      "value_preview": "_identity.register(_identity.Family(name='runtime_metrics_db', declared_shape=declared_runtime_shape, meta_table='schema_meta', known_ids=('cd91e75b27ba', '397b7e750e1d', 'c033ff9c85a5', PRE_STAMP_..."
     },
     "Optimization/persistence/runtime_metrics.py::SECTIONS": {
       "decorators": [],
@@ -11515,7 +11515,7 @@
       "doc": null,
       "kind": "const",
       "signature": null,
-      "value_preview": "(('precomp_s', 'REAL'), ('precomp_src', 'TEXT'), ('map_lap_pct', 'REAL'))"
+      "value_preview": "(('precomp_s', 'REAL'), ('precomp_src', 'TEXT'), ('map_lap_pct', 'REAL'), ('inb_pre_s', 'REAL'), ('inb_freeze_s', 'REAL'), ('inb_pack_s', 'REAL'), ('inb_yplan_s', 'REAL'), ('inb_dplan_s', 'REAL'), ..."
     },
     "Optimization/persistence/runtime_metrics.py::_migrate_setup_columns": {
       "decorators": [],
@@ -17483,6 +17483,13 @@
       "signature": null,
       "value_preview": "gc.get_threshold()"
     },
+    "Optimization/simdriver/strategy_runner.py::_INB_COUNTERS": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "('inb_drains', 'yard_T_sum', 'yard_T_max', 'yard_pulls', 'plan_rounds', 'plan_places', 'put_opens', 'put_units')"
+    },
     "Optimization/simdriver/strategy_runner.py::_Leaf": {
       "decorators": [
         "_dataclass(frozen=True)"
@@ -17601,6 +17608,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(section: str, seconds: float) -> None"
+    },
+    "Optimization/simdriver/strategy_runner.py::_build_leaf._charge_probe": {
+      "decorators": [],
+      "doc": "Charge one drain of the inbound probe (`Warehouse.kernel.perf_probe`) to this\nleaf's overlay spans and counters.\n\nCalled by the batch loop after the site drive (every leaf, in full, the same\nconvention `reord_s` follows: the drive is the site's work done on every leaf's\nbehalf) and after an uncoupled leaf's own `check_reorders`.  Every span is an\nOVERLAY carved out of `reord_s`, never a section of the partition.  The names are\nwritten out one per line because `Tests/calltree/test_calltree_anchors.py` finds a\nsection's accumulation site by its LITERAL name.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(spans: dict, counts: dict) -> None"
     },
     "Optimization/simdriver/strategy_runner.py::_build_leaf._fill_credit": {
       "decorators": [],
@@ -25886,6 +25900,54 @@
       "is_async": false,
       "kind": "function",
       "signature": "(clocks) -> int"
+    },
+    "Warehouse/kernel/perf_probe.py": {
+      "decorators": [],
+      "doc": "perf_probe -- the inbound path's own stopwatch, read by the batch loop.\n\nThe receive, the unload plan and the put-away drain run inside ONE timed span of the batch\nloop (`reord_s`), so a run could say how long the reorder phase took but never which part\nof it -- the gain planner, the unload physics, the pool opens of the put drain -- cost the\ntime.  This module is the carve.  The code on the inbound path adds seconds and counts\nhere at its phase boundaries; the batch loop DRAINS it once per batch and charges the\nnumbers to the leaf's overlay spans (`runtime_metrics.SPANS`, the `inb_*` / `put*`\ncolumns) and counters.\n\nWHY A PROCESS-GLOBAL.  The measured code lives in `Inbound/` and `Warehouse/`, and the\nreader in `Optimization/`; `Inbound` may not import `Optimization`, and threading a probe\nobject through every signature on the path would touch forty call sites to carry a\ndiagnostic.  The kernel is importable from every layer, and a worker process runs exactly\none work unit (recycling is pinned at 1), so one module-level accumulator per process is\none accumulator per unit.  The batch loop drains it before the first batch -- so setup\nwork (initial stock placed through the same pools) is never charged to the loop -- and\nafter every batch's receive and put drain.\n\nIT MOVES NO NUMBER.  Every call is a dict update on a clock reading; nothing here is read\nby the simulation.  An unused probe costs a few `perf_counter` calls per drain.\n\nSpans (seconds, overlays of `reord_s`):\n\n  inb_pre      phases 0-3: batch tick, reclaim, lead advance, fire, release\n  inb_freeze   the drain's context and space-view freeze\n  inb_pack     plans-at-arrival (`_plan_arrivals`)\n  inb_yplan    the YARD ranking (`transit.yard_order`): the gain planner, when one is named\n  inb_dplan    the DOCK ranking (`transit.dock_order`)\n  inb_unload   the unload loop, net of any yard ranking done inside it\n  inb_handoff  the canonical hand-off and the remainder count\n  put          phase 5, the put-away drain\n  put_open     pool construction inside the put drain (`_stock_ranked`)\n\nCounters: inb_drains, yard_T_sum, yard_T_max, yard_pulls, plan_rounds, plan_places,\nput_opens, put_units.",
+      "kind": "module",
+      "signature": null
+    },
+    "Warehouse/kernel/perf_probe.py::add": {
+      "decorators": [],
+      "doc": "Add `seconds` to span `name`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, seconds: float) -> None"
+    },
+    "Warehouse/kernel/perf_probe.py::count": {
+      "decorators": [],
+      "doc": "Add `n` to counter `name`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, n: int=1) -> None"
+    },
+    "Warehouse/kernel/perf_probe.py::drain": {
+      "decorators": [],
+      "doc": "`(spans, counters)` accumulated since the last drain, and reset both to empty.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "() -> tuple"
+    },
+    "Warehouse/kernel/perf_probe.py::high": {
+      "decorators": [],
+      "doc": "Raise counter `name` to `value` if it is below it (a high-water mark).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str, value: int) -> None"
+    },
+    "Warehouse/kernel/perf_probe.py::now": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "time.perf_counter"
+    },
+    "Warehouse/kernel/perf_probe.py::span": {
+      "decorators": [],
+      "doc": "The seconds span `name` holds right now (for a caller netting one span out of\nanother it is timing).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(name: str) -> float"
     },
     "Warehouse/kernel/regime.py": {
       "decorators": [],

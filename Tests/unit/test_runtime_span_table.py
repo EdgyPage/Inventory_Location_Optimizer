@@ -124,7 +124,10 @@ def test_the_timer_vocabulary_is_the_table_and_the_order_is_preserved():
     its own -- neither the log line's nor the DDL's -- and a reorder would be a silent change to
     the result dict's shape."""
     assert SECTIONS == ('reord', 'build', 'sample', 'task', 'kf', 'pre', 'sim',
-                        'extract', 'inv', 'save', 'p1', 'p2')
+                        'extract', 'inv', 'save', 'p1', 'p2',
+                        # the inbound carve (2026-09-24), overlays of reord
+                        'inb_pre', 'inb_freeze', 'inb_pack', 'inb_yplan', 'inb_dplan',
+                        'inb_unload', 'inb_handoff', 'put', 'put_open')
     assert COLUMNS == {'p1': 'p1_s', 'p2': 'p2_s'}, (
         'COLUMNS is the exception list for spans whose result key is not `t_<section>`')
 

@@ -5587,6 +5587,15 @@ files:
       - {name: "test_the_leaf_config_record_carries_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
       - {name: "test_a_pre_charge_archive_is_rebuilt_without_the_charge", file: "Tests/unit/test_per_item_charge.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_perf_probe.py":
+    purpose: "Pins the inbound probe: spans and counters accumulate and drain, a real standing-yard drain charges every receive sub-span and counts its drain, and the probe moves no number."
+    layer: "tests"
+    key_symbols:
+      - {name: "setup_function", file: "Tests/unit/test_perf_probe.py", kind: "function"}
+      - {name: "test_spans_and_counters_accumulate_and_drain_resets", file: "Tests/unit/test_perf_probe.py", kind: "function"}
+      - {name: "test_a_real_drain_charges_the_receive_spans_and_counts_it", file: "Tests/unit/test_perf_probe.py", kind: "function"}
+      - {name: "test_the_probe_moves_no_number", file: "Tests/unit/test_perf_probe.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_pick_config_conversion.py":
     purpose: "one dict\u2192PickConfig conversion, one default set."
     layer: "tests"
@@ -7663,6 +7672,16 @@ files:
       - {name: "charge_subset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
       - {name: "hold_until", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
       - {name: "reset", file: "Warehouse/kernel/crew_clock.py", kind: "function"}
+    notes: ""
+  "Warehouse/kernel/perf_probe.py":
+    purpose: "The inbound path's process-global stopwatch: receive, yard/dock ranking, unload and put-away seconds and counters, drained per batch into runtime_metrics overlay columns."
+    layer: "wh_kernel"
+    key_symbols:
+      - {name: "add", file: "Warehouse/kernel/perf_probe.py", kind: "function"}
+      - {name: "count", file: "Warehouse/kernel/perf_probe.py", kind: "function"}
+      - {name: "high", file: "Warehouse/kernel/perf_probe.py", kind: "function"}
+      - {name: "span", file: "Warehouse/kernel/perf_probe.py", kind: "function"}
+      - {name: "drain", file: "Warehouse/kernel/perf_probe.py", kind: "function"}
     notes: ""
   "Warehouse/kernel/regime.py":
     purpose: "storage-regime identity (store vs fulfillment)."

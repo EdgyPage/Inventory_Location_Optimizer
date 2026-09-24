@@ -133,6 +133,7 @@ from Inbound.gain_bundle import (
     GainBundle, OneOwnerBundle, SiteGainBundle)
 from Inbound.priorities import DOCK_POLICIES, POLICY_VIEW_NEEDS, YARD_POLICIES, ordering
 
+from Warehouse.kernel import perf_probe as _perf
 from Warehouse.kernel.cost_model import height_multiplier, per_pick
 from Warehouse.kernel.regime import REGIMES, regime_of_key
 from Warehouse.kernel.timeline import SECONDS_PER_DAY
@@ -1050,6 +1051,8 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         ev.taken.update(map(id, tk))
         ev.drop_templates()      # `taken` moved in place; see `drop_templates`
         out.append(t)
+        _perf.count('plan_rounds')
+        _perf.count('plan_places', 2 * len(remaining))
         remaining = [r for r in remaining if r is not t]
     return out
 
@@ -1177,6 +1180,8 @@ def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _l
             F[k] = fget(k, 0) + v
         ev.drop_templates()
         out.append(t)
+        _perf.count('plan_rounds')
+        _perf.count('plan_places', 2 * len(remaining))
         remaining = [r for r in remaining if r is not t]
     return out
 

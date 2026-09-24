@@ -13,7 +13,7 @@
 <nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a> <span class="sep">›</span> <a href="nInbound_receiving_py__SiteReceiving.html"><code>SiteReceiving</code></a> <span class="sep">›</span> <span class="here"><code>drain</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>drain</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_receiving_py.html"><code>Inbound/receiving.py</code></a></p>
-<div class="badges"><span class="badge orphan">orphan</span></div>
+<div class="badges"><span class="badge orphan">orphan</span><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def drain(self, leaves, put_deadline: float | None=None, recv_deadline: float | None=None, now_s: float | None=None) -&gt; dict</code></pre>
 <section class="doc">Drive N leaves&#x27; phases with ONE shared receive, and return the SKUs each
 triggered, keyed by `id(leaf)`.
@@ -43,7 +43,7 @@ the receive sits where it does.
 
 With a single leaf this is `check_reorders` phase for phase, and
 `Tests/unit/test_site_receiving.py` pins that equality.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
+<section class="rel"><h2>Callees <span class="count">(3)</span></h2><ul><li><a href="nInbound_receiving_py__SiteReceiving_receive.html"><code>receive</code></a> <span class="dim">Inbound/receiving.py</span></li><li><a href="nWarehouse_kernel_perf_probe_py__add.html"><code>add</code></a> <span class="dim">Warehouse/kernel/perf_probe.py</span></li><li><a href="nWarehouse_kernel_perf_probe_py__now.html"><code>now</code></a> <span class="dim">Warehouse/kernel/perf_probe.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_receiving_py__SiteReceiving_drain">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/receiving.py#:~:text=def%20drain">Source ↗</a></p>
 </article>
 </main>

@@ -387,6 +387,12 @@ class _Stub:
     def charge(self, *_a):
         pass
 
+    # the inbound probe's charge and the leaf's loop clock (`_Leaf`, 2026-09-24)
+    t_loop = 0.0
+
+    def charge_probe(self, *_a):
+        pass
+
     def begin_pick(self, off, settled=None):
         self.off, self.settled = off, settled
 

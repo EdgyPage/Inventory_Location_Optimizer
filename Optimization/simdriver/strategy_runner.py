@@ -86,6 +86,7 @@ from Optimization.config.strategies import (
     StrategyContext)
 from Warehouse.layout.Warehouse_Builder import Warehouse_Builder
 from Warehouse.picking.Workload_Builder import Batch, Task, drain_sku as _drain_sku
+from Warehouse.kernel import perf_probe as _perf_probe
 from Optimization.simdriver.section_timers import CheckpointWindow, SectionTimers
 from Optimization.persistence.checkpoint_buffer import (
     SITE_CHANNELS, CheckpointBuffer)
@@ -842,6 +843,10 @@ class _Leaf:
     # ran its own composition inside `replenish` and already has the answer.
     note_triggered: object            # (dict) -> None
     charge   : object                 # (str, float) -> None -- a span timed by the driver
+    # The inbound probe's charge (`perf_probe`): (spans, counters) -> None, and the instant
+    # this leaf's batch-loop clock started (`startup_s` / `sib_setup_s`).
+    charge_probe: object = None       # (dict, dict) -> None
+    t_loop      : float = 0.0
     # THE FILL TRIAL's four ports, None on every other run: the declared lots, the credit
     # the dispatcher books a sent lot with, "is everything I was sent binned?", and the
     # switch that starts the pick stage.  Ports rather than the manager, for the reason the
@@ -850,6 +855,12 @@ class _Leaf:
     fill_credit : object = None       # (int, int) -> None
     fill_settled: object = None       # () -> bool
     begin_pick  : object = None       # (int, settled=int) -> None
+
+
+#: The inbound probe's counters, in `runtime_metrics.RESULT_COLUMNS` order (the result-dict
+#: keys `_charge_probe` fills).
+_INB_COUNTERS = ('inb_drains', 'yard_T_sum', 'yard_T_max', 'yard_pulls', 'plan_rounds',
+                 'plan_places', 'put_opens', 'put_units')
 
 
 def _check_declared_crew(args: dict, k_pickers: int, *, site_crews: bool = True) -> None:
@@ -2794,6 +2805,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                                               now_s=asm.arm_clock)
         asm.ckpt_win.add('reorders', len(bstate.triggered))
         asm.timers.split('reord')
+        _charge_probe(*_perf_probe.drain())
 
     def _charge(section: str, seconds: float) -> None:
         """Charge a span measured OUTSIDE this leaf to one of its sections.
@@ -2805,6 +2817,38 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
         leaf's sections a partition of that leaf's own work.
         """
         asm.timers.add(section, seconds)
+
+    #: The inbound probe's COUNTERS for this leaf (`perf_probe`), summed over batches and
+    #: returned in the result dict (`runtime_metrics.RESULT_COLUMNS`).  Counters are ints and
+    #: SectionTimers holds seconds, so they live here rather than as spans.
+    _inb_counts: dict = {}
+
+    def _charge_probe(spans: dict, counts: dict) -> None:
+        """Charge one drain of the inbound probe (`Warehouse.kernel.perf_probe`) to this
+        leaf's overlay spans and counters.
+
+        Called by the batch loop after the site drive (every leaf, in full, the same
+        convention `reord_s` follows: the drive is the site's work done on every leaf's
+        behalf) and after an uncoupled leaf's own `check_reorders`.  Every span is an
+        OVERLAY carved out of `reord_s`, never a section of the partition.  The names are
+        written out one per line because `Tests/calltree/test_calltree_anchors.py` finds a
+        section's accumulation site by its LITERAL name."""
+        g = spans.get
+        asm.timers.add('inb_pre', g('inb_pre', 0.0))
+        asm.timers.add('inb_freeze', g('inb_freeze', 0.0))
+        asm.timers.add('inb_pack', g('inb_pack', 0.0))
+        asm.timers.add('inb_yplan', g('inb_yplan', 0.0))
+        asm.timers.add('inb_dplan', g('inb_dplan', 0.0))
+        asm.timers.add('inb_unload', g('inb_unload', 0.0))
+        asm.timers.add('inb_handoff', g('inb_handoff', 0.0))
+        asm.timers.add('put', g('put', 0.0))
+        asm.timers.add('put_open', g('put_open', 0.0))
+        for k, v in counts.items():
+            if k == 'yard_T_max':
+                if v > _inb_counts.get(k, 0):
+                    _inb_counts[k] = v
+            else:
+                _inb_counts[k] = _inb_counts.get(k, 0) + v
 
     def _note_triggered(trig: dict) -> None:
         """Record what the SITE drain fired for THIS leaf.  Coupled units only.
@@ -3670,6 +3714,9 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
             # plus the fast_pick phase split p1_s/p2_s.  One expansion rather than
             # twelve lines that had to agree with three other places.
             **asm.timers.totals(),
+            # the inbound probe's counters (NULL-able columns; absent on a leaf that never
+            # drained -- a run with no inbound writes NULL, not a fabricated zero)
+            **{k: _inb_counts.get(k) for k in _INB_COUNTERS},
             # end-of-arm memory observability (see the log line above; pause/census are
             # SIM_GC_DETAIL-gated — 0.0/None on a default run, by design)
             'gc_pause_s'  : _GC_STATE['pause_s'],
@@ -3710,6 +3757,7 @@ def _build_leaf(args: dict, unit: dict | None = None, pool=None,
                  n_catalogue=asm.n_catalogue, n_skus=asm.n_skus,
                  replenish=_replenish, step=_step, finish=_finish,
                  note_triggered=_note_triggered, charge=_charge,
+                 charge_probe=_charge_probe, t_loop=asm.t_loop,
                  fill_lots=asm.fill_lots, fill_credit=_fill_credit,
                  fill_settled=_fill_settled, begin_pick=_begin_pick)
 
@@ -3723,6 +3771,7 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     batch i before leaf A has finished it, which is what lets a site-scoped coordinator sit
     between them and what makes a torn pair impossible to produce.
     """
+    _t_unit = time.perf_counter()        # `startup_s` is measured from here
     _coupled = args.get('leaves') is not None
     _sitedock = None
     _fill = None
@@ -3800,6 +3849,9 @@ def _run_strategy_worker_impl(args: dict) -> dict:
     # stage's script starts at `i + 1` and runs its `n_batches` from there.
     _n_pick = leaves[0].n_batches
     _off = 0 if _fill is None else None
+    # THE PROBE STARTS EMPTY AT THE LOOP.  Setup places the initial stock through the same
+    # pools the put drain opens, and that is not the loop's time.
+    _perf_probe.drain()
     i = leaves[0].start_i
     if _fill is not None and i > 0:
         # A fill unit is replayed from 0 or not at all.  A FINISHED one arrives here at its
@@ -3834,6 +3886,10 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                 # charged it twice AND charged the first leaf's whole step to the second
                 # leaf's `reord_s` (the second lap was still open through all of it).
                 lf.charge('reord', _drive_s)
+            # The drive's inbound carve, charged the same way: to every leaf, in full.
+            _spans, _counts = _perf_probe.drain()
+            for lf in leaves:
+                lf.charge_probe(_spans, _counts)
         for lf in leaves:
             lf.step(i)
         if _sitedock is not None:
@@ -3864,6 +3920,15 @@ def _run_strategy_worker_impl(args: dict) -> dict:
                     f'stock no bin will take -- the pick stage would never start')
         i += 1
     results = [lf.finish() for lf in leaves]
+    # THE SETUP COLUMNS (outside `total_s`).  `startup_s`: worker entry to this leaf's loop
+    # clock.  `sib_setup_s`: the part of this leaf's `total_s` that is a SIBLING's setup --
+    # leaves are built one after the other and each starts its clock at the end of its own
+    # build, so the first leaf's `total_s` runs through the second leaf's whole build.
+    _last = max(lf.t_loop for lf in leaves)
+    for lf, res in zip(leaves, results):
+        if isinstance(res, dict):
+            res['startup_s'] = lf.t_loop - _t_unit
+            res['sib_setup_s'] = _last - lf.t_loop
     if _sitedock is not None:
         # AFTER the leaves finish, because the censored tail is a run-end read and the
         # leaves' own tail flush is what closes their DBs.

@@ -73,6 +73,30 @@ CREATE TABLE IF NOT EXISTS runtime (
     precomp_s   REAL,
     precomp_src TEXT,
     map_lap_pct REAL,
+    -- THE INBOUND CARVE (2026-09-24, `Warehouse.kernel.perf_probe`): overlay spans of
+    -- reord_s and the inbound counters.  NULLABLE -- NULL is "not measured" (a vintage
+    -- before the probe, or a legacy result dict), never a fabricated zero.
+    inb_pre_s     REAL,
+    inb_freeze_s  REAL,
+    inb_pack_s    REAL,
+    inb_yplan_s   REAL,
+    inb_dplan_s   REAL,
+    inb_unload_s  REAL,
+    inb_handoff_s REAL,
+    put_s         REAL,
+    put_open_s    REAL,
+    inb_drains    INTEGER,
+    yard_T_sum    INTEGER,
+    yard_T_max    INTEGER,
+    yard_pulls    INTEGER,
+    plan_rounds   INTEGER,
+    plan_places   INTEGER,
+    put_opens     INTEGER,
+    put_units     INTEGER,
+    -- Setup, measured OUTSIDE total_s (OUTSIDE_TOTAL): worker entry to this leaf's loop
+    -- clock, and the sibling leaf's setup that sits inside this leaf's total_s.
+    startup_s     REAL,
+    sib_setup_s   REAL,
     UNIQUE(cell, pair, config, channel, arm)
 )
 """
@@ -109,7 +133,11 @@ RUNTIME_DB_FAMILY = _identity.register(_identity.Family(
     name='runtime_metrics_db',
     declared_shape=declared_runtime_shape,
     meta_table='schema_meta',
-    known_ids=('397b7e750e1d',  # 29-column observability era: d5bdedc..3b712fb (2026-08-19
+    known_ids=('cd91e75b27ba',  # 32-column setup-phase era: 2026-08-23 through 2026-09-24,
+                                #   superseded by the inbound carve (inb_*/put* spans, the
+                                #   inbound counters, startup_s/sib_setup_s) -- every 400k
+                                #   campaign and churn-probe root before it carries this one
+              '397b7e750e1d',  # 29-column observability era: d5bdedc..3b712fb (2026-08-19
                                 #   through 2026-08-23) — the shape EXPERIMENT 8's run carries,
                                 #   superseded by the setup-phase columns (precomp_s/_src,
                                 #   map_lap_pct), which the batch loop's clock never covered
@@ -173,6 +201,18 @@ SPANS: tuple = (
     # `t_<name>` "the column" reads as plausible and is wrong for the other ten.
     Span('p1',      'p1_s',      'p1_s',      None),      # a split of sim_s
     Span('p2',      'p2_s',      'p2_s',      None),      # a split of sim_s
+    # THE INBOUND CARVE (2026-09-24): overlays of reord_s, charged per batch from the
+    # inbound probe (`Warehouse.kernel.perf_probe`) by `_charge_probe`.  `absent=None`: a
+    # legacy result dict writes NULL, never zero.
+    Span('inb_pre',     't_inb_pre',     'inb_pre_s',     None, None),
+    Span('inb_freeze',  't_inb_freeze',  'inb_freeze_s',  None, None),
+    Span('inb_pack',    't_inb_pack',    'inb_pack_s',    None, None),
+    Span('inb_yplan',   't_inb_yplan',   'inb_yplan_s',   None, None),
+    Span('inb_dplan',   't_inb_dplan',   'inb_dplan_s',   None, None),
+    Span('inb_unload',  't_inb_unload',  'inb_unload_s',  None, None),
+    Span('inb_handoff', 't_inb_handoff', 'inb_handoff_s', None, None),
+    Span('put',         't_put',         'put_s',         None, None),
+    Span('put_open',    't_put_open',    'put_open_s',    None, None),
 )
 
 
@@ -196,6 +236,18 @@ RESULT_COLUMNS: tuple = (
     # tell "no map to build" from "0.0 s".
     ('precomp_s',    't_precompute', None,  None),
     ('map_lap_pct',  'map_lap_pct',  None,  None),
+    # The inbound probe's counters (2026-09-24).  NULL when the leaf never drained one.
+    ('inb_drains',   'inb_drains',   None,  None),
+    ('yard_T_sum',   'yard_T_sum',   None,  None),
+    ('yard_T_max',   'yard_T_max',   None,  None),
+    ('yard_pulls',   'yard_pulls',   None,  None),
+    ('plan_rounds',  'plan_rounds',  None,  None),
+    ('plan_places',  'plan_places',  None,  None),
+    ('put_opens',    'put_opens',    None,  None),
+    ('put_units',    'put_units',    None,  None),
+    # Setup outside `total_s` (OUTSIDE_TOTAL): see the DDL comment.
+    ('startup_s',    'startup_s',    None,  None),
+    ('sib_setup_s',  'sib_setup_s',  None,  None),
 )
 
 
@@ -213,7 +265,11 @@ SECTIONS = [(s.column, s.label) for s in SPANS if s.label is not None]
 #: the SUM of the two lists, and any chart showing it says so.
 OUTSIDE_TOTAL = [
     ('precomp_s', 'map precompute (setup, once per arm)'),
+    ('startup_s', "worker setup before this leaf's loop clock"),
 ]
+# `sib_setup_s` is NOT listed: it is the part of `total_s` that is the sibling leaf's setup
+# -- INSIDE the total, not outside it -- so it is a correction to read against total_s,
+# never a span to stack on top of it.
 
 
 def runtime_db_path(run_root: str) -> str:
@@ -249,6 +305,11 @@ def record_arm(run_root: str, cell: str, res: dict, *,
     try:
         for stmt in _ALL_DDL:
             con.execute(stmt)
+        # A RESUME INTO AN OLDER VINTAGE'S ROOT: `CREATE TABLE IF NOT EXISTS` cannot widen
+        # the table the first launch created, and the INSERT below names every declared
+        # column, so without this the row would fail -- and the caller swallows the error,
+        # leaving the arm with no runtime row at all.
+        _migrate_setup_columns(con)
         # AN EMPTY RESULT NEVER REPLACES A REAL ONE.
         #
         # A `--resume` re-walks every arm. One whose checkpoint marker says it already finished
@@ -305,8 +366,18 @@ def record_arm(run_root: str, cell: str, res: dict, *,
         _connect.close(con)
 
 
-#: The setup-phase columns, in DDL order — the ones a pre-2026-08-23 DB predates.
-_SETUP_COLUMNS = (('precomp_s', 'REAL'), ('precomp_src', 'TEXT'), ('map_lap_pct', 'REAL'))
+#: The setup-phase columns, in DDL order — the ones a pre-2026-08-23 DB predates -- and
+#: the inbound carve's, the ones a pre-2026-09-24 DB predates.  All NULLABLE with no
+#: default, so an ALTER leaves existing rows reading NULL ("never measured").
+_SETUP_COLUMNS = (('precomp_s', 'REAL'), ('precomp_src', 'TEXT'), ('map_lap_pct', 'REAL'),
+                  ('inb_pre_s', 'REAL'), ('inb_freeze_s', 'REAL'), ('inb_pack_s', 'REAL'),
+                  ('inb_yplan_s', 'REAL'), ('inb_dplan_s', 'REAL'), ('inb_unload_s', 'REAL'),
+                  ('inb_handoff_s', 'REAL'), ('put_s', 'REAL'), ('put_open_s', 'REAL'),
+                  ('inb_drains', 'INTEGER'), ('yard_T_sum', 'INTEGER'),
+                  ('yard_T_max', 'INTEGER'), ('yard_pulls', 'INTEGER'),
+                  ('plan_rounds', 'INTEGER'), ('plan_places', 'INTEGER'),
+                  ('put_opens', 'INTEGER'), ('put_units', 'INTEGER'),
+                  ('startup_s', 'REAL'), ('sib_setup_s', 'REAL'))
 
 
 def _migrate_setup_columns(con) -> bool:

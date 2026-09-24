@@ -128,7 +128,9 @@ def test_the_section_vocabulary_is_exactly_the_runtime_metrics_columns():
     """
     assert SectionTimers.SECTIONS == (
         'reord', 'build', 'sample', 'task', 'kf', 'pre', 'sim',
-        'extract', 'inv', 'save', 'p1', 'p2')
+        'extract', 'inv', 'save', 'p1', 'p2',
+        'inb_pre', 'inb_freeze', 'inb_pack', 'inb_yplan', 'inb_dplan',
+        'inb_unload', 'inb_handoff', 'put', 'put_open')
 
 
 def test_an_undeclared_section_is_refused_rather_than_created():
@@ -152,7 +154,10 @@ def test_totals_renders_every_section_under_its_t_prefixed_name():
     assert out['p1_s'] == pytest.approx(0.5), 'the fast_pick split keeps its p*_s column name'
     assert out['t_save'] == 0.0
     assert set(out) == {'t_reord', 't_build', 't_sample', 't_task', 't_kf', 't_pre',
-                        't_sim', 't_extract', 't_inv', 't_save', 'p1_s', 'p2_s'}
+                        't_sim', 't_extract', 't_inv', 't_save', 'p1_s', 'p2_s',
+                        't_inb_pre', 't_inb_freeze', 't_inb_pack', 't_inb_yplan',
+                        't_inb_dplan', 't_inb_unload', 't_inb_handoff', 't_put',
+                        't_put_open'}
 
 
 def test_the_totals_payload_is_a_plain_picklable_dict_of_floats():
@@ -329,7 +334,10 @@ def test_the_cursor_is_not_a_section_and_does_not_reach_the_payload():
     st.start(now=5.0)
     st.split('sim', now=6.0)
     assert set(st.totals()) == {'t_reord', 't_build', 't_sample', 't_task', 't_kf', 't_pre',
-                                't_sim', 't_extract', 't_inv', 't_save', 'p1_s', 'p2_s'}
+                                't_sim', 't_extract', 't_inv', 't_save', 'p1_s', 'p2_s',
+                                't_inb_pre', 't_inb_freeze', 't_inb_pack', 't_inb_yplan',
+                                't_inb_dplan', 't_inb_unload', 't_inb_handoff', 't_put',
+                                't_put_open'}
 
 
 def test_split_charges_the_open_window_and_rolls_with_it():

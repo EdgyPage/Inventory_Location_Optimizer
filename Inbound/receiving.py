@@ -76,6 +76,7 @@ from __future__ import annotations
 
 from collections import deque
 
+from Warehouse.kernel import perf_probe as _perf
 from Warehouse.kernel.allocation import partition
 from Warehouse.kernel.regime import REGIMES, regime_of
 
@@ -717,6 +718,7 @@ class SiteReceiving:
         self._check_drain(leaves, deadline)
         epoch = self._drain_epoch(leaves)
         source = getattr(transit, 'SOURCE', 'reorder')
+        _t = _perf.now()
         ctx = transit.freeze_ctx()
         # CTX-FREEZE IS VIEW-FREEZE: one space projection per drain serves every decision
         # in it (no per-decision rescans).  `ctx.space` is the named-view arrival point
@@ -734,6 +736,10 @@ class SiteReceiving:
         views = self._freeze_views(leaves, epoch)
         if views:
             ctx.space = compose_site_view(views)
+        _perf.add('inb_freeze', _perf.now() - _t)
+        _perf.count('inb_drains')
+        _perf.count('yard_T_sum', ctx.yard_depth)
+        _perf.high('yard_T_max', ctx.yard_depth)
 
         # THE OWNER ROUTE FOR STEP 1, and ONE threshold decides it.  The site is "real"
         # from the SECOND leaf -- the same fact `bind` stamps `site_scoped` on and
@@ -745,14 +751,20 @@ class SiteReceiving:
         # threshold in one file is three things to keep in step.
         _solo = leaves[0] if len(self._leaves) <= 1 else None
 
+        _t = _perf.now()
         self._plan_arrivals(dock, transit, ctx, epoch, source, _solo)
+        _perf.add('inb_pack', _perf.now() - _t)
         work_order, yard_next = self._fill_doors(transit, ctx, epoch)
+        _yard_left0 = len(yard_next)
         # 3. the unload, per the allocation mode.  The DOOR-TEAM CAP is trailer physics
         #    (at most `cap` receivers can support one trailer's unload and pack at once),
         #    so it is read here once and applies in BOTH modes; None is today's uncapped
         #    dealing, byte-identically.  Only the standing transit carries it -- the v1
         #    path never reaches this method and never reads the knob.
         cap = getattr(transit, 'door_team', None)
+        # The unload's own seconds, NET of any yard ranking done inside it (the 'asap'
+        # fill re-ranks at every plug, and `transit.yard_order` charges that to inb_yplan).
+        _t, _y0 = _perf.now(), _perf.span('inb_yplan')
         if getattr(transit, 'door_fill', 'drain') == 'asap':
             # Doors plugged the instant they free or a trailer arrives, re-ranked at every
             # plug (`_unload_split_asap`).  The yard transit refuses 'asap' with 'merged'.
@@ -765,8 +777,14 @@ class SiteReceiving:
             done = self._unload_merged(dock, transit, deadline, epoch,
                                        work_order, yard_next, cap)
 
+        _perf.add('inb_unload', (_perf.now() - _t) - (_perf.span('inb_yplan') - _y0))
+        # Refills taken off the drain-frozen yard ranking during the unload (the ranking's
+        # consumed depth is the initial stagings, counted in `_fill_doors`, plus these).
+        _perf.count('yard_pulls', _yard_left0 - len(yard_next))
+        _t = _perf.now()
         self._hand_off(dock, done, _solo)
         left = self._count_remainders(transit, dock, deadline, _solo)
+        _perf.add('inb_handoff', _perf.now() - _t)
         # THE DRAIN'S ROW.  Two pairs, and they answer two different questions.  The START
         # pair is CONTENTION — standing trailers against free doors at freeze, which is
         # what "did the yard bind" means before anything was served.  The END pair is the
@@ -899,6 +917,7 @@ class SiteReceiving:
         yard_next = deque(transit.yard_order(ctx))
         while transit.free_doors > 0 and yard_next:
             transit.stage(yard_next.popleft(), epoch)
+            _perf.count('yard_pulls')
         # The drain-frozen DOCK ranking, over everything now staged (carried remainders
         # and fresh stagings alike): the allocation preference and the handoff order.
         work_order = transit.dock_order(ctx)
@@ -1032,6 +1051,7 @@ class SiteReceiving:
                              'says the same thing one level down, and this is where the '
                              'first `leaves[0]` would otherwise raise an IndexError')
         triggered: dict = {}
+        _t = _perf.now()
         # PHASE-MAJOR from here down: every leaf runs a phase before any leaf runs the next.
         # See `SITE_PHASES` for why (leaf-major loading makes every trailer channel-pure).
         for leaf in leaves:
@@ -1047,16 +1067,19 @@ class SiteReceiving:
             triggered[id(leaf)] = leaf._fire_reorders()
         for leaf in leaves:
             leaf._release_arrivals()
+        _perf.add('inb_pre', _perf.now() - _t)
         # SITE PHASE: ONE receive, for every leaf at once.  With one leaf the row comes back
         # and goes where it always went; with two it is site-scoped and `receive` parks it.
         row = self.receive(leaves, recv_deadline)
         if row is not None:
             leaves[0]._yard_drains.append(row)
+        _t = _perf.now()
         for leaf in leaves:
             if leaf.putaway_pool is None:
                 leaf.drain_putaway(put_deadline)
             else:
                 leaf.putaway_pool.drain(leaf, put_deadline)
+        _perf.add('put', _perf.now() - _t)
         return triggered
 
     # ── the unload modes: dock physics, and no leaf is reachable from either ───────

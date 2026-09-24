@@ -67,6 +67,7 @@ from math import exp
 
 import numpy as np
 
+from Warehouse.kernel import perf_probe as _perf
 from Inbound.priorities import (
     DockContext, _fifo_trailer, bounded_order, dock_key, local_key, yard_key)
 from Inbound.trailer import Trailer, Trailer53
@@ -528,14 +529,20 @@ class YardTransit(TrailerTransit):
         door.  Consumed front-first by every same-drain refill — no mid-drain re-score."""
         if ctx.plan_trace is not None:
             ctx.ranking = 'yard'
-        return bounded_order(list(self._yard), self._yard_key, ctx, self.bound)
+        _t = _perf.now()
+        out = bounded_order(list(self._yard), self._yard_key, ctx, self.bound)
+        _perf.add('inb_yplan', _perf.now() - _t)
+        return out
 
     def dock_order(self, ctx: DockContext) -> list:
         """The drain-frozen DOCK ranking over staged trailers: the crew-allocation
         preference, and the canonical handoff order's first key."""
         if ctx.plan_trace is not None:
             ctx.ranking = 'dock'
-        return bounded_order(list(self._staged), self._dock_key, ctx, self.bound)
+        _t = _perf.now()
+        out = bounded_order(list(self._staged), self._dock_key, ctx, self.bound)
+        _perf.add('inb_dplan', _perf.now() - _t)
+        return out
 
     @property
     def free_doors(self) -> int:

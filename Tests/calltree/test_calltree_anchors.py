@@ -162,7 +162,10 @@ def test_section_vocabulary_matches_strategy_runner():
     # derived sum of sample + task; kf is a sub-span of pre (an overlay, not a partition
     # member); p1/p2 are fast_pick's internal phase split, which the tracer sees inside
     # t_sim rather than beside it.
-    OVERLAY = {'build', 'kf', 'p1', 'p2'}
+    # The inbound carve (2026-09-24): overlays of reord charged from the inbound probe
+    # (`Warehouse.kernel.perf_probe`), which the tracer sees inside t_reord.
+    OVERLAY = {'build', 'kf', 'p1', 'p2', 'inb_pre', 'inb_freeze', 'inb_pack', 'inb_yplan',
+               'inb_dplan', 'inb_unload', 'inb_handoff', 'put', 'put_open'}
     assert traced <= accs, \
         f'the framework maps sections the worker no longer keeps: {sorted(traced - accs)}'
     assert accs - traced <= OVERLAY, \
