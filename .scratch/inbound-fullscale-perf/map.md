@@ -44,3 +44,5 @@ Plan: `~/.claude/plans/tender-roaming-dream.md`.
 | S07 | O8 analysis + O0 dispatch | analysis stage -30%; sim stage within 15% of bound | |
 | S08 | run B + ladders | T exponent 3.13 -> <= 2.5 | |
 | S09 | extrapolation | the 40-batch 11-cell campaign's predicted wall | |
+| S10 | vectorisation survey: picking + assignment functions (added 2026-09-24, the user's) | >= 3 candidates each >= 1% of arm wall and data-parallel | |
+| S11 | implement the survey's survivors, one commit each | each IDENTICAL; >= 1.5x on its own function | |
