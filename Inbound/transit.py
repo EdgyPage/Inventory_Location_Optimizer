@@ -63,13 +63,14 @@ and admissions carry `SOURCE = 'trailer'`, the fourth `PutawayItem` provenance.
 """
 from __future__ import annotations
 
+from collections import deque
 from math import exp
 
 import numpy as np
 
 from Warehouse.kernel import perf_probe as _perf
 from Inbound.priorities import (
-    DockContext, _fifo_trailer, bounded_order, dock_key, local_key, yard_key)
+    DockContext, LazyRanking, _fifo_trailer, bounded_order, dock_key, local_key, yard_key)
 from Inbound.trailer import Trailer, Trailer53
 
 #: The lead draw's DOMAIN TAG — the middle entropy word that keeps this stream disjoint
@@ -533,6 +534,18 @@ class YardTransit(TrailerTransit):
         out = bounded_order(list(self._yard), self._yard_key, ctx, self.bound)
         _perf.add('inb_yplan', _perf.now() - _t)
         return out
+
+    def yard_ranking(self, ctx: DockContext):
+        """`yard_order` as the PULL QUEUE a drain consumes front-first: a `LazyRanking`
+        for a gain entry (its unpulled rounds are never priced), a deque over the same
+        list for every other policy.  Same order either way; the one consumer that needs
+        the whole list at once -- none in `receiving` -- calls `yard_order`."""
+        if ctx.plan_trace is not None:
+            ctx.ranking = 'yard'
+        _t = _perf.now()
+        out = bounded_order(list(self._yard), self._yard_key, ctx, self.bound, lazy=True)
+        _perf.add('inb_yplan', _perf.now() - _t)
+        return out if isinstance(out, LazyRanking) else deque(out)
 
     def dock_order(self, ctx: DockContext) -> list:
         """The drain-frozen DOCK ranking over staged trailers: the crew-allocation

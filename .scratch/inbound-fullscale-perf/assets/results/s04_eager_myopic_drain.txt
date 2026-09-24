@@ -1,0 +1,4 @@
+eager: uni_rank_labor_norsl / gain_myopic, 1 door(s), fill drain, 10 batches
+  outcome   picks=39523 placements=82861 reorders=201 skipped=0
+  yard plan     3.37 s   dock plan   0.04 s   rounds    107   places     2262   T_sum 98  pulls 25
+  t_reord       3.83 s   wall     5.54 s

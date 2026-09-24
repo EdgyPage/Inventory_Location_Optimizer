@@ -12,10 +12,11 @@ WHAT IT MEASURES, and why each piece is here:
               queueing quantity in rho, and rho(N) is a non-monotone SAWTOOTH because `crew_size`
               takes a `ceil` (staffing.py:652) -- projected 0.446, 0.647, 0.525, 0.619, 0.694,
               0.837, 0.819 at N = 5k..400k.  Fitting anything against N is not a fit.
-  T           mean candidates per `plan_order` entry call, inverted from place_loads/entries,
-              which is exactly T(T+1).  Reported beside the OBSERVED yard depth: they are
-              independent measurements of the same quantity, and if they disagree the ladder is
-              measuring something other than the greedy.
+  T           mean candidates per gain entry call, counted at the call (`gain._traced`).
+              Until 2026-09-24 it was inverted from place_loads/entries = T(T+1); since the yard
+              plan went lazy (O1, `.scratch/inbound-fullscale-perf/`) a drain prices only the
+              trailers it pulls, so that inversion survives as `T_equiv` -- the depth an eager
+              plan would have needed to cost what this one did -- and no longer measures depth.
   multiplier  the priced drain over the unpriced drain, PAIRED within one rung.  Ticket 31's
               section 5 is why paired: an identical command ran 3.4x apart on two occasions, so no
               absolute wall survives a comparison across runs, and only a within-rung ratio does.
@@ -175,15 +176,19 @@ def _one(skus: int, batches: int, arm: str, policy: str,
              'keep_k3': 0, 'keep_k5': 0, 'keep_at_k': 0, 'opens_scored': 0,
              'run_bounds': 0, 'aisles': 0,
              'depths': [], 'deadline': None}
-    _po = gain.plan_order
+    # Entries are counted at `_traced`, the one frame every gain entry calls: since the
+    # yard plan went lazy (O1, `.scratch/inbound-fullscale-perf/`) a drain's yard ranking
+    # runs `plan_order_iter` and never calls `plan_order`, so a wrapper there saw only the
+    # dock's plans.
+    _po = gain._traced
     _pl = gain._Evaluator.place_load
     _mp = gain._Evaluator._make_pool
     _recv = rc.SiteReceiving.receive
 
-    def po(c, *a, **k):
+    def po(name, c, *a, **k):
         stats['entries'] += 1
         stats['depths'].append(len(c))
-        return _po(c, *a, **k)
+        return _po(name, c, *a, **k)
 
     def pl(self, *a, **k):
         stats['place_loads'] += 1
@@ -312,7 +317,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
         finally:
             stats['drain_s'] += time.perf_counter() - t
 
-    gain.plan_order, gain._Evaluator.place_load, gain._Evaluator._make_pool = po, pl, mp
+    gain._traced, gain._Evaluator.place_load, gain._Evaluator._make_pool = po, pl, mp
     rc.SiteReceiving.receive = recv
     try:
         t0 = time.perf_counter()
@@ -320,7 +325,7 @@ def _one(skus: int, batches: int, arm: str, policy: str,
                              coupled=coupled, min_catalogue=min_catalogue)
         stats['wall_s'] = time.perf_counter() - t0
     finally:
-        gain.plan_order, gain._Evaluator.place_load, gain._Evaluator._make_pool = _po, _pl, _mp
+        gain._traced, gain._Evaluator.place_load, gain._Evaluator._make_pool = _po, _pl, _mp
         rc.SiteReceiving.receive = _recv
         for _c, _t in _take_patched.items():
             _c.take = _t          # a patched CLASS outlives the rung if left alone
@@ -341,7 +346,8 @@ def _one(skus: int, batches: int, arm: str, policy: str,
 
     e = stats['entries']
     r = stats['place_loads'] / e if e else 0.0
-    stats['T'] = (-1 + math.sqrt(1 + 4 * r)) / 2 if r else 0.0
+    stats['T_equiv'] = (-1 + math.sqrt(1 + 4 * r)) / 2 if r else 0.0
+    stats['T'] = st.mean(stats['depths']) if stats['depths'] else 0.0
     stats['per_entry'] = r
     stats['max_depth'] = max(stats['depths']) if stats['depths'] else 0
     stats['cands_per_open'] = (stats['cands'] / stats['pools']) if stats['pools'] else 0.0

@@ -33,13 +33,14 @@ Plan: `~/.claude/plans/tender-roaming-dream.md`.
 
 | S | topic | prediction | outcome |
 |---|---|---|---|
-| S00 | anchors from existing roots and run.log | sim stage >= 1.6x its bound; analysis + parent setup >= 25% of wall | |
-| S01 | I0 inbound instrumentation | toy digests IDENTICAL; overhead < 0.5% | |
+| S00 | anchors from existing roots and run.log | sim stage >= 1.6x its bound; analysis + parent setup >= 25% of wall | REFUTED for the campaign (last launch 1.03x its bound; O0 dropped); a single-cell 400k run spends 35% of its wall in parent setup, and that finding became O9 |
+| S01 | I0 inbound instrumentation | toy digests IDENTICAL; overhead < 0.5% | MET: 6 cells IDENTICAL; overhead under the toy noise floor (de605170) |
 | S02 | run A | gmyopic inb_yplan >= 60% of reord; fifo put_open >= 50% of reord; sib_setup >= 50% of the unnamed gap | |
-| S03 | pull fraction | yard_pulls / yard_T in 0.3-0.5 | |
-| S04 | O1 lazy yard plan | shadow IDENTICAL; gmyopic reord -35% or more | |
-| S05 | O3 numpy boundary | pool opens >= 3x faster | |
-| S06 | O5/O4/O6/O7 | each IDENTICAL; together 3-10% of arm wall | |
+| S03 | pull fraction | yard_pulls / yard_T in 0.3-0.5 | 0.255, below the band (better than predicted); O1 kept |
+| S04 | O1 lazy yard plan | shadow IDENTICAL; gmyopic reord -35% or more | MET on the meso rung: 0 mismatches over 144 pulls; reord -58% (drain), -81% (asap), -24% (2-door gated) |
+| S05 | O3 numpy boundary | pool opens >= 3x faster | MET: template opens 4.6x / 4.8x faster, eager 2.6x / 3.0x |
+| S06 | O9 fill-curve memo (found in S00) | bit-identical; >= 2.5x on the curve | MET: 3.3x (358 -> 109 s per channel), bit-identical |
+| S06b | O5/O4/O6/O7 | each IDENTICAL; together 3-10% of arm wall | |
 | S07 | O8 analysis + O0 dispatch | analysis stage -30%; sim stage within 15% of bound | |
 | S08 | run B + ladders | T exponent 3.13 -> <= 2.5 | |
 | S09 | extrapolation | the 40-batch 11-cell campaign's predicted wall | |

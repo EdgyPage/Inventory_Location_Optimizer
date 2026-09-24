@@ -1,0 +1,5 @@
+shadow: uni_rank_labor_norsl / gain_gated, 2 door(s), fill drain, 10 batches
+  outcome   picks=39545 placements=83377 reorders=203 skipped=0
+  yard plan     3.62 s   dock plan   0.15 s   rounds    128   places     1730   T_sum 72  pulls 38
+  t_reord       4.22 s   wall     5.68 s
+  shadow: 10 rankings (9 lazy), 38 pulls checked, 0 MISMATCHES

@@ -53,6 +53,7 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 import calltree_scenarios as scenarios
+from Warehouse.kernel import perf_probe as _perf
 from calltree_tracer import CallTreeTracer, SECTIONS
 
 _OUT_DIR = os.path.join(_HERE, 'out')
@@ -83,10 +84,10 @@ _MESO_LADDERS: dict[str, list[dict]] = {
     # final yard depth not at all; the whistle took it 0 -> 2 -> 38 -> 59.
     #
     # FIT AGAINST MEASURED DEPTH, NOT AGAINST THE KNOB.  The whistle-to-depth map is nonlinear
-    # and saturating; the depth-to-cost map is the one under test.  `place_loads / plan_orders`
-    # inverts to T directly (it is exactly T(T+1)), so the rung's own x is available without a
-    # separate instrument -- and if the inverted T disagrees with the observed yard depth, the
-    # ladder is measuring something other than the greedy.
+    # and saturating; the depth-to-cost map is the one under test.  The rung's x is the mean
+    # standing yard at a drain's freeze, read off the inbound probe (`yard_T_sum / inb_drains`).
+    # It was `place_loads / plan_orders` inverted from T(T+1) until the yard plan went lazy
+    # (O1 of `.scratch/inbound-fullscale-perf/`), after which that ratio stopped being T's.
     #
     # Seconds are absolute and therefore CATALOGUE-SPECIFIC: these are calibrated for n_skus=600
     # on `_INBOUND_RECIPE`. A different catalogue size needs re-calibration, because what matters
@@ -696,14 +697,22 @@ _FLOW_COUNTS: dict[str, tuple[str, str | None]] = {
     # (unbounded) and the staged set (bounded by `doors`).  Splitting them by parent is the only
     # way to tell an O(T_yard^2) term from an O(doors^2) one; the totals cannot.
     # DEEP, and it has to be: the entry is reached through `priorities.bounded_order` and the
-    # arm's registry entry, so `plan_order` is a GRANDCHILD of the ranking call, never a direct
+    # arm's registry entry, so the plan is a GRANDCHILD of the ranking call, never a direct
     # child.  Declared direct, both of these read 0 for their whole life.
-    'yard_plans'        : ('gain:plan_order', 'transit:YardTransit.yard_order', True),
-    'dock_plans'        : ('gain:plan_order', 'transit:YardTransit.dock_order', True),
-    'plan_orders'       : ('gain:plan_order', None),
-    # The greedy's fan-out.  `plan_order` costs exactly T(T+1) `place_load` calls, so
-    # `place_loads / plan_orders` IS the measured T^2 -- the sharpest number this ladder can
-    # produce, and one that needs no fitting to read.
+    #
+    # ANCHORED ON `_traced`, THE ONE FRAME EVERY GAIN ENTRY CALLS, NOT ON `plan_order`.  Since
+    # O1 (`.scratch/inbound-fullscale-perf/`) a drain reads the YARD ranking as a pull queue
+    # (`YardTransit.yard_ranking`) over the generator `plan_order_iter`: creating a generator
+    # runs no frame, and its rounds execute later, under `LazyRanking.popleft`.  Anchored on
+    # `plan_order` the yard flow read 0 again.  `_traced` runs at the ranking call in both
+    # forms, once per entry call.
+    'yard_plans'        : ('gain:_traced', 'transit:YardTransit.yard_ranking', True),
+    'dock_plans'        : ('gain:_traced', 'transit:YardTransit.dock_order', True),
+    'plan_orders'       : ('gain:_traced', None),
+    # The greedy's fan-out.  An EAGER plan costs exactly T(T+1) `place_load` calls; a lazy
+    # yard plan costs p(2T - p + 1) for the p trailers the drain pulled, so the ratio
+    # `place_loads / plan_orders` no longer inverts to T and the yard knob reads its depth
+    # off the inbound probe instead (`_measured_yard_depth`).
     'place_loads'       : ('gain:_Evaluator.place_load', None),
     # The suspect.  Each open copies up to six whole-warehouse aisle dicts (`AISLE_COPIERS`);
     # measured at ~5 opens per `place_load`, so opens run at roughly 5*T^2 per entry call.
@@ -817,9 +826,11 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
         x = {'skus': assets.sizes['n_skus_sampled'], 'bins': assets.sizes['n_bins'],
              'batches': n_batches, 'pickers': build['n_pickers'],
              'yard': run_kw.get('recv_deadline') or 0.0}[knob]
+        _perf.drain()
         t0 = time.perf_counter()
         r_u = scenarios.run_meso(assets, n_batches=n_batches, seed=seed, **run_kw)
         wall = time.perf_counter() - t0
+        _probe = _perf.drain()[1]
         # Read off the UNTRACED instance -- the one whose wall and picks are reported -- and
         # read it before rebinding, so two warehouses are never alive at once.
         levels_u = _levels(assets.mgr)
@@ -853,16 +864,18 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
         per_en = ({k: flows[k] / _entries for k in _PER_ENTRY if flows.get(k)}
                   if _entries else {})
         if knob == 'yard':
-            # FIT AGAINST MEASURED DEPTH.  `plan_order` costs exactly T(T+1) `place_load` calls,
-            # so inverting the ratio recovers the mean T the greedy actually faced -- the one
-            # quantity whose relationship to cost is under test.  Fall back to the whistle only
-            # when the arm opened no evaluator at all (a fifo/fifo cell), where there is no T.
-            _r = per_en.get('place_loads')
-            if _r:
-                x = (-1.0 + math.sqrt(1.0 + 4.0 * _r)) / 2.0
+            # FIT AGAINST MEASURED DEPTH: the mean standing yard at a drain's freeze, off the
+            # inbound probe (`yard_T_sum / inb_drains`, `Inbound.receiving`).  This used to
+            # invert `place_loads / plan_orders` = T(T+1), which stopped holding when the yard
+            # plan went lazy (O1): a drain now prices only the trailers it pulls.  Fall back to
+            # the whistle only when no drain ran.
+            _d = _probe.get('inb_drains', 0)
+            if _d:
+                x = _probe.get('yard_T_sum', 0) / _d
                 print(f'      yard knob: whistle={run_kw.get("recv_deadline")}s -> '
-                      f'measured T={x:.2f} (from {_entries:,} entry calls); '
-                      f'final yard depth={levels_u.get("yard_depth", "n/a")}')
+                      f'measured T={x:.2f} (mean yard at freeze over {_d:,} drains; '
+                      f'{_entries:,} entry calls, {_probe.get("plan_rounds", 0):,} plan '
+                      f'rounds); final yard depth={levels_u.get("yard_depth", "n/a")}')
 
         results.append({'x': x, 'kwargs': kwargs, 'wall_s': wall,
                         'sections': r_u.sections, 'picks': r_u.picks,
@@ -883,7 +896,8 @@ def run_meso_ladder(knob: str, seed: int, config: str = 'none') -> dict:
             print('      per ENTRY CALL (n=%d): %s%s' % (
                 _entries,
                 ' '.join(f'{k}={v:,.1f}' for k, v in per_en.items()),
-                f'   -> implied T from T(T+1)={_t:.1f}' if _t else ''))
+                f'   -> T(T+1)-equivalent T={_t:.1f} (a lazy yard plan prices less than '
+                f'T(T+1): this is not the depth)' if _t else ''))
         # Per-placement ratios are NOT an inbound quantity and must not hide behind `per_en`.
         # Nested there, they never printed per-rung on any config but the inbound cells --
         # while still being computed and fitted, so the summary showed what the rungs did not.

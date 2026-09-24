@@ -974,13 +974,17 @@ def test_the_rider_plans_a_real_drain_through_the_driver_bundle(monkeypatch):
     # the plan is a choice rather than a formality.  The counter is the guard: a drain
     # that ranked a one-trailer yard would satisfy every assert below while proving
     # nothing about ordering.
+    #
+    # Both plan forms are spied: the dock ranking calls `plan_order`, the YARD ranking --
+    # the deep one -- is a pull queue over `plan_order_iter` (`transit.yard_ranking`).
+    import Inbound.gain as _gain
     ranked: list = []
-    real_plan = plan_order
+    real_iter = _gain.plan_order_iter
 
     def _spy(candidates, *a, **kw):
         ranked.append(len(candidates))
-        return real_plan(candidates, *a, **kw)
-    monkeypatch.setattr('Inbound.gain.plan_order', _spy)
+        return real_iter(candidates, *a, **kw)
+    monkeypatch.setattr('Inbound.gain.plan_order_iter', _spy)
 
     epoch = 10_000.0
     for sku, qty in ((101, 40), (102, 25), (103, 60)):

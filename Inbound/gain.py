@@ -927,7 +927,11 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
                forced_prefix=(), window_rates=None, shared=None,
                _ev: _Evaluator | None = None, trace: list | None = None,
                force_merge: bool = False, replay: bool = True) -> list:
-    """10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
+    """10's greedy over the frozen view, run to the end: `list(plan_order_iter(...))`.
+    The whole-order form every eager caller reads (the dock ranking, a traced drain, the
+    tests' oracle); the yard's pull queue reads the generator itself (`plan_order_iter`).
+
+    `bundle` is the owner PROVIDER the evaluator  `bundle` is the owner PROVIDER the evaluator
     resolves through (`OneOwnerBundle` on a single-channel run), never a bare
     `GainBundle`.  `forced_prefix` is the urgency gate's FIFO head — consumed first,
     unscored.  `window_rates` is the futuresight entry's
@@ -950,6 +954,31 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
     (`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is
     also an empty one -- takes the set-algebra path below, as does `replay=False`,
     which the equality tests use as the oracle."""
+    return list(plan_order_iter(candidates, bundle, space, predicted=predicted,
+                                forced_prefix=forced_prefix, window_rates=window_rates,
+                                shared=shared, _ev=_ev, trace=trace,
+                                force_merge=force_merge, replay=replay))
+
+
+def plan_order_iter(candidates, bundle, space, *, predicted: bool,
+                    forced_prefix=(), window_rates=None, shared=None,
+                    _ev: _Evaluator | None = None, trace: list | None = None,
+                    force_merge: bool = False, replay: bool = True):
+    """`plan_order`'s greedy as a GENERATOR: one winner per round, yielded the instant
+    its round has committed (`taken` updated, templates dropped, `remaining` cut).
+
+    WHY A GENERATOR IS THE SAME PLAN.  Round r's winner is a function of the frozen view,
+    the candidates and the takes of rounds 1..r-1 -- nothing a LATER round writes -- so
+    the first p values yielded ARE the first p entries of the full order, float for float,
+    however many are ever asked for.  A drain stages only its free doors plus the refills
+    its unload reaches (a quarter of the ranked trailers on the meso deep rung,
+    `.scratch/inbound-fullscale-perf/` S03), so the rounds nobody pulls are never priced:
+    p(2T - p + 1) placements instead of T(T + 1).  `plan_order` is `list()` of this, and
+    stays the oracle.
+
+    Nothing runs until the first `next()` -- not even the argument checks below -- so an
+    abandoned generator costs nothing but its frame.  The yard's pull queue
+    (`priorities.LazyRanking`) is the one caller that stops early."""
     if _ev is not None and window_rates is not None:
         raise ValueError(
             'plan_order got both a pre-built evaluator and window_rates: the hook '
@@ -975,7 +1004,8 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         return got
 
     if replay and _merge_only(ev, list(forced_prefix) + list(candidates), _load, predicted):
-        return _plan_order_replay(ev, candidates, forced_prefix, predicted, trace, _load)
+        yield from _plan_order_replay(ev, candidates, forced_prefix, predicted, trace, _load)
+        return
 
     out: list = []
     # `taken` is handed to every now-placement of every round and its id never moves;
@@ -986,6 +1016,7 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         ev.taken.update(map(id, takes))
         ev.drop_templates()      # `taken` moved in place; see `drop_templates`
         out.append(t)
+        yield t
     prefix_ids = {id(t) for t in out}
     remaining = [t for t in candidates if id(t) not in prefix_ids]
     while remaining:
@@ -1054,7 +1085,7 @@ def plan_order(candidates, bundle, space, *, predicted: bool,
         _perf.count('plan_rounds')
         _perf.count('plan_places', 2 * len(remaining))
         remaining = [r for r in remaining if r is not t]
-    return out
+        yield t
 
 
 def _merge_only(ev, loads, _load, predicted: bool) -> bool:
@@ -1100,9 +1131,9 @@ def _defer_reach(s, i: int) -> int:
 
 def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _load):
     """`plan_order`'s greedy for a MERGE-ONLY plan, every exclusion set read as a
-    frontier.  Returns the same order, writes the same trace records, leaves the same
-    `ev.taken` and `ev.unseated` (the set path is the oracle:
-    `Tests/unit/test_plan_order_merge_replay.py`).
+    frontier.  Yields the same order round by round (a generator, like `plan_order_iter`,
+    which delegates here), writes the same trace records, leaves the same `ev.taken` and
+    `ev.unseated` (the set path is the oracle: `Tests/unit/test_plan_order_merge_replay.py`).
 
     Why every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):
 
@@ -1135,6 +1166,7 @@ def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _l
             F[k] = fget(k, 0) + v
         ev.drop_templates()
         out.append(t)
+        yield t
     prefix_ids = {id(t) for t in out}
     remaining = [t for t in candidates if id(t) not in prefix_ids]
     while remaining:
@@ -1183,7 +1215,7 @@ def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _l
         _perf.count('plan_rounds')
         _perf.count('plan_places', 2 * len(remaining))
         remaining = [r for r in remaining if r is not t]
-    return out
+        yield t
 
 
 def plan_order_topm(candidates, bundle, space, *, predicted: bool, m: int,
@@ -1269,11 +1301,14 @@ TRACE_TOPM = (1, 2, 4)
 
 
 def _traced(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(),
-            window_rates=None) -> list:
+            window_rates=None, lazy: bool = False):
     """Every gain entry's ONE call into the plan -- and, when the drain carries a trace
     sink (`DockContext.plan_trace`, set only in a probe cell), the plan trace.
 
-    No sink: exactly the `plan_order` call each entry made before this existed.
+    No sink: exactly the `plan_order` call each entry made before this existed -- or, when
+    the caller asked for `lazy` (the yard's pull queue, `priorities.bounded_order`), the
+    same plan as a generator (`plan_order_iter`) whose unpulled rounds are never priced.
+    A traced drain is always eager: the trace's point is every round's gains.
 
     A sink: the SAME exact plan (its order is what the entry returns, so a traced cell
     ranks byte-identically to an untraced one) with its per-round gains recorded, then, on
@@ -1286,9 +1321,10 @@ def _traced(name, candidates, bundle, space, ctx, *, predicted: bool, forced_pre
     shared = getattr(ctx, 'gain_cache', None)
     sink = getattr(ctx, 'plan_trace', None)
     if sink is None:
-        return plan_order(candidates, bundle, space, predicted=predicted,
-                          forced_prefix=forced_prefix, window_rates=window_rates,
-                          shared=shared)
+        plan = plan_order_iter if lazy else plan_order
+        return plan(candidates, bundle, space, predicted=predicted,
+                    forced_prefix=forced_prefix, window_rates=window_rates,
+                    shared=shared)
     from time import perf_counter
     rounds: list = []
     t0 = perf_counter()
@@ -1361,23 +1397,25 @@ def _require(ctx, name: str):
 
 
 @ordering
-def gain_myopic(candidates, ctx) -> list:
+def gain_myopic(candidates, ctx, lazy: bool = False):
     """The unload plan over `ctx.space.empties` only — the predicted tier is
     invisible, so the arm's whole signal is contention for today's space."""
     bundle, space = _require(ctx, 'gain_myopic')
-    return _traced('gain_myopic', candidates, bundle, space, ctx, predicted=False)
+    return _traced('gain_myopic', candidates, bundle, space, ctx, predicted=False,
+                   lazy=lazy)
 
 
 @ordering
-def gain_forecast(candidates, ctx) -> list:
+def gain_forecast(candidates, ctx, lazy: bool = False):
     """The unload plan with the deferral pool including `predicted` — the standing
     demand's projected clears, the next drain's pool gain."""
     bundle, space = _require(ctx, 'gain_forecast')
-    return _traced('gain_forecast', candidates, bundle, space, ctx, predicted=True)
+    return _traced('gain_forecast', candidates, bundle, space, ctx, predicted=True,
+                   lazy=lazy)
 
 
 @ordering
-def gain_gated(candidates, ctx) -> list:
+def gain_gated(candidates, ctx, lazy: bool = False):
     """`gain_forecast` behind the FIFO urgency gate (module note): the URGENT SET is
     served FIFO ahead of the plan; hours and days meet ONLY here.  A stampless
     trailer (no clock reached the drain) accrues no yard days and is never urgent."""
@@ -1389,11 +1427,11 @@ def gain_gated(candidates, ctx) -> list:
               and (now - t.arrived_s) / SECONDS_PER_DAY >= due_days]
     urgent.sort(key=lambda t: (t.arrived_s, t.seq))
     return _traced('gain_gated', candidates, bundle, space, ctx, predicted=True,
-                   forced_prefix=urgent)
+                   forced_prefix=urgent, lazy=lazy)
 
 
 @ordering
-def futuresight(candidates, ctx) -> list:
+def futuresight(candidates, ctx, lazy: bool = False):
     """`gain_forecast` reading the window slot (module note) — the declared-unlawful
     CLAIRVOYANCE reference, never recommendable; it bounds pricing accuracy and NOT
     achievable gain, so it may legitimately finish behind a lawful arm (32).  An EMPTY
@@ -1410,13 +1448,18 @@ def futuresight(candidates, ctx) -> list:
             '(INBOUND_FUTURESIGHT_BATCHES set, script present).  None means no feed '
             'ran; an empty window at the end of the script is (), which is legal')
     return _traced('futuresight', candidates, bundle, space, ctx, predicted=True,
-                   window_rates=_window_rates(window))
+                   window_rates=_window_rates(window), lazy=lazy)
 
 
 # ── registration ──────────────────────────────────────────────────────────────────
 # Into BOTH standing registries: an arm sets both knobs to one name (05).  Import-time
 # registration rides the package __init__, so any consumer that can name a policy has
 # these resolvable; the seeded 'fifo'/'lifo' keys are untouched.
+# Every gain entry can answer LAZILY (`lazy=True` -> a generator over the same plan), and
+# says so: `priorities.bounded_order(lazy=True)` asks only an entry that declares it.
+for _entry in (gain_myopic, gain_forecast, gain_gated, futuresight):
+    _entry.LAZY = True
+del _entry
 for _registry in (YARD_POLICIES, DOCK_POLICIES):
     _registry['gain_myopic'] = gain_myopic
     _registry['gain_forecast'] = gain_forecast

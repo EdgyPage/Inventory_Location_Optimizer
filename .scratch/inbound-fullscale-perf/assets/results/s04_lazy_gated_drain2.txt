@@ -1,0 +1,4 @@
+lazy: uni_rank_labor_norsl / gain_gated, 2 door(s), fill drain, 10 batches
+  outcome   picks=39545 placements=83377 reorders=203 skipped=0
+  yard plan     1.51 s   dock plan   0.16 s   rounds     56   places      592   T_sum 72  pulls 38
+  t_reord       2.19 s   wall     4.16 s

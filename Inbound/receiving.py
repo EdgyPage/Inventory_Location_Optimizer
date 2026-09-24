@@ -74,8 +74,6 @@ an event-driven cadence is out of scope, inherited.
 """
 from __future__ import annotations
 
-from collections import deque
-
 from Warehouse.kernel import perf_probe as _perf
 from Warehouse.kernel.allocation import partition
 from Warehouse.kernel.regime import REGIMES, regime_of
@@ -913,8 +911,10 @@ class SiteReceiving:
         Returns `(work_order, yard_next)`: the ranking the allocation and the handoff both
         read, and the queue a freed door pulls its replacement from.
         """
-        # 2. the door fill — NOT budget-gated (yard-jockey work, not crew labour).
-        yard_next = deque(transit.yard_order(ctx))
+        # 2. the door fill — NOT budget-gated (yard-jockey work, not crew labour).  A PULL
+        # QUEUE, not a list: a gain ranking prices only the trailers actually staged (the
+        # fill here plus the unload's refills), `transit.yard_ranking`.
+        yard_next = transit.yard_ranking(ctx)
         while transit.free_doors > 0 and yard_next:
             transit.stage(yard_next.popleft(), epoch)
             _perf.count('yard_pulls')
@@ -1179,10 +1179,11 @@ class SiteReceiving:
             are both there.  Returns the trailer, or None."""
             if transit.free_doors <= 0:
                 return None
-            ranked = transit.yard_order(ctx)
+            # Only the head is staged, so only round one of a gain plan is priced.
+            ranked = transit.yard_ranking(ctx)
             if not ranked:
                 return None
-            nxt = ranked[0]
+            nxt = ranked.popleft()
             transit.stage(nxt, epoch + at_local)
             teams[id(nxt)] = []
             alive.append(nxt)

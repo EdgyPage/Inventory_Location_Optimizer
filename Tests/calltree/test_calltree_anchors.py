@@ -336,7 +336,9 @@ def test_every_flow_anchor_that_should_fire_does_fire():
     `('gain:plan_order', 'transit:YardTransit.yard_order')` — direct-child form — while the real
     chain runs `yard_order -> priorities.bounded_order -> <the arm's registry entry> ->
     plan_order`. Both symbols were in the tree (4 calls each) and both flows read 0 for their
-    whole life. Only a tree could tell.
+    whole life. Only a tree could tell.  It would have happened AGAIN when the yard plan went
+    lazy (O1, 2026-09-24): a drain stopped calling `yard_order` at all, and this test is what
+    refused the old anchor.
     """
     import calltree_growth as cg
     from calltree_tracer import CallTreeTracer

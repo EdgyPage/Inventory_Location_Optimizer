@@ -23,6 +23,7 @@ Run:  python -m pytest Tests/unit/test_reorder_phases.py -q
 from __future__ import annotations
 
 import random
+from collections import deque
 
 import pytest
 
@@ -298,6 +299,9 @@ class _EmptyYard:
 
     def yard_order(self, ctx):
         return []
+
+    def yard_ranking(self, ctx):
+        return deque()
 
     def dock_order(self, ctx):
         return []

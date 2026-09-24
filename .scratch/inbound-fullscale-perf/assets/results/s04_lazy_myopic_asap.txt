@@ -1,0 +1,4 @@
+lazy: uni_rank_labor_norsl / gain_myopic, 1 door(s), fill asap, 10 batches
+  outcome   picks=39501 placements=82866 reorders=201 skipped=0
+  yard plan     1.19 s   dock plan   0.08 s   rounds     33   places      442   T_sum 101  pulls 3
+  t_reord       1.72 s   wall     3.56 s

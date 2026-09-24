@@ -47,6 +47,10 @@ arrival order, the same degenerate case that keeps `'fifo'` keys inert.
 """
 from __future__ import annotations
 
+from collections import deque
+
+from Warehouse.kernel import perf_probe as _perf
+
 
 class DockContext:
     """Everything a priority key may see, frozen once per drain.
@@ -216,19 +220,32 @@ def dock_key(policy: str):
     return DOCK_POLICIES[policy]
 
 
-def bounded_order(candidates: list, entry, ctx, bound: int | None) -> list:
+def bounded_order(candidates: list, entry, ctx, bound: int | None, *,
+                  lazy: bool = False):
     """The entry's order, bounded.  A KEY entry: repeatedly take the best-keyed of the
     `bound` longest-waiting remaining candidates (arrival order = input order) — stable
     on key ties, like the put drain.  An `@ordering` entry: bound FIRST, then order —
     one call, on a copy of the `bound` longest-waiting candidates, the remainder
     following in arrival order.  None = the entry's order stands unbounded, either
-    kind."""
+    kind.
+
+    `lazy=True` (the yard's pull queue, `YardTransit.yard_ranking`) asks an ordering entry
+    that declares `LAZY` for its order as a generator and returns a `LazyRanking` over it:
+    the same order, computed only as far as it is pulled.  Every other case -- a key
+    entry, an entry without `LAZY`, an entry that answered with a list anyway (a traced
+    drain) -- returns the list this function always returned."""
     if not candidates:
         return []
     if getattr(entry, 'ORDERING', False):
         cut = len(candidates) if bound is None else max(1, bound)
         window, rest = candidates[:cut], candidates[cut:]
-        out = list(entry(list(window), ctx))
+        if lazy and getattr(entry, 'LAZY', False):
+            got = entry(list(window), ctx, lazy=True)
+            if not isinstance(got, list):
+                return LazyRanking(got, window, rest, getattr(entry, '__name__', repr(entry)))
+            out = got
+        else:
+            out = list(entry(list(window), ctx))
         if sorted(map(id, out)) != sorted(map(id, window)):
             name = getattr(entry, '__name__', repr(entry))
             detail = (f'returned {len(out)} of {len(window)}'
@@ -248,3 +265,71 @@ def bounded_order(candidates: list, entry, ctx, bound: int | None) -> list:
         best = max(range(len(window)), key=lambda i: (entry(window[i], ctx), -i))
         out.append(remaining.pop(best))
     return out
+
+
+def _not_a_permutation(name: str, detail: str) -> ValueError:
+    return ValueError(
+        f'ordering entry {name!r} must return a permutation of its candidates '
+        f'({detail}) — a dropped trailer stands in the yard forever and a '
+        f'duplicated one stages twice, neither with an error')
+
+
+class LazyRanking:
+    """A drain's YARD ranking as a pull queue: `bounded_order`'s order for a lazy
+    ordering entry, computed one trailer per `popleft()` (`.scratch/inbound-fullscale-perf/`
+    O1).  The surface is the deque the drain always consumed (`popleft`, `len`, truth):
+    `len` is how many trailers are still to come -- known without pricing any of them.
+
+    THE PERMUTATION CHECK MOVES TO THE PULL.  `bounded_order` checked the whole order at
+    once; a queue that is never drained to the end cannot, so each pull is checked
+    instead -- the trailer must be one of the window's and not one already pulled -- and
+    the completeness half runs the moment the window is exhausted (the generator must then
+    stop, having yielded exactly the window).  A drain that stops early has pulled a prefix
+    of a permutation, which is all it ever consumed of one.
+
+    Each pull's seconds are the yard plan's (`inb_yplan`): that is where the rounds are
+    now priced.  The window's remainder (`rest`, past the bound) follows in arrival order,
+    as it always did."""
+
+    __slots__ = ('_it', '_window', '_seen', '_in_window', '_rest', '_left', '_name')
+
+    def __init__(self, it, window: list, rest: list, name: str):
+        self._it = iter(it)
+        self._window = {id(t) for t in window}
+        self._seen: set = set()
+        self._in_window = len(window)
+        self._rest = deque(rest)
+        self._left = len(window) + len(rest)
+        self._name = name
+
+    def __len__(self) -> int:
+        return self._left
+
+    def __bool__(self) -> bool:
+        return self._left > 0
+
+    def popleft(self):
+        if self._left <= 0:
+            raise IndexError('pop from an exhausted yard ranking')
+        if self._in_window:
+            _t = _perf.now()
+            try:
+                t = next(self._it, None)
+                if t is None:
+                    raise _not_a_permutation(
+                        self._name, f'stopped after {len(self._seen)} of '
+                                    f'{len(self._window)}')
+                if id(t) not in self._window or id(t) in self._seen:
+                    raise _not_a_permutation(
+                        self._name, 'a duplicated or foreign object stands in')
+                self._seen.add(id(t))
+                self._in_window -= 1
+                if not self._in_window and next(self._it, None) is not None:
+                    raise _not_a_permutation(
+                        self._name, f'more than the {len(self._window)} handed in')
+            finally:
+                _perf.add('inb_yplan', _perf.now() - _t)
+        else:
+            t = self._rest.popleft()
+        self._left -= 1
+        return t
