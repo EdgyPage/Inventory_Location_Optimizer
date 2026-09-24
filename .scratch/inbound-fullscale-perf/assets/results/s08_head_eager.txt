@@ -1,0 +1,6 @@
+  lead   960  T= 1.50 (max   4)  places      70  yplan    0.46 s  reord    0.76 s  picks 39430 placements 82338
+  lead   480  T= 2.50 (max   7)  places     158  yplan    0.85 s  reord    1.28 s  picks 39443 placements 82515
+  lead   240  T= 4.90 (max  18)  places     578  yplan    1.77 s  reord    2.27 s  picks 39474 placements 82638
+  lead   120  T= 6.60 (max  25)  places    1038  yplan    2.51 s  reord    3.02 s  picks 39476 placements 82677
+  lead     0  T= 9.80 (max  36)  places    2262  yplan    3.21 s  reord    3.68 s  picks 39523 placements 82861
+head_O3_only: log-log slope vs T  places 1.86  yplan 1.06  reord 0.85

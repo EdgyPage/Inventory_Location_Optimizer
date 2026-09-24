@@ -1,12 +1,21 @@
 ---
 name: aisle-best-is-what-a-pool-open-now-costs
-description: "After the 2026-09-20 round, 72% of a campaign-shape pool open is _TravelBalancedPool._aisle_best -- 11,212 calls, one per live aisle per SKU-run boundary, to seat 12 units"
+description: "SUPERSEDED 2026-09-24 by 9a72f8a7: the SKU-run boundary is a numpy matrix op (_TravelVec/_MinLabVec), template opens 4.6-4.8x faster; was 72% of a campaign-shape pool open in _aisle_best"
 metadata:
   node_type: memory
   type: project
   originSessionId: a4c74e51-996b-422d-b1f0-8a05cf2f5ade
   modified: 2026-09-20T07:06:10.627Z
 ---
+
+**SUPERSEDED 2026-09-24 (commit 9a72f8a7, O3 of `.scratch/inbound-fullscale-perf/`).**  The
+count was kept and the scan moved into C: the bucket heads are a matrix built once per
+pool, a boundary is `PP[Mi] + Dh` with an argmin per row, and `_MinLaborPool`'s walk is a
+stable argsort plus a running min/max.  Takes and scores are identical.  Campaign-shape
+opens went 16.6 -> 3.6 ms (travel template) and 28.5 -> 5.9 ms (minlabor template).  The
+eager path went 2.6-3.0x, and what is left of an eager open is the pool's own construction
+over ~22k candidate bins.  `test_placement_selection_is_not_a_scan.py` now pins ZERO
+per-aisle Python calls at a boundary.  The history below is kept for context.
 
 The phase-2 performance round (2026-09-20) cut the pool PROLOGUE from 3.685 ms to
 effectively nothing, which moved a campaign-shape open from 13.35 ms to 9.23 ms. A

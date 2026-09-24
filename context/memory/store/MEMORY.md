@@ -140,7 +140,7 @@
 - [Phases one and two are sequencing-independent](phases-one-and-two-are-sequencing-independent.md) — PHASE2_STAFFING_PIN is a label digest, not a completion check
 - [A new column needs two more lists than the schema](a-new-column-needs-two-more-lists-than-the-schema.md) — frames._bdf and series.py are unseen by unit tests
 - [Meso ladder cannot size a pool open](meso-ladder-cannot-size-the-pool-prologue.md) — 74 buckets vs 4,200, T≈3 vs 25; a 1.4x win reads as a regression
-- [_aisle_best is what a pool open now costs](aisle-best-is-what-a-pool-open-now-costs.md) — 72% of the residue: live_aisles × SKU-run boundaries
+- [_aisle_best is what a pool open now costs](aisle-best-is-what-a-pool-open-now-costs.md) — SUPERSEDED by 9a72f8a7: the boundary is numpy now, opens 4.6x faster
 - [Phase 2 binds the reference catalogue](phase2-binds-the-reference-catalogue-not-the-default.md) — without --profiles-dir the staffing pin refuses 4 minutes in
 - [The gain sweep cannot be made incremental](the-gain-sweep-cannot-be-made-incremental.md) — every commit invalidates EVERY candidate; reuse potential is zero
 - [Trailer bound buys wall with discrimination](the-trailer-bound-buys-wall-with-discrimination.md) — REFUTED: 2.1x faster, keeps 12% of the gap to fifo
@@ -158,3 +158,6 @@
 - [Unloading order is the turnover lever](unloading-order-is-the-turnover-lever.md) — puts run FIFO+-few, so velocity-aware placement = unloading order; multi-picker aisles a non-issue
 - [Yard drain quantises the wait](yard-drain-quantises-the-wait.md) — once-a-day drain made 6.7 h of k10 yard wait; --inbound-door-fill asap cuts it to 0.7 h
 - [Sort-match: two sorted lists](sortmatch-two-sorted-lists.md) — rank_sortmatch beats rank_cartlabor 0.8-1.0% at k10, ties rank_minlabor, 2.2x faster put-away
+- [Lazy yard plan](lazy-yard-plan.md) — since 626daa92 a drain prices only the trailers it stages; asap plugs price one round
+- [Perf probes must be unpinned](perf-probes-must-be-unpinned.md) — PHASE2_STAFFING_PIN refuses the current derivation ~20 min into a 400k run
+- [Parent setup is a third of a 400k probe](parent-setup-is-a-third-of-a-400k-probe.md) — 19-23 min freeze; fill curve memoised (a515a34d), line-floor solve not
