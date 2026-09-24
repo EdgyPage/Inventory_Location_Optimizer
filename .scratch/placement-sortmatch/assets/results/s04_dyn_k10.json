@@ -1,0 +1,362 @@
+[
+ {
+  "cell": "k1_off_fifo",
+  "channel": "store",
+  "arm": "opt_rank_cartlabor_norsl",
+  "packs": 25920,
+  "work": {
+   "recorded/cost": 2701457.4202617854,
+   "uniform/cost": 2906753.6902639247,
+   "cheapest/cost": 2615931.819442441,
+   "batch_tmin/cost": 2677193.950499523,
+   "quantile/visits": 2871584.84020663,
+   "ideal/visits": 2714258.7157225567,
+   "batch_sort/cost": 2613667.3889153292,
+   "batch_sort/visits": 2614700.878004641,
+   "qscale:batch0.25/visits": 2609721.850279835,
+   "qscale:batch/visits": 2639462.691612189
+  },
+  "wall": {
+   "recorded/cost": 0.005402500057243742,
+   "uniform/cost": 0.24373279996507335,
+   "cheapest/cost": 0.24142200000642333,
+   "batch_tmin/cost": 0.35729720001108944,
+   "quantile/visits": 0.4219546999956947,
+   "ideal/visits": 0.616675999990548,
+   "batch_sort/cost": 0.3699242000147933,
+   "batch_sort/visits": 0.3741701000108151,
+   "qscale:batch0.25/visits": 0.5477584999898681,
+   "qscale:batch/visits": 0.5464102000114508
+  }
+ },
+ {
+  "cell": "k1_off_fifo",
+  "channel": "store",
+  "arm": "uni_fifo_norsl",
+  "packs": 25911,
+  "work": {
+   "recorded/cost": 2872140.0857591964,
+   "uniform/cost": 2874037.0619884646,
+   "cheapest/cost": 2601192.71110363,
+   "batch_tmin/cost": 2679508.541295543,
+   "quantile/visits": 2833649.1621171637,
+   "ideal/visits": 2828130.604277528,
+   "batch_sort/cost": 2574438.7213249565,
+   "batch_sort/visits": 2573849.664824289,
+   "qscale:batch0.25/visits": 2590305.2485435656,
+   "qscale:batch/visits": 2603171.7878102404
+  },
+  "wall": {
+   "recorded/cost": 0.01184679995640181,
+   "uniform/cost": 0.4034294000011869,
+   "cheapest/cost": 0.336511299959966,
+   "batch_tmin/cost": 0.6123159999988275,
+   "quantile/visits": 0.3715444999252213,
+   "ideal/visits": 0.4174941999663133,
+   "batch_sort/cost": 0.3037822000478627,
+   "batch_sort/visits": 0.3949875999678625,
+   "qscale:batch0.25/visits": 0.5825071000290336,
+   "qscale:batch/visits": 0.573071799983154
+  }
+ },
+ {
+  "cell": "k1_off_fifo",
+  "channel": "store",
+  "arm": "uni_rank_cartlabor_norsl",
+  "packs": 25817,
+  "work": {
+   "recorded/cost": 2739254.0321904244,
+   "uniform/cost": 2943203.323774678,
+   "cheapest/cost": 2641736.7228268264,
+   "batch_tmin/cost": 2725988.1441221843,
+   "quantile/visits": 2904526.230218121,
+   "ideal/visits": 2785937.6589134587,
+   "batch_sort/cost": 2640397.7087948606,
+   "batch_sort/visits": 2637503.55490295,
+   "qscale:batch0.25/visits": 2631844.3770633545,
+   "qscale:batch/visits": 2664472.343501531
+  },
+  "wall": {
+   "recorded/cost": 0.005916999987675808,
+   "uniform/cost": 0.36178360000485554,
+   "cheapest/cost": 0.31686470001295675,
+   "batch_tmin/cost": 0.5682515999942552,
+   "quantile/visits": 0.5629946999397362,
+   "ideal/visits": 0.6605517999851145,
+   "batch_sort/cost": 0.3897654999309452,
+   "batch_sort/visits": 0.3966843999369303,
+   "qscale:batch0.25/visits": 0.5849306000309298,
+   "qscale:batch/visits": 0.5742370000225492
+  }
+ },
+ {
+  "cell": "k1_off_fifo",
+  "channel": "fulfillment",
+  "arm": "opt_rank_minlabor_norsl",
+  "packs": 217738,
+  "work": {
+   "recorded/cost": 7341742.373498815,
+   "uniform/cost": 8241585.123498833,
+   "cheapest/cost": 6620629.456832158,
+   "batch_tmin/cost": 6709163.290165486,
+   "quantile/visits": 8333064.040165492,
+   "ideal/visits": 7540274.748498844,
+   "batch_sort/cost": 6692324.165165492,
+   "batch_sort/visits": 6541704.12349881,
+   "qscale:batch0.25/visits": 6716944.123498831,
+   "qscale:batch/visits": 7018248.956832166
+  },
+  "wall": {
+   "recorded/cost": 0.1062785999965854,
+   "uniform/cost": 1.990124099975219,
+   "cheapest/cost": 1.8353880000067875,
+   "batch_tmin/cost": 2.059416699994472,
+   "quantile/visits": 78.59705120000581,
+   "ideal/visits": 75.37360429999535,
+   "batch_sort/cost": 1.8653003000217723,
+   "batch_sort/visits": 1.6462441999901785,
+   "qscale:batch0.25/visits": 77.0735571999976,
+   "qscale:batch/visits": 72.1542722999875
+  }
+ },
+ {
+  "cell": "k1_off_fifo",
+  "channel": "fulfillment",
+  "arm": "uni_fifo_norsl",
+  "packs": 217045,
+  "work": {
+   "recorded/cost": 7756964.502010183,
+   "uniform/cost": 7765002.335343488,
+   "cheapest/cost": 5995031.002010229,
+   "batch_tmin/cost": 6341289.918676795,
+   "quantile/visits": 7899365.085343372,
+   "ideal/visits": 7812413.085343664,
+   "batch_sort/cost": 6330541.002010149,
+   "batch_sort/visits": 6139721.252010133,
+   "qscale:batch0.25/visits": 6094650.918676766,
+   "qscale:batch/visits": 6588173.043676776
+  },
+  "wall": {
+   "recorded/cost": 0.13679740000225138,
+   "uniform/cost": 2.1173988999944413,
+   "cheapest/cost": 1.9663577000028454,
+   "batch_tmin/cost": 2.1826740999968024,
+   "quantile/visits": 75.7069525999832,
+   "ideal/visits": 76.48920100000396,
+   "batch_sort/cost": 1.8306027999933576,
+   "batch_sort/visits": 1.829253800024162,
+   "qscale:batch0.25/visits": 77.66072479999275,
+   "qscale:batch/visits": 73.66887989999668
+  }
+ },
+ {
+  "cell": "k1_off_fifo",
+  "channel": "fulfillment",
+  "arm": "uni_rank_minlabor_norsl",
+  "packs": 216614,
+  "work": {
+   "recorded/cost": 7342218.930537184,
+   "uniform/cost": 8153828.388870567,
+   "cheapest/cost": 6582108.847203749,
+   "batch_tmin/cost": 6665334.513870588,
+   "quantile/visits": 8244567.055537224,
+   "ideal/visits": 7619346.055537298,
+   "batch_sort/cost": 6650514.34720385,
+   "batch_sort/visits": 6483286.763870509,
+   "qscale:batch0.25/visits": 6675339.555537176,
+   "qscale:batch/visits": 6994767.638870471
+  },
+  "wall": {
+   "recorded/cost": 0.10456010000780225,
+   "uniform/cost": 1.9078444999904605,
+   "cheapest/cost": 1.7630747000075644,
+   "batch_tmin/cost": 1.9779682000080356,
+   "quantile/visits": 74.50413139998273,
+   "ideal/visits": 78.93090630001097,
+   "batch_sort/cost": 1.7448169000126654,
+   "batch_sort/visits": 1.6710101000062423,
+   "qscale:batch0.25/visits": 75.64030410001578,
+   "qscale:batch/visits": 69.75725960001
+  }
+ },
+ {
+  "cell": "k1_off_lifo",
+  "channel": "store",
+  "arm": "opt_rank_cartlabor_norsl",
+  "packs": 26245,
+  "work": {
+   "recorded/cost": 2751415.8027465786,
+   "uniform/cost": 2956804.5122773857,
+   "cheapest/cost": 2660219.8865241767,
+   "batch_tmin/cost": 2724077.270341926,
+   "quantile/visits": 2918326.418440414,
+   "ideal/visits": 2752585.7025614628,
+   "batch_sort/cost": 2656057.7813622286,
+   "batch_sort/visits": 2660950.066463903,
+   "qscale:batch0.25/visits": 2651579.1531210537,
+   "qscale:batch/visits": 2686436.708721555
+  },
+  "wall": {
+   "recorded/cost": 0.00926879997132346,
+   "uniform/cost": 0.48707029993238393,
+   "cheapest/cost": 0.5130399000190664,
+   "batch_tmin/cost": 0.7702995000145165,
+   "quantile/visits": 0.6920875000068918,
+   "ideal/visits": 0.8188197999552358,
+   "batch_sort/cost": 0.5064874999807216,
+   "batch_sort/visits": 0.40985430000000633,
+   "qscale:batch0.25/visits": 0.6121360999968601,
+   "qscale:batch/visits": 0.6120743999927072
+  }
+ },
+ {
+  "cell": "k1_off_lifo",
+  "channel": "store",
+  "arm": "uni_fifo_norsl",
+  "packs": 25779,
+  "work": {
+   "recorded/cost": 2846272.2547068237,
+   "uniform/cost": 2848246.0862384564,
+   "cheapest/cost": 2582437.967686982,
+   "batch_tmin/cost": 2666513.111249728,
+   "quantile/visits": 2809486.5704489243,
+   "ideal/visits": 2812926.8226985876,
+   "batch_sort/cost": 2551996.529488524,
+   "batch_sort/visits": 2553335.575702479,
+   "qscale:batch0.25/visits": 2565298.7664927896,
+   "qscale:batch/visits": 2576964.7251650766
+  },
+  "wall": {
+   "recorded/cost": 0.0151109000435099,
+   "uniform/cost": 0.4473877000127686,
+   "cheapest/cost": 0.4387926999479532,
+   "batch_tmin/cost": 0.6638652999972692,
+   "quantile/visits": 0.5954301000456326,
+   "ideal/visits": 0.6959924999973737,
+   "batch_sort/cost": 0.4415491999970982,
+   "batch_sort/visits": 0.4327065999532351,
+   "qscale:batch0.25/visits": 0.6150364000204718,
+   "qscale:batch/visits": 0.5979557000682689
+  }
+ },
+ {
+  "cell": "k1_off_lifo",
+  "channel": "store",
+  "arm": "uni_rank_cartlabor_norsl",
+  "packs": 25784,
+  "work": {
+   "recorded/cost": 2716724.29291301,
+   "uniform/cost": 2902706.659289968,
+   "cheapest/cost": 2643159.53217458,
+   "batch_tmin/cost": 2718726.963389038,
+   "quantile/visits": 2871105.682453266,
+   "ideal/visits": 2756839.661312883,
+   "batch_sort/cost": 2640153.8119107736,
+   "batch_sort/visits": 2641553.971864059,
+   "qscale:batch0.25/visits": 2633912.4116565282,
+   "qscale:batch/visits": 2660340.9743568986
+  },
+  "wall": {
+   "recorded/cost": 0.009265000058803707,
+   "uniform/cost": 0.43752819998189807,
+   "cheapest/cost": 0.36598949995823205,
+   "batch_tmin/cost": 0.6085801000299398,
+   "quantile/visits": 0.5955887000018265,
+   "ideal/visits": 0.6550464000320062,
+   "batch_sort/cost": 0.35435530000540894,
+   "batch_sort/visits": 0.3833846999768866,
+   "qscale:batch0.25/visits": 0.4854310999653535,
+   "qscale:batch/visits": 0.367734899991774
+  }
+ },
+ {
+  "cell": "k1_off_lifo",
+  "channel": "fulfillment",
+  "arm": "opt_rank_minlabor_norsl",
+  "packs": 215412,
+  "work": {
+   "recorded/cost": 7385176.927300557,
+   "uniform/cost": 8144942.968967237,
+   "cheapest/cost": 6656031.760633833,
+   "batch_tmin/cost": 6754456.052300498,
+   "quantile/visits": 8260786.802300542,
+   "ideal/visits": 7514413.343967434,
+   "batch_sort/cost": 6733615.718967269,
+   "batch_sort/visits": 6604468.468967126,
+   "qscale:batch0.25/visits": 6760487.093967227,
+   "qscale:batch/visits": 7082233.510633943
+  },
+  "wall": {
+   "recorded/cost": 0.07928659999743104,
+   "uniform/cost": 1.442897400003858,
+   "cheapest/cost": 1.156052100006491,
+   "batch_tmin/cost": 1.7286524999944959,
+   "quantile/visits": 70.82993239999632,
+   "ideal/visits": 77.28571090000332,
+   "batch_sort/cost": 2.045022300007986,
+   "batch_sort/visits": 2.1168889999971725,
+   "qscale:batch0.25/visits": 71.16547700001684,
+   "qscale:batch/visits": 69.82917869997618
+  }
+ },
+ {
+  "cell": "k1_off_lifo",
+  "channel": "fulfillment",
+  "arm": "uni_fifo_norsl",
+  "packs": 221950,
+  "work": {
+   "recorded/cost": 7912896.180283708,
+   "uniform/cost": 7940279.55528369,
+   "cheapest/cost": 6199599.971950261,
+   "batch_tmin/cost": 6483638.138616904,
+   "quantile/visits": 8050379.971950472,
+   "ideal/visits": 8000207.596950568,
+   "batch_sort/cost": 6475478.888617034,
+   "batch_sort/visits": 6252232.513616944,
+   "qscale:batch0.25/visits": 6278513.888616894,
+   "qscale:batch/visits": 6719578.388616916
+  },
+  "wall": {
+   "recorded/cost": 0.132743499983917,
+   "uniform/cost": 2.2160734000062803,
+   "cheapest/cost": 1.9361536000214983,
+   "batch_tmin/cost": 2.3580920999811497,
+   "quantile/visits": 73.20865039998898,
+   "ideal/visits": 81.22535649999918,
+   "batch_sort/cost": 1.1032210999983363,
+   "batch_sort/visits": 1.1330524000222795,
+   "qscale:batch0.25/visits": 56.24083370000881,
+   "qscale:batch/visits": 64.10297699998773
+  }
+ },
+ {
+  "cell": "k1_off_lifo",
+  "channel": "fulfillment",
+  "arm": "uni_rank_minlabor_norsl",
+  "packs": 220079,
+  "work": {
+   "recorded/cost": 7537447.577137112,
+   "uniform/cost": 8485127.160470549,
+   "cheapest/cost": 6759953.32713717,
+   "batch_tmin/cost": 6839693.868803913,
+   "quantile/visits": 8558654.49380391,
+   "ideal/visits": 7834463.743804021,
+   "batch_sort/cost": 6825711.785470538,
+   "batch_sort/visits": 6639724.118803986,
+   "qscale:batch0.25/visits": 6846399.910470454,
+   "qscale:batch/visits": 7140927.827137126
+  },
+  "wall": {
+   "recorded/cost": 0.11377539999375585,
+   "uniform/cost": 2.1759640999953263,
+   "cheapest/cost": 1.8322915000026114,
+   "batch_tmin/cost": 2.0632808999798726,
+   "quantile/visits": 72.1515439000068,
+   "ideal/visits": 73.70324269999401,
+   "batch_sort/cost": 1.9691571000003023,
+   "batch_sort/visits": 1.8299038000113796,
+   "qscale:batch0.25/visits": 69.88118130000657,
+   "qscale:batch/visits": 75.80948419999913
+  }
+ }
+]

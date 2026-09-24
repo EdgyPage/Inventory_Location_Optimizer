@@ -17,8 +17,9 @@
 <pre class="sig"><code>def take(self, unit)</code></pre>
 <section class="doc">(bin, score) for one unit; (None, None) when every aisle is drained.
 
-`score` is the chosen bin&#x27;s travel cost D -- the float the aisle argmin compared,
-so reporting it is one dict read and no arithmetic.</section>
+`score` is the chosen bin&#x27;s ranking value -- travel D, or the arm&#x27;s own `bin_key`
+(`rank_sortmatch`: D + hbar M) -- the float the aisle argmin compared, so reporting
+it is one dict read and no arithmetic.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___RankedAssignPool__heap_key.html"><code>_heap_key</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_inventory_Inventory_Management_py__Inventory_Manager__stock_ranked.html"><code>_stock_ranked</code></a> <span class="dim">Warehouse/inventory/Inventory_Management.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___RankedAssignPool_take">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20take">Source ↗</a></p>
 </article>

@@ -71,7 +71,7 @@ def test_state_names_is_the_manager_spelling_of_the_same_books():
 # ── the registry ──────────────────────────────────────────────────────────────────
 
 def test_every_restock_key_has_exactly_one_record():
-    assert len(_RESTOCKS) == len(POLICY_BY_KEY) == len(RESTOCK_KEYS) == 17
+    assert len(_RESTOCKS) == len(POLICY_BY_KEY) == len(RESTOCK_KEYS) == 18
     assert tuple(POLICY_BY_KEY) == RESTOCK_KEYS, 'the derived key order moved'
 
 

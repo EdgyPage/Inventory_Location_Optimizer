@@ -2259,6 +2259,13 @@ class Inventory_Manager(PlanningMixin, OptimalLayoutMixin, ReorderMixin, ZoningM
                 # per group, exactly as the wave took -- the candidate set never depended on
                 # the order, because every unit in a group shares a BinKey.
                 pool = self.placement.open_pool(self._candidates(units[0]), units[0])
+                # A pool that decides its pairing for the WHOLE group (an index match:
+                # `Assignment_Functions._SortMatchPool`) is shown the group before anyone is
+                # served, so a narrow window changes who goes first but not which bin each
+                # unit gets.  No other pool has the hook, and for them this is nothing.
+                prepare = getattr(pool, 'prepare', None)
+                if prepare is not None:
+                    prepare(units)
                 taken = []
                 for unit in self._serve_order(pool, units, window, put_key):
                     bin_, score = pool.take(unit)

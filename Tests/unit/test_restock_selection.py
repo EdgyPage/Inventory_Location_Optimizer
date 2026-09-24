@@ -306,7 +306,7 @@ def test_the_artifact_lands_at_the_run_root_and_states_its_metric(run_root):
     assert on_disk['run']['cell'] == 'k1_off'
 
 
-def test_all_seventeen_rules_are_recorded_not_just_the_cut(tmp_path):
+def test_every_rule_is_recorded_not_just_the_cut(tmp_path):
     """The full ranking, so a later reader can see how close the decision was."""
     from Optimization.config.strategies import _RESTOCKS
     root = str(tmp_path / 'run')
@@ -314,7 +314,7 @@ def test_all_seventeen_rules_are_recorded_not_just_the_cut(tmp_path):
     _leaf(root, 'k1_off', 'prof_a', 'store', _arms(**every))
     _layout(root, ['k1_off'])
     store = sel.select(root, log=lambda *_a: None)['channels']['store']
-    assert len(store['ranking']) == len(_RESTOCKS) == 17
+    assert len(store['ranking']) == len(_RESTOCKS) == 18
     assert len(store['chosen']) == 5
 
 

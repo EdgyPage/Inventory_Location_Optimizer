@@ -6242,7 +6242,7 @@ files:
       - {name: "test_a_gain_bundle_really_is_built_for_the_rider", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_faithful_set_is_the_one_the_driver_actually_accepts", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_artifact_lands_at_the_run_root_and_states_its_metric", file: "Tests/unit/test_restock_selection.py", kind: "function"}
-      - {name: "test_all_seventeen_rules_are_recorded_not_just_the_cut", file: "Tests/unit/test_restock_selection.py", kind: "function"}
+      - {name: "test_every_rule_is_recorded_not_just_the_cut", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_a_multi_cell_run_is_refused", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_an_unanalyzed_run_says_what_to_run", file: "Tests/unit/test_restock_selection.py", kind: "function"}
       - {name: "test_the_rule_pairs_are_the_rank_diagonal_not_the_sorted_arm_set", file: "Tests/unit/test_restock_selection.py", kind: "function"}
@@ -6768,6 +6768,22 @@ files:
       - {name: "test_identity_membership_not_location_membership", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_duplicate_add_rejected", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
       - {name: "test_discard_absent_is_noop_and_empty_is_falsy", file: "Tests/unit/test_sorted_bins_container.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_sortmatch_pool.py":
+    purpose: "Pins rank_sortmatch: bins walked in ascending D + hbar M, packs by lifetime work, the scipy optimum under one SKU law, prepare() keeping the index match under FIFO service, and the hook inert for every other pool."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_takes_walk_the_bins_in_ascending_key_and_exhaust_them", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_order_is_the_lifetime_work_key_highest_first", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_one_law_pairing_is_the_exact_optimum", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_hbar_is_the_demand_weighted_line_cost", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_without_a_bin_key_the_ranked_pool_still_ranks_by_travel", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_a_frozen_tier_refuses_a_custom_bin_key", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_prepared_pairing_under_the_full_order_is_the_greedy_one", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_fifo_service_keeps_the_index_match", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_without_prepare_fifo_service_would_have_paired_differently", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_the_drain_prepares_a_pool_that_asks_and_only_that_pool", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
+      - {name: "test_a_missing_line_cost_refuses_rather_than_guessing", file: "Tests/unit/test_sortmatch_pool.py", kind: "function"}
     notes: ""
   "Tests/unit/test_space_timeline.py":
     purpose: "the standing dock's space view, and its neutrality."
@@ -7775,6 +7791,8 @@ files:
       - {name: "freeze_tier", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_uniform_aisle_trip_min_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_co_demand_placement", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "sortmatch_hbar", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
+      - {name: "build_sortmatch_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_minimizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_minimizing_pool_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}
       - {name: "build_ranked_maximizing_assignment_fn", file: "Warehouse/placement/Assignment_Functions.py", kind: "function"}

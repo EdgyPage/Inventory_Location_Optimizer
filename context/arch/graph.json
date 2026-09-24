@@ -8436,6 +8436,11 @@
       "src": "Optimization/config/strategies.py"
     },
     {
+      "dst": "Optimization/config/strategies.py::_build_sortmatch",
+      "kind": "ref",
+      "src": "Optimization/config/strategies.py"
+    },
+    {
       "dst": "Optimization/config/strategies.py::_build_trip_max",
       "kind": "ref",
       "src": "Optimization/config/strategies.py"
@@ -8624,6 +8629,21 @@
       "dst": "Warehouse/placement/Assignment_Functions.py::build_uniform_aisle_trip_min_assignment_fn",
       "kind": "calls",
       "src": "Optimization/config/strategies.py::_build_rank_popularity"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn",
+      "kind": "calls",
+      "src": "Optimization/config/strategies.py::_build_sortmatch"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_trip_minimizing_assignment_fn",
+      "kind": "calls",
+      "src": "Optimization/config/strategies.py::_build_sortmatch"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::sortmatch_hbar",
+      "kind": "calls",
+      "src": "Optimization/config/strategies.py::_build_sortmatch"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_ranked_maximizing_pool_fn",
@@ -21106,6 +21126,11 @@
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.take",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take",
       "kind": "dispatch",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
@@ -21147,6 +21172,11 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::build_optmap_wave_fn.place_wave",
+      "kind": "dispatch",
+      "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool",
       "kind": "dispatch",
       "src": "Warehouse/inventory/Inventory_Management.py::Inventory_Manager._stock_ranked"
     },
@@ -23326,6 +23356,21 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool._heap_key",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool._pop"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool._pop",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.prepare"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool._pop",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.take"
+    },
+    {
       "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.__init__"
@@ -23721,6 +23766,26 @@
       "src": "Warehouse/placement/Assignment_Functions.py::build_ranked_uniform_pool_fn"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::SpeedProfile",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::height_multiplier",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool.pack_key"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_travel_or_cohesion",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::build_trip_maximizing_assignment_fn"
@@ -23744,6 +23809,11 @@
       "dst": "Warehouse/placement/frozen_tier.py::FrozenTier",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::freeze_tier"
+    },
+    {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::sortmatch_hbar"
     },
     {
       "dst": "Warehouse/kernel/cost_model.py",
@@ -34955,6 +35025,14 @@
       "kind": "function",
       "module": "Optimization/config/strategies.py",
       "name": "_build_rank_popularity",
+      "public": false
+    },
+    {
+      "file": "Optimization/config/strategies.py",
+      "id": "Optimization/config/strategies.py::_build_sortmatch",
+      "kind": "function",
+      "module": "Optimization/config/strategies.py",
+      "name": "_build_sortmatch",
       "public": false
     },
     {
@@ -55975,6 +56053,46 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_SortMatchPool",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool._pop",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_pop",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.prepare",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "prepare",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.take",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool",
       "kind": "class",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -56727,6 +56845,30 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build_sortmatch_pool_fn",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "open_pool",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool.pack_key",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "pack_key",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::build_trip_maximizing_assignment_fn",
       "kind": "const",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -56763,6 +56905,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "freeze_tier",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::sortmatch_hbar",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "sortmatch_hbar",
       "public": true
     },
     {

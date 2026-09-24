@@ -276,6 +276,20 @@ _ENTRIES = [
         notes='Maximise within-aisle span — farthest from the centroid. Counter control; '
               'the `comp` to `expn` gap measures what the co-demand lever is worth.',
     ),
+
+    # ── sort-match (`.scratch/placement-sortmatch/`) ────────────────────────────
+    Objective(
+        rule='rank_sortmatch', label='SortMatch', family='travel', sense='min',
+        stage='ranked_wave',
+        symbol='build_sortmatch_pool_fn', module=_AF,
+        builder=f'_build_sortmatch@{_STRAT}',
+        latex=r'$\min \sum_u w_u\,c_{\pi(u)},\ \ w_u = \tfrac{Q_u}{E[q]}(\bar D + h_u \bar M),'
+              r'\ c_b = D_b + \bar h\, M_b$',
+        notes='Two sorted lists sharing an index: the drain\'s packs by expected lifetime '
+              'pick work, highest first, take its bins by travel-plus-height cost, lowest '
+              'first (the rearrangement inequality). Unlike `tmin` the bin cost carries the '
+              'height multiplier, which is most of the store\'s at-location cost.',
+    ),
 ]
 
 #: restock key -> Objective.  The registry the run catalog and the site both read.

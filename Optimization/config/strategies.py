@@ -29,6 +29,8 @@ from Warehouse.placement.Assignment_Functions import (
     build_ranked_cartlabor_pool_fn,
     build_ranked_minlabor_pool_fn,
     build_ranked_maxlabor_pool_fn,
+    build_sortmatch_pool_fn,
+    sortmatch_hbar,
     build_optmap_fn,
     build_optmap_wave_fn,
     build_optmap_pool_fn,
@@ -232,6 +234,23 @@ def _build_trip_min(mgr, ctx: StrategyContext) -> None:
             ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta))
 
 
+def _build_sortmatch(mgr, ctx: StrategyContext) -> None:
+    """Two sorted lists sharing an index: a drain's packs by expected lifetime pick work
+    onto its bins by D + hbar M (`build_sortmatch_pool_fn`, `.scratch/placement-sortmatch/`).
+    Stragglers fall back to `tmin`'s per-unit rule, as tmin's own do."""
+    mgr.placement = Placement(
+        'sortmatch',
+        build_trip_minimizing_assignment_fn(
+            ctx.affinity, ctx.wp,
+            ctx.ledger,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku, beta=ctx.beta),
+        open_pool=build_sortmatch_pool_fn(
+            ctx.affinity, ctx.wp,
+            ctx.ledger,
+            ctx.freq_by_idx, ctx.freq_by_sku, ctx.qty_by_sku,
+            hbar=sortmatch_hbar(ctx.orders, ctx.wp)))
+
+
 def _build_trip_max(mgr, ctx: StrategyContext) -> None:
     mgr.placement = Placement(
         'ranked_max',
@@ -384,6 +403,14 @@ _RESTOCKS: list[PlacementPolicy] = [
                     needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
     PlacementPolicy('expn', 'Expand', _build_expansion,                  # co-demand max-span
                     needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3_POS),
+    # APPENDED, never inserted: a rule's grid position is its place in every derived list
+    # (RESTOCK_KEYS, the uni/opt strategy grid), so a new rule goes last.  Colours are NOT
+    # position-stable across a new rule -- `_hsv_hex(i, _N_STRATEGIES)` divides the hue
+    # wheel by the grid size, so every arm's hue shifts when one is added (2026-09-24,
+    # 34 -> 36 strategies).  Colour lives in `sim_meta.json` and figures only, never in a
+    # database table, so no digest sees it.
+    PlacementPolicy('rank_sortmatch', 'SortMatch', _build_sortmatch,     # 2 sorted lists
+                    needs_affinity=True, needs_demand=True, ledger_terms=_RANKED3),
 ]
 
 #: restock key -> its policy record.  The one lookup every derived list below goes through.

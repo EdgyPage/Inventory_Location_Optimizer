@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>build_sortmatch_pool_fn · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py__build_sortmatch_pool_fn" data-id="Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>build_sortmatch_pool_fn</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>build_sortmatch_pool_fn</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def build_sortmatch_pool_fn(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, hbar)</code></pre>
+<section class="doc">`open_pool` for `rank_sortmatch` -- TWO SORTED LISTS SHARING AN INDEX
+(`.scratch/placement-sortmatch/`).
+
+The group&#x27;s packs, sorted by their expected lifetime pick work, take the group&#x27;s
+candidate bins sorted by one bin cost, in order: the most expensive pack to the
+cheapest bin, the next to the next.  That is the rearrangement inequality, and it is
+exact wherever a pack&#x27;s cost at a bin factors as (pack weight) x (bin cost); the
+billing law has two bin terms (travel D, height M), so the bin cost folds them with
+the catalogue&#x27;s mean line cost `hbar` (`sortmatch_hbar`):
+
+    bin key   D_b + hbar M_b                     D = x_pace x + y_pace y, M the
+                                                 height bracket&#x27;s multiplier
+    pack key  visits_u (Dbar + h_u Mbar)         visits = max(1, Q / E[q]), the
+                                                 lines the pack will serve;
+                                                 h_u = I + E[q] (p + v_s); Dbar,
+                                                 Mbar the group&#x27;s candidate means
+
+The machinery is `_RankedAssignPool`&#x27;s -- per-aisle deques sorted by the key and one
+heap over the aisle heads, which walks the whole group in ascending key order without
+a scan -- with the key in place of D and the pack key in place of the pick-effort
+priority (so no co-occurrence term).  The lab measured it at -10.4% realised store
+pick work against the uniform draw, where the recorded `rank_cartlabor` placements
+reach -6.9% (S04), and it spreads lines across aisles rather than piling them (S05).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_config_strategies_py___build_sortmatch.html"><code>_build_sortmatch</code></a> <span class="dim">Optimization/config/strategies.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py__build_sortmatch_pool_fn">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20build_sortmatch_pool_fn">Source ↗</a></p>
+</article>
+</main>
+</body></html>

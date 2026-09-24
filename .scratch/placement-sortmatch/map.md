@@ -39,20 +39,31 @@ stop and ask the user.  Never fit on the data that verifies.
 
 | S | topic | status |
 |---|---|---|
-| S00 | lab anchors | open |
-| S01 | exact replay evaluator for merge bundles | open |
-| S02 | A1 tmin-M (billing-consistent keys) | open |
-| S03 | A2 exact per-group reduced LAP | open |
-| S04 | A3a online quantile match vs map | open |
-| S05 | aisle ceiling | open |
-| S06 | wiring finalists | open |
-| S07 | 40k simulation | open |
+| S00 | lab anchors | done -- recorded fifo = uniform draw; occupancy model 0 violations (S02-S05) |
+| S01 | exact replay evaluator for merge bundles | done -- bit-identical, 15x at campaign shape (c6e3ec54) |
+| S02 | A1 billing-consistent keys | done -- 99% of the exact optimum's saving (static) |
+| S03 | A2 exact per-group LAP | survives the rule, not wired: +0.16 pts static at 3,500x cost |
+| S04 | A3a online quantile | refuted as registered; scaled quantile rescues it (S02-S05) |
+| S05 | aisle ceiling | refuted in sortmatch's favour: lowers the busiest aisle |
+| S06 | wiring `rank_sortmatch` | done -- `_toy_priced` IDENTICAL; prepare() for FIFO queues |
+| S07 | 40k simulation | done -- store 0.8-1.0% below rank_cartlabor at k10; ff ties rank_minlabor; put-away 2.2x faster |
 | S08 | 400k wall | open |
-| S09+ | transfers to every placement assignment function | open |
+| S09 | transfers to the other assignment functions | early-stop refuted for both balance pools (S09) |
 
 ## Decisions so far
 
-(none yet)
+- **Two sorted lists, as an arm** (S06-S07): `rank_sortmatch` -- packs by lifetime pick
+  work onto bins by D + hbar M, the pairing fixed per group so FIFO service keeps it.
+  Store pick labour 0.8-1.0% below the phase-1 winner at 10x demand (significant), a tie
+  in fulfillment, the put-away drain 2.2x faster and the ranking work 10-15x cheaper.
+- **Frontier replay** (S01, c6e3ec54): merge plans priced 15x faster, bit-identical.
+- **The lab overstates magnitudes, not rankings**: routing keeps ~25% of the separable
+  store gain and co-location cancels the fulfillment one (S07 residual).
+- **Early stopping does not transfer** to the balance pools: their objectives keep every
+  aisle competitive (S09).  The only lever left there is vectorising the scan -- the
+  user's call.
+- Replacing rank_cartlabor / rank_minlabor, or retiring `plan_order`, remains the user's
+  decision.
 
 ## Fog
 

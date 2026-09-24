@@ -957,6 +957,24 @@ SPECS = {
         'run_defaults': PHASE2_RUN_DEFAULTS,
         'ranking': FILL_RANKING,
     },
+    # THE SORT-MATCH PROBE (`.scratch/placement-sortmatch/` S07): does the lab's finalist --
+    # `rank_sortmatch`, a drain's packs by lifetime pick work onto its bins by D + hbar M --
+    # keep its realised-work lead once the simulator routes pickers, swaps carts and bills
+    # put-away?  Against phase 1's winner pair, `tmin` (the same two-sorted-lists machinery
+    # with travel-only keys) and the fifo rider, both stock modes, fifo unloading only (the
+    # order is exchangeable below the dock gate, aisle-churn S12).  Same run-level grid flags
+    # as `_churn_probe`: 8 units per grid point.
+    '_sortmatch_probe': {
+        'ks': [1], 'losses': [0.0], 'zoning': [('off', {'enabled': False})],
+        'schedulers': ['lpt'],
+        'rule_pairs': [('rank_sortmatch', 'rank_sortmatch'), PHASE2_WINNER,
+                       ('tmin', 'tmin'), PHASE2_RIDER],
+        'inbound': [e for e in phase2_inbound_axis() if e[0] == 'fifo'],
+        'unpinned': 'a research grid over the declared demand, like `_churn_probe`; it binds the 40k perf catalogue',
+        'reference': 'k1_off_fifo',
+        'run_defaults': PHASE2_RUN_DEFAULTS,
+        'ranking': FILL_RANKING,
+    },
     # The door lever's toy: fifo at the campaign's four doors and at one, where the door-team
     # cap seats 10 of the crew.  Proves a scarce cell builds, runs and records its own door
     # count end to end in ~2 minutes, before `_probe_door_depth` spends campaign hours on it.

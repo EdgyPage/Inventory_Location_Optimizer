@@ -32,6 +32,9 @@ POOLED = {
     'cluster_map', 'cluster_map_rank', 'compaction', 'expansion', 'optmap', 'optmap_rank',
     'ranked_cartlabor', 'ranked_labor', 'ranked_maxlabor', 'ranked_minlabor',
     'ranked_popularity', 'ranked_uniform', 'ranked_max', 'ranked_min',
+    # 2026-09-24: `rank_sortmatch` (`.scratch/placement-sortmatch/`) -- a new pooled
+    # rule, `_RankedAssignPool` with its own bin and pack keys.
+    'sortmatch',
 }
 #: No group path at all — these three already drained FIFO and are why "the assignment
 #: functions choose the order" was 14 of 17 rather than all 17.

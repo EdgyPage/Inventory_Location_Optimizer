@@ -9115,6 +9115,13 @@
       "kind": "function",
       "signature": "(mgr, ctx: StrategyContext) -> None"
     },
+    "Optimization/config/strategies.py::_build_sortmatch": {
+      "decorators": [],
+      "doc": "Two sorted lists sharing an index: a drain's packs by expected lifetime pick work\nonto its bins by D + hbar M (`build_sortmatch_pool_fn`, `.scratch/placement-sortmatch/`).\nStragglers fall back to `tmin`'s per-unit rule, as tmin's own do.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(mgr, ctx: StrategyContext) -> None"
+    },
     "Optimization/config/strategies.py::_build_trip_max": {
       "decorators": [],
       "doc": null,
@@ -27504,7 +27511,7 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None, aisle_key=None)"
+      "signature": "(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize, aisle_selector=None, order_key=None, aisle_key=None, bin_key=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.__len__": {
       "decorators": [],
@@ -27545,7 +27552,41 @@
     },
     "Warehouse/placement/Assignment_Functions.py::_RankedAssignPool.take": {
       "decorators": [],
-      "doc": "(bin, score) for one unit; (None, None) when every aisle is drained.\n\n`score` is the chosen bin's travel cost D -- the float the aisle argmin compared,\nso reporting it is one dict read and no arithmetic.",
+      "doc": "(bin, score) for one unit; (None, None) when every aisle is drained.\n\n`score` is the chosen bin's ranking value -- travel D, or the arm's own `bin_key`\n(`rank_sortmatch`: D + hbar M) -- the float the aisle argmin compared, so reporting\nit is one dict read and no arithmetic.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_SortMatchPool": {
+      "decorators": [],
+      "doc": "`rank_sortmatch`'s pool: `_RankedAssignPool` with its bin and pack keys, plus the\none thing an index match needs that a greedy heap does not -- the WHOLE GROUP.\n\nServed in the pool's own order (`order`), each take pops the cheapest remaining bin, so\nthe j-th pack by key gets the j-th bin by key: two sorted lists sharing an index.  But\nthe drain does not always grant that order.  A queue with `k_cap = 1` (the store pallet\nqueue: no floor to re-sort pallets on, `put_queue.store_and_fulfillment`) serves in\nARRIVAL order, and a greedy pool then hands each arriving pallet the cheapest bin left\n-- velocity-blind.  So `prepare(units)`, called by the drain with the group before it\nserves anyone, fixes the pairing up front: packs by key onto bins by key, index for\nindex.  `take` then returns each unit its own bin in whatever order the units come.\nAssignment uses the lookahead the dock physically has (the packs waiting in the\ngroup); execution stays FIFO -- the user's constraint on real put-away.\n\nUnder the full order the planned pairing IS the greedy one, bin for bin: the global\norder `prepare` sorts by is the heap's own, (key, aisle rank, position in the aisle),\nwhich `Tests/unit/test_sortmatch_pool.py` pins.  A unit `prepare` never saw (the audit\ntests call `take` directly) falls back to the cheapest bin still free.",
+      "kind": "class",
+      "signature": "(_RankedAssignPool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, *a, **kw)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_SortMatchPool._pop": {
+      "decorators": [],
+      "doc": "The heap's next bin, advancing its aisle -- `take`'s selection and head move,\nwithout the ledger commit (that belongs to whichever unit ends up with the bin).\nThe same pop-advance-repush `_RankedAssignPool.take` does, so the sequence of bins\nthis yields IS the greedy's.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.prepare": {
+      "decorators": [],
+      "doc": "Fix the pairing for the whole group: `order(units)` onto the heap's first\nlen(units) bins, index for index -- O(n log A), not a sort of the tier.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, units) -> None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_SortMatchPool.take": {
+      "decorators": [],
+      "doc": null,
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit)"
@@ -28206,6 +28247,27 @@
       "kind": "function",
       "signature": "(*a, rng=None, **kw)"
     },
+    "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn": {
+      "decorators": [],
+      "doc": "`open_pool` for `rank_sortmatch` -- TWO SORTED LISTS SHARING AN INDEX\n(`.scratch/placement-sortmatch/`).\n\nThe group's packs, sorted by their expected lifetime pick work, take the group's\ncandidate bins sorted by one bin cost, in order: the most expensive pack to the\ncheapest bin, the next to the next.  That is the rearrangement inequality, and it is\nexact wherever a pack's cost at a bin factors as (pack weight) x (bin cost); the\nbilling law has two bin terms (travel D, height M), so the bin cost folds them with\nthe catalogue's mean line cost `hbar` (`sortmatch_hbar`):\n\n    bin key   D_b + hbar M_b                     D = x_pace x + y_pace y, M the\n                                                 height bracket's multiplier\n    pack key  visits_u (Dbar + h_u Mbar)         visits = max(1, Q / E[q]), the\n                                                 lines the pack will serve;\n                                                 h_u = I + E[q] (p + v_s); Dbar,\n                                                 Mbar the group's candidate means\n\nThe machinery is `_RankedAssignPool`'s -- per-aisle deques sorted by the key and one\nheap over the aisle heads, which walks the whole group in ascending key order without\na scan -- with the key in place of D and the pack key in place of the pick-effort\npriority (so no co-occurrence term).  The lab measured it at -10.4% realised store\npick work against the uniform draw, where the recorded `rank_cartlabor` placements\nreach -6.9% (S04), and it spreads lines across aisles rather than piling them (S05).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku, hbar)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, rep=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::build_sortmatch_pool_fn.open_pool.pack_key": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(u)"
+    },
     "Warehouse/placement/Assignment_Functions.py::build_trip_maximizing_assignment_fn": {
       "decorators": [],
       "doc": null,
@@ -28240,6 +28302,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(cands, wp) -> FrozenTier"
+    },
+    "Warehouse/placement/Assignment_Functions.py::sortmatch_hbar": {
+      "decorators": [],
+      "doc": "{id(regime wp): hbar} -- the demand-weighted mean at-location cost of one pick LINE\nover the catalogue, per regime:\n\n    hbar = sum_s f_s (I + E[q_s] (p + v_s)) / sum_s f_s\n\n`I`, `p` from the SKU's own regime parameters (`_wp_for`), `E[q]` the SKU's stamped\nline law, `v` its handle variance.  It is the rate at which a bin's height multiplier\ntrades against its travel D for the average line, so `D + hbar M` is ONE number that\nranks bins the way the billing law does for a typical pack (`build_sortmatch_pool_fn`).\nKeyed by the resolved parameter object so a single-regime run (no `by_regime` map) has\none entry and a mixed one has one per regime.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(orders, wp) -> dict"
     },
     "Warehouse/placement/Capacity_Reloader.py": {
       "decorators": [],

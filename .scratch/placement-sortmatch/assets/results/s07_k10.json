@@ -1,0 +1,223 @@
+{
+ "root": "comparison_20260924_141943",
+ "window": [
+  0,
+  40
+ ],
+ "rows": [
+  {
+   "channel": "fulfillment",
+   "mode": "uni",
+   "arm": "uni_fifo_norsl",
+   "total_pct": 0.08789313031569712,
+   "paired_pct": 0.12972283604847454,
+   "ci_pct": [
+    0.03587604114511542,
+    0.2839434131755417
+   ]
+  },
+  {
+   "channel": "fulfillment",
+   "mode": "uni",
+   "arm": "uni_rank_minlabor_norsl",
+   "total_pct": -0.008794151507396375,
+   "paired_pct": -0.0049913222178894654,
+   "ci_pct": [
+    -0.14008383591903154,
+    0.18945193015878126
+   ]
+  },
+  {
+   "channel": "fulfillment",
+   "mode": "uni",
+   "arm": "uni_tmin_norsl",
+   "total_pct": -0.021310357145776226,
+   "paired_pct": -0.03228509407698379,
+   "ci_pct": [
+    -0.20241326539708693,
+    0.19373514268346956
+   ]
+  },
+  {
+   "channel": "fulfillment",
+   "mode": "opt",
+   "arm": "opt_fifo_norsl",
+   "total_pct": 0.07403729195198938,
+   "paired_pct": 0.09886008375751272,
+   "ci_pct": [
+    -0.08330634599853033,
+    0.3543501508443276
+   ]
+  },
+  {
+   "channel": "fulfillment",
+   "mode": "opt",
+   "arm": "opt_rank_minlabor_norsl",
+   "total_pct": -0.09303399488039821,
+   "paired_pct": -0.11119943308145493,
+   "ci_pct": [
+    -0.3238596179711629,
+    0.05933004928571498
+   ]
+  },
+  {
+   "channel": "fulfillment",
+   "mode": "opt",
+   "arm": "opt_tmin_norsl",
+   "total_pct": 0.03538564680412026,
+   "paired_pct": 0.0663752009829486,
+   "ci_pct": [
+    -0.14113270379518292,
+    0.27053194981005607
+   ]
+  },
+  {
+   "channel": "store",
+   "mode": "uni",
+   "arm": "uni_fifo_norsl",
+   "total_pct": 2.666756144196891,
+   "paired_pct": 2.7742766991678907,
+   "ci_pct": [
+    1.9380874452566086,
+    3.4530368310048645
+   ]
+  },
+  {
+   "channel": "store",
+   "mode": "uni",
+   "arm": "uni_rank_cartlabor_norsl",
+   "total_pct": 0.7403546805760497,
+   "paired_pct": 0.7783827893935815,
+   "ci_pct": [
+    0.4477106082125869,
+    1.0511712646278397
+   ]
+  },
+  {
+   "channel": "store",
+   "mode": "uni",
+   "arm": "uni_tmin_norsl",
+   "total_pct": 2.042143450835754,
+   "paired_pct": 2.15263002659767,
+   "ci_pct": [
+    1.4057267916889287,
+    2.649717698428491
+   ]
+  },
+  {
+   "channel": "store",
+   "mode": "opt",
+   "arm": "opt_fifo_norsl",
+   "total_pct": 4.05324640312108,
+   "paired_pct": 4.547521696392176,
+   "ci_pct": [
+    3.452726151350968,
+    5.379663921251355
+   ]
+  },
+  {
+   "channel": "store",
+   "mode": "opt",
+   "arm": "opt_rank_cartlabor_norsl",
+   "total_pct": 0.6420976782326449,
+   "paired_pct": 0.9785206823213306,
+   "ci_pct": [
+    0.4214052824319029,
+    1.5947200876120968
+   ]
+  },
+  {
+   "channel": "store",
+   "mode": "opt",
+   "arm": "opt_tmin_norsl",
+   "total_pct": 2.9852211937448025,
+   "paired_pct": 3.1721365545054607,
+   "ci_pct": [
+    2.1267160237768903,
+    3.9787477737122985
+   ]
+  }
+ ],
+ "runtime": {
+  "fulfillment/opt_fifo_norsl": {
+   "reord_s": 50.79211629991187,
+   "inv_s": 0.09248089996981435,
+   "total_s": 167.69558459999098
+  },
+  "fulfillment/opt_rank_minlabor_norsl": {
+   "reord_s": 124.12123869998322,
+   "inv_s": 0.07697400001052301,
+   "total_s": 231.71772339999734
+  },
+  "fulfillment/opt_rank_sortmatch_norsl": {
+   "reord_s": 62.88087329993141,
+   "inv_s": 0.09433549997629598,
+   "total_s": 179.08655059999728
+  },
+  "fulfillment/opt_tmin_norsl": {
+   "reord_s": 71.76514460003818,
+   "inv_s": 0.0885157999000512,
+   "total_s": 187.964229899997
+  },
+  "fulfillment/uni_fifo_norsl": {
+   "reord_s": 49.90104879999126,
+   "inv_s": 0.09120490001805592,
+   "total_s": 167.43406379999942
+  },
+  "fulfillment/uni_rank_minlabor_norsl": {
+   "reord_s": 134.80862809994142,
+   "inv_s": 0.08417659993574489,
+   "total_s": 246.35654780000914
+  },
+  "fulfillment/uni_rank_sortmatch_norsl": {
+   "reord_s": 65.42829220007116,
+   "inv_s": 0.10024159995373338,
+   "total_s": 184.82750430000306
+  },
+  "fulfillment/uni_tmin_norsl": {
+   "reord_s": 73.93692260001262,
+   "inv_s": 0.09460750001017004,
+   "total_s": 193.75858409999637
+  },
+  "store/opt_fifo_norsl": {
+   "reord_s": 49.38771220004128,
+   "inv_s": 0.008526600009645335,
+   "total_s": 180.30094679999456
+  },
+  "store/opt_rank_cartlabor_norsl": {
+   "reord_s": 122.78284669993445,
+   "inv_s": 0.007517699967138469,
+   "total_s": 265.06969230000686
+  },
+  "store/opt_rank_sortmatch_norsl": {
+   "reord_s": 61.4031356999476,
+   "inv_s": 0.0083116999885533,
+   "total_s": 194.593581299996
+  },
+  "store/opt_tmin_norsl": {
+   "reord_s": 69.82404280008632,
+   "inv_s": 0.008605999973951839,
+   "total_s": 205.62145800000872
+  },
+  "store/uni_fifo_norsl": {
+   "reord_s": 48.18759220004722,
+   "inv_s": 0.00828499995986931,
+   "total_s": 180.20857050000632
+  },
+  "store/uni_rank_cartlabor_norsl": {
+   "reord_s": 132.98035789999994,
+   "inv_s": 0.007707099983235821,
+   "total_s": 261.9184077999962
+  },
+  "store/uni_rank_sortmatch_norsl": {
+   "reord_s": 63.56899000001431,
+   "inv_s": 0.007794899967848323,
+   "total_s": 200.17729779999354
+  },
+  "store/uni_tmin_norsl": {
+   "reord_s": 71.81390619996819,
+   "inv_s": 0.008340900152688846,
+   "total_s": 207.86762859999726
+  }
+ }
+}

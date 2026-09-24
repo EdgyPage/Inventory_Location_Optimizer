@@ -1114,7 +1114,8 @@ class _RankedAssignPool(_Pool):
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, freq_by_idx, freq_by_sku, qty_by_sku, beta,
-                 minimize, aisle_selector=None, order_key=None, aisle_key=None):
+                 minimize, aisle_selector=None, order_key=None, aisle_key=None,
+                 bin_key=None):
         self._aff, self._ass, self._ais = affinity, aisle_sku_sets, aisle_idx_sets
         self._ads, self._fbi = aisle_demand_sum, freq_by_idx
         self._fbs, self._qbs, self._beta = freq_by_sku, qty_by_sku, beta
@@ -1143,11 +1144,21 @@ class _RankedAssignPool(_Pool):
             # open is one cursor per surviving aisle, in the filtered first-appearance
             # order the eager build below would have produced.  Same deque protocol, so
             # `take` is one code path.
+            if bin_key is not None:
+                raise TypeError(
+                    'a frozen tier is sorted by D; a pool with its own bin_key must open '
+                    'over the candidate list, where it sorts by that key')
             _check_tier(cands.tier, x_pace, y_pace, None)
             D_of = cands.tier.D_by_id
             by_aisle = cands.aisles(reverse=not minimize)
         else:
-            D_of = _D_map(cands, x_pace, y_pace)
+            # `bin_key` (bin -> float, or a ready {id(bin): float} map) replaces travel D
+            # as the one number a bin is ranked by -- `rank_sortmatch`'s D + hbar x M
+            # (`build_sortmatch_pool_fn`).  None is every other arm: `_D_map`, exactly as
+            # before.
+            D_of = (_D_map(cands, x_pace, y_pace) if bin_key is None
+                    else bin_key if isinstance(bin_key, dict)
+                    else {id(b): bin_key(b) for b in cands})
             by_aisle = {}
             for b in cands:
                 by_aisle.setdefault(b.location[0], []).append(b)
@@ -1213,8 +1224,9 @@ class _RankedAssignPool(_Pool):
     def take(self, unit):
         """(bin, score) for one unit; (None, None) when every aisle is drained.
 
-        `score` is the chosen bin's travel cost D -- the float the aisle argmin compared,
-        so reporting it is one dict read and no arithmetic.
+        `score` is the chosen bin's ranking value -- travel D, or the arm's own `bin_key`
+        (`rank_sortmatch`: D + hbar M) -- the float the aisle argmin compared, so reporting
+        it is one dict read and no arithmetic.
         """
         head_D, head_bin = self._head_D, self._head_bin
         if not head_D:
@@ -1277,6 +1289,199 @@ def _build_ranked_assign_pool_fn(
             aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
             freq_by_idx, freq_by_sku, qty_by_sku, beta, minimize,
             aisle_selector=aisle_selector, order_key=order_key, aisle_key=aisle_key)
+    return open_pool
+
+
+class _SortMatchPool(_RankedAssignPool):
+    """`rank_sortmatch`'s pool: `_RankedAssignPool` with its bin and pack keys, plus the
+    one thing an index match needs that a greedy heap does not -- the WHOLE GROUP.
+
+    Served in the pool's own order (`order`), each take pops the cheapest remaining bin, so
+    the j-th pack by key gets the j-th bin by key: two sorted lists sharing an index.  But
+    the drain does not always grant that order.  A queue with `k_cap = 1` (the store pallet
+    queue: no floor to re-sort pallets on, `put_queue.store_and_fulfillment`) serves in
+    ARRIVAL order, and a greedy pool then hands each arriving pallet the cheapest bin left
+    -- velocity-blind.  So `prepare(units)`, called by the drain with the group before it
+    serves anyone, fixes the pairing up front: packs by key onto bins by key, index for
+    index.  `take` then returns each unit its own bin in whatever order the units come.
+    Assignment uses the lookahead the dock physically has (the packs waiting in the
+    group); execution stays FIFO -- the user's constraint on real put-away.
+
+    Under the full order the planned pairing IS the greedy one, bin for bin: the global
+    order `prepare` sorts by is the heap's own, (key, aisle rank, position in the aisle),
+    which `Tests/unit/test_sortmatch_pool.py` pins.  A unit `prepare` never saw (the audit
+    tests call `take` directly) falls back to the cheapest bin still free."""
+
+    __slots__ = ('_plan', '_spare', '_used')
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self._plan = None
+        self._spare = []          # popped but unplanned bins (a unit prepare never saw)
+        self._used = set()
+
+    def _pop(self):
+        """The heap's next bin, advancing its aisle -- `take`'s selection and head move,
+        without the ledger commit (that belongs to whichever unit ends up with the bin).
+        The same pop-advance-repush `_RankedAssignPool.take` does, so the sequence of bins
+        this yields IS the greedy's."""
+        head_D, head_bin = self._head_D, self._head_bin
+        if not head_D:
+            return None
+        _k, _r, aid = heapq.heappop(self._sel)
+        chosen = head_bin[aid]
+        dq = self._writer(aid)
+        dq.popleft()
+        if dq:
+            head_bin[aid] = dq[0]
+            head_D[aid] = self._D_of[id(dq[0])]
+            heapq.heappush(self._sel, (self._heap_key(aid), self._rank[aid], aid))
+        else:
+            del head_bin[aid]
+            del head_D[aid]
+        return chosen
+
+    def prepare(self, units) -> None:
+        """Fix the pairing for the whole group: `order(units)` onto the heap's first
+        len(units) bins, index for index -- O(n log A), not a sort of the tier."""
+        plan = {}
+        for u in self.order(list(units)):
+            b = self._pop()
+            if b is None:
+                break
+            plan[id(u)] = b
+        self._plan = plan
+
+    def take(self, unit):
+        if self._plan is None:
+            return super().take(unit)
+        b = self._plan.pop(id(unit), None)
+        if b is None:
+            b = self._pop()                  # a unit prepare never saw: next cheapest
+            if b is None:
+                return None, None
+        self._used.add(id(b))
+        sku = unit.order.sku
+        aid = b.location[0]
+        if sku not in self._ass[aid]:
+            self._led.add_sku(aid, sku, self._aff._sku_to_idx.get(sku),
+                              demand=self._fbs.get(sku, 0.0) * self._qbs.get(sku, 0.0))
+        return b, self._D_of[id(b)]
+
+
+def sortmatch_hbar(orders, wp) -> dict:
+    """{id(regime wp): hbar} -- the demand-weighted mean at-location cost of one pick LINE
+    over the catalogue, per regime:
+
+        hbar = sum_s f_s (I + E[q_s] (p + v_s)) / sum_s f_s
+
+    `I`, `p` from the SKU's own regime parameters (`_wp_for`), `E[q]` the SKU's stamped
+    line law, `v` its handle variance.  It is the rate at which a bin's height multiplier
+    trades against its travel D for the average line, so `D + hbar M` is ONE number that
+    ranks bins the way the billing law does for a typical pack (`build_sortmatch_pool_fn`).
+    Keyed by the resolved parameter object so a single-regime run (no `by_regime` map) has
+    one entry and a mixed one has one per regime."""
+    num: dict = {}
+    den: dict = {}
+    for o in orders or ():
+        w = _wp_for(wp, o)
+        f = o.demand.relative_frequency
+        if f <= 0:
+            continue
+        eq = o.demand.line.mean()
+        k = id(w)
+        num[k] = num.get(k, 0.0) + f * per_pick(1.0, w.pick_intercept, o.handle_var, eq,
+                                                   w.pick_per_item)
+        den[k] = den.get(k, 0.0) + f
+    return {k: num[k] / den[k] for k in num}
+
+
+def build_sortmatch_pool_fn(affinity, wp, ledger, freq_by_idx, freq_by_sku, qty_by_sku,
+                            hbar):
+    """`open_pool` for `rank_sortmatch` -- TWO SORTED LISTS SHARING AN INDEX
+    (`.scratch/placement-sortmatch/`).
+
+    The group's packs, sorted by their expected lifetime pick work, take the group's
+    candidate bins sorted by one bin cost, in order: the most expensive pack to the
+    cheapest bin, the next to the next.  That is the rearrangement inequality, and it is
+    exact wherever a pack's cost at a bin factors as (pack weight) x (bin cost); the
+    billing law has two bin terms (travel D, height M), so the bin cost folds them with
+    the catalogue's mean line cost `hbar` (`sortmatch_hbar`):
+
+        bin key   D_b + hbar M_b                     D = x_pace x + y_pace y, M the
+                                                     height bracket's multiplier
+        pack key  visits_u (Dbar + h_u Mbar)         visits = max(1, Q / E[q]), the
+                                                     lines the pack will serve;
+                                                     h_u = I + E[q] (p + v_s); Dbar,
+                                                     Mbar the group's candidate means
+
+    The machinery is `_RankedAssignPool`'s -- per-aisle deques sorted by the key and one
+    heap over the aisle heads, which walks the whole group in ascending key order without
+    a scan -- with the key in place of D and the pack key in place of the pick-effort
+    priority (so no co-occurrence term).  The lab measured it at -10.4% realised store
+    pick work against the uniform draw, where the recorded `rank_cartlabor` placements
+    reach -6.9% (S04), and it spreads lines across aisles rather than piling them (S05).
+    """
+    aisle_sku_sets, aisle_idx_sets = ledger.sku_sets, ledger.idx_sets
+    aisle_demand_sum = ledger.demand_sum
+    #: {id(resolved wp): {id(bin): (bin, D, M)}} -- a bin's geometry is fixed for the run,
+    #: so its travel and height multiplier are computed once, not at every open (the
+    #: `_TravelBalancedPool` `geo_memo` argument; keyed by the resolved parameters because D
+    #: reads their paces and M their brackets, and holding the bin keeps its id unique).
+    geo: dict = {}
+
+    def open_pool(candidates, rep=None):
+        w = _wp_for(wp, rep) if rep is not None else wp
+        hb = hbar.get(id(w))
+        if hb is None:
+            # No silent default: a bin ranked by some stand-in line cost is a different rule
+            # published under this arm's name.  An empty map means the strategy context
+            # carried no catalogue (`StrategyContext.orders`), which every production worker
+            # does; the diagnostics that build a context without one cannot run this arm.
+            raise ValueError(
+                'rank_sortmatch has no mean line cost for this regime: sortmatch_hbar saw '
+                'no order with positive frequency under these parameters (was the '
+                'StrategyContext built without `orders`?)')
+        speed = SpeedProfile(w.x_speed, w.y_speed)
+        xp, yp = speed.x_pace, speed.y_pace
+        brackets = w.height_brackets
+        I, p = w.pick_intercept, w.pick_per_item
+        cands = list(candidates)
+        got = geo.get(id(w))
+        if got is None:
+            got = geo[id(w)] = ({}, {})
+        # `memo` {id(bin): (bin, D, M)}; `key_of` {id(bin): D + hbar M}, the pool's ranking
+        # map.  Both persist across opens -- a bin's key cannot change within a run -- and
+        # `key_of` is handed to the pool WHOLE: a superset of this open's candidates is fine,
+        # because the pool only ever looks up the bins it was given.
+        memo, key_of = got
+        d_sum = m_sum = 0.0
+        for b in cands:
+            e = memo.get(id(b))
+            if e is None or e[0] is not b:
+                e = memo[id(b)] = (b, xp * b.x_phys + yp * b.y_phys,
+                                   height_multiplier(brackets, b.y_phys))
+                key_of[id(b)] = e[1] + hb * e[2]
+            d_sum += e[1]
+            m_sum += e[2]
+        n = len(cands)
+        d_bar, m_bar = (d_sum / n, m_sum / n) if n else (0.0, 0.0)
+
+        def pack_key(u):
+            dem = u.order.demand
+            if dem.quantity_rate <= 0:
+                return 0.0                       # never picked: no claim on a good bin
+            eq = dem.line.mean()
+            visits = max(1.0, u.quantity / eq)
+            # the line's at-location cost at ground level: THE formula (`per_pick`)
+            return visits * (d_bar + per_pick(1.0, I, u.order.handle_var, eq, p) * m_bar)
+
+        # `beta` is inert here: it weights the default priority's co-occurrence term, and
+        # this arm supplies its own `order_key`.
+        return _SortMatchPool(
+            cands, affinity, w, aisle_sku_sets, aisle_idx_sets, aisle_demand_sum,
+            freq_by_idx, freq_by_sku, qty_by_sku, 1.0, True,
+            order_key=pack_key, bin_key=key_of)
     return open_pool
 
 
