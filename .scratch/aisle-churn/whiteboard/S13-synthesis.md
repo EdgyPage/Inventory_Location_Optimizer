@@ -91,7 +91,7 @@ any churn, through height.
 | carry term | φ_units = φ_lines + f(1 − fill_c): the shortfall's remainder served from the lot it triggered; dominates on short windows (the 6-batch toy: 1.8% realised against ~0 from the fresh-bin law) |
 | off-floor drawdown | S14 is partial: compose the fragmentation chain, and replace the declared lead with the dock-coupled one |
 | yard latency | the fixed yard wait grows with volume (3.4 → 6.7 h from k1 to k10) on top of Allen–Cunneen; the drain cadence is the candidate |
-| **Proposed, not made:** multi-picker aisles (or more, smaller store aisles) | lifts the k\* = 12.8 aisle ceiling, without which store churn past ~13× measures the ceiling |
-| **Proposed, not made:** the drain-order fix in `expected_travel.PlacementDist.initial` | correct the drain to smallest-first (S06 variant b).  A comparability break for `pick_owed_exact_s`, so it needs the user's decision. |
-| **Proposed, not run:** one 400k confirmation | at the contention edge (store k ≈ 30, c = 0.95) with the gain policies |
-| **Suggested design** | a turnover-aware placement rule (fast packs to good bins), the one lever the frontier law says can raise s* above σ_G |
+| ~~multi-picker aisles~~ | **the user's decision (2026-09-23): not simulated now, "a non-issue"**; demand-density experiments stay below k\* |
+| drain-order fix in `expected_travel.PlacementDist.initial` | **not recommended alone**: it feeds only two recorded diagnostics (`pick_owed_exact_s`, the audit's per-arm stamp), moves them < 1 point, and breaks their comparability; bundle it into a future break |
+| ~~400k confirmation~~ | **done (S16, S16b, S16c)**: reach, the placement gap, trailers and the ceiling transfer; the dock law was revised (the crew-or-doors capacity) and the gate confirmed at k = 2.6 |
+| turnover-aware placement | **the user's framing: it IS the unloading-order question** (puts run FIFO ± a few).  S17: the forecastable prize is 0.1% at 1× and ~1% at 10–30×, reachable only by sequencing WITHIN trailers (docking order wins nothing); past the dock gate the order's larger lever is which day a pack lands |

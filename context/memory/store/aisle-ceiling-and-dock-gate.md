@@ -23,6 +23,14 @@ Measured 2026-09-23 on the `_churn_probe` 40k grid (aisle-churn S04, S11, S12;
   lifo wins 2-3% on fulfillment above it.
 - The record's declared inbound load over-states the dock by 11-34% at high k because picking
   falls behind (reorders follow picks); predict rho_door from the REALISED trailer rate.
+- **CORRECTED 2026-09-23 at 400k (S16):** the capacity is min(receiving crew, doors x team) x shift.
+  The derived receiving crew is sized to ~0.85 utilisation, and while it is smaller than the 40 door
+  slots it grows with demand, so realised utilisation sits at ~0.85 whatever k (0.854, 0.846 measured)
+  and occupancy per trailer falls (1.55 h -> 1.20 h -> 0.9 h). The yard can only go unstable once the
+  load outgrows the door slots: at 400k the realised load is W(k) = 0.140 M + 0.4376 M k s/day, the
+  gate k = 2.31. Confirmed: order null 0/8 at rho 0.85 and 0.96, 5/8 significant (all lifo-cheaper,
+  both channels) at offered rho 1.07, waits 13.7 -> 49.6 h. Measure the gate on OFFERED load
+  (arrivals x occupancy); unloaded seconds cap at the capacity. `models/dock.SITE`.
 
 **Why:** any demand-density sweep past ~13x on this layout measures the aisle ceiling, not churn;
 any unloading-order experiment below the dock gate measures noise. **How to apply:**
