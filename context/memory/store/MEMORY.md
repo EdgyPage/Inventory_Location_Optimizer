@@ -156,3 +156,4 @@
 - [Aisle ceiling + dock gate](aisle-ceiling-and-dock-gate.md) — store picking caps at k*~12.8 (one picker per aisle-day); order matters only past rho_door=1
 - [Co-location needs the Palm probability](colocation-needs-the-palm-probability.md) — independent-visit tasks invert ff co-location; use P0_a(s)
 - [Unloading order is the turnover lever](unloading-order-is-the-turnover-lever.md) — puts run FIFO+-few, so velocity-aware placement = unloading order; multi-picker aisles a non-issue
+- [Yard drain quantises the wait](yard-drain-quantises-the-wait.md) — once-a-day drain made 6.7 h of k10 yard wait; --inbound-door-fill asap cuts it to 0.7 h

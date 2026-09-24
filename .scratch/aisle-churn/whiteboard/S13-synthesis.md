@@ -90,7 +90,7 @@ any churn, through height.
 | ~~S07 (g_b)~~ | **done**: `models/pick.py` (Palm P⁰_a(s); the script form sees co-location the independent form inverts) |
 | carry term | φ_units = φ_lines + f(1 − fill_c): the shortfall's remainder served from the lot it triggered; dominates on short windows (the 6-batch toy: 1.8% realised against ~0 from the fresh-bin law) |
 | off-floor drawdown | S14 is partial: compose the fragmentation chain, and replace the declared lead with the dock-coupled one |
-| yard latency | the fixed yard wait grows with volume (3.4 → 6.7 h from k1 to k10) on top of Allen–Cunneen; the drain cadence is the candidate |
+| ~~yard latency~~ | **diagnosed and fixed as an option (df814fc0)**: the once-a-day drain made it.  `--inbound-door-fill asap` plugs doors at arrival and re-ranks at every plug; at k10 the wait falls 6.7 → 0.7 h (median 0), dwell 8.4 → 2.2 h, in-transit stock halves.  Allen–Cunneen stays the model for the `asap` residue |
 | ~~multi-picker aisles~~ | **the user's decision (2026-09-23): not simulated now, "a non-issue"**; demand-density experiments stay below k\* |
 | drain-order fix in `expected_travel.PlacementDist.initial` | **not recommended alone**: it feeds only two recorded diagnostics (`pick_owed_exact_s`, the audit's per-arm stamp), moves them < 1 point, and breaks their comparability; bundle it into a future break |
 | ~~400k confirmation~~ | **done (S16, S16b, S16c)**: reach, the placement gap, trailers and the ceiling transfer; the dock law was revised (the crew-or-doors capacity) and the gate confirmed at k = 2.6 |
