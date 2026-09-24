@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 31cf3b4f-6a24-4bd3-9118-cfbd0ff52dc6
-  modified: 2026-09-24T03:07:21.145Z
+  modified: 2026-09-24T16:01:46.525Z
 ---
 
 Measured 2026-09-23 on the 40k `_churn_probe` k10 point (drain root `comparison_whatif_20260923_104100`,
@@ -19,7 +19,13 @@ asap root `comparison_whatif_20260923_215459`, same argv plus `--inbound-door-fi
   trailers standing THEN (the drain's frozen ctx stays the ranking input), idle receivers wait for
   the next plug, nobody starts before the trailer reached its door. At k10: wait mean 0.7 h, median
   0, ~50% plugged at arrival; dwell 2.2 h; in-transit stock halved; unloaded units +2%.
-- Pick s/item: fulfillment flat (+-0.2%); store +0.0 to +1.3% (one seed, not investigated).
+- Pick s/item: flat. The store +0.75 to +1.3% on seed 1337 reversed sign on seed 2024 (S18): noise.
+- 400k (S18): asap takes 4.5-6 h off the fifo-cell wait at every k (k2.2 13.3 -> 8.0 h, k2.6
+  27.3 -> 22.8 h). Past the gate the queue dominates.
+- The gate does NOT move usefully: asap raises door occupancy 1-2.6% (the quirk below was door
+  capacity), which moves k_gate 2.31 -> ~2.26. At k2.2, 1 of 6 independent arms turned
+  significant (-0.22%). k2.6: 5 of 8, all lifo-cheaper, as under drain.
+- A drain yard never admits its final day's arrivals: compare end-of-window counts on days 20-38.
 - Drain-mode quirk kept for byte identity: a teammate idle on an emptying trailer starts the NEXT
   staged trailer at their own clock, before its door frees. `asap` holds them to the door-free instant.
 
