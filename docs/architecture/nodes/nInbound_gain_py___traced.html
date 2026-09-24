@@ -14,11 +14,14 @@
 <h1><span class="kind kind-function">function</span> <code>_traced</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
 
-<pre class="sig"><code>def _traced(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(), window_rates=None) -&gt; list</code></pre>
+<pre class="sig"><code>def _traced(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(), window_rates=None, lazy: bool=False)</code></pre>
 <section class="doc">Every gain entry&#x27;s ONE call into the plan -- and, when the drain carries a trace
 sink (`DockContext.plan_trace`, set only in a probe cell), the plan trace.
 
-No sink: exactly the `plan_order` call each entry made before this existed.
+No sink: exactly the `plan_order` call each entry made before this existed -- or, when
+the caller asked for `lazy` (the yard&#x27;s pull queue, `priorities.bounded_order`), the
+same plan as a generator (`plan_order_iter`) whose unpulled rounds are never priced.
+A traced drain is always eager: the trace&#x27;s point is every round&#x27;s gains.
 
 A sink: the SAME exact plan (its order is what the entry returns, so a traced cell
 ranks byte-identically to an untraced one) with its per-round gains recorded, then, on

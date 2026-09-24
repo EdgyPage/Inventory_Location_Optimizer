@@ -931,6 +931,26 @@
       "src": "Inbound/dock.py::Dock.unload_seconds"
     },
     {
+      "dst": "Inbound/gain.py::futuresight",
+      "kind": "ref",
+      "src": "Inbound/gain.py"
+    },
+    {
+      "dst": "Inbound/gain.py::gain_forecast",
+      "kind": "ref",
+      "src": "Inbound/gain.py"
+    },
+    {
+      "dst": "Inbound/gain.py::gain_gated",
+      "kind": "ref",
+      "src": "Inbound/gain.py"
+    },
+    {
+      "dst": "Inbound/gain.py::gain_myopic",
+      "kind": "ref",
+      "src": "Inbound/gain.py"
+    },
+    {
       "dst": "Inbound/gain_bundle.py",
       "kind": "imports",
       "src": "Inbound/gain.py"
@@ -1191,29 +1211,34 @@
       "src": "Inbound/gain.py::gain_myopic"
     },
     {
-      "dst": "Inbound/gain.py::_Evaluator",
+      "dst": "Inbound/gain.py::plan_order_iter",
       "kind": "calls",
       "src": "Inbound/gain.py::plan_order"
+    },
+    {
+      "dst": "Inbound/gain.py::_Evaluator",
+      "kind": "calls",
+      "src": "Inbound/gain.py::plan_order_iter"
     },
     {
       "dst": "Inbound/gain.py::_merge_only",
       "kind": "calls",
-      "src": "Inbound/gain.py::plan_order"
+      "src": "Inbound/gain.py::plan_order_iter"
     },
     {
       "dst": "Inbound/gain.py::_plan_order_replay",
       "kind": "calls",
-      "src": "Inbound/gain.py::plan_order"
+      "src": "Inbound/gain.py::plan_order_iter"
     },
     {
       "dst": "Warehouse/kernel/perf_probe.py::count",
       "kind": "calls",
-      "src": "Inbound/gain.py::plan_order"
+      "src": "Inbound/gain.py::plan_order_iter"
     },
     {
       "dst": "Inbound/gain.py::_load_units",
       "kind": "calls",
-      "src": "Inbound/gain.py::plan_order._load"
+      "src": "Inbound/gain.py::plan_order_iter._load"
     },
     {
       "dst": "Inbound/gain.py::_Evaluator",
@@ -1369,6 +1394,31 @@
       "dst": "Inbound/priorities.py::_lifo_standing",
       "kind": "ref",
       "src": "Inbound/priorities.py"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py",
+      "kind": "imports",
+      "src": "Inbound/priorities.py"
+    },
+    {
+      "dst": "Inbound/priorities.py::_not_a_permutation",
+      "kind": "calls",
+      "src": "Inbound/priorities.py::LazyRanking.popleft"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Inbound/priorities.py::LazyRanking.popleft"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
+      "kind": "calls",
+      "src": "Inbound/priorities.py::LazyRanking.popleft"
+    },
+    {
+      "dst": "Inbound/priorities.py::LazyRanking",
+      "kind": "calls",
+      "src": "Inbound/priorities.py::bounded_order"
     },
     {
       "dst": "Warehouse/kernel/crew_clock.py",
@@ -1884,6 +1934,21 @@
       "dst": "Warehouse/kernel/perf_probe.py::now",
       "kind": "calls",
       "src": "Inbound/transit.py::YardTransit.yard_order"
+    },
+    {
+      "dst": "Inbound/priorities.py::bounded_order",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.yard_ranking"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::add",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.yard_ranking"
+    },
+    {
+      "dst": "Warehouse/kernel/perf_probe.py::now",
+      "kind": "calls",
+      "src": "Inbound/transit.py::YardTransit.yard_ranking"
     },
     {
       "dst": "Warehouse/kernel/closed_form.py",
@@ -23321,6 +23386,16 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_CoDemandPool.take"
     },
     {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.boundary"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.update"
+    },
+    {
       "dst": "Warehouse/inventory/aisle_ledger.py::AisleLedger.over",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.__init__"
@@ -23362,6 +23437,11 @@
     },
     {
       "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLabVec",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
     },
@@ -23556,12 +23636,22 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._score_of"
     },
     {
+      "dst": "Warehouse/kernel/cost_model.py::per_pick",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take"
+    },
+    {
       "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._aisle_best",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take"
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool._score_of",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_TravelVec",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_TravelBalancedPool.take"
     },
@@ -26193,7 +26283,15 @@
     },
     {
       "file": "Inbound/gain.py",
-      "id": "Inbound/gain.py::plan_order._load",
+      "id": "Inbound/gain.py::plan_order_iter",
+      "kind": "function",
+      "module": "Inbound/gain.py",
+      "name": "plan_order_iter",
+      "public": true
+    },
+    {
+      "file": "Inbound/gain.py",
+      "id": "Inbound/gain.py::plan_order_iter._load",
       "kind": "function",
       "module": "Inbound/gain.py",
       "name": "_load",
@@ -26881,6 +26979,46 @@
     },
     {
       "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::LazyRanking",
+      "kind": "class",
+      "module": "Inbound/priorities.py",
+      "name": "LazyRanking",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::LazyRanking.__bool__",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "__bool__",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::LazyRanking.__init__",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::LazyRanking.__len__",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "__len__",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::LazyRanking.popleft",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "popleft",
+      "public": true
+    },
+    {
+      "file": "Inbound/priorities.py",
       "id": "Inbound/priorities.py::_fifo_pallet",
       "kind": "function",
       "module": "Inbound/priorities.py",
@@ -26909,6 +27047,14 @@
       "kind": "function",
       "module": "Inbound/priorities.py",
       "name": "_lifo_standing",
+      "public": false
+    },
+    {
+      "file": "Inbound/priorities.py",
+      "id": "Inbound/priorities.py::_not_a_permutation",
+      "kind": "function",
+      "module": "Inbound/priorities.py",
+      "name": "_not_a_permutation",
       "public": false
     },
     {
@@ -27909,6 +28055,14 @@
       "kind": "function",
       "module": "Inbound/transit.py",
       "name": "yard_order",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::YardTransit.yard_ranking",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "yard_ranking",
       "public": true
     },
     {
@@ -55977,6 +56131,70 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_MinLabVec",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_rekey",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.boundary",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "boundary",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.live",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "live",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.set_delta",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "set_delta",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.update",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "update",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.walk",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "walk",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool",
       "kind": "class",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -56009,6 +56227,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._bc_by_aid",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_bc_by_aid",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -56021,6 +56247,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_partner_deltas",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._sel",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_sel",
       "public": false
     },
     {
@@ -56365,6 +56599,54 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "take",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec",
+      "kind": "class",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_TravelVec",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec.__init__",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "__init__",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec.boundary",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "boundary",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec.choice",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "choice",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec.pick",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "pick",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec.refresh",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "refresh",
       "public": true
     },
     {

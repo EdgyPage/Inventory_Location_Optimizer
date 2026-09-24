@@ -16,9 +16,9 @@
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
 <pre class="sig"><code>def _plan_order_replay(ev, candidates, forced_prefix, predicted: bool, trace, _load)</code></pre>
 <section class="doc">`plan_order`&#x27;s greedy for a MERGE-ONLY plan, every exclusion set read as a
-frontier.  Returns the same order, writes the same trace records, leaves the same
-`ev.taken` and `ev.unseated` (the set path is the oracle:
-`Tests/unit/test_plan_order_merge_replay.py`).
+frontier.  Yields the same order round by round (a generator, like `plan_order_iter`,
+which delegates here), writes the same trace records, leaves the same `ev.taken` and
+`ev.unseated` (the set path is the oracle: `Tests/unit/test_plan_order_merge_replay.py`).
 
 Why every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):
 
@@ -37,7 +37,7 @@ Why every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):
 What goes away is the O(|tier|) filter per tier per placement and the O(|B|) set
 difference per candidate; the placements themselves (`_place_merge`, pricing in
 the same unit order) are the set path&#x27;s own.</section>
-<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_perf_probe_py__count.html"><code>count</code></a> <span class="dim">Warehouse/kernel/perf_probe.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py__plan_order.html"><code>plan_order</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_kernel_perf_probe_py__count.html"><code>count</code></a> <span class="dim">Warehouse/kernel/perf_probe.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py__plan_order_iter.html"><code>plan_order_iter</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py___plan_order_replay">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20_plan_order_replay">Source ↗</a></p>
 </article>
 </main>

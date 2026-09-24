@@ -1094,7 +1094,7 @@
     },
     "Inbound/gain.py::_plan_order_replay": {
       "decorators": [],
-      "doc": "`plan_order`'s greedy for a MERGE-ONLY plan, every exclusion set read as a\nfrontier.  Returns the same order, writes the same trace records, leaves the same\n`ev.taken` and `ev.unseated` (the set path is the oracle:\n`Tests/unit/test_plan_order_merge_replay.py`).\n\nWhy every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):\n\n  1. `taken \u2229 S_k` is a PREFIX `S_k[:F_k]`.  A now-side placement filters `S_k` by\n     `taken` and walks one cursor forward from the first survivor, so its takes in\n     tier k are `S_k[F_k : F_k + n_tk]`; a commit adds exactly those.\n  2. So a round's sweep is NESTED prefixes, `K \u2229 S_k = S_k[F_k : F_k + N_k]` with\n     `N_k = max_t n_tk`, and position `F_k + j` is counted by `#{t: n_tk > j}`.\n  3. `counts == 1` therefore holds exactly on `[F_k + n2_k, F_k + N_k)` -- `n2_k` the\n     second-largest `n_tk`, counting multiplicity -- and only for the ONE candidate\n     holding the maximum.  That is its hole in tier k; everyone else's is empty.\n  4. So `S_k` filtered by `B - hole_t` is the SUFFIX from `F_k + n2_k` for tier k's\n     unique maximum and from `F_k + N_k` for every other candidate, and a tier no\n     candidate touched starts at `F_k`.\n\nWhat goes away is the O(|tier|) filter per tier per placement and the O(|B|) set\ndifference per candidate; the placements themselves (`_place_merge`, pricing in\nthe same unit order) are the set path's own.",
+      "doc": "`plan_order`'s greedy for a MERGE-ONLY plan, every exclusion set read as a\nfrontier.  Yields the same order round by round (a generator, like `plan_order_iter`,\nwhich delegates here), writes the same trace records, leaves the same `ev.taken` and\n`ev.unseated` (the set path is the oracle: `Tests/unit/test_plan_order_merge_replay.py`).\n\nWhy every set is a frontier (`S_k` = `_tier_sorted(k)`, fixed for the plan):\n\n  1. `taken \u2229 S_k` is a PREFIX `S_k[:F_k]`.  A now-side placement filters `S_k` by\n     `taken` and walks one cursor forward from the first survivor, so its takes in\n     tier k are `S_k[F_k : F_k + n_tk]`; a commit adds exactly those.\n  2. So a round's sweep is NESTED prefixes, `K \u2229 S_k = S_k[F_k : F_k + N_k]` with\n     `N_k = max_t n_tk`, and position `F_k + j` is counted by `#{t: n_tk > j}`.\n  3. `counts == 1` therefore holds exactly on `[F_k + n2_k, F_k + N_k)` -- `n2_k` the\n     second-largest `n_tk`, counting multiplicity -- and only for the ONE candidate\n     holding the maximum.  That is its hole in tier k; everyone else's is empty.\n  4. So `S_k` filtered by `B - hole_t` is the SUFFIX from `F_k + n2_k` for tier k's\n     unique maximum and from `F_k + N_k` for every other candidate, and a tier no\n     candidate touched starts at `F_k`.\n\nWhat goes away is the O(|tier|) filter per tier per placement and the O(|B|) set\ndifference per candidate; the placements themselves (`_place_merge`, pricing in\nthe same unit order) are the set path's own.",
       "is_async": false,
       "kind": "function",
       "signature": "(ev, candidates, forced_prefix, predicted: bool, trace, _load)"
@@ -1122,10 +1122,10 @@
     },
     "Inbound/gain.py::_traced": {
       "decorators": [],
-      "doc": "Every gain entry's ONE call into the plan -- and, when the drain carries a trace\nsink (`DockContext.plan_trace`, set only in a probe cell), the plan trace.\n\nNo sink: exactly the `plan_order` call each entry made before this existed.\n\nA sink: the SAME exact plan (its order is what the entry returns, so a traced cell\nranks byte-identically to an untraced one) with its per-round gains recorded, then, on\nthe same frozen drain state and with evaluators of their own, the two candidate\nreductions ticket 03 of `.scratch/inbound-throughput/` measures -- the merge rung\nforced onto a pool family (variant i) and the top-m lazy plans (variant ii) -- each\nwith its order, its placement count and its wall seconds.  One record per call,\nappended to the sink; the driver writes the sink out per batch and tags the batch.",
+      "doc": "Every gain entry's ONE call into the plan -- and, when the drain carries a trace\nsink (`DockContext.plan_trace`, set only in a probe cell), the plan trace.\n\nNo sink: exactly the `plan_order` call each entry made before this existed -- or, when\nthe caller asked for `lazy` (the yard's pull queue, `priorities.bounded_order`), the\nsame plan as a generator (`plan_order_iter`) whose unpulled rounds are never priced.\nA traced drain is always eager: the trace's point is every round's gains.\n\nA sink: the SAME exact plan (its order is what the entry returns, so a traced cell\nranks byte-identically to an untraced one) with its per-round gains recorded, then, on\nthe same frozen drain state and with evaluators of their own, the two candidate\nreductions ticket 03 of `.scratch/inbound-throughput/` measures -- the merge rung\nforced onto a pool family (variant i) and the top-m lazy plans (variant ii) -- each\nwith its order, its placement count and its wall seconds.  One record per call,\nappended to the sink; the driver writes the sink out per batch and tags the batch.",
       "is_async": false,
       "kind": "function",
-      "signature": "(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(), window_rates=None) -> list"
+      "signature": "(name, candidates, bundle, space, ctx, *, predicted: bool, forced_prefix=(), window_rates=None, lazy: bool=False)"
     },
     "Inbound/gain.py::_window_rates": {
       "decorators": [],
@@ -1148,7 +1148,7 @@
       "doc": "`gain_forecast` reading the window slot (module note) \u2014 the declared-unlawful\nCLAIRVOYANCE reference, never recommendable; it bounds pricing accuracy and NOT\nachievable gain, so it may legitimately finish behind a lawful arm (32).  An EMPTY\nwindow (a run at the end\nof its script) is legal and prices every pick term zero; a MISSING one (None)\nmeans no feed ran, and ranking anyway would silently be `gain_forecast` under\nthis arm's name \u2014 the same fake-arm hazard `_require` exists for.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, ctx) -> list"
+      "signature": "(candidates, ctx, lazy: bool=False)"
     },
     "Inbound/gain.py::gain_forecast": {
       "decorators": [
@@ -1157,7 +1157,7 @@
       "doc": "The unload plan with the deferral pool including `predicted` \u2014 the standing\ndemand's projected clears, the next drain's pool gain.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, ctx) -> list"
+      "signature": "(candidates, ctx, lazy: bool=False)"
     },
     "Inbound/gain.py::gain_gated": {
       "decorators": [
@@ -1166,7 +1166,7 @@
       "doc": "`gain_forecast` behind the FIFO urgency gate (module note): the URGENT SET is\nserved FIFO ahead of the plan; hours and days meet ONLY here.  A stampless\ntrailer (no clock reached the drain) accrues no yard days and is never urgent.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, ctx) -> list"
+      "signature": "(candidates, ctx, lazy: bool=False)"
     },
     "Inbound/gain.py::gain_myopic": {
       "decorators": [
@@ -1175,16 +1175,23 @@
       "doc": "The unload plan over `ctx.space.empties` only \u2014 the predicted tier is\ninvisible, so the arm's whole signal is contention for today's space.",
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates, ctx) -> list"
+      "signature": "(candidates, ctx, lazy: bool=False)"
     },
     "Inbound/gain.py::plan_order": {
       "decorators": [],
-      "doc": "10's greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.\n\n`trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining\ncandidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan\ntrace (`_traced`); None, the production value, records nothing and changes nothing.\n`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).\n\n`replay` (default True) runs a MERGE-ONLY plan through `_plan_order_replay`: the same\ngreedy, the same placements and the same floats, with every exclusion set read as\none integer frontier per tier instead of filtered out of the sorted arrays.  It\nengages only when every group of every candidate resolves to the merge rung\n(`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is\nalso an empty one -- takes the set-algebra path below, as does `replay=False`,\nwhich the equality tests use as the oracle.",
+      "doc": "10's greedy over the frozen view, run to the end: `list(plan_order_iter(...))`.\nThe whole-order form every eager caller reads (the dock ranking, a traced drain, the\ntests' oracle); the yard's pull queue reads the generator itself (`plan_order_iter`).\n\n`bundle` is the owner PROVIDER the evaluator  `bundle` is the owner PROVIDER the evaluator\nresolves through (`OneOwnerBundle` on a single-channel run), never a bare\n`GainBundle`.  `forced_prefix` is the urgency gate's FIFO head \u2014 consumed first,\nunscored.  `window_rates` is the futuresight entry's\naggregated window (see `_window_rates`), None for every lawful arm.  `shared` is the\nDRAIN's cache dict (`ctx.gain_cache`), through which this ranking and the OTHER\nranking of the same drain share the seven pure structures that\n`_Evaluator._SHARED_CACHES` names -- never the greedy's own `taken`.  `_ev` exists\nONLY for the Tier-1 sabotage test (a pre-warmed evaluator whose sorted structure\nthe test perturbs); production callers never pass it.\n\n`trace` (a list, or None) receives one record per ROUND of the greedy -- every remaining\ncandidate's `[seq, now cost, defer cost, gain]` and the winner's seq -- for the plan\ntrace (`_traced`); None, the production value, records nothing and changes nothing.\n`force_merge` prices a pool family with the merge rung (`_Evaluator.force_merge`).\n\n`replay` (default True) runs a MERGE-ONLY plan through `_plan_order_replay`: the same\ngreedy, the same placements and the same floats, with every exclusion set read as\none integer frontier per tier instead of filtered out of the sorted arrays.  It\nengages only when every group of every candidate resolves to the merge rung\n(`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is\nalso an empty one -- takes the set-algebra path below, as does `replay=False`,\nwhich the equality tests use as the oracle.",
       "is_async": false,
       "kind": "function",
       "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False, replay: bool=True) -> list"
     },
-    "Inbound/gain.py::plan_order._load": {
+    "Inbound/gain.py::plan_order_iter": {
+      "decorators": [],
+      "doc": "`plan_order`'s greedy as a GENERATOR: one winner per round, yielded the instant\nits round has committed (`taken` updated, templates dropped, `remaining` cut).\n\nWHY A GENERATOR IS THE SAME PLAN.  Round r's winner is a function of the frozen view,\nthe candidates and the takes of rounds 1..r-1 -- nothing a LATER round writes -- so\nthe first p values yielded ARE the first p entries of the full order, float for float,\nhowever many are ever asked for.  A drain stages only its free doors plus the refills\nits unload reaches (a quarter of the ranked trailers on the meso deep rung,\n`.scratch/inbound-fullscale-perf/` S03), so the rounds nobody pulls are never priced:\np(2T - p + 1) placements instead of T(T + 1).  `plan_order` is `list()` of this, and\nstays the oracle.\n\nNothing runs until the first `next()` -- not even the argument checks below -- so an\nabandoned generator costs nothing but its frame.  The yard's pull queue\n(`priorities.LazyRanking`) is the one caller that stops early.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False, replay: bool=True)"
+    },
+    "Inbound/gain.py::plan_order_iter._load": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -1791,6 +1798,40 @@
       "kind": "function",
       "signature": "(self, doors: int, free_doors: int, yard_depth: int)"
     },
+    "Inbound/priorities.py::LazyRanking": {
+      "decorators": [],
+      "doc": "A drain's YARD ranking as a pull queue: `bounded_order`'s order for a lazy\nordering entry, computed one trailer per `popleft()` (`.scratch/inbound-fullscale-perf/`\nO1).  The surface is the deque the drain always consumed (`popleft`, `len`, truth):\n`len` is how many trailers are still to come -- known without pricing any of them.\n\nTHE PERMUTATION CHECK MOVES TO THE PULL.  `bounded_order` checked the whole order at\nonce; a queue that is never drained to the end cannot, so each pull is checked\ninstead -- the trailer must be one of the window's and not one already pulled -- and\nthe completeness half runs the moment the window is exhausted (the generator must then\nstop, having yielded exactly the window).  A drain that stops early has pulled a prefix\nof a permutation, which is all it ever consumed of one.\n\nEach pull's seconds are the yard plan's (`inb_yplan`): that is where the rounds are\nnow priced.  The window's remainder (`rest`, past the bound) follows in arrival order,\nas it always did.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Inbound/priorities.py::LazyRanking.__bool__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Inbound/priorities.py::LazyRanking.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, it, window: list, rest: list, name: str)"
+    },
+    "Inbound/priorities.py::LazyRanking.__len__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> int"
+    },
+    "Inbound/priorities.py::LazyRanking.popleft": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
     "Inbound/priorities.py::_fifo_pallet": {
       "decorators": [],
       "doc": "Load order: the pallet loaded first is pulled first.  The candidate is\n(position_index, LoadPallet) so a key needs no back-pointer to its trailer.",
@@ -1819,12 +1860,19 @@
       "kind": "function",
       "signature": "(trailer, ctx) -> float"
     },
-    "Inbound/priorities.py::bounded_order": {
+    "Inbound/priorities.py::_not_a_permutation": {
       "decorators": [],
-      "doc": "The entry's order, bounded.  A KEY entry: repeatedly take the best-keyed of the\n`bound` longest-waiting remaining candidates (arrival order = input order) \u2014 stable\non key ties, like the put drain.  An `@ordering` entry: bound FIRST, then order \u2014\none call, on a copy of the `bound` longest-waiting candidates, the remainder\nfollowing in arrival order.  None = the entry's order stands unbounded, either\nkind.",
+      "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(candidates: list, entry, ctx, bound: int | None) -> list"
+      "signature": "(name: str, detail: str) -> ValueError"
+    },
+    "Inbound/priorities.py::bounded_order": {
+      "decorators": [],
+      "doc": "The entry's order, bounded.  A KEY entry: repeatedly take the best-keyed of the\n`bound` longest-waiting remaining candidates (arrival order = input order) \u2014 stable\non key ties, like the put drain.  An `@ordering` entry: bound FIRST, then order \u2014\none call, on a copy of the `bound` longest-waiting candidates, the remainder\nfollowing in arrival order.  None = the entry's order stands unbounded, either\nkind.\n\n`lazy=True` (the yard's pull queue, `YardTransit.yard_ranking`) asks an ordering entry\nthat declares `LAZY` for its order as a generator and returns a `LazyRanking` over it:\nthe same order, computed only as far as it is pulled.  Every other case -- a key\nentry, an entry without `LAZY`, an entry that answered with a list anyway (a traced\ndrain) -- returns the list this function always returned.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(candidates: list, entry, ctx, bound: int | None, *, lazy: bool=False)"
     },
     "Inbound/priorities.py::dock_key": {
       "decorators": [],
@@ -2690,6 +2738,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, ctx: DockContext) -> list"
+    },
+    "Inbound/transit.py::YardTransit.yard_ranking": {
+      "decorators": [],
+      "doc": "`yard_order` as the PULL QUEUE a drain consumes front-first: a `LazyRanking`\nfor a gain entry (its unpulled rounds are never priced), a deque over the same\nlist for every other policy.  Same order either way; the one consumer that needs\nthe whole list at once -- none in `receiving` -- calls `yard_order`.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, ctx: DockContext)"
     },
     "Inbound/unload.py": {
       "decorators": [],
@@ -14249,10 +14304,10 @@
     },
     "Optimization/simconfig/coverage.py::_served_under_lead": {
       "decorators": [],
-      "doc": "`E[min(q, (S - D_K)^+)]` per SKU: the units a line is expected to take off a shelf\nwhose order-up-to POSITION is `S` while the SKU's own prior lines are still in transit\n(\"Declare the coverage against the inbound lead\", decision 5).\n\nThe observed lead is `K = a + k` whole days on the site grid: `a` the SKU's supplier lead\nrounded to the grid (the ledger's own `round(lead_time_mean)`) and `k` the trailer's\ntransit under `pmf_k` (`transit_day_law`; `{0: 1}` with no pipeline).  The prior lines\ninside those `K` days number `N ~ Poisson(K \u00b7 rate_s)` at the SKU's line rate `n \u00b7 \u03c0_s`\n(the batch is one Poisson draw a day under the era -- the same convention the\nfragmentation chain prices with), each of the stamped line law, so `D_K` is compound\nPoisson and its mass on `0 .. S-1` follows Panjer's recursion\n\n    g(0) = e^{-\u03bb},   g(j) = (\u03bb / j) \u00b7 \u03a3_{i=1..j} i \u00b7 f(i) \u00b7 g(j - i)         \u03bb = K \u00b7 rate_s\n\nThen, `q` and `D_K` being independent,\n`E[min(q, (S - D)^+)] = \u03a3_{u<S} P(q > u) \u00b7 P(D <= S - 1 - u)`.  Vectorised over SKUs in\ngroups by shelf size (the recursion is quadratic in `S`, and a floored section is almost\nentirely small shelves), exact to the truncation at `S` -- nothing above the position\nis ever needed -- and to the transit tail `SERVED_TAIL_TOL` leaves unpriced.  The\nrecursion is linear in `g`, so a row whose mass outgrows `_PANJER_RESCALE` is divided\ndown and its log-scale carried, which keeps a seed that underflows (\u03bb above ~745) from\nzeroing a shelf that serves everything.  At `K = 0` the mass sits at zero and the sum\nis `E[min(q, S)]`.\n\n`a` is the supplier lead ROUNDED TO GRID DAYS after the batch-to-day conversion; at one\nrelease a day (the era, which pins it) that is the ledger's own `round(lead_time_mean)`\nin batches, and at any other release schedule the two roundings differ -- a limitation\nstated, not solved, because nothing declares another schedule.",
+      "doc": "`E[min(q, (S - D_K)^+)]` per SKU: the units a line is expected to take off a shelf\nwhose order-up-to POSITION is `S` while the SKU's own prior lines are still in transit\n(\"Declare the coverage against the inbound lead\", decision 5).\n\nThe observed lead is `K = a + k` whole days on the site grid: `a` the SKU's supplier lead\nrounded to the grid (the ledger's own `round(lead_time_mean)`) and `k` the trailer's\ntransit under `pmf_k` (`transit_day_law`; `{0: 1}` with no pipeline).  The prior lines\ninside those `K` days number `N ~ Poisson(K \u00b7 rate_s)` at the SKU's line rate `n \u00b7 \u03c0_s`\n(the batch is one Poisson draw a day under the era -- the same convention the\nfragmentation chain prices with), each of the stamped line law, so `D_K` is compound\nPoisson and its mass on `0 .. S-1` follows Panjer's recursion\n\n    g(0) = e^{-\u03bb},   g(j) = (\u03bb / j) \u00b7 \u03a3_{i=1..j} i \u00b7 f(i) \u00b7 g(j - i)         \u03bb = K \u00b7 rate_s\n\nThen, `q` and `D_K` being independent,\n`E[min(q, (S - D)^+)] = \u03a3_{u<S} P(q > u) \u00b7 P(D <= S - 1 - u)`.  Vectorised over SKUs in\ngroups by shelf size (the recursion is quadratic in `S`, and a floored section is almost\nentirely small shelves), exact to the truncation at `S` -- nothing above the position\nis ever needed -- and to the transit tail `SERVED_TAIL_TOL` leaves unpriced.  The\nrecursion is linear in `g`, so a row whose mass outgrows `_PANJER_RESCALE` is divided\ndown and its log-scale carried, which keeps a seed that underflows (\u03bb above ~745) from\nzeroing a shelf that serves everything.  At `K = 0` the mass sits at zero and the sum\nis `E[min(q, S)]`.\n\n`a` is the supplier lead ROUNDED TO GRID DAYS after the batch-to-day conversion; at one\nrelease a day (the era, which pins it) that is the ledger's own `round(lead_time_mean)`\nin batches, and at any other release schedule the two roundings differ -- a limitation\nstated, not solved, because nothing declares another schedule.\n\n`memo` (a dict the caller owns, or None) shares per-(group, grid day) results between\ncalls that price the SAME groups under DIFFERENT transit laws -- the fill curve's twelve\npoints (`era_coverage.fill_curve`), which differ only in the weights `pk` over the grid\ndays `k`.  A group's per-`k` sum depends on its SKUs' shelves, rates, supplier leads and\nline laws and on `k`, never on `pk`, so it is computed once per `(group, k)` and each law\nre-weights it in its own `k` order -- the same expression and the same accumulation as the\nunmemoised path, so every float is identical.  The group is keyed by a digest of exactly\nthose inputs (and the line laws by identity), so a caller that changed any of them misses\nrather than reusing a stale sum.",
       "is_async": false,
       "kind": "function",
-      "signature": "(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray, pmf_k: dict) -> np.ndarray"
+      "signature": "(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray, pmf_k: dict, memo: dict | None=None) -> np.ndarray"
     },
     "Optimization/simconfig/coverage.py::converged": {
       "decorators": [],
@@ -14273,7 +14328,7 @@
       "doc": "The expected FIRST-PASS fill rate of one section at the levels the orders carry now:\nthe units a shelf serves off a line, over the units the line asks for, weighted by each\nSKU's lines per day (\"Choose the coverage floor\", decision 5):\n\n    \u03a3_s  lines_s \u00b7 E[min(q_s, (S_s - D_s)^+)]  \u00f7  \u03a3_s  lines_s \u00b7 E[q_s]     lines_s = n \u00b7 \u03c0_s\n\n`S_s = Q_s + pipeline_qty_s` is the order-up-to POSITION and `D_s` the units of the SKU's\nown prior lines still in transit when this one arrives -- zero at lead zero, where the\nprevious line's order has landed and the shelf sits at `Q_s`, and priced by\n`_served_under_lead` otherwise (\"Declare the coverage against the inbound lead\", decision\n5: the promise holds AT the lead).  `transit` is `transit_day_law`'s result for the pair\n(None = no pipeline) and `lead_unit_days` reads the SKU's supplier lead as days.  The\ndenominator is the section's daily units; the numerator the units served before a\nrestock, so `1 - fill_rate` is the expected missed share the audit's `supply` clause\nreads.  A SKU with no lead and no pipeline stamp takes the lead-free expression through\nITS OWN code path (`expected_min`), so a record with no pipeline is byte-identical to one\npriced before the lead existed.  Call it on the PLANNED orders: the shelf that serves the\nline is the one the run fields, which since \"Field the requirement\" is the declared one\nexactly, so pre-plan and post-plan price the same number.  Returns\n`{'fill_rate', 'expected_missed_share', 'units_per_day', 'served_per_day',\n'base_stock_skus', 'base_stock_share', 'n_skus', 'pipeline_units', 'transit_days',\n'lead_days'}` -- `pipeline_units` is \u03a3 `pipeline_qty` over the section and `lead_days`\nthe units-weighted mean lead, both 0 when the lead-free premise holds exactly.",
       "is_async": false,
       "kind": "function",
-      "signature": "(orders, lines_per_day: float, *, transit: dict | None=None, lead_unit_days: float=1.0) -> dict"
+      "signature": "(orders, lines_per_day: float, *, transit: dict | None=None, lead_unit_days: float=1.0, memo: dict | None=None) -> dict"
     },
     "Optimization/simconfig/coverage.py::line_floor": {
       "decorators": [],
@@ -16560,7 +16615,7 @@
       "doc": "The section's expected first-pass fill as a function of the pair's TRANSIT, at the\nlevels the orders carry now: `[{'transit_days', 'fill_rate'}, ...]` sorted by transit,\none point per distinct day-grid expectation the median scaled by `scales` produces\n(the stamp itself, scale 1, always among them); None when the block names no pipeline.\n\nStamped so the audit can price `1 - fill(realized lead)` -- the EXPLAINED supply level\nof \"Declare the coverage against the inbound lead\", decision 10 -- without the\ncatalogue: an analysis worker holds the record, never the orders.  The levels are held\nFIXED (they were declared at the stamp); only the in-transit law moves, which is what a\nyard that binds does to the shelf.  The law's SHAPE is kept (same spread, the median\nscaled), so the point at scale 1 is the stamped fill exactly and the curve reads as\n\"the same regime, slower or faster\".  Linear between points (`equilibrium.fill_at`).",
       "is_async": false,
       "kind": "function",
-      "signature": "(section: list, lines_per_day: float, lead: dict, scales: tuple=FILL_CURVE_SCALES) -> list | None"
+      "signature": "(section: list, lines_per_day: float, lead: dict, scales: tuple=FILL_CURVE_SCALES, memo: dict | None=None) -> list | None"
     },
     "Optimization/simdriver/era_coverage.py::fixed_point": {
       "decorators": [],
@@ -27368,6 +27423,61 @@
       "kind": "function",
       "signature": "(cands, x_pace, y_pace) -> dict[int, float]"
     },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec": {
+      "decorators": [],
+      "doc": "`_MinLaborPool`'s aisles as arrays: the bracket-end matrix, the run's best-bracket\ncost per aisle, its sort key, the walk order, and the run's affinity deltas.\n\nRow i is the aisle at position i of `by_aisle_brkt` -- the retired list's rank.  Column\nj is the aisle's j-th bracket in its own insertion order, holding `D` of the bracket's\nrepresentative end (`_rep`: the near end minimising, the far end maximising), or the\nidentity of the extremum (+inf minimising, -inf maximising) when the bracket is empty.\n\nWHY EVERY FLOAT AND EVERY TIE IS THE LOOP'S:\n  * `pp[m] + D` is the one IEEE addition `_aisle_best_cost` performs, and a row's\n    min (max) is the value its strict-`_better` walk keeps.\n  * The order is `argsort(key, kind='stable')` over the live rows: ascending key, and\n    on a tie ascending row -- exactly the sorted `(key, rank, aid)` tuples it replaces.\n    `key` is `fq * bc`, negated when maximising, the same expression.\n  * The walk: `base = fq * bc`, `score = base - lam * delta`, both elementwise as the\n    loop computed them.  The loop keeps the first STRICTLY better score and breaks at\n    the first position p >= 1 whose `base - max_reward >= best` (minimising) or\n    `base <= best` (maximising), `best` being the extreme of positions 0..p-1 -- a\n    running minimum (maximum).  So the break is the first True of that comparison\n    against the accumulated extreme, and the winner the first extreme before it.\n  * `delta` is the run's per-aisle affinity term: 0.0 with no partner row, the\n    inverse-folded `deltas` where the ledger has one, and otherwise the per-aisle fold\n    the loop ran, over every aisle rather than only the visited ones -- the same value\n    wherever the walk reads it.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, by_aisle_brkt, D_of, rep, maximize: bool)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, fq: float) -> None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.boundary": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, pp: dict, fq: float) -> None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.live": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> bool"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.set_delta": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, row_items, deltas, ais) -> None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.update": {
+      "decorators": [],
+      "doc": "The winner moved: its bracket ends, its cost, and the order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, brackets, bc, fq: float) -> None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.walk": {
+      "decorators": [],
+      "doc": "`(row, score)` of the walk's winner -- the retired prefix loop, in arrays.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, fq: float, lam: float, max_reward: float) -> tuple"
+    },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool": {
       "decorators": [],
       "doc": "`_ranked_minlabor_impl` as a pool -- `rank_minlabor`, and `rank_maxlabor` with\n`maximize=True` (one function, both arms, every extremum flipped).\n\nUnlike `_TravelBalancedPool` there is NO per-aisle running load: this policy MINIMISES\ntotal labor rather than BALANCING it.  Its path dependence flows entirely through the\ndeques (pool state) and through two manager dicts that `take` commits to --\n`aisle_idx_sets`, which the affinity reward reads, and `aisle_member_pos`, whose appended\ncolumns the partner centroid sums in placement order.  That second one is the quieter of\nthe two and worth naming: `cx` is not a tie-break, it is the term that picks the bin.\n\nTHE DELTA SUM IS INLINED ON PURPOSE (`for ci, w in row_items: if ci in ais`).  It looks\nlike a candidate for `_delta_lift_from_row`, and unifying them would be a bug:\n`_delta_lift_from_row` switches which side it iterates on `len(row) <= len(member_set)`,\nso its summation ORDER flips as an aisle fills.  That flip is the one-ulp drift b91cf38\nwas written to fix, pinned by Tests/calltree/test_rank_cache_equivalence.py.  This loop\niterates CSR column order unconditionally and must keep doing so.\n\nThe SKU-run cache (`bc_by_aid`, `row_items`, `max_reward`) is rebuilt at the run\nboundary and carries `_sel` alongside it: one entry per live aisle, SORTED by\n`(fq*bc, rank)` and read front-to-back without being consumed.  `take` walks a prefix of\nit until the affinity prune fires, so the structure has to survive the walk -- see the\nselection block for why that rules out a heap.  The winner's `bc` is refreshed EAGERLY\nat the end of the take that moved it, and its one entry is bisected out and reinserted;\na unit that finds no bin leaves the list untouched, because the walk never wrote to it.",
@@ -27395,6 +27505,15 @@
       "kind": "function",
       "signature": "(self, aid, var, pp=None)"
     },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._bc_by_aid": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "`{aisle: its best-bracket cost}` over the live aisles, derived likewise.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> dict"
+    },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._better": {
       "decorators": [],
       "doc": null,
@@ -27408,6 +27527,15 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, row_items)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._sel": {
+      "decorators": [
+        "property"
+      ],
+      "doc": "The run's aisle order as the retired sorted list spelled it -- `(key, rank,\naid)` for every live aisle, ascending -- DERIVED from the vector state, for the\ntests that read the order the walk follows.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self) -> list"
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.prefers_low": {
       "decorators": [
@@ -27707,6 +27835,47 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, unit)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec": {
+      "decorators": [],
+      "doc": "`_TravelBalancedPool`'s aisles as arrays: the head matrix, the running loads, and the\ncurrent SKU run's score vector.\n\nRow i is the aisle at position i of `by_aisle` -- the heap's rank.  Column j is the j-th\nbucket of that aisle in ITS OWN insertion order (`by_aisle[aid].items()`), holding the\nbucket head's D (+inf when the bucket is empty) and the index of its height multiplier in\n`mvals`.  Built once per pool; afterwards only the winner's row moves, at the one site\nthat moves a head.\n\nWHY EVERY FLOAT IS THE SCAN'S, bit for bit:\n  * `pp[m] + D` is one IEEE double addition, the same one `_aisle_best` performs.\n  * `argmin(axis=1)` returns the FIRST minimum along a row, and `_aisle_best` keeps the\n    first minimum under a strict `<` walking the same buckets in the same order (an\n    empty bucket is +inf, which never beats a real cost and is what \"skip\" meant).\n  * `load + fq * best` and the cart hinge keep the scan's operation order; the hinge's\n    `np.maximum(0.0, x)` differs from `max(0.0, x)` only on x == -0.0, which\n    `v / cap - 1.0` cannot produce under round-to-nearest, and would change nothing\n    added to a non-negative score if it did.\n  * The winner is `argmin` over the scores: the first index at the minimum, which is the\n    heap's `(score, rank)` order.  Its refreshed score is computed by `_score_of`, the\n    method the heap re-pushed with.\n`Tests/unit/test_travel_balanced_equivalence.py` (the frozen oracle) and\n`Tests/unit/test_frozen_tier.py` hold the take sequences and scores equal.",
+      "kind": "class",
+      "signature": ""
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.__init__": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, by_aisle, load, vol_load)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.boundary": {
+      "decorators": [],
+      "doc": "Score every aisle for this SKU run: the vector form of the retired rebuild.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, pp: dict, fq: float, sku, m_s: float, pool) -> None"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.choice": {
+      "decorators": [],
+      "doc": "`(cost, mult, bin)` of row i as the boundary scored it -- `_aisle_best`'s answer.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, by_aisle) -> tuple"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.pick": {
+      "decorators": [],
+      "doc": "The winning row, or None when every aisle is exhausted.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.refresh": {
+      "decorators": [],
+      "doc": "The winner moved: its heads, its running totals, and its score in this run.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, buckets, load: float, vol: float, score) -> None"
     },
     "Warehouse/placement/Assignment_Functions.py::_affinity_row": {
       "decorators": [],

@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>fill_curve</code></h1>
 <p class="meta">layer <span class="chip">opt_simdriver</span> · file <a href="../files/nOptimization_simdriver_era_coverage_py.html"><code>Optimization/simdriver/era_coverage.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span><span class="badge cycle">in import cycle</span></div>
-<pre class="sig"><code>def fill_curve(section: list, lines_per_day: float, lead: dict, scales: tuple=FILL_CURVE_SCALES) -&gt; list | None</code></pre>
+<pre class="sig"><code>def fill_curve(section: list, lines_per_day: float, lead: dict, scales: tuple=FILL_CURVE_SCALES, memo: dict | None=None) -&gt; list | None</code></pre>
 <section class="doc">The section&#x27;s expected first-pass fill as a function of the pair&#x27;s TRANSIT, at the
 levels the orders carry now: `[{&#x27;transit_days&#x27;, &#x27;fill_rate&#x27;}, ...]` sorted by transit,
 one point per distinct day-grid expectation the median scaled by `scales` produces

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LazyRanking · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_priorities_py__LazyRanking" data-id="Inbound/priorities.py::LazyRanking">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_priorities_py.html"><code>Inbound/priorities.py</code></a> <span class="sep">›</span> <span class="here"><code>LazyRanking</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>LazyRanking</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_priorities_py.html"><code>Inbound/priorities.py</code></a></p>
+
+<pre class="sig"><code>class LazyRanking</code></pre>
+<section class="doc">A drain&#x27;s YARD ranking as a pull queue: `bounded_order`&#x27;s order for a lazy
+ordering entry, computed one trailer per `popleft()` (`.scratch/inbound-fullscale-perf/`
+O1).  The surface is the deque the drain always consumed (`popleft`, `len`, truth):
+`len` is how many trailers are still to come -- known without pricing any of them.
+
+THE PERMUTATION CHECK MOVES TO THE PULL.  `bounded_order` checked the whole order at
+once; a queue that is never drained to the end cannot, so each pull is checked
+instead -- the trailer must be one of the window&#x27;s and not one already pulled -- and
+the completeness half runs the moment the window is exhausted (the generator must then
+stop, having yielded exactly the window).  A drain that stops early has pulled a prefix
+of a permutation, which is all it ever consumed of one.
+
+Each pull&#x27;s seconds are the yard plan&#x27;s (`inb_yplan`): that is where the rounds are
+now priced.  The window&#x27;s remainder (`rest`, past the bound) follows in arrival order,
+as it always did.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_priorities_py__bounded_order.html"><code>bounded_order</code></a> <span class="dim">Inbound/priorities.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_priorities_py__LazyRanking">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/priorities.py#:~:text=class%20LazyRanking">Source ↗</a></p>
+</article>
+</main>
+</body></html>

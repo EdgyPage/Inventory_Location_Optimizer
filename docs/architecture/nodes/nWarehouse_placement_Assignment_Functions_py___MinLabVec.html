@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_MinLabVec · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___MinLabVec" data-id="Warehouse/placement/Assignment_Functions.py::_MinLabVec">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_MinLabVec</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_MinLabVec</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _MinLabVec</code></pre>
+<section class="doc">`_MinLaborPool`&#x27;s aisles as arrays: the bracket-end matrix, the run&#x27;s best-bracket
+cost per aisle, its sort key, the walk order, and the run&#x27;s affinity deltas.
+
+Row i is the aisle at position i of `by_aisle_brkt` -- the retired list&#x27;s rank.  Column
+j is the aisle&#x27;s j-th bracket in its own insertion order, holding `D` of the bracket&#x27;s
+representative end (`_rep`: the near end minimising, the far end maximising), or the
+identity of the extremum (+inf minimising, -inf maximising) when the bracket is empty.
+
+WHY EVERY FLOAT AND EVERY TIE IS THE LOOP&#x27;S:
+  * `pp[m] + D` is the one IEEE addition `_aisle_best_cost` performs, and a row&#x27;s
+    min (max) is the value its strict-`_better` walk keeps.
+  * The order is `argsort(key, kind=&#x27;stable&#x27;)` over the live rows: ascending key, and
+    on a tie ascending row -- exactly the sorted `(key, rank, aid)` tuples it replaces.
+    `key` is `fq * bc`, negated when maximising, the same expression.
+  * The walk: `base = fq * bc`, `score = base - lam * delta`, both elementwise as the
+    loop computed them.  The loop keeps the first STRICTLY better score and breaks at
+    the first position p &gt;= 1 whose `base - max_reward &gt;= best` (minimising) or
+    `base &lt;= best` (maximising), `best` being the extreme of positions 0..p-1 -- a
+    running minimum (maximum).  So the break is the first True of that comparison
+    against the accumulated extreme, and the winner the first extreme before it.
+  * `delta` is the run&#x27;s per-aisle affinity term: 0.0 with no partner row, the
+    inverse-folded `deltas` where the ledger has one, and otherwise the per-aisle fold
+    the loop ran, over every aisle rather than only the visited ones -- the same value
+    wherever the walk reads it.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___MinLaborPool_take.html"><code>take</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___MinLabVec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_MinLabVec">Source ↗</a></p>
+</article>
+</main>
+</body></html>

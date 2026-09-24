@@ -64,6 +64,7 @@ files:
     layer: "inbound"
     key_symbols:
       - {name: "plan_order", file: "Inbound/gain.py", kind: "function"}
+      - {name: "plan_order_iter", file: "Inbound/gain.py", kind: "function"}
       - {name: "plan_order_topm", file: "Inbound/gain.py", kind: "function"}
       - {name: "TRACE_TOPM", file: "Inbound/gain.py", kind: "const"}
       - {name: "bundle_uses_pool", file: "Inbound/gain.py", kind: "function"}
@@ -111,6 +112,7 @@ files:
       - {name: "yard_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "dock_key", file: "Inbound/priorities.py", kind: "function"}
       - {name: "bounded_order", file: "Inbound/priorities.py", kind: "function"}
+      - {name: "LazyRanking", file: "Inbound/priorities.py", kind: "class"}
     notes: ""
   "Inbound/putaway_pool.py":
     purpose: "The site put pool: ONE crew of putters as one shared clock list bound to both channels' put queues, owning the day's division between them, the residue re-drain, the once-per-site-day reset and the site put carry."
@@ -4742,6 +4744,15 @@ files:
       - {name: "test_git_metadata_wins_over_a_stamp", file: "Tests/unit/test_export_provenance.py", kind: "function"}
       - {name: "test_the_repo_itself_still_answers_from_git", file: "Tests/unit/test_export_provenance.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_fill_curve_memo.py":
+    purpose: "the fill curve's per-(group, grid day) memo moves no float."
+    layer: "tests"
+    key_symbols:
+      - {name: "D", file: "Tests/unit/test_fill_curve_memo.py", kind: "const"}
+      - {name: "LEAD", file: "Tests/unit/test_fill_curve_memo.py", kind: "const"}
+      - {name: "test_the_memoised_curve_is_the_plain_curve_bit_for_bit", file: "Tests/unit/test_fill_curve_memo.py", kind: "function"}
+      - {name: "test_a_moved_shelf_misses_the_memo_rather_than_reusing_it", file: "Tests/unit/test_fill_curve_memo.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_fill_headroom.py":
     purpose: "the planner's fill headroom is DERIVED under the calibrated era."
     layer: "tests"
@@ -4948,7 +4959,7 @@ files:
       - {name: "test_opens_over_one_shared_template_match_the_eager_build_and_each_other", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_a_cursor_clone_is_independent_and_leaves_its_source_alone", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_min_labor_aisle_order_stays_sorted_through_a_whole_drive", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
-      - {name: "test_a_broken_aisle_order_raises_rather_than_mispricing", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
+      - {name: "test_the_walk_order_is_the_stable_argsort_of_the_live_costs", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_fixtures_actually_plant_ties_and_reorderings", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_min_labor_deltas_through_the_inverse_equal_the_per_aisle_fold", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
       - {name: "test_the_override_actually_moves_a_choice_on_some_seed", file: "Tests/unit/test_frozen_tier.py", kind: "function"}
@@ -5238,6 +5249,17 @@ files:
       - {name: "test_write_back_respects_if_set_and_never_truthiness", file: "Tests/unit/test_knob_registry.py", kind: "function"}
       - {name: "test_write_back_coerces_and_skips_parent_only_knobs", file: "Tests/unit/test_knob_registry.py", kind: "function"}
       - {name: "test_run_spec_record_reads_each_knob_from_its_declared_source", file: "Tests/unit/test_knob_registry.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_lazy_yard_ranking.py":
+    purpose: "the yard's pull queue (LazyRanking over plan_order_iter) is the eager plan's prefix and prices only the rounds a drain pulls."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_every_prefix_of_the_generator_is_the_eager_plans_prefix", file: "Tests/unit/test_lazy_yard_ranking.py", kind: "function"}
+      - {name: "test_one_pull_prices_one_round", file: "Tests/unit/test_lazy_yard_ranking.py", kind: "function"}
+      - {name: "test_a_gain_yard_ranking_is_a_lazy_queue_over_the_same_order", file: "Tests/unit/test_lazy_yard_ranking.py", kind: "function"}
+      - {name: "test_a_key_policy_and_a_traced_drain_stay_eager", file: "Tests/unit/test_lazy_yard_ranking.py", kind: "function"}
+      - {name: "test_a_bad_generator_raises_at_the_pull_that_exposes_it", file: "Tests/unit/test_lazy_yard_ranking.py", kind: "function"}
+      - {name: "test_the_bounds_remainder_follows_in_arrival_order", file: "Tests/unit/test_lazy_yard_ranking.py", kind: "function"}
     notes: ""
   "Tests/unit/test_lead_aware_coverage.py":
     purpose: "the coverage record is declared AT the order-to-shelf lead."
@@ -5730,7 +5752,7 @@ files:
     key_symbols:
       - {name: "test_the_refresh_is_one_call_per_take_whatever_the_warehouse_looks_like", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
       - {name: "test_the_selection_does_not_walk_the_aisles", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
-      - {name: "test_the_run_boundary_rebuild_is_exactly_one_pass_per_aisle", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
+      - {name: "test_the_run_boundary_makes_no_per_aisle_call", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
       - {name: "test_the_counter_can_tell_a_scan_from_a_heap", file: "Tests/unit/test_placement_selection_is_not_a_scan.py", kind: "function"}
     notes: ""
   "Tests/unit/test_plan_order_merge_replay.py":

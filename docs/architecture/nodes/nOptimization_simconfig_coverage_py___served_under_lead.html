@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_served_under_lead</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
 
-<pre class="sig"><code>def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray, pmf_k: dict) -&gt; np.ndarray</code></pre>
+<pre class="sig"><code>def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray, pmf_k: dict, memo: dict | None=None) -&gt; np.ndarray</code></pre>
 <section class="doc">`E[min(q, (S - D_K)^+)]` per SKU: the units a line is expected to take off a shelf
 whose order-up-to POSITION is `S` while the SKU&#x27;s own prior lines are still in transit
 (&quot;Declare the coverage against the inbound lead&quot;, decision 5).
@@ -42,7 +42,17 @@ is `E[min(q, S)]`.
 `a` is the supplier lead ROUNDED TO GRID DAYS after the batch-to-day conversion; at one
 release a day (the era, which pins it) that is the ledger&#x27;s own `round(lead_time_mean)`
 in batches, and at any other release schedule the two roundings differ -- a limitation
-stated, not solved, because nothing declares another schedule.</section>
+stated, not solved, because nothing declares another schedule.
+
+`memo` (a dict the caller owns, or None) shares per-(group, grid day) results between
+calls that price the SAME groups under DIFFERENT transit laws -- the fill curve&#x27;s twelve
+points (`era_coverage.fill_curve`), which differ only in the weights `pk` over the grid
+days `k`.  A group&#x27;s per-`k` sum depends on its SKUs&#x27; shelves, rates, supplier leads and
+line laws and on `k`, never on `pk`, so it is computed once per `(group, k)` and each law
+re-weights it in its own `k` order -- the same expression and the same accumulation as the
+unmemoised path, so every float is identical.  The group is keyed by a digest of exactly
+those inputs (and the line laws by identity), so a caller that changed any of them misses
+rather than reusing a stale sum.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py___line_pmf.html"><code>_line_pmf</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nOptimization_simconfig_coverage_py__fill_rate.html"><code>fill_rate</code></a> <span class="dim">Optimization/simconfig/coverage.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nOptimization_simconfig_coverage_py___served_under_lead">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Optimization/simconfig/coverage.py#:~:text=def%20_served_under_lead">Source ↗</a></p>
 </article>

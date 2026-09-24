@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_TravelVec · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___TravelVec" data-id="Warehouse/placement/Assignment_Functions.py::_TravelVec">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_TravelVec</code></span></nav>
+<h1><span class="kind kind-class">class</span> <code>_TravelVec</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>class _TravelVec</code></pre>
+<section class="doc">`_TravelBalancedPool`&#x27;s aisles as arrays: the head matrix, the running loads, and the
+current SKU run&#x27;s score vector.
+
+Row i is the aisle at position i of `by_aisle` -- the heap&#x27;s rank.  Column j is the j-th
+bucket of that aisle in ITS OWN insertion order (`by_aisle[aid].items()`), holding the
+bucket head&#x27;s D (+inf when the bucket is empty) and the index of its height multiplier in
+`mvals`.  Built once per pool; afterwards only the winner&#x27;s row moves, at the one site
+that moves a head.
+
+WHY EVERY FLOAT IS THE SCAN&#x27;S, bit for bit:
+  * `pp[m] + D` is one IEEE double addition, the same one `_aisle_best` performs.
+  * `argmin(axis=1)` returns the FIRST minimum along a row, and `_aisle_best` keeps the
+    first minimum under a strict `&lt;` walking the same buckets in the same order (an
+    empty bucket is +inf, which never beats a real cost and is what &quot;skip&quot; meant).
+  * `load + fq * best` and the cart hinge keep the scan&#x27;s operation order; the hinge&#x27;s
+    `np.maximum(0.0, x)` differs from `max(0.0, x)` only on x == -0.0, which
+    `v / cap - 1.0` cannot produce under round-to-nearest, and would change nothing
+    added to a non-negative score if it did.
+  * The winner is `argmin` over the scores: the first index at the minimum, which is the
+    heap&#x27;s `(score, rank)` order.  Its refreshed score is computed by `_score_of`, the
+    method the heap re-pushed with.
+`Tests/unit/test_travel_balanced_equivalence.py` (the frozen oracle) and
+`Tests/unit/test_frozen_tier.py` hold the take sequences and scores equal.</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___TravelBalancedPool_take.html"><code>take</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___TravelVec">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=class%20_TravelVec">Source ↗</a></p>
+</article>
+</main>
+</body></html>

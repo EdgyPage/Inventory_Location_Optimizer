@@ -13,9 +13,13 @@
 <nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <span class="here"><code>plan_order</code></span></nav>
 <h1><span class="kind kind-function">function</span> <code>plan_order</code></h1>
 <p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
-<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+
 <pre class="sig"><code>def plan_order(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False, replay: bool=True) -&gt; list</code></pre>
-<section class="doc">10&#x27;s greedy over the frozen view.  `bundle` is the owner PROVIDER the evaluator
+<section class="doc">10&#x27;s greedy over the frozen view, run to the end: `list(plan_order_iter(...))`.
+The whole-order form every eager caller reads (the dock ranking, a traced drain, the
+tests&#x27; oracle); the yard&#x27;s pull queue reads the generator itself (`plan_order_iter`).
+
+`bundle` is the owner PROVIDER the evaluator  `bundle` is the owner PROVIDER the evaluator
 resolves through (`OneOwnerBundle` on a single-channel run), never a bare
 `GainBundle`.  `forced_prefix` is the urgency gate&#x27;s FIFO head — consumed first,
 unscored.  `window_rates` is the futuresight entry&#x27;s
@@ -38,7 +42,7 @@ engages only when every group of every candidate resolves to the merge rung
 (`_merge_only`); anything else -- a uniform or pool owner, a predicted bin that is
 also an empty one -- takes the set-algebra path below, as does `replay=False`,
 which the equality tests use as the oracle.</section>
-<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___merge_only.html"><code>_merge_only</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___plan_order_replay.html"><code>_plan_order_replay</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nWarehouse_kernel_perf_probe_py__count.html"><code>count</code></a> <span class="dim">Warehouse/kernel/perf_probe.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___traced.html"><code>_traced</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py__plan_order_iter.html"><code>plan_order_iter</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py___traced.html"><code>_traced</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py__plan_order">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20plan_order">Source ↗</a></p>
 </article>
 </main>

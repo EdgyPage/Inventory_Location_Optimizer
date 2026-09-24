@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plan_order_iter · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nInbound_gain_py__plan_order_iter" data-id="Inbound/gain.py::plan_order_iter">
+<nav class="crumbs"><a href="../layers.html">inbound</a> <span class="sep">›</span> <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a> <span class="sep">›</span> <span class="here"><code>plan_order_iter</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>plan_order_iter</code></h1>
+<p class="meta">layer <span class="chip">inbound</span> · file <a href="../files/nInbound_gain_py.html"><code>Inbound/gain.py</code></a></p>
+<div class="badges"><span class="badge crosslayer">cross-layer</span></div>
+<pre class="sig"><code>def plan_order_iter(candidates, bundle, space, *, predicted: bool, forced_prefix=(), window_rates=None, shared=None, _ev: _Evaluator | None=None, trace: list | None=None, force_merge: bool=False, replay: bool=True)</code></pre>
+<section class="doc">`plan_order`&#x27;s greedy as a GENERATOR: one winner per round, yielded the instant
+its round has committed (`taken` updated, templates dropped, `remaining` cut).
+
+WHY A GENERATOR IS THE SAME PLAN.  Round r&#x27;s winner is a function of the frozen view,
+the candidates and the takes of rounds 1..r-1 -- nothing a LATER round writes -- so
+the first p values yielded ARE the first p entries of the full order, float for float,
+however many are ever asked for.  A drain stages only its free doors plus the refills
+its unload reaches (a quarter of the ranked trailers on the meso deep rung,
+`.scratch/inbound-fullscale-perf/` S03), so the rounds nobody pulls are never priced:
+p(2T - p + 1) placements instead of T(T + 1).  `plan_order` is `list()` of this, and
+stays the oracle.
+
+Nothing runs until the first `next()` -- not even the argument checks below -- so an
+abandoned generator costs nothing but its frame.  The yard&#x27;s pull queue
+(`priorities.LazyRanking`) is the one caller that stops early.</section>
+<section class="rel"><h2>Callees <span class="count">(4)</span></h2><ul><li><a href="nInbound_gain_py___Evaluator.html"><code>_Evaluator</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___merge_only.html"><code>_merge_only</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nInbound_gain_py___plan_order_replay.html"><code>_plan_order_replay</code></a> <span class="dim">Inbound/gain.py</span></li><li><a href="nWarehouse_kernel_perf_probe_py__count.html"><code>count</code></a> <span class="dim">Warehouse/kernel/perf_probe.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nInbound_gain_py__plan_order.html"><code>plan_order</code></a> <span class="dim">Inbound/gain.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nInbound_gain_py__plan_order_iter">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Inbound/gain.py#:~:text=def%20plan_order_iter">Source ↗</a></p>
+</article>
+</main>
+</body></html>

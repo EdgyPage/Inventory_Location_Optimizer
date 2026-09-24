@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>fill_rate</code></h1>
 <p class="meta">layer <span class="chip">optimization</span> · file <a href="../files/nOptimization_simconfig_coverage_py.html"><code>Optimization/simconfig/coverage.py</code></a></p>
 <div class="badges"><span class="badge crosslayer">cross-layer</span></div>
-<pre class="sig"><code>def fill_rate(orders, lines_per_day: float, *, transit: dict | None=None, lead_unit_days: float=1.0) -&gt; dict</code></pre>
+<pre class="sig"><code>def fill_rate(orders, lines_per_day: float, *, transit: dict | None=None, lead_unit_days: float=1.0, memo: dict | None=None) -&gt; dict</code></pre>
 <section class="doc">The expected FIRST-PASS fill rate of one section at the levels the orders carry now:
 the units a shelf serves off a line, over the units the line asks for, weighted by each
 SKU&#x27;s lines per day (&quot;Choose the coverage floor&quot;, decision 5):
