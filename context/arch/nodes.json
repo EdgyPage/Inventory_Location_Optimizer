@@ -796,6 +796,13 @@
       "kind": "function",
       "signature": "(self) -> float"
     },
+    "Inbound/dock.py::Dock.hold_team_until": {
+      "decorators": [],
+      "doc": "No worker in `idxs` starts before batch-local `t` (`crew_clock.hold_until`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, idxs, t: float) -> None"
+    },
     "Inbound/dock.py::Dock.name": {
       "decorators": [
         "property"
@@ -1970,6 +1977,34 @@
       "kind": "function",
       "signature": "(self, dock, transit, deadline, epoch, work_order, yard_next, cap: int | None=None)"
     },
+    "Inbound/receiving.py::SiteReceiving._unload_split_asap": {
+      "decorators": [],
+      "doc": "The 'split' door teams under door_fill 'asap' (the user's rule, 2026-09-23): a\ndoor is plugged THE INSTANT it frees, or the instant a trailer arrives while it\nstands free, and which trailer takes it is decided AT EVERY PLUG.\n\nThe drain's own `_unload_split` differs in exactly three places, and the loop below\nis otherwise its rule for rule:\n\n  ARRIVALS ARE EVENTS.  A trailer whose lead elapses before the whistle is admitted\n  to the yard at its arrival instant (`YardTransit.admit`) and planned then, the same\n  plans-at-arrival step the drain opens with.  If a door is free it is plugged at\n  once.  The drain's own loop only sees the trailers standing at the drain.\n  EVERY PLUG RE-RANKS.  A freed or free door takes the top of `transit.yard_order`\n  over the trailers standing AT THAT INSTANT -- the drain's frozen `ctx` is the\n  ranking's input (the once-a-day yard update), the candidate set is live.\n  IDLE WORKERS WAIT, THEY DO NOT GO HOME.  A worker with nothing to work -- cut by\n  the door-team cap at the deal, or freed with no target -- joins an idle pool, and\n  a trailer plugged later in the shift is dealt from it (up to the cap).  A worker\n  dealt to a trailer never starts before the trailer reached its door\n  (`dock.hold_team_until`), which the drain's loop never needs because it only\n  stages at instants its teams are already at.\n\nWith no mid-shift arrival and a yard ranking that does not move between plugs (fifo\nover a yard nobody joins), every plug picks what the frozen ranking's head would have,\nwhich is the property the tests pin.  Returns `_unload_split`'s shape and order.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, dock, transit, deadline, epoch, work_order, ctx, cap, source: str, solo)"
+    },
+    "Inbound/receiving.py::SiteReceiving._unload_split_asap.admit_until": {
+      "decorators": [],
+      "doc": "Land every trailer arriving by `t_local` (and before the whistle) in the yard,\nplanned at its own arrival.  A door frees when its last pack FINISHES, and a\ntrailer that arrived during that pack must be standing when the door is re-ranked.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(t_local: float) -> None"
+    },
+    "Inbound/receiving.py::SiteReceiving._unload_split_asap.deal": {
+      "decorators": [],
+      "doc": "Give `target` up to its room from `workers`, held to `at_local`; return the\nworkers left over.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(target, workers: list, at_local: float) -> list"
+    },
+    "Inbound/receiving.py::SiteReceiving._unload_split_asap.plug": {
+      "decorators": [],
+      "doc": "Stage the top-ranked standing trailer at `at_local`, if a door and a trailer\nare both there.  Returns the trailer, or None.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(at_local: float)"
+    },
     "Inbound/receiving.py::SiteReceiving.bind": {
       "decorators": [],
       "doc": "Serve `channel`'s leaf.  Call once per leaf, before the batch loop.\n\nBuilds this leaf's half of the `{sku: leaf}` owner dict from its own catalogue\npartition, and REFUSES an overlap.  An sku owned by two leaves means the channel\nfilter (`_channel_runs_for`) let one order into both, and the only symptom\ndownstream would be merchandise delivered to the wrong warehouse and a ledger that\nbalances there \u2014 so it is checked at the one moment both partitions are in hand.\n\nThe leaf's transit must BE this coordinator's.  That is what makes `SITE_PHASES`'\nsite-scoped `_advance_lead_queue` honest: the phase is driven on one leaf and\nreaches `transit.advance()`, so \"which leaf\" is not a choice as long as the\nidentity holds, and this is where it is established rather than assumed.",
@@ -2076,6 +2111,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, leaf) -> tuple"
+    },
+    "Inbound/receiving.py::_seconds_agree": {
+      "decorators": [],
+      "doc": "True when two sums of the same unload seconds are the same labour: within the absolute\nfloor, or within `_SECONDS_RTOL` of the larger.  A missing unload is seconds, far outside\neither.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(a: float, b: float) -> bool"
     },
     "Inbound/site_space.py": {
       "decorators": [],
@@ -2432,7 +2474,14 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=DEFAULT_DOCK_DOORS, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split', door_team: int | None=None)"
+      "signature": "(self, trailer_type: type=None, *, lead_s: float=0.0, lead_sigma: float=0.0, lead_seed: int=0, doors: int=DEFAULT_DOCK_DOORS, yard_policy: str='fifo', dock_policy: str='fifo', local_policy: str='fifo', bound: int | None=None, allocation: str='split', door_team: int | None=None, door_fill: str='drain')"
+    },
+    "Inbound/transit.py::YardTransit.admit": {
+      "decorators": [],
+      "doc": "Move one trailer from transit into the yard at its arrival instant, keeping the\nyard in charter order (arrival stamp, seq) -- exactly as `release` would have landed\nit at the next drain, only now.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, trailer: Trailer) -> None"
     },
     "Inbound/transit.py::YardTransit.depth": {
       "decorators": [
@@ -2493,6 +2542,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self) -> int"
+    },
+    "Inbound/transit.py::YardTransit.next_arrival": {
+      "decorators": [],
+      "doc": "`(arrival_s, trailer)` for the trailer in transit that arrives first, or None.\n\nThe arrival instant is the event stamp `release` would give it (dispatch + lead).\nA trailer with no dispatch stamp or no lead never arrives mid-drain: the former has\nno calendar to arrive on, the latter arrived at `release` already.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self)"
     },
     "Inbound/transit.py::YardTransit.planned_lots": {
       "decorators": [],
@@ -8008,6 +8064,13 @@
       "kind": "const",
       "signature": null,
       "value_preview": "'fifo'"
+    },
+    "Optimization/config/settings.py::INBOUND_DOOR_FILL": {
+      "decorators": [],
+      "doc": null,
+      "kind": "const",
+      "signature": null,
+      "value_preview": "'drain'"
     },
     "Optimization/config/settings.py::INBOUND_DOOR_TEAM": {
       "decorators": [],
@@ -25712,6 +25775,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(clocks) -> float"
+    },
+    "Warehouse/kernel/crew_clock.py::hold_until": {
+      "decorators": [],
+      "doc": "Nobody in `idxs` may start before `t`: each clock becomes max(itself, t), IN PLACE.\n\nWhat dealing a worker to work that is not there yet means -- a trailer plugged into a\ndoor at `t` cannot be unloaded by a receiver whose clock says they were free earlier.\nA clock already past `t` is untouched (that worker is still busy).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(clocks, idxs, t: float) -> None"
     },
     "Warehouse/kernel/crew_clock.py::new_clocks": {
       "decorators": [],

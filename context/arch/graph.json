@@ -901,6 +901,11 @@
       "src": "Inbound/dock.py::Dock.finish"
     },
     {
+      "dst": "Warehouse/kernel/crew_clock.py::hold_until",
+      "kind": "calls",
+      "src": "Inbound/dock.py::Dock.hold_team_until"
+    },
+    {
       "dst": "Warehouse/kernel/crew_clock.py::reset",
       "kind": "calls",
       "src": "Inbound/dock.py::Dock.reset_clocks"
@@ -1401,6 +1406,11 @@
       "src": "Inbound/receiving.py::SiteReceiving._partition"
     },
     {
+      "dst": "Inbound/receiving.py::_seconds_agree",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._partition"
+    },
+    {
       "dst": "Warehouse/kernel/regime.py::regime_of",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving._partition"
@@ -1424,6 +1434,21 @@
       "dst": "Warehouse/kernel/allocation.py::partition",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving._unload_split"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._plan_arrivals",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._unload_split_asap"
+    },
+    {
+      "dst": "Warehouse/kernel/allocation.py::partition",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._unload_split_asap"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._plan_arrivals",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving._unload_split_asap.admit_until"
     },
     {
       "dst": "Inbound/receiving.py::SiteReceiving._channel_of",
@@ -1502,6 +1527,11 @@
     },
     {
       "dst": "Inbound/receiving.py::SiteReceiving._unload_split",
+      "kind": "calls",
+      "src": "Inbound/receiving.py::SiteReceiving.receive"
+    },
+    {
+      "dst": "Inbound/receiving.py::SiteReceiving._unload_split_asap",
       "kind": "calls",
       "src": "Inbound/receiving.py::SiteReceiving.receive"
     },
@@ -7842,6 +7872,11 @@
     },
     {
       "dst": "Optimization/config/settings.py::INBOUND_DOCK_POLICY",
+      "kind": "ref",
+      "src": "Optimization/config/sim_config.py::CONFIG"
+    },
+    {
+      "dst": "Optimization/config/settings.py::INBOUND_DOOR_FILL",
       "kind": "ref",
       "src": "Optimization/config/sim_config.py::CONFIG"
     },
@@ -25471,6 +25506,14 @@
     },
     {
       "file": "Inbound/dock.py",
+      "id": "Inbound/dock.py::Dock.hold_team_until",
+      "kind": "function",
+      "module": "Inbound/dock.py",
+      "name": "hold_team_until",
+      "public": true
+    },
+    {
+      "file": "Inbound/dock.py",
       "id": "Inbound/dock.py::Dock.name",
       "kind": "function",
       "module": "Inbound/dock.py",
@@ -26799,6 +26842,38 @@
     },
     {
       "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._unload_split_asap",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_unload_split_asap",
+      "public": false
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._unload_split_asap.admit_until",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "admit_until",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._unload_split_asap.deal",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "deal",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::SiteReceiving._unload_split_asap.plug",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "plug",
+      "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
       "id": "Inbound/receiving.py::SiteReceiving.bind",
       "kind": "function",
       "module": "Inbound/receiving.py",
@@ -26916,6 +26991,14 @@
       "module": "Inbound/receiving.py",
       "name": "transit_census_for",
       "public": true
+    },
+    {
+      "file": "Inbound/receiving.py",
+      "id": "Inbound/receiving.py::_seconds_agree",
+      "kind": "function",
+      "module": "Inbound/receiving.py",
+      "name": "_seconds_agree",
+      "public": false
     },
     {
       "file": "Inbound/site_space.py",
@@ -27335,6 +27418,14 @@
     },
     {
       "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::YardTransit.admit",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "admit",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
       "id": "Inbound/transit.py::YardTransit.depth",
       "kind": "function",
       "module": "Inbound/transit.py",
@@ -27395,6 +27486,14 @@
       "kind": "function",
       "module": "Inbound/transit.py",
       "name": "merchandise",
+      "public": true
+    },
+    {
+      "file": "Inbound/transit.py",
+      "id": "Inbound/transit.py::YardTransit.next_arrival",
+      "kind": "function",
+      "module": "Inbound/transit.py",
+      "name": "next_arrival",
       "public": true
     },
     {
@@ -33611,6 +33710,14 @@
       "kind": "const",
       "module": "Optimization/config/settings.py",
       "name": "INBOUND_DOCK_POLICY",
+      "public": true
+    },
+    {
+      "file": "Optimization/config/settings.py",
+      "id": "Optimization/config/settings.py::INBOUND_DOOR_FILL",
+      "kind": "const",
+      "module": "Optimization/config/settings.py",
+      "name": "INBOUND_DOOR_FILL",
       "public": true
     },
     {
@@ -53819,6 +53926,14 @@
       "kind": "function",
       "module": "Warehouse/kernel/crew_clock.py",
       "name": "finish",
+      "public": true
+    },
+    {
+      "file": "Warehouse/kernel/crew_clock.py",
+      "id": "Warehouse/kernel/crew_clock.py::hold_until",
+      "kind": "function",
+      "module": "Warehouse/kernel/crew_clock.py",
+      "name": "hold_until",
       "public": true
     },
     {

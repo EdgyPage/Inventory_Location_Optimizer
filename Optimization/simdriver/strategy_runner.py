@@ -1441,7 +1441,8 @@ def _build_site_dock(args: dict, pool, log):
         lead_seed=_spec['lead_seed'], doors=_spec['doors'],
         yard_policy=_spec['yard_policy'], dock_policy=_spec['dock_policy'],
         local_policy=_spec['local_policy'], bound=_spec['bound'],
-        allocation=_spec['allocation'], door_team=_spec['door_team'])
+        allocation=_spec['allocation'], door_team=_spec['door_team'],
+        door_fill=_spec.get('door_fill', 'drain'))
     # KEYED BY REGIME, because `Dock.unload_seconds` resolves with `regime_of(unit)`.
     # `Channel.name` and `Channel.regime` are independent fields, so keying by name would
     # price correctly only on a site whose channels happen to be named after their regimes.
@@ -2309,7 +2310,8 @@ def _build_arm(args: dict, unit: dict | None = None, pool=None,
                 local_policy=_inb_spec['local_policy'],
                 bound=_inb_spec['bound'],
                 allocation=_inb_spec['allocation'],
-                door_team=_inb_spec['door_team'])
+                door_team=_inb_spec['door_team'],
+                door_fill=_inb_spec.get('door_fill', 'drain'))
             # THE SPACE TIMELINE rides the standing yard unconditionally -- no policy
             # gate, no extra knob, by decision: every drain's DockContext carries a
             # frozen SpaceView even while both policies are 'fifo', which is what keeps

@@ -355,15 +355,25 @@ class YardTransit(TrailerTransit):
     #: What `_receive` probes (via getattr, default False) to find the standing surfaces.
     STANDING = True
 
-    __slots__ = ('allocation', 'door_team', '_yard_key', '_dock_key', '_staged', 'stamps',
-                 'gain_bundle', 'plan_trace')
+    __slots__ = ('allocation', 'door_team', 'door_fill', '_yard_key', '_dock_key', '_staged',
+                 'stamps', 'gain_bundle', 'plan_trace')
+
+    #: How a free door is plugged.  'drain' (the default, every run before 2026-09-23): the
+    #: yard admits arrivals once a site day, at the drain, and a door that frees mid-shift
+    #: takes the next trailer of the DRAIN-FROZEN yard ranking -- a trailer that arrives
+    #: after the drain waits for tomorrow's even beside an idle door.  'asap': a door is
+    #: plugged the instant it frees or a trailer arrives while it stands free, and WHICH
+    #: trailer is decided at every plug over the trailers standing at that instant (the
+    #: ranking's inputs stay the drain's frozen context -- the once-a-day yard update).
+    DOOR_FILLS = ('drain', 'asap')
 
     def __init__(self, trailer_type: type = None, *, lead_s: float = 0.0,
                  lead_sigma: float = 0.0, lead_seed: int = 0,
                  doors: int = DEFAULT_DOCK_DOORS,
                  yard_policy: str = 'fifo', dock_policy: str = 'fifo',
                  local_policy: str = 'fifo', bound: int | None = None,
-                 allocation: str = 'split', door_team: int | None = None):
+                 allocation: str = 'split', door_team: int | None = None,
+                 door_fill: str = 'drain'):
         super().__init__(trailer_type, lead_s=lead_s, lead_sigma=lead_sigma,
                          lead_seed=lead_seed, doors=doors,
                          local_policy=local_policy, bound=bound)
@@ -385,6 +395,13 @@ class YardTransit(TrailerTransit):
             raise ValueError(f'door_team {door_team!r} must be at least 1 receiver, or '
                              f'None for uncapped')
         self.door_team = None if door_team is None else int(door_team)
+        if door_fill not in self.DOOR_FILLS:
+            raise ValueError(f'unknown door fill {door_fill!r}; known: {self.DOOR_FILLS}')
+        if door_fill == 'asap' and allocation != 'split':
+            raise ValueError("door_fill 'asap' plugs doors mid-shift and deals the plugged "
+                             "trailer a team from the idle pool, which only the 'split' door "
+                             "teams have; 'merged' pools one gang over every door")
+        self.door_fill = door_fill
         self._staged: list = []       # holding a door, in staging order
         self.stamps: list = []        # (seq, arrived, staged, emptied, status) per finished
         # The gain arms' machinery, assigned by the DRIVER after construction when a
@@ -430,6 +447,35 @@ class YardTransit(TrailerTransit):
         self._yard.sort(key=lambda t: (
             t.arrived_s if t.arrived_s is not None else float('-inf'), t.seq))
         return []
+
+    # ── mid-shift arrivals (door_fill 'asap' only) ─────────────────────────────────
+    def next_arrival(self):
+        """`(arrival_s, trailer)` for the trailer in transit that arrives first, or None.
+
+        The arrival instant is the event stamp `release` would give it (dispatch + lead).
+        A trailer with no dispatch stamp or no lead never arrives mid-drain: the former has
+        no calendar to arrive on, the latter arrived at `release` already."""
+        best = None
+        for t in self._in_transit:
+            if t.lead_s <= 0.0 or t.dispatched_s is None:
+                continue
+            at = t.dispatched_s + t.lead_s
+            if best is None or (at, t.seq) < (best[0], best[1].seq):
+                best = (at, t)
+        return best
+
+    def admit(self, trailer: Trailer) -> None:
+        """Move one trailer from transit into the yard at its arrival instant, keeping the
+        yard in charter order (arrival stamp, seq) -- exactly as `release` would have landed
+        it at the next drain, only now."""
+        self._in_transit.remove(trailer)
+        trailer.arrived_s = trailer.dispatched_s + trailer.lead_s
+        key = (trailer.arrived_s, trailer.seq)
+        i = len(self._yard)
+        while i > 0 and (self._yard[i - 1].arrived_s if self._yard[i - 1].arrived_s is not None
+                         else float('-inf'), self._yard[i - 1].seq) > key:
+            i -= 1
+        self._yard.insert(i, trailer)
 
     # ── plans-at-arrival (the manager packs; this hands it the lots) ──────────────
     def unplanned(self) -> list:

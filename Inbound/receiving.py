@@ -753,7 +753,12 @@ class SiteReceiving:
         #    dealing, byte-identically.  Only the standing transit carries it -- the v1
         #    path never reaches this method and never reads the knob.
         cap = getattr(transit, 'door_team', None)
-        if getattr(transit, 'allocation', 'merged') == 'split':
+        if getattr(transit, 'door_fill', 'drain') == 'asap':
+            # Doors plugged the instant they free or a trailer arrives, re-ranked at every
+            # plug (`_unload_split_asap`).  The yard transit refuses 'asap' with 'merged'.
+            done = self._unload_split_asap(dock, transit, deadline, epoch, work_order,
+                                           ctx, cap, source, _solo)
+        elif getattr(transit, 'allocation', 'merged') == 'split':
             done = self._unload_split(dock, transit, deadline, epoch,
                                       work_order, yard_next, cap)
         else:
@@ -1102,6 +1107,151 @@ class SiteReceiving:
                 transit.stage(nxt, at)
                 done.append((nxt, []))
             idx += 1
+        return done
+
+    def _unload_split_asap(self, dock, transit, deadline, epoch, work_order, ctx, cap,
+                           source: str, solo):
+        """The 'split' door teams under door_fill 'asap' (the user's rule, 2026-09-23): a
+        door is plugged THE INSTANT it frees, or the instant a trailer arrives while it
+        stands free, and which trailer takes it is decided AT EVERY PLUG.
+
+        The drain's own `_unload_split` differs in exactly three places, and the loop below
+        is otherwise its rule for rule:
+
+          ARRIVALS ARE EVENTS.  A trailer whose lead elapses before the whistle is admitted
+          to the yard at its arrival instant (`YardTransit.admit`) and planned then, the same
+          plans-at-arrival step the drain opens with.  If a door is free it is plugged at
+          once.  The drain's own loop only sees the trailers standing at the drain.
+          EVERY PLUG RE-RANKS.  A freed or free door takes the top of `transit.yard_order`
+          over the trailers standing AT THAT INSTANT -- the drain's frozen `ctx` is the
+          ranking's input (the once-a-day yard update), the candidate set is live.
+          IDLE WORKERS WAIT, THEY DO NOT GO HOME.  A worker with nothing to work -- cut by
+          the door-team cap at the deal, or freed with no target -- joins an idle pool, and
+          a trailer plugged later in the shift is dealt from it (up to the cap).  A worker
+          dealt to a trailer never starts before the trailer reached its door
+          (`dock.hold_team_until`), which the drain's loop never needs because it only
+          stages at instants its teams are already at.
+
+        With no mid-shift arrival and a yard ranking that does not move between plugs (fifo
+        over a yard nobody joins), every plug picks what the frozen ranking's head would have,
+        which is the property the tests pin.  Returns `_unload_split`'s shape and order.
+        """
+        done: list = [(t, []) for t in work_order]
+        recs_of = {id(t): recs for t, recs in done}
+        alive: list = list(work_order)
+        teams: dict = {}
+        crew = list(range(dock.crew_size))
+        idle: list = []
+        if alive:
+            for trailer, team in zip(alive, partition(crew, len(alive))):
+                kept = team if cap is None else team[:cap]
+                teams[id(trailer)] = kept
+                idle.extend(team[len(kept):])
+        else:
+            idle = crew
+        limit = float('inf') if deadline is None else deadline
+
+        def plug(at_local: float):
+            """Stage the top-ranked standing trailer at `at_local`, if a door and a trailer
+            are both there.  Returns the trailer, or None."""
+            if transit.free_doors <= 0:
+                return None
+            ranked = transit.yard_order(ctx)
+            if not ranked:
+                return None
+            nxt = ranked[0]
+            transit.stage(nxt, epoch + at_local)
+            teams[id(nxt)] = []
+            alive.append(nxt)
+            recs: list = []
+            done.append((nxt, recs))
+            recs_of[id(nxt)] = recs
+            return nxt
+
+        def deal(target, workers: list, at_local: float) -> list:
+            """Give `target` up to its room from `workers`, held to `at_local`; return the
+            workers left over."""
+            room = (len(workers) if cap is None
+                    else max(0, cap - len(teams.get(id(target), ()))))
+            if room <= 0 or not workers:
+                return workers
+            given, rest = workers[:room], workers[room:]
+            dock.hold_team_until(given, at_local)
+            teams[id(target)].extend(given)
+            return rest
+
+        def admit_until(t_local: float) -> None:
+            """Land every trailer arriving by `t_local` (and before the whistle) in the yard,
+            planned at its own arrival.  A door frees when its last pack FINISHES, and a
+            trailer that arrived during that pack must be standing when the door is re-ranked."""
+            nonlocal idle
+            while True:
+                arr = transit.next_arrival()
+                if arr is None:
+                    return
+                t = arr[0] - epoch
+                if t > t_local or t >= limit:
+                    return
+                transit.admit(arr[1])
+                self._plan_arrivals(dock, transit, ctx, epoch + max(t, 0.0), source, solo)
+                nxt = plug(max(t, 0.0))
+                if nxt is not None:
+                    idle = deal(nxt, idle, max(t, 0.0))
+
+        while True:
+            best = None
+            best_ns = 0.0
+            for trailer in alive:
+                team = teams.get(id(trailer))
+                if not team or trailer.taken >= len(trailer.pending or []):
+                    continue
+                ns = dock.team_next_free(team)
+                if best is None or ns < best_ns:
+                    best, best_ns = trailer, ns
+            arrival = transit.next_arrival()
+            ta = None if arrival is None else arrival[0] - epoch
+            if ta is not None and ta < limit and (best is None or ta <= best_ns):
+                # AN ARRIVAL comes first: admit it, plan it, and plug a free door with
+                # whatever now ranks first (not necessarily the newcomer).
+                transit.admit(arrival[1])
+                self._plan_arrivals(dock, transit, ctx, epoch + max(ta, 0.0), source, solo)
+                nxt = plug(max(ta, 0.0))
+                if nxt is not None:
+                    idle = deal(nxt, idle, max(ta, 0.0))
+                continue
+            if best is None:
+                break                              # nothing workable, nothing arriving
+            if best_ns >= limit:
+                break                              # the START gate, as in `_unload_split`
+            item = best.pending[best.taken]
+            order = item.unit.order
+            dur = dock.unload_seconds(order.weight, order.volume(),
+                                      item.unit.quantity, unit=item.unit)
+            t0, w = dock.charge_team(teams[id(best)], dur)
+            recs_of[id(best)].append((item, t0, dur, w))
+            best.taken += 1
+            if best.taken < len(best.pending):
+                continue
+            at_local = t0 + dur
+            admit_until(at_local)                  # arrivals during the last pack stand now
+            transit.door_freed(best, epoch + at_local)
+            freed = teams.pop(id(best))
+            alive.remove(best)
+            nxt = plug(at_local)
+            live = [t for t in alive
+                    if t.pending is not None and t.taken < len(t.pending)]
+            pos = {id(t): i for i, t in enumerate(alive)}
+            targets = [t for t in live if not teams.get(id(t))]                 # (1)
+            if nxt is not None and nxt in live and nxt not in targets:          # (2)
+                targets.append(nxt)
+            targets.extend(sorted((t for t in live if t not in targets),        # (3)
+                                  key=lambda t: (len(teams.get(id(t), ())),
+                                                 pos[id(t)])))
+            for target in targets:
+                if not freed:
+                    break
+                freed = deal(target, freed, at_local)
+            idle.extend(freed)                     # nothing to work: wait, do not go home
         return done
 
     def _unload_split(self, dock, transit, deadline, epoch, work_order, yard_next,

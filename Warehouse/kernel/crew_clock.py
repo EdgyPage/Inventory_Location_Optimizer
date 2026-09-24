@@ -133,6 +133,18 @@ def charge_subset(clocks, idxs, dur: float):
     return t0, w
 
 
+def hold_until(clocks, idxs, t: float) -> None:
+    """Nobody in `idxs` may start before `t`: each clock becomes max(itself, t), IN PLACE.
+
+    What dealing a worker to work that is not there yet means -- a trailer plugged into a
+    door at `t` cannot be unloaded by a receiver whose clock says they were free earlier.
+    A clock already past `t` is untouched (that worker is still busy).
+    """
+    for i in idxs:
+        if clocks[i] < t:
+            clocks[i] = t
+
+
 def reset(clocks) -> None:
     """Restart every worker at 0, IN PLACE.
 

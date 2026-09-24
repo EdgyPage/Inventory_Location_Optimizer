@@ -241,6 +241,10 @@ class Dock:
         """Is anyone on this team free to BEGIN before `deadline`? Same START gate."""
         return crew_clock.can_start_subset(self.clocks, idxs, deadline)
 
+    def hold_team_until(self, idxs, t: float) -> None:
+        """No worker in `idxs` starts before batch-local `t` (`crew_clock.hold_until`)."""
+        crew_clock.hold_until(self.clocks, idxs, t)
+
     def charge_team(self, idxs, dur: float):
         """Book `dur` to the team member free earliest; return (start, worker index).
 

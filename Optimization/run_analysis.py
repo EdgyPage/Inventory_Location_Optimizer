@@ -136,6 +136,7 @@ def _sim_result_from_meta(meta: dict) -> dict:
     # uncapped run, which is every run before the cap existed -- and None is honest there,
     # because those runs really were uncapped.
     sim_result['inbound_door_team'] = CONFIG['global'].get('inbound_door_team')
+    sim_result['inbound_door_fill'] = CONFIG['global'].get('inbound_door_fill')
     sim_result['inbound_dock_doors'] = CONFIG['global'].get('inbound_dock_doors')
     # THE STAFFING RECORD, whole, as one key -- the sixth seam.  `EvalContext.k_pickers` reads
     # ITS channel's count off `inputs`, which is why the channel rides beside it (a pre-channel

@@ -199,6 +199,7 @@ CONFIG = {
         'inbound_yard_policy'      : _s.INBOUND_YARD_POLICY,
         'inbound_dock_policy'      : _s.INBOUND_DOCK_POLICY,
         'inbound_door_team'        : _s.INBOUND_DOOR_TEAM,
+        'inbound_door_fill'        : _s.INBOUND_DOOR_FILL,
         'inbound_fee_threshold_days'   : _s.INBOUND_FEE_THRESHOLD_DAYS,
         'inbound_urgency_horizon_days' : _s.INBOUND_URGENCY_HORIZON_DAYS,
         'inbound_futuresight_batches'  : _s.INBOUND_FUTURESIGHT_BATCHES,
@@ -493,7 +494,7 @@ KNOBS: tuple[Knob, ...] = (
              'inbound_fill_span_days', 'inbound_fill_ratio',
              'inbound_standing_yard', 'inbound_crew_allocation',
              'inbound_yard_policy', 'inbound_dock_policy', 'inbound_door_team',
-             'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
+             'inbound_door_fill', 'inbound_fee_threshold_days', 'inbound_urgency_horizon_days',
              'inbound_futuresight_batches',
              'inbound_unload_intercept', 'inbound_unload_weight_coef',
              'inbound_unload_volume_coef'), family='inbound'),
@@ -1117,6 +1118,24 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
                 f'UNREAD without INBOUND_STANDING_YARD: v1\'s release() hands the whole '
                 f'drain over at once and never deals door teams, so the run would '
                 f'complete uncapped under the cap\'s name.  Set the flag or clear the cap')
+    # The door fill: how a free door is plugged ('drain' = once a day, the historical
+    # default; 'asap' = the instant it frees or a trailer arrives).  Like the cap above it
+    # is the standing yard's alone -- v1 has no doors to plug -- and 'asap' deals from an
+    # idle pool that only the 'split' door teams have.
+    door_fill = str(g.get('inbound_door_fill') or 'drain')
+    if door_fill not in ('drain', 'asap'):
+        raise ValueError(f"INBOUND_DOOR_FILL must be 'drain' or 'asap'; got {door_fill!r}")
+    if door_fill == 'asap':
+        if not standing:
+            raise ValueError(
+                "INBOUND_DOOR_FILL 'asap' is the standing yard's knob and is UNREAD without "
+                "INBOUND_STANDING_YARD: v1's release() has no doors to plug.  Set the flag "
+                "or clear the knob")
+        if allocation != 'split':
+            raise ValueError(
+                "INBOUND_DOOR_FILL 'asap' deals a plugged trailer from the idle receivers, "
+                "which only the 'split' door teams have; 'merged' pools one gang over every "
+                "door.  Use INBOUND_CREW_ALLOCATION 'split'")
     return {
         'trailer_type': str(ttype),
         'doors': int(g.get('inbound_dock_doors') or 4),
@@ -1145,6 +1164,7 @@ def inbound_spec(recv_crew_size: int | None = None) -> dict | None:
         # reads it in BOTH allocation modes, because the cap is the trailer's, not the
         # dealing rule's.
         'door_team': door_team,
+        'door_fill': door_fill,
         # The gate's two days-denominated knobs.  Explicit None tests, not `or`:
         # a 0.0 threshold (everything overdue from arrival) is a legal sweep point
         # that `or` would silently revert to the default.

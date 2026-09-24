@@ -871,6 +871,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help='Crew <- which STAGED trailer (the dock-priority registry). Under door teams '
              'this is a worker-allocation preference.')
     parser.add_argument(
+        '--inbound-door-fill', choices=('drain', 'asap'),
+        default=CONFIG['global']['inbound_door_fill'],
+        help="How a free dock door is plugged. 'drain' (default): the yard admits arrivals "
+             "once a site day and a freed door takes the head of the drain-frozen ranking. "
+             "'asap': a door is plugged the instant it frees or a trailer arrives while it "
+             "stands free, re-ranking the standing trailers at every plug. Requires "
+             "--inbound-standing-yard and the 'split' crew allocation.")
+    parser.add_argument(
         '--inbound-door-team', type=_positive_int,
         default=CONFIG['global']['inbound_door_team'], metavar='N',
         help='TRAILER PHYSICS: at most N receivers support one trailer at once, every one '

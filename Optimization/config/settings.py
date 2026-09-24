@@ -224,6 +224,15 @@ INBOUND_DOOR_TEAM = None         # TRAILER PHYSICS, not a policy: at most this m
                                  # trailers is 8/7/7, over two is 10/10 with two idle until a
                                  # door frees.  None = uncapped, today's dealing byte-
                                  # identically -- the whole crew can stand at one door.
+# HOW A FREE DOOR IS PLUGGED (the user's rule, 2026-09-23: "dock doors plugged up ASAP with
+# the decision of what to work decided after every plug").  'drain' is every run before it:
+# the yard admits arrivals once a site day and a door freed mid-shift takes the head of the
+# drain-frozen ranking, so a trailer arriving after the drain waits for tomorrow even beside
+# an idle door (3.4-3.8 h of every trailer's yard wait, measured).  'asap' plugs a door the
+# instant it frees or a trailer arrives while it stands free, re-ranking the standing
+# trailers at every plug; idle receivers wait for work instead of standing down for the day.
+# Standing yard and 'split' door teams only (both refused otherwise).  --inbound-door-fill
+INBOUND_DOOR_FILL = 'drain'
 # The two days-denominated knobs ("Name the policy arms", 05).  Labor-hours and fee-days
 # never blend into one scalar anywhere: the fee side is only ever the yes/no urgency test
 # these two express, and the SAME threshold feeds the yard fee report -- one knob, two
