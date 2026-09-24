@@ -70,6 +70,7 @@ whether the clock cuts and caps, never whether a run declares its stock (ADR-000
 """
 from __future__ import annotations
 
+import hashlib
 import math
 
 import numpy as np
@@ -348,7 +349,7 @@ def _line_pmf(lines: list, upto: int) -> np.ndarray:
 
 
 def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarray,
-                       pmf_k: dict) -> np.ndarray:
+                       pmf_k: dict, memo: dict | None = None) -> np.ndarray:
     """`E[min(q, (S - D_K)^+)]` per SKU: the units a line is expected to take off a shelf
     whose order-up-to POSITION is `S` while the SKU's own prior lines are still in transit
     ("Declare the coverage against the inbound lead", decision 5).
@@ -377,6 +378,16 @@ def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarr
     release a day (the era, which pins it) that is the ledger's own `round(lead_time_mean)`
     in batches, and at any other release schedule the two roundings differ -- a limitation
     stated, not solved, because nothing declares another schedule.
+
+    `memo` (a dict the caller owns, or None) shares per-(group, grid day) results between
+    calls that price the SAME groups under DIFFERENT transit laws -- the fill curve's twelve
+    points (`era_coverage.fill_curve`), which differ only in the weights `pk` over the grid
+    days `k`.  A group's per-`k` sum depends on its SKUs' shelves, rates, supplier leads and
+    line laws and on `k`, never on `pk`, so it is computed once per `(group, k)` and each law
+    re-weights it in its own `k` order -- the same expression and the same accumulation as the
+    unmemoised path, so every float is identical.  The group is keyed by a digest of exactly
+    those inputs (and the line laws by identity), so a caller that changed any of them misses
+    rather than reusing a stale sum.
     """
     n = len(lines)
     out = np.zeros(n)
@@ -407,6 +418,20 @@ def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarr
         if len(idx) == 0:
             continue
         S_i = S[idx]
+        gkey = None
+        if memo is not None:
+            h = hashlib.blake2b(digest_size=16)
+            h.update(np.int64(S_g).tobytes())
+            h.update(np.ascontiguousarray(S_i, dtype=np.int64).tobytes())
+            h.update(np.ascontiguousarray(rate[idx], dtype=float).tobytes())
+            h.update(np.ascontiguousarray(a[idx], dtype=np.int64).tobytes())
+            h.update(np.fromiter((id(lines[j]) for j in idx), dtype=np.int64,
+                                 count=len(idx)).tobytes())
+            gkey = h.digest()
+            if all((gkey, int(k)) in memo for k, _pk in ks):
+                for k, pk in ks:
+                    out[idx] += float(pk) * memo[(gkey, int(k))]
+                continue
         f = _line_pmf([lines[j] for j in idx], S_g)              # P(q = i), i < S_g
         surv = np.clip(1.0 - np.cumsum(f, axis=1), 0.0, 1.0)      # P(q > u), u < S_g
         wf = f * np.arange(S_g, dtype=float)[None, :]             # i · f(i)
@@ -415,6 +440,11 @@ def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarr
         mask = pos >= 0
         gather = np.clip(pos, 0, None)
         for k, pk in ks:
+            if gkey is not None:
+                val = memo.get((gkey, int(k)))
+                if val is not None:
+                    out[idx] += float(pk) * val
+                    continue
             lam = (a[idx] + int(k)) * rate[idx]
             # Seed 1 with the log-scale `-λ` carried beside it, so the recursion never starts
             # from an underflowed zero; rows are rescaled as they grow.
@@ -430,12 +460,15 @@ def _served_under_lead(lines: list, S: np.ndarray, rate: np.ndarray, a: np.ndarr
                     logscale = logscale + big * math.log(_PANJER_RESCALE)
             G = np.cumsum(g, axis=1) * np.exp(logscale)[:, None]  # P(D <= j)
             R = np.take_along_axis(G, gather, axis=1) * mask
-            out[idx] += float(pk) * np.einsum('mu,mu->m', surv, R)
+            val = np.einsum('mu,mu->m', surv, R)
+            if gkey is not None:
+                memo[(gkey, int(k))] = val
+            out[idx] += float(pk) * val
     return out
 
 
 def fill_rate(orders, lines_per_day: float, *, transit: dict | None = None,
-              lead_unit_days: float = 1.0) -> dict:
+              lead_unit_days: float = 1.0, memo: dict | None = None) -> dict:
     """The expected FIRST-PASS fill rate of one section at the levels the orders carry now:
     the units a shelf serves off a line, over the units the line asks for, weighted by each
     SKU's lines per day ("Choose the coverage floor", decision 5):
@@ -505,7 +538,7 @@ def fill_rate(orders, lines_per_day: float, *, transit: dict | None = None,
         got = _served_under_lead([p[0] for p in pending],
                                  np.array([p[1] for p in pending]),
                                  np.array([p[2] for p in pending]),
-                                 np.array([p[3] for p in pending]), pmf_k)
+                                 np.array([p[3] for p in pending]), pmf_k, memo=memo)
         served += sum(w * min(m, float(v)) for (w, m), v in zip(weights, got))
     n = len(orders)
     fr = (served / units) if units > 0.0 else 0.0

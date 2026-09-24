@@ -791,7 +791,7 @@ def transit_of(lead: dict | None, scale: float = 1.0) -> dict | None:
 
 
 def fill_curve(section: list, lines_per_day: float, lead: dict,
-               scales: tuple = FILL_CURVE_SCALES) -> list | None:
+               scales: tuple = FILL_CURVE_SCALES, memo: dict | None = None) -> list | None:
     """The section's expected first-pass fill as a function of the pair's TRANSIT, at the
     levels the orders carry now: `[{'transit_days', 'fill_rate'}, ...]` sorted by transit,
     one point per distinct day-grid expectation the median scaled by `scales` produces
@@ -808,6 +808,11 @@ def fill_curve(section: list, lines_per_day: float, lead: dict,
     if not lead or lead.get('trailer_type') is None:
         return None
     unit = float(lead.get('lead_unit_days') or 1.0)
+    # ONE MEMO FOR THE CURVE: its points hold the levels fixed and move only the transit
+    # law, so a (group, grid day) sum priced at one point serves every other point whose
+    # law reaches that day (`coverage._served_under_lead`) -- 1,887 per-day passes over the
+    # twelve points collapse to 534 at the 400k reference lead, the same floats.
+    memo = {} if memo is None else memo
     points: dict = {}
     for sc in sorted(set(float(s) for s in scales) | {1.0}):
         law = transit_of(lead, sc)
@@ -815,7 +820,7 @@ def fill_curve(section: list, lines_per_day: float, lead: dict,
         if t in points:
             continue
         points[t] = float(_cov.fill_rate(section, lines_per_day, transit=law,
-                                         lead_unit_days=unit)['fill_rate'])
+                                         lead_unit_days=unit, memo=memo)['fill_rate'])
     return [{'transit_days': t, 'fill_rate': f} for t, f in sorted(points.items())]
 
 
@@ -1028,11 +1033,14 @@ def fixed_point(orders_all: list, plan_fn, specs: list, *, coverage_days: float,
     # after planning.
     for s in specs:
         section = _staffing.regime_orders(sampled, s.regime)
-        fill = _cov.fill_rate(section, n[s.name], transit=transit, lead_unit_days=unit)
+        _memo: dict = {}
+        fill = _cov.fill_rate(section, n[s.name], transit=transit, lead_unit_days=unit,
+                              memo=_memo)
         # The fill against the transit, for the audit's explained level (decision 10 of
-        # "Declare the coverage against the inbound lead"); None with no pipeline.
+        # "Declare the coverage against the inbound lead"); None with no pipeline.  The
+        # stamp's memo rides into the curve: scale 1 IS the stamp.
         t0 = time.perf_counter()
-        fill['vs_transit'] = fill_curve(section, n[s.name], lead)
+        fill['vs_transit'] = fill_curve(section, n[s.name], lead, memo=_memo)
         stats[s.name]['fill'] = fill
         fielded = fielded_block(section, plan, s.regime, floors[s.name])
         stats[s.name]['fielded'] = fielded
