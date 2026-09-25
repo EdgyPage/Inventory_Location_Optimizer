@@ -43,6 +43,6 @@ Plan: `~/.claude/plans/tender-roaming-dream.md`.
 | S06b | O5/O4/O6/O7 | each IDENTICAL; together 3-10% of arm wall | |
 | S07 | O8 analysis + O0 dispatch | analysis stage -30%; sim stage within 15% of bound | |
 | S08 | run B + ladders | T exponent 3.13 -> <= 2.5 | meso: placements T^1.86 -> T^1.01 (O1). 400k run B **IDENTICAL** to A on every cell; wall 112 -> 71 min (1.58x), slowest unit 4,459 -> 2,699 s. The gain was O3's constant (yard plan 0.56x, put drain 0.48-0.65x, opt setup 0.5x), not a T exponent: the 400k yard empties every drain |
-| S09 | extrapolation | the 40-batch 11-cell campaign's predicted wall | |
-| S10 | vectorisation survey: picking + assignment functions (added 2026-09-24, the user's) | >= 3 candidates each >= 1% of arm wall and data-parallel | |
-| S11 | implement the survey's survivors, one commit each | each IDENTICAL; >= 1.5x on its own function | |
+| S09 | extrapolation | the 40-batch 11-cell campaign's predicted wall | on run E's code: sum 83.1 -> 30.9 h, slowest unit 7.89 -> 2.30 h, bound 7.89 -> **2.58 h** (now sum/12, not one unit); non-gmyopic gain cells assume gmyopic's ratio |
+| S10 | vectorisation survey: picking + assignment functions (added 2026-09-24, the user's) | >= 3 candidates each >= 1% of arm wall and data-parallel | picking is 1-8 s/leaf (not worth it). The real sinks came from PRODUCTION profiles, after a 12-unit bench (run C 0.98x) and a 3-batch profile (run D 1.00x) both priced the wrong regime: the expected-day routing (row-wise, 6x), and the deep-yard min-labour take (fold, centroid, walk order). **Run E: slowest unit 1,304 s (4,459 in A), run 42 min (112), IDENTICAL** |
+| S11 | implement the survey's survivors, one commit each | each IDENTICAL; >= 1.5x on its own function | f2940c97 (routing), b785d79a (centroid run memo), 44c70a43 (drain memo + overlay), bdc443f4 (deep-yard take) -- each IDENTICAL on toys and at 400k |

@@ -163,3 +163,4 @@
 - [Parent setup is a third of a 400k probe](parent-setup-is-a-third-of-a-400k-probe.md) — 19-23 min freeze; fill curve memoised (a515a34d), line-floor solve not
 - [Gain bench must match production load size](gain-bench-must-match-production-load-size.md) — 400k loads are ~1,000 units; a 12-unit bench predicted 2.5-4x, run C gave 0.98x
 - [Profile production workers with a throwaway hook](profile-production-workers-with-a-throwaway-hook.md) — snapshot + cProfile wrapper on _run_strategy_worker + 1-cell spec; ~25 min
+- [Deep-yard gain plan is per-take and quadratic](deep-yard-gain-plan-is-per-take-and-quadratic.md) — bdc443f4: 400k slowest unit 4,459 -> 1,304 s, 112 -> 42 min run, identical
