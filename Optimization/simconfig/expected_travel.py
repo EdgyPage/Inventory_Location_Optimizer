@@ -345,19 +345,39 @@ def _aisle_routing(m: np.ndarray, a: AisleGeom, one_way: bool) -> tuple[float, f
     ex = p_visit * a.length if one_way else float((xs * u * tail_above).sum())
     ys = np.array([0.0] + [a.y_of(r) for r in range(1, R + 1)])
     D = np.abs(ys[:, None] - ys[None, :])             # |y_i - y_j| over the R+1 levels
+    # EVERY COLUMN'S ROW TERMS AT ONCE (`.scratch/inbound-fullscale-perf/` S10).  The loop
+    # below used to build them per column -- a cumprod, an append, an insert and three sums
+    # each, ~10 numpy calls per column, over every aisle of a 400k section per quadrature
+    # node: 4.2M `np.insert` calls per arm, half of the per-arm `[era]` stamp.  None of them
+    # depends on the picker state, so they are computed here as (C, R) arrays, element for
+    # element the loop's: a row-wise `cumprod` multiplies each row in the same sequence as
+    # the 1-D call on that row, the shifts place the same values, and a row sum over a
+    # C-contiguous row is the same reduction as the 1-D sum of that row.  Only the state
+    # recursion is sequential, and it stays a loop with the loop's expressions.
+    # `Tests/unit/test_aisle_routing_rows.py` holds this to the per-column form, `==`.
+    om = 1.0 - v
+    above_all = np.empty_like(v)
+    above_all[:, :-1] = np.cumprod(om[:, ::-1], axis=1)[:, ::-1][:, 1:]
+    above_all[:, -1] = 1.0
+    below_all = np.empty_like(v)
+    below_all[:, 1:] = np.cumprod(om, axis=1)[:, :-1]
+    below_all[:, 0] = 1.0
+    ysr = ys[1:]
+    high_all = (ysr * v * above_all).sum(axis=1)
+    low_all = (ysr * v * below_all).sum(axis=1)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        q_all = v / v.sum(axis=1, keepdims=True)      # an unvisited row is skipped below
+    D1 = D[:, 1:]
     state = np.zeros(R + 1); state[0] = 1.0           # the picker starts at the ground
     ey = 0.0
     for c in range(C):
         uc = u[c]
         if uc < 1e-15:
             continue
-        vr = v[c]
-        q = vr / vr.sum()                             # single-visit row marginal
-        above = np.cumprod((1.0 - vr)[::-1])[::-1]; above = np.append(above[1:], 1.0)
-        below = np.cumprod(1.0 - vr); below = np.insert(below[:-1], 0, 1.0)
-        e_high = float((ys[1:] * vr * above).sum()) / uc
-        e_low = float((ys[1:] * vr * below).sum()) / uc
-        entry = float(state @ D[:, 1:] @ q)
+        q = q_all[c]                                  # single-visit row marginal
+        e_high = float(high_all[c]) / uc
+        e_low = float(low_all[c]) / uc
+        entry = float(state @ D1 @ q)
         ey += uc * (entry + (e_high - e_low))         # entry + the exact expected span
         state = (1.0 - uc) * state + uc * np.concatenate(([0.0], q))
     if one_way:
