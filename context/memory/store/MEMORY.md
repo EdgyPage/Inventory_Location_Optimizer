@@ -115,7 +115,7 @@
 - [save_s is index maintenance](save-s-is-index-maintenance.md) — dropping unread indexes cut save_s 26%
 - [Toy run is the byte-identity instrument](toy-run-is-the-byte-identity-instrument.md) — smoketest tiny + run_digest; baseline first
 - [Toy-run noise floor is 3.1%](toy-run-noise-floor-is-three-percent.md) — A/B on runtime_metrics per-arm, never the wall
-- [Placement oracles pin agreement, not truth](placement-oracles-pin-agreement-not-truth.md) — pool half vs wave half vs a frozen hand-copy
+- [Placement oracles pin agreement, not truth](placement-oracles-pin-agreement-not-truth.md) — pool half vs wave half vs a frozen hand-copy; a thin-driver impl compares the pool with itself
 - [A DDL change moves two tables](a-ddl-change-moves-two-tables.md) — the table AND simulation_runs
 - [Renaming a local needs AST positions](renaming-a-local-needs-ast-positions.md) — a regex rename hit comments too
 - [Two instruments named t_save](two-instruments-named-t-save.md) — runtime_metrics alive; calltree's read 0 for a month
@@ -161,3 +161,5 @@
 - [Lazy yard plan](lazy-yard-plan.md) — since 626daa92; asap plugs price one round (7.3x), but a 400k drain stages 96% of the yard so the drain fill saves ~0
 - [Perf probes must be unpinned](perf-probes-must-be-unpinned.md) — PHASE2_STAFFING_PIN refuses the current derivation ~20 min into a 400k run
 - [Parent setup is a third of a 400k probe](parent-setup-is-a-third-of-a-400k-probe.md) — 19-23 min freeze; fill curve memoised (a515a34d), line-floor solve not
+- [Gain bench must match production load size](gain-bench-must-match-production-load-size.md) — 400k loads are ~1,000 units; a 12-unit bench predicted 2.5-4x, run C gave 0.98x
+- [Profile production workers with a throwaway hook](profile-production-workers-with-a-throwaway-hook.md) — snapshot + cProfile wrapper on _run_strategy_worker + 1-cell spec; ~25 min

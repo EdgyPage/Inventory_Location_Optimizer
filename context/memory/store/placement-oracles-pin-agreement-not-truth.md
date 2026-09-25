@@ -37,3 +37,13 @@ that moves shared state, the instrument that can actually fail is
 deletion is safe: a symbol grep misses transitive importers — `test_index_equivalence.py`
 and `test_velocity_zoning.py` broke on a deleted builder they never name, via
 `Tests/bench/perf_simulation.py`.
+
+**A thin-driver "oracle" compares the code with itself (2026-09-25).**
+`_ranked_minlabor_impl` has been a THIN DRIVER over `_MinLaborPool` since ticket 04, so
+`test_minlabor_pool_equivalence.py` cannot see a change INSIDE the pool.  A per-run
+centroid memo passed it, and would have passed it just as well if it were wrong.  To test
+a pool-internal cache, build the reference as the same pool with the cache disabled
+(e.g. `_cen.clear()` before every take).  Then prove the test can fail with a sabotage
+that genuinely breaks the invariant.  The first sabotage here restored entries after the
+call and was vacuous; a dict whose `pop` is a no-op was not.
+(`Tests/unit/test_minlabor_centroid_memo.py`, `Tests/unit/test_pool_drain_memo.py`.)
