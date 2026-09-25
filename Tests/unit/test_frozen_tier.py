@@ -541,16 +541,16 @@ def test_the_walk_order_is_the_stable_argsort_of_the_live_costs():
     moves some take on these scenes."""
     import numpy as np
 
-    def drive(seed, scramble=False):
+    def drive(seed, scramble=False, n_aisles=5, maximize=False):
         rng = random.Random(seed)
-        bins = _bins(rng)
+        bins = _bins(rng, n_aisles=n_aisles)
         units, orders, skus = _units(rng)
         aff, idx = _aff(skus, [])
         fbs = {s: o.demand.relative_frequency for s, o in orders.items()}
         qbs = {s: o.demand.quantity_rate for s, o in orders.items()}
         st = _state_ml(range(1, 6))
         pool = af._MinLaborPool(list(bins), aff, _wp(), st['ss'], st['ii'], st['dd'],
-                                st['mp'], {}, fbs, qbs, 0.5)
+                                st['mp'], {}, fbs, qbs, 0.5, maximize=maximize)
         out = []
         for u in pool.order(list(units)):
             mx = pool._mx
@@ -562,10 +562,24 @@ def test_the_walk_order_is_the_stable_argsort_of_the_live_costs():
             mx = pool._mx
             if not scramble and mx is not None and mx.bc is not None:
                 live = np.flatnonzero(np.isfinite(mx.bc))
-                want = live[np.argsort(mx.key[live], kind='stable')]
+                # The KEY is recomputed here from the costs, independently of the pool: the
+                # order is maintained incrementally since S10 (`_MinLabVec._reposition`),
+                # and so is `key`, so checking the order against `mx.key` alone could not
+                # see a stale key entry.
+                sku = u.order.sku
+                fq = fbs.get(sku, 0.0) * qbs.get(sku, 0.0)
+                key = fq * mx.bc
+                if maximize:
+                    key = -key
+                assert np.array_equal(mx.key[live], key[live]), 'a walk key went stale'
+                want = live[np.argsort(key[live], kind='stable')]
                 assert (mx.order == want).all(), 'the walk order drifted from its costs'
         return out
 
+    for seed in range(6):
+        for maximize in (False, True):
+            drive(seed, n_aisles=12, maximize=maximize)  # more rows, more equal keys
+            drive(seed, maximize=maximize)
     moved = sum(drive(seed) != drive(seed, scramble=True) for seed in range(6))
     assert moved >= 1, 'scrambling the walk order moved nothing: the order is not read'
 

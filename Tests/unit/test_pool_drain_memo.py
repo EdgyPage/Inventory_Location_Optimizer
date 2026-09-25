@@ -246,3 +246,22 @@ def test_the_shortcut_both_skips_and_refolds(monkeypatch):
     for seed in range(12):
         _drive(_scene(seed), False, memo={})
     assert seen['skipped'] > 0 and seen['refolded'] > 0, seen
+
+
+def test_the_written_aisle_centroid_walk_is_exercised(monkeypatch):
+    """Non-vacuity for `_partner_centroid_over`: with the memo on, the centroid of a WRITTEN
+    aisle takes the partner-only walk -- the path the memo-on == memo-off comparison above
+    holds to the full walk -- and on some take the view has created a partner key."""
+    seen = {'calls': 0, 'created': 0}
+    real = af._partner_centroid_over
+
+    def counted(partners, inner, live_inner, row, fbi):
+        seen['calls'] += 1
+        seen['created'] += any(k not in live_inner and row.get(k) for k in inner._over)
+        return real(partners, inner, live_inner, row, fbi)
+
+    monkeypatch.setattr(af, '_partner_centroid_over', counted)
+    for seed in range(12):
+        for maximize in (False, True):
+            _drive(_scene(seed), maximize, memo={})
+    assert seen['calls'] > 0 and seen['created'] > 0, seen

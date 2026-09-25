@@ -832,6 +832,43 @@ def _demand_weighted_partner_centroid(affinity, sku, member_pos, freq_by_idx, ro
     return (mass, wx / mass) if mass > 0 else (0.0, None)
 
 
+def _partner_centroid_over(partners, inner, live_inner, row, freq_by_idx):
+    """`_demand_weighted_partner_centroid` over a copy-on-write aisle view (`inner`, a
+    `gain_cow._CowInner`), walking only the members that can contribute.
+
+    The full walk folds `inner.items()` in the view's order -- the live keys in live
+    order (the view's copied list in place of the live one), then the keys the view
+    created, in creation order -- and a member adds nothing unless the row lifts it.  So
+    the same fold is: `partners` (the aisle's LIVE members that the row lifts, in live
+    order; fixed for the drain, since no virtual placement moves the live book), each read
+    through the view, then the view's created keys that the row lifts.  Same members, same
+    order, same arithmetic, same floats (S10 of `.scratch/inbound-fullscale-perf/`)."""
+    get = inner.get
+    mass = wx = 0.0
+    for idx in partners:
+        xs = get(idx)
+        lift = row.get(idx)
+        if lift:
+            f = freq_by_idx.get(idx, 0.0)
+            if f:
+                w = (lift - 1.0) * f
+                if w:
+                    mass += w * len(xs)
+                    wx += w * sum(xs)
+    for idx, xs in inner._over.items():
+        if idx in live_inner:
+            continue
+        lift = row.get(idx)
+        if lift:
+            f = freq_by_idx.get(idx, 0.0)
+            if f:
+                w = (lift - 1.0) * f
+                if w:
+                    mass += w * len(xs)
+                    wx += w * sum(xs)
+    return (mass, wx / mass) if mass > 0 else (0.0, None)
+
+
 def _co_demand_ranked_impl(units, candidates_fn, affinity, wp, ledger,
                            freq_by_idx, freq_by_sku, qty_by_sku, beta, compact: bool):
     """Ranked co-demand placement.  SUPERSEDED by `_CoDemandPool`, which is what `comp`
@@ -2491,7 +2528,40 @@ class _MinLabVec:
         for j, (_m, dq) in enumerate(brackets.items()):
             row[j] = D_of[id(rep(dq))] if dq else pad
         self.bc[i] = pad if bc is None else bc
-        self._rekey(fq)
+        self._reposition(i, fq)
+
+    def _reposition(self, i: int, fq: float) -> None:
+        """`_rekey` for ONE moved row: the order is re-derived by moving row `i` alone.
+
+        `_rekey` re-sorted every live aisle after every take -- an O(A log A) argsort per
+        unit, 248 s of a 20-batch 400k unit under the profiler (`.scratch/inbound-
+        fullscale-perf/` S10) -- although a take moves exactly one row's cost.  Within a SKU
+        run `fq` is fixed, so every other row's key is unchanged, and the stable argsort's
+        order is the one this produces: `i` is removed, and re-inserted (if its cost is
+        still finite) after every row with a smaller key and, among rows with an EQUAL key,
+        after every smaller row index -- the stable sort's tie order over `live`, which is
+        ascending by index.  `key[i]` is the same scalar expression the full vector held.
+        `test_frozen_tier.py` holds the order to a fresh stable argsort after every take."""
+        k = fq * self.bc[i]
+        if self.maximize:
+            k = -k
+        self.key[i] = k
+        # Two `concatenate`s rather than `np.delete` + `np.insert`: the same arrays, but those
+        # two route through generic axis handling that cost more than the argsort they
+        # replaced (398 s vs 248 s in the 20-batch profile).
+        o = self.order
+        at = np.flatnonzero(o == i)
+        if at.size:
+            a = int(at[0])
+            o = np.concatenate((o[:a], o[a + 1:]))
+        if np.isfinite(self.bc[i]):
+            ks = self.key[o]
+            lo = int(np.searchsorted(ks, k, side='left'))
+            hi = int(np.searchsorted(ks, k, side='right'))
+            if hi > lo:
+                lo += int(np.searchsorted(o[lo:hi], i))
+            o = np.concatenate((o[:lo], np.array((i,), dtype=o.dtype), o[lo:]))
+        self.order = o
 
 
 class _MinLaborPool(_Pool):
@@ -2525,7 +2595,7 @@ class _MinLaborPool(_Pool):
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku',
                  '_row_items', '_max_reward', '_led',
-                 '_pp', '_row', '_deltas', '_writer', '_mx', '_vsrc', '_cen')
+                 '_pp', '_row', '_deltas', '_writer', '_mx', '_vsrc', '_cen', '_added')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2587,6 +2657,24 @@ class _MinLaborPool(_Pool):
         self._deltas: dict | None = None
         #: The partner centroid per aisle for the CURRENT SKU run (see `take`).
         self._cen: dict = {}
+        #: Under a copy-on-write idx book: {matrix idx: {aisle}} for every idx the VIEW holds
+        #: in an aisle that the LIVE book does not -- seeded from whatever the view already
+        #: carried at open, then extended by this pool's own `add_bin` (the only writer while
+        #: it lives).  `_partner_deltas` refolds exactly the aisles it names for a row.  None
+        #: over a live book, which has no overlay to differ.
+        live_ii = getattr(aisle_idx_sets, '_live', None)
+        if live_ii is None:
+            self._added = None
+        else:
+            added: dict = {}
+            for aid, got in aisle_idx_sets._over.items():
+                for ci in got.difference(live_ii.get(aid, ())):
+                    a = added.get(ci)
+                    if a is None:
+                        added[ci] = {aid}
+                    else:
+                        a.add(aid)
+            self._added = added
 
     def __len__(self):
         return sum(len(dq) for g in self._by_aisle_brkt.values() for dq in g.values())
@@ -2688,26 +2776,31 @@ class _MinLaborPool(_Pool):
                 dm[('dl', sku)] = live
         if not over:
             return live
+        # ONLY THE AISLES WHERE THE VIEW HOLDS A PARTNER THE LIVE BOOK DOES NOT ARE
+        # REFOLDED (`.scratch/inbound-fullscale-perf/` S10).  The loop below walked the
+        # whole row for EVERY overlaid aisle at every SKU boundary; a 1,000-unit load writes
+        # hundreds of aisles and crosses hundreds of boundaries, so that was quadratic in
+        # the load -- 536M set operations on one 400k unit even after a per-aisle
+        # comparison replaced the walk.  `_added` names, per matrix idx, the aisles whose
+        # view holds it and whose live set does not (seeded at open, extended by every
+        # `add_bin`), so the aisles whose partner membership differs from the live book's
+        # are exactly those it names for this row's indices.  Every other overlaid aisle
+        # holds the live partners, so the loop's sum for it -- the same terms, in row order,
+        # from 0.0 -- IS the live fold's value (an aisle absent from `live` reads as 0.0 in
+        # `set_delta`, which is what the loop assigned it).
+        added = self._added
+        cand: set = set()
+        if added:
+            for ci, _w in row_items:
+                a = added.get(ci)
+                if a:
+                    cand |= a
+        if not cand:
+            return live
         deltas = dict(live)
-        # AN OVERLAID AISLE IS REFOLDED ONLY IF ITS PARTNERS DIFFER FROM THE LIVE BOOK'S
-        # (`.scratch/inbound-fullscale-perf/` S10).  The loop below walked the whole row
-        # for EVERY overlaid aisle at every SKU boundary -- hundreds of aisles once a pool
-        # seats a 1,000-unit load.  When an overlaid aisle holds exactly the partners its
-        # live set holds (`rowset & view == rowset & live`, two C-level intersections over
-        # the short row), the loop's sum -- the same terms, in row order, from 0.0 -- IS the
-        # live fold's value for it (0.0 when it holds none).  Only the others are refolded.
-        # Structural: it compares the sets themselves, so it holds whoever wrote the view.
-        rowset = {ci for ci, _w in row_items}
-        live_sets = ais._live
-        empty = ()
-        keep: list = []
-        for aid in over:
-            if rowset.intersection(over[aid]) == rowset.intersection(
-                    live_sets.get(aid, empty)):
-                deltas[aid] = live.get(aid, 0.0)
-            else:
-                keep.append(aid)
-        over = keep
+        # Every aisle `_added` names was written into the view, so it is overlaid; the
+        # refold's values are assigned per aisle, so their order is immaterial.
+        over = cand
         if over:
             for aid in over:
                 members = ais[aid]
@@ -2804,13 +2897,32 @@ class _MinLaborPool(_Pool):
         if cen is None:
             amp = self._amp
             dm = getattr(amp, 'memo', None)
-            if dm is not None and amp.untouched(best_aid):
-                key = ('cen', sku, best_aid)
-                cen = dm.get(key)
-                if cen is None:
-                    cen = dm[key] = _demand_weighted_partner_centroid(
-                        self._aff, sku, amp[best_aid], self._fbi, row=self._row)
-            else:
+            untouched = dm is not None and amp.untouched(best_aid)
+            ckey = ('cen', sku, best_aid)
+            if untouched:
+                cen = dm.get(ckey)
+            if dm is not None and cen is None:
+                # Under the gain evaluator the walk visits only the members the row lifts
+                # (`_partner_centroid_over`): the aisle's LIVE members the row holds, in live
+                # order -- found from a per-aisle position map built once per drain (the live
+                # book does not move), so O(row), not O(members) -- then the view's created
+                # keys.  For an untouched aisle there are none, and the value is memoised.
+                row = self._row
+                if row and self._aff._matrix is not None and sku in self._aff._sku_to_idx:
+                    live_inner = amp._live.get(best_aid) or {}
+                    pkey = ('pos', best_aid)
+                    posmap = dm.get(pkey)
+                    if posmap is None:
+                        posmap = dm[pkey] = {idx: n for n, idx in enumerate(live_inner)}
+                    partners = sorted((idx for idx in row if idx in posmap and row[idx]),
+                                      key=posmap.__getitem__)
+                    cen = _partner_centroid_over(partners, amp[best_aid], live_inner, row,
+                                                 self._fbi)
+                else:
+                    cen = (0.0, None)
+                if untouched:
+                    dm[ckey] = cen
+            elif dm is None:
                 cen = _demand_weighted_partner_centroid(
                     self._aff, sku, amp[best_aid], self._fbi, row=self._row)
             self._cen[best_aid] = cen
@@ -2857,6 +2969,14 @@ class _MinLaborPool(_Pool):
             self._led.add_sku(best_aid, sku, demand=fq)
         si = self._s2i.get(sku)
         self._led.add_bin(best_aid, si, chosen.x_phys)
+        added = self._added
+        if added is not None and si is not None and \
+                si not in self._ais._live.get(best_aid, ()):
+            a = added.get(si)
+            if a is None:
+                added[si] = {best_aid}
+            else:
+                a.add(best_aid)
         if si in self._row:                    # the write can reach this SKU's own centroid
             self._cen.pop(best_aid, None)
         return chosen, best_score
