@@ -27450,6 +27450,13 @@
       "kind": "function",
       "signature": "()"
     },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.__init__.patch": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pv, affected, order_same)"
+    },
     "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey": {
       "decorators": [],
       "doc": null,
@@ -27870,6 +27877,13 @@
       "kind": "function",
       "signature": "()"
     },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.__init__.patch": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pv, affected, order_same)"
+    },
     "Warehouse/placement/Assignment_Functions.py::_TravelVec.boundary": {
       "decorators": [],
       "doc": "Score every aisle for this SKU run: the vector form of the retired rebuild.",
@@ -28093,6 +28107,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(affinity, sku, member_pos, freq_by_idx, row=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_gather_rows": {
+      "decorators": [],
+      "doc": "The parent's `(aids, mvals, Dh, Mi, pos)` laid out in THIS template's aisle order,\nas fresh arrays the caller may write: copied as they stand when the order held,\ngathered row by row (`Dh0[src]`) when it moved.  An aisle absent from the parent must\nbe one the derivation touched (its row is rewritten by the caller); anything else\ndeclines, since the row it would read does not exist.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(pv, by_aisle, affected, order_same)"
     },
     "Warehouse/placement/Assignment_Functions.py::_partner_row": {
       "decorators": [],
@@ -28690,12 +28711,19 @@
       "kind": "function",
       "signature": "(self, aid: int, reverse: bool=False) -> list"
     },
-    "Warehouse/placement/frozen_tier.py::FrozenTier.slice": {
+    "Warehouse/placement/frozen_tier.py::FrozenTier.index_of_id": {
       "decorators": [],
-      "doc": "The tier minus `excluded` (a set of bin ids), for one pool open.\n\n`store` is the caller's TEMPLATE STORE -- a plain dict the slice memoises its\nper-open structure into, so that the many opens a round makes over the SAME\n(tier, excluded set) build it once and open over copy-on-write copies of it.\nNone (every caller but the gain evaluator) keeps the eager build, unchanged.",
+      "doc": "`({bin id: index}, [index -> (aisle, bracket)])`, the first built once per tier.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, excluded, store=None) -> 'TierSlice'"
+      "signature": "(self) -> tuple"
+    },
+    "Warehouse/placement/frozen_tier.py::FrozenTier.slice": {
+      "decorators": [],
+      "doc": "The tier minus `excluded` (a set of bin ids), for one pool open.\n\n`store` is the caller's TEMPLATE STORE -- a plain dict the slice memoises its\nper-open structure into, so that the many opens a round makes over the SAME\n(tier, excluded set) build it once and open over copy-on-write copies of it.\nNone (every caller but the gain evaluator) keeps the eager build, unchanged.\n\n`derive` (a store, with `store` None) is for a ONE-OFF set no other open will hit\n-- a defer side's `B - hole`, a spill's `excluded | used`: nothing is memoised, but\nthe structure is DERIVED from the nearest template already in that store rather\nthan built from scratch (`TierSlice._aisle_buckets_derived`), and read through a\ncopy-on-write view because it shares its parent's untouched cursors.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, excluded, store=None, derive=None) -> 'TierSlice'"
     },
     "Warehouse/placement/frozen_tier.py::HeapBucket": {
       "decorators": [],
@@ -28749,9 +28777,23 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, tier: FrozenTier, excluded, store=None)"
+      "signature": "(self, tier: FrozenTier, excluded, store=None, derive=None)"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_derived": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, parent)"
     },
     "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_eager": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, keep: bool=False) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice._aisle_buckets_template": {
       "decorators": [],
       "doc": null,
       "is_async": false,
@@ -28764,6 +28806,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, reverse: bool=False) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice._bucket_parent": {
+      "decorators": [],
+      "doc": "The sibling template in `store` closest to this slice's set: the round's\nfirst (its `taken` or `B`) or its latest, whichever differs by fewer ids.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, store)"
     },
     "Warehouse/placement/frozen_tier.py::TierSlice._first_live": {
       "decorators": [],
@@ -28795,10 +28844,23 @@
     },
     "Warehouse/placement/frozen_tier.py::TierSlice.memo": {
       "decorators": [],
-      "doc": "`build()` once per (tier, excluded set) under a template store, fresh without one.\n\nFor a pool's DERIVED structure that is a pure function of the template it opens\nover -- `_TravelVec`'s head matrix, read before the pool's first take moves any\nhead.  It shares `_template`'s key and lifetime, so it dies with the round exactly\nas the buckets do; the caller must never write the cached object (it copies what\nit mutates).",
+      "doc": "`build()` once per (tier, excluded set) under a template store, fresh without one.\n\nFor a pool's DERIVED structure that is a pure function of the template it opens\nover -- `_TravelVec`'s head matrix, read before the pool's first take moves any\nhead.  It shares `_template`'s key and lifetime, so it dies with the round exactly\nas the buckets do; the caller must never write the cached object (it copies what\nit mutates).\n\n`patch(parent_value, affected_aisles, order_same)` (optional) derives the value\nfrom the PARENT template's value when this slice's bucket template was derived\nfrom one (`_aisle_buckets_derived`): every aisle outside `affected_aisles` has the\nparent's buckets, only its position can have moved (and did not, when\n`order_same`).  It returns None to decline, and `build()` runs.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, kind, build)"
+      "signature": "(self, kind, build, patch=None)"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice.memo.make": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
+    },
+    "Warehouse/placement/frozen_tier.py::_BucketTemplate": {
+      "decorators": [],
+      "doc": "A bucket template (`{aisle: {bracket: _Cursor}}`) that remembers how it was made:\nthe per-aisle first appearances and bracket lists, the exclusion set its cursors\nagree with, and -- when derived -- its parent, the aisles that moved and whether the\naisle order held.  A plain dict to every reader (`_CowBuckets` reads it as one).",
+      "kind": "class",
+      "signature": "(dict)"
     },
     "Warehouse/placement/frozen_tier.py::_CowAisles": {
       "decorators": [],

@@ -14,14 +14,20 @@
 <h1><span class="kind kind-function">function</span> <code>memo</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_frozen_tier_py.html"><code>Warehouse/placement/frozen_tier.py</code></a></p>
 <div class="badges"><span class="badge orphan">orphan</span></div>
-<pre class="sig"><code>def memo(self, kind, build)</code></pre>
+<pre class="sig"><code>def memo(self, kind, build, patch=None)</code></pre>
 <section class="doc">`build()` once per (tier, excluded set) under a template store, fresh without one.
 
 For a pool&#x27;s DERIVED structure that is a pure function of the template it opens
 over -- `_TravelVec`&#x27;s head matrix, read before the pool&#x27;s first take moves any
 head.  It shares `_template`&#x27;s key and lifetime, so it dies with the round exactly
 as the buckets do; the caller must never write the cached object (it copies what
-it mutates).</section>
+it mutates).
+
+`patch(parent_value, affected_aisles, order_same)` (optional) derives the value
+from the PARENT template&#x27;s value when this slice&#x27;s bucket template was derived
+from one (`_aisle_buckets_derived`): every aisle outside `affected_aisles` has the
+parent&#x27;s buckets, only its position can have moved (and did not, when
+`order_same`).  It returns None to decline, and `build()` runs.</section>
 <section class="rel"><h2>Callees <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_frozen_tier_py__TierSlice__template.html"><code>_template</code></a> <span class="dim">Warehouse/placement/frozen_tier.py</span></li></ul></section><section class="rel"><h2>Callers <span class="count">(0)</span></h2></section>
 <p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_frozen_tier_py__TierSlice_memo">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/frozen_tier.py#:~:text=def%20memo">Source ↗</a></p>
 </article>

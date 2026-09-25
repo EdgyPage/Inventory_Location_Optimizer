@@ -1,0 +1,8 @@
+travel o139_base plan: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] plan_order:   10.306 s   (906 pool opens per plan) 
+travel o1_head plan: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] plan_order:    4.148 s   (906 pool opens per plan) 
+travel c88ba plan: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] plan_order:    2.497 s   (906 pool opens per plan) 
+travel Inventory_Location_Optimizer plan: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] plan_order:    1.672 s   (906 pool opens per plan) 
+minlabor o139_base plan: [16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] plan_order:    9.846 s   (904 pool opens per plan) 
+minlabor o1_head plan: [16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] plan_order:    5.192 s   (904 pool opens per plan) 
+minlabor c88ba plan: [16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] plan_order:    4.585 s   (904 pool opens per plan) 
+minlabor Inventory_Location_Optimizer plan: [16, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] plan_order:    1.248 s   (904 pool opens per plan) 

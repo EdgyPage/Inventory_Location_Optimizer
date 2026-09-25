@@ -4501,6 +4501,16 @@ files:
       - {name: "test_a_tables_only_declaration_would_have_a_DIFFERENT_id", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
       - {name: "test_the_roster_matches_the_tuple_the_writer_iterates", file: "Tests/unit/test_deferred_indices.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_derived_template.py":
+    purpose: "a template DERIVED from a sibling is the eager build."
+    layer: "tests"
+    key_symbols:
+      - {name: "counters", file: "Tests/unit/test_derived_template.py", kind: "function"}
+      - {name: "test_a_derived_template_is_the_eager_build", file: "Tests/unit/test_derived_template.py", kind: "function"}
+      - {name: "test_pools_over_derived_slices_decide_what_the_eager_open_decides", file: "Tests/unit/test_derived_template.py", kind: "function"}
+      - {name: "test_the_derivations_and_the_patches_were_exercised", file: "Tests/unit/test_derived_template.py", kind: "function"}
+      - {name: "test_a_derivation_that_skips_the_rebuild_is_caught", file: "Tests/unit/test_derived_template.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_dock_seconds_tolerance.py":
     purpose: "Pins the site dock seconds closure as relative at scale: the 400k day-33 float gap passes, a missing unload fails at any magnitude."
     layer: "tests"
