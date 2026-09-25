@@ -109,3 +109,74 @@ two S10 commits take the plan a further 2.5x (cart) and 4.2x (min-labour) past O
 drop by 2.5-4x more against run B.  The slowest unit (gmyopic winner, 2,699 s in B, of
 which ~1,930 s is the yard plan and ~250 s the dock plan) should come in near 900-1,100
 s, and the 20260920 campaign's projected bound near 1.8-2.2 h instead of 4.5 h.
+
+## Run C (400k, a623112a) -- the prediction is REFUTED
+
+Root `comparison_whatif_20260924_224044`.  Same spec and flags as A and B, launched on an
+idle machine.
+
+| gmyopic uni winner | run B | run C | C / B |
+|---|---|---|---|
+| total_s | 2,699 s | 2,652 s | 0.98x |
+| yard plan | 1,929 s | 1,882 s | 0.98x |
+| dock plan | 226 s | 225 s | 1.00x |
+| placements | 6,294 | 6,294 | 1.00x |
+
+Every arm lands within 0.84-1.10x of run B, which is the noise band.  **The S10 fixes did
+not move the 400k gain unit.**  The bench predicted 2.5-4x.
+
+The bench cannot see the production cost.  At 400k one `place_load` costs **~0.30 s**
+(1,882 s / 6,294), while the bench's `place_load` at the same code costs **~5 ms**
+(1.67 s / 306).  Production spends ~60x more per virtual placement, on something the
+bench does not build.  The bench's O3 column happened to agree with run B's O3 ratio, so
+the bench looked calibrated; it was calibrated on the one term it shares with
+production, not on the whole.  Memory `meso-ladder-cannot-size-the-pool-prologue` warned
+that a small instrument prices the wrong regime, and this is a second instance.
+
+Next: profile a production worker at 400k (a throwaway snapshot with a cProfile hook on
+`_run_strategy_worker`; spec `_perf_prof_400k` = gmyopic, winner + rider, 3 batches).
+
+## S10 part 2 -- what production actually spends (cProfile of real 400k workers)
+
+Instrument: a THROWAWAY snapshot of a623112a whose `_run_strategy_worker` dumps a cProfile
+per unit when `PERF_PROFILE_DIR` is set, and a spec `_perf_prof_400k` (gmyopic x {winner,
+rider} x {uni, opt}, 3 batches, 4 workers, the reference 400k catalogue).  None of it is in
+the repo.  Profiler overhead roughly doubles the walls; the shares are what matter.
+
+**The bench was wrong about the shape of production, not about its code.**  A 400k
+`place_load` places a whole trailer: ~1,000 units against the bench's 12.  In the uni
+winner, 110 `place_load` calls made 108,274 pool takes.  So the per-TAKE work dominates;
+the per-OPEN work the S10 commits removed was already small at 400k.  Run C's 0.98x is
+exactly that.
+
+Uni winner unit (845 s profiled, 3 batches), by cumulative time:
+
+| term | seconds | where |
+|---|---|---|
+| `_build_arm` (setup) | 484 | of which the `[era]` expected-day stamp is 180: `_aisle_routing` 241 cum incl. 4.2M `np.insert` + 4.3M `np.append`, `accumulate` 69 |
+| yard + dock plan (`plan_order_iter`) | 103 | `_MinLaborPool.take` 100: the partner centroid 39, `_partner_deltas` 36 |
+| DB writes (`executemany`) | 53 | mostly the initial-placement rows |
+| `gc.collect` | 17 | 4 calls |
+
+The opt winner unit adds the initial placement through the same minlabor pool: 1.32M
+takes, centroid 141 s, `_rekey` (full argsort per take) 54 s.
+
+### Two exact fixes from it (uncommitted until their proofs close)
+
+1. **`_aisle_routing` computes every column's row terms at once.**  cumprod along axis 1,
+   shifts, row sums; only the picker-state recursion stays a loop, with the loop's
+   expressions.  `Tests/unit/test_aisle_routing_rows.py` freezes the per-column form as
+   the oracle: `==` on all three floats over 60 scenes, rows longer than numpy's pairwise
+   block included.  Microbench at a 400k aisle shape (150 x 6): 2.54 -> 0.59 ms per call
+   (4.3x).
+2. **`_MinLaborPool.take` memoises the partner centroid per aisle for the SKU run.**  The
+   only write inside a run is the take's own `add_bin` (this SKU's index, the winning
+   aisle), so the entry is dropped after the commit exactly when that index is in the
+   SKU's own row.  `Tests/unit/test_minlabor_centroid_memo.py` has 22 tests.  Its
+   REFERENCE is the same pool with the memo cleared before every take, because
+   `_ranked_minlabor_impl` is a thin driver over the pool and would compare the memo with
+   itself (memory `placement-oracles-pin-agreement-not-truth`).  The first sabotage I
+   wrote was also vacuous: restoring entries after the call could not keep the one the
+   take itself created.  With a dict whose `pop` does nothing, 14 of 40 scenes diverge.
+
+Unit tier 3,589 passed.  A re-profile of production with both is running.

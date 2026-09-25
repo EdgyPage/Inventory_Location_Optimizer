@@ -3700,6 +3700,13 @@ files:
       - {name: "test_no_placement_policy_writes_an_aisle_book_directly", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
       - {name: "test_the_ratchet_can_actually_fail", file: "Tests/unit/test_aisle_ledger.py", kind: "function"}
     notes: ""
+  "Tests/unit/test_aisle_routing_rows.py":
+    purpose: "the row-wise `_aisle_routing` is the per-column one, bit for bit."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_rows_at_once_equal_the_per_column_loop", file: "Tests/unit/test_aisle_routing_rows.py", kind: "function"}
+      - {name: "test_the_scenes_reach_the_regimes_that_matter", file: "Tests/unit/test_aisle_routing_rows.py", kind: "function"}
+    notes: ""
   "Tests/unit/test_aisle_vol_sum_teardown.py":
     purpose: "the cart-volume sum comes back down -- both aisle teardown paths, and the flag-off no-op."
     layer: "tests"
@@ -5412,6 +5419,14 @@ files:
       - {name: "test_nothing_drawable_returns_zero_rather_than_an_empty_chart", file: "Tests/unit/test_marks.py", kind: "function"}
       - {name: "test_every_bespoke_entry_names_a_real_evaluation_view_with_a_real_reason", file: "Tests/unit/test_marks.py", kind: "function"}
       - {name: "test_the_bespoke_ledger_is_capped", file: "Tests/unit/test_marks.py", kind: "function"}
+    notes: ""
+  "Tests/unit/test_minlabor_centroid_memo.py":
+    purpose: "the per-run partner-centroid memo moves no placement."
+    layer: "tests"
+    key_symbols:
+      - {name: "test_the_memoised_centroid_places_what_the_unmemoised_pool_places", file: "Tests/unit/test_minlabor_centroid_memo.py", kind: "function"}
+      - {name: "test_the_memo_hits_and_the_invalidation_fires", file: "Tests/unit/test_minlabor_centroid_memo.py", kind: "function"}
+      - {name: "test_a_memo_that_never_invalidates_is_caught", file: "Tests/unit/test_minlabor_centroid_memo.py", kind: "function"}
     notes: ""
   "Tests/unit/test_minlabor_pool_equivalence.py":
     purpose: "the minlabor pool decides what the impl decided."
