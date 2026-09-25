@@ -211,3 +211,31 @@ Unit tier 3,589 passed.  A re-profile of production with both is running.
     The meso scenario alone could not see either.
   * RUN LEVEL: the meso digest is equal with and without the memo.
   * Toy digests IDENTICAL on 8 cells; unit tier 3,666 passed.
+
+## Run D (400k, 44c70a43) -- setup got faster, the yard plan did not
+
+Root `comparison_whatif_20260925_021410`; same spec and flags; idle machine.
+`run_digest --cell` against run A: **k1_off_fifo IDENTICAL, k1_off_gmyopic IDENTICAL.**
+
+| | A | B | C | D |
+|---|---|---|---|---|
+| gmyopic uni winner total | 4,459 | 2,699 | 2,652 | **2,539** |
+| its yard plan | 3,440 | 1,928 | 1,882 | **1,901** |
+| its dock plan | 370 | 226 | 225 | 225 |
+| gmyopic opt winner total | 3,155 | 1,987 | 1,950 | 1,858 |
+| fifo uni winner total | 746 | 643 | 628 | **497** |
+| sum of all leaf totals | 25,727 | 19,458 | 19,058 | **16,900** |
+| max fulfillment startup | 885 | 500 | 490 | **395** |
+
+**What moved:** setup.  The routing fix, f2940c97, took ~100 s off every unit, so the sum
+of worker time fell 11% against C and 34% against A.
+
+**What did not move:** the yard plan, 1,882 -> 1,901 s.  The 3-batch production profile
+said 103 -> 59 s.
+
+**The profile's window was the error.**  Those 3 batches made 110 `place_load` calls; the
+20-batch run makes ~6,300, most of them in the later batches, where the yard stands 15-25
+deep and a plan round's exclusion sets are large.  The per-take terms the drain memo and
+the overlay shortcut removed dominate SHALLOW drains, not the deep ones that carry the
+wall.  A third instrument error of the same kind: bench load size (12 vs 1,000 units),
+then the profile window (early vs late batches).  Next: profile a full 20-batch unit.
