@@ -14,7 +14,7 @@
 <h1><span class="kind kind-function">function</span> <code>_partner_deltas</code></h1>
 <p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
 
-<pre class="sig"><code>def _partner_deltas(self, row_items)</code></pre>
+<pre class="sig"><code>def _partner_deltas(self, row_items, sku=None)</code></pre>
 <section class="doc">`{aisle: sum of w over the SKU&#x27;s partners placed there}`, folded ONCE per SKU run
 through the ledger&#x27;s inverse -- or None when the aisle book carries no inverse, in
 which case `take` folds per aisle as it always did.

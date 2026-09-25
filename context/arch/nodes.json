@@ -1473,6 +1473,13 @@
       "kind": "function",
       "signature": "(self, k)"
     },
+    "Inbound/gain_cow.py::_CowListsByKey.untouched": {
+      "decorators": [],
+      "doc": "Has this view NOT written aisle `k`'s lists?  Then every read of it is the live\nbook's, and a value derived from it may come from the drain memo (`memo`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, k) -> bool"
+    },
     "Inbound/gain_cow.py::_CowSets": {
       "decorators": [],
       "doc": "`{aisle: set}`.\n\nUnlike floats the value is MUTABLE and the caller does `d[aid].add(sku)` -- and\n`__getitem__` cannot tell that from the `sku in d[aid]` two lines above it.  So an\naccess materializes that ONE aisle's set.  Bounded by the aisles a pool touches\n(measured 1.22), not by the warehouse (46).",
@@ -27547,7 +27554,7 @@
       "doc": "`{aisle: sum of w over the SKU's partners placed there}`, folded ONCE per SKU run\nthrough the ledger's inverse -- or None when the aisle book carries no inverse, in\nwhich case `take` folds per aisle as it always did.\n\nBIT-IDENTICAL TO THE PER-AISLE LOOP.  That loop is `delta = 0.0; for ci, w in\nrow_items: if ci in ais: delta += w` -- a left fold from 0.0 in ROW order over the\npartners the aisle holds.  This walks `row_items` once in that same order and adds\neach partner's term to every aisle the inverse says holds it, so each aisle receives\nexactly the terms the loop would have summed, in the same sequence, from the same\n0.0 (the `_co_by_aisle` argument, W8 stage 2).  Aisles holding no partner are absent\nand read as 0.0, which is what the loop computed for them.\n\nUnder the gain evaluator the book is a copy-on-write view: its live half IS the\nowner's dict, whose inverse is exact for every aisle the view has NOT overridden;\nan overridden aisle (one this pool's earlier SKU runs virtually placed into) is\nfolded the old way over the view's own set.  Within one SKU run the only membership\nthat moves is this SKU's own index, which is no partner of itself, so the fold is\nvalid for the whole run.",
       "is_async": false,
       "kind": "function",
-      "signature": "(self, row_items)"
+      "signature": "(self, row_items, sku=None)"
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLaborPool._sel": {
       "decorators": [

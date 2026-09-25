@@ -1011,6 +1011,11 @@
       "src": "Inbound/gain.py::_Evaluator._cost_at"
     },
     {
+      "dst": "Inbound/gain_cow.py::_CowView",
+      "kind": "ref",
+      "src": "Inbound/gain.py::_Evaluator._make_pool"
+    },
+    {
       "dst": "Inbound/gain.py::_Evaluator._cost_at",
       "kind": "calls",
       "src": "Inbound/gain.py::_Evaluator._mean_cost"
@@ -26663,6 +26668,14 @@
       "module": "Inbound/gain_cow.py",
       "name": "__getitem__",
       "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_CowListsByKey.untouched",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "untouched",
+      "public": true
     },
     {
       "file": "Inbound/gain_cow.py",

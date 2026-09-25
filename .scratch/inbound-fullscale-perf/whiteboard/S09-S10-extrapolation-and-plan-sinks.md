@@ -180,3 +180,34 @@ takes, centroid 141 s, `_rekey` (full argsort per take) 54 s.
    take itself created.  With a dict whose `pop` does nothing, 14 of 40 scenes diverge.
 
 Unit tier 3,589 passed.  A re-profile of production with both is running.
+
+### The gain plan's per-take terms (profiles 2 and 3)
+
+| uni winner, 3 batches, profiled | a623112a | + routing, centroid run-memo | + drain memo | + overlay shortcut |
+|---|---|---|---|---|
+| plan (`plan_order_iter`) | 103 s | 103 s | 92 s | **59 s** |
+| centroid | 38 s | 37 s | 25 s | 23 s |
+| `_partner_deltas` | 36 s | 36 s | 35 s | **6 s** |
+
+* **Drain memo** (`_SHARED_CACHES['_pool_memo']`, one dict per owner, handed to every
+  copy-on-write view by `_Evaluator._make_pool`; never to an identity "view", whose reads
+  do move).  A load is priced ~2T times a drain, so the centroid of an UNTOUCHED aisle
+  per (SKU, aisle), and the live half of the partner fold per SKU, are served from it.
+  Both are pure functions of live books that no virtual placement moves.
+* **Overlay shortcut.**  The fold refolded every overlaid aisle at every SKU boundary.
+  Now an overlaid aisle whose partners equal the live book's
+  (`rowset & view == rowset & live`, two C-level intersections) takes its live value, the
+  same terms in the same order.  The first version tracked the pool's own writes;
+  `test_frozen_tier.py::test_the_override_actually_moves_a_choice_on_some_seed` writes a
+  view directly and caught that assumption.  The structural comparison holds whoever
+  writes.
+* Proof: `Tests/unit/test_pool_drain_memo.py` (77 tests).
+  * POOL LEVEL, emulating the evaluator: real ledger books, several virtual opens sharing
+    one memo, nothing committed; memo on == off, and the shortcut == the frozen full
+    refold, on 48 scenes.
+  * Non-vacuity: centroid calls fall, the fold memo is used, and the shortcut both skips
+    and refolds.
+  * Sabotage caught: a memo read for a written aisle, and a fold without the overlay.
+    The meso scenario alone could not see either.
+  * RUN LEVEL: the meso digest is equal with and without the memo.
+  * Toy digests IDENTICAL on 8 cells; unit tier 3,666 passed.
