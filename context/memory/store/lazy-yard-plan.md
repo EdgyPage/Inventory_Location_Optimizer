@@ -1,12 +1,18 @@
 ---
 name: lazy-yard-plan
-description: "Since 626daa92 the yard ranking is a pull queue: a drain prices only the trailers it stages (25.5% of ranked on the meso deep rung); asap plugs price one round, not T(T+1)"
+description: "Since 626daa92 the yard ranking is a pull queue: asap plugs price one round, not T(T+1) (7.3x); but a 400k DRAIN stages 96% of the ranked yard, so the drain fill saves ~nothing"
 metadata:
   node_type: memory
   type: project
   originSessionId: 31cf3b4f-6a24-4bd3-9118-cfbd0ff52dc6
   modified: 2026-09-24T22:22:23.853Z
 ---
+
+**Read this first.**  At the 400k campaign shape (run A, 2026-09-24) a drain stages 294 of
+306 ranked trailers, 96%: four doors plus refills empty the yard.  The 25.5% below is the
+meso deep rung, whose 80 s receiving whistle stalls the unload artificially.  Under the
+campaign's drain fill, then, the lazy plan skips only each plan's last and cheapest rounds.
+Its real payoff is the asap fill and any yard that really stands.
 
 The gain sweep cannot be made INCREMENTAL ([[the-gain-sweep-cannot-be-made-incremental]]),
 but it can be made LAZY.  Round r's winner depends only on rounds 1..r-1, and a drain stages

@@ -1,5 +1,13 @@
 # S03 -- how much of the yard ranking does a drain consume?  S04 -- O1: the lazy yard plan
 
+> **CORRECTION (run A, 2026-09-24): at the 400k campaign shape a drain stages 294 of 306
+> ranked trailers, 96%, not 25.5%.**  The meso deep rung below stalls its unload with an
+> 80 s receiving whistle, which leaves the yard standing; the campaign's four doors and
+> refills empty it.  Under the campaign's DRAIN fill, O1 therefore saves only the last few
+> (cheapest) rounds of each plan, which is about nothing.  It keeps its value where the
+> yard really stands or is re-ranked per plug: the asap fill (7.3x on the yard plan,
+> below), or a whistle-bound or door-starved yard.  S02 has the numbers.
+
 ## S03 -- the pull fraction
 
 ### Question

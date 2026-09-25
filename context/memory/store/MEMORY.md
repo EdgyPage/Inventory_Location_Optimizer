@@ -158,6 +158,6 @@
 - [Unloading order is the turnover lever](unloading-order-is-the-turnover-lever.md) — puts run FIFO+-few, so velocity-aware placement = unloading order; multi-picker aisles a non-issue
 - [Yard drain quantises the wait](yard-drain-quantises-the-wait.md) — once-a-day drain made 6.7 h of k10 yard wait; --inbound-door-fill asap cuts it to 0.7 h
 - [Sort-match: two sorted lists](sortmatch-two-sorted-lists.md) — rank_sortmatch beats rank_cartlabor 0.8-1.0% at k10, ties rank_minlabor, 2.2x faster put-away
-- [Lazy yard plan](lazy-yard-plan.md) — since 626daa92 a drain prices only the trailers it stages; asap plugs price one round
+- [Lazy yard plan](lazy-yard-plan.md) — since 626daa92; asap plugs price one round (7.3x), but a 400k drain stages 96% of the yard so the drain fill saves ~0
 - [Perf probes must be unpinned](perf-probes-must-be-unpinned.md) — PHASE2_STAFFING_PIN refuses the current derivation ~20 min into a 400k run
 - [Parent setup is a third of a 400k probe](parent-setup-is-a-third-of-a-400k-probe.md) — 19-23 min freeze; fill curve memoised (a515a34d), line-floor solve not
