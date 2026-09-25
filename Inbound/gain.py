@@ -247,7 +247,7 @@ class _Evaluator:
     __slots__ = ('_site', '_key', 'space', 'taken', 'unseated',
                  '_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
                  '_wr', '_mom', '_tiers', '_tmpl', '_shared_excl', '_b', '_ps',
-                 'force_merge')
+                 'force_merge', '_pool_memo')
 
     #: The caches that are pure functions of (space, bundle) and may therefore be SHARED
     #: across the two rankings of one drain -- `shared` below, `DockContext.gain_cache`.
@@ -257,7 +257,7 @@ class _Evaluator:
     #: bins, frozen tiers, tier means, the worst bin of a chain, speed params, spill
     #: chains).  `taken` and `unseated` are deliberately NOT in this list.
     _SHARED_CACHES = ('_sorted_now', '_sorted_pred', '_wp', '_chain_cache', '_worst',
-                      '_mom', '_tiers')
+                      '_mom', '_tiers', '_pool_memo')
 
     def __init__(self, bundle, space, window_rates=None, shared=None, force_merge=False):
         #: PRICE A POOL FAMILY WITH THE MERGE RUNG instead of its own pool -- the
@@ -807,6 +807,24 @@ class _Evaluator:
         """
         b = self.b
         state = {n: _cow.AISLE_VIEWS[n](d) for n, d in b.aisle_state.items()}
+        # THE DRAIN MEMO FOR THE POOL (`.scratch/inbound-fullscale-perf/` S10).  A trailer's
+        # load is priced ~2T times a drain -- now and defer, every round -- each in fresh
+        # pools over fresh views, and at 400k a load is ~1,000 units, so the pool re-derives
+        # the same per-(SKU, aisle) and per-SKU values from the same untouched live books
+        # thousands of times.  One dict per OWNER (its affinity and frequencies are what
+        # those values read), riding the drain's shared cache (`_pool_memo`), handed to
+        # every view; the pool consults it only for aisles its own view has not written
+        # (`_MinLaborPool.take`, `_partner_deltas`).  It holds its owner so the id key
+        # cannot be recycled.
+        pm = self._pool_memo.get(id(b))
+        if pm is None or pm[0] is not b:
+            pm = self._pool_memo[id(b)] = (b, {})
+        for v in state.values():
+            # Only a copy-on-write view carries it.  Anything else handed over (an identity
+            # "view" is the live dict, the sabotage tests install one) reads books that DO
+            # move, so it must not see a memo -- and without one the pool recomputes.
+            if isinstance(v, _cow._CowView):
+                v.memo = pm[1]
         return b.pool_factory(cands if sliced else list(cands), state, wp)
 
     def _place_pool(self, gunits, chain, wp, xk, yk, excluded, predicted, cache):

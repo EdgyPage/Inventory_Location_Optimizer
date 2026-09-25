@@ -110,11 +110,17 @@ class _CowView:
     opened per pool, and a stray attribute would be per-pool heap nobody frees.
     """
 
-    __slots__ = ('_live', '_over')
+    __slots__ = ('_live', '_over', 'memo')
 
     def __init__(self, live):
         self._live = live
         self._over = {}
+        #: A DRAIN-SCOPED memo for pure functions of the LIVE books, attached by the gain
+        #: evaluator (`_Evaluator._make_pool`) and None everywhere else.  The live dicts do
+        #: not move while a drain plans -- the purity rule, and the owner writes only at
+        #: hand-off -- so a value computed from an aisle this pool has not written is the
+        #: same value at every open of the drain.  A pool reads it only for such aisles.
+        self.memo = None
 
     def __getitem__(self, k):
         raise NotImplementedError('a CoW view subclass owns how a miss materializes')
@@ -427,6 +433,12 @@ class _CowListsByKey(_CowView):
         if got is None:
             got = o[k] = _CowInner(self._live.get(k))
         return got
+
+    def untouched(self, k) -> bool:
+        """Has this view NOT written aisle `k`'s lists?  Then every read of it is the live
+        book's, and a value derived from it may come from the drain memo (`memo`)."""
+        got = self._over.get(k)
+        return got is None or not got._over
 
 
 def _copy_of_sets(d):

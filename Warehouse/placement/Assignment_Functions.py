@@ -2643,7 +2643,7 @@ class _MinLaborPool(_Pool):
                 best = cost
         return best
 
-    def _partner_deltas(self, row_items):
+    def _partner_deltas(self, row_items, sku=None):
         """`{aisle: sum of w over the SKU's partners placed there}`, folded ONCE per SKU run
         through the ledger's inverse -- or None when the aisle book carries no inverse, in
         which case `take` folds per aisle as it always did.
@@ -2671,12 +2671,43 @@ class _MinLaborPool(_Pool):
             over = getattr(ais, '_over', None)
         if inv is None:
             return None
-        deltas: dict = {}
-        for ci, w in row_items:
-            held = inv.get(ci)
-            if held:
-                for aid in held:
-                    deltas[aid] = deltas.get(aid, 0.0) + w
+        # THE LIVE FOLD IS A PURE FUNCTION OF (SKU, the live inverse), which no virtual
+        # placement moves, so under the gain evaluator it comes from the drain memo the
+        # view carries (`gain_cow._CowView.memo`); the overlay aisles are folded afresh
+        # below either way, onto a COPY, so the memoised dict is never written.
+        dm = getattr(ais, 'memo', None) if over is not None else None
+        live = dm.get(('dl', sku)) if dm is not None else None
+        if live is None:
+            live = {}
+            for ci, w in row_items:
+                held = inv.get(ci)
+                if held:
+                    for aid in held:
+                        live[aid] = live.get(aid, 0.0) + w
+            if dm is not None:
+                dm[('dl', sku)] = live
+        if not over:
+            return live
+        deltas = dict(live)
+        # AN OVERLAID AISLE IS REFOLDED ONLY IF ITS PARTNERS DIFFER FROM THE LIVE BOOK'S
+        # (`.scratch/inbound-fullscale-perf/` S10).  The loop below walked the whole row
+        # for EVERY overlaid aisle at every SKU boundary -- hundreds of aisles once a pool
+        # seats a 1,000-unit load.  When an overlaid aisle holds exactly the partners its
+        # live set holds (`rowset & view == rowset & live`, two C-level intersections over
+        # the short row), the loop's sum -- the same terms, in row order, from 0.0 -- IS the
+        # live fold's value for it (0.0 when it holds none).  Only the others are refolded.
+        # Structural: it compares the sets themselves, so it holds whoever wrote the view.
+        rowset = {ci for ci, _w in row_items}
+        live_sets = ais._live
+        empty = ()
+        keep: list = []
+        for aid in over:
+            if rowset.intersection(over[aid]) == rowset.intersection(
+                    live_sets.get(aid, empty)):
+                deltas[aid] = live.get(aid, 0.0)
+            else:
+                keep.append(aid)
+        over = keep
         if over:
             for aid in over:
                 members = ais[aid]
@@ -2736,7 +2767,7 @@ class _MinLaborPool(_Pool):
             mx.boundary(pp, fq)
             self._row = _partner_row(self._aff, sku)
             self._cen = {}
-            self._deltas = self._partner_deltas(row_items) if row_items else {}
+            self._deltas = self._partner_deltas(row_items, sku) if row_items else {}
             mx.set_delta(row_items, self._deltas, self._ais)
             self._last_sku = sku
 
@@ -2763,10 +2794,26 @@ class _MinLaborPool(_Pool):
         # index IS in its row, the entry for `best_aid` is dropped after the commit and the
         # next take recomputes it.  Otherwise the memoised pair is the recomputed one, the
         # same floats from the same walk over the same members.
+        #
+        # AND ACROSS THE DRAIN, under the gain evaluator: an aisle this pool has not written
+        # reads exactly the live book, which no virtual placement moves, so its centroid for
+        # this SKU is the same at every open of the drain -- and a load is priced ~2T times a
+        # drain.  The view carries that memo (`gain_cow._CowView.memo`, None on every live
+        # dict); a written aisle always recomputes.
         cen = self._cen.get(best_aid)
         if cen is None:
-            cen = self._cen[best_aid] = _demand_weighted_partner_centroid(
-                self._aff, sku, self._amp[best_aid], self._fbi, row=self._row)
+            amp = self._amp
+            dm = getattr(amp, 'memo', None)
+            if dm is not None and amp.untouched(best_aid):
+                key = ('cen', sku, best_aid)
+                cen = dm.get(key)
+                if cen is None:
+                    cen = dm[key] = _demand_weighted_partner_centroid(
+                        self._aff, sku, amp[best_aid], self._fbi, row=self._row)
+            else:
+                cen = _demand_weighted_partner_centroid(
+                    self._aff, sku, amp[best_aid], self._fbi, row=self._row)
+            self._cen[best_aid] = cen
         _mass, cx = cen
         chosen = chosen_m = None
         cbest = None
