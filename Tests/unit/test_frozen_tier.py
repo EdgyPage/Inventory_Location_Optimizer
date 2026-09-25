@@ -427,9 +427,21 @@ def test_opens_over_one_shared_template_match_the_eager_build_and_each_other(see
         assert _frozen_state(st) == _frozen_state(st_e), (
             'a shared-template open committed different aisle state than the eager build')
 
-    assert len(store) == 1, (
-        f'{len(store)} templates for one (tier, exclusion set): the store key is not '
+    # The store also holds DERIVED structures memoised over the same template
+    # (`TierSlice.memo` -- `_TravelVec`'s head matrix, inbound-fullscale-perf S10), keyed
+    # ('memo', kind); the claim here is about the bucket template, so those are counted
+    # apart: at most one each, i.e. built once for the two opens and then reused.
+    templates = [k for k in store if not (isinstance(k[0], tuple) and k[0][0] == 'memo')]
+    memos = [k for k in store if isinstance(k[0], tuple) and k[0][0] == 'memo']
+    assert len(templates) == 1, (
+        f'{len(templates)} templates for one (tier, exclusion set): the store key is not '
         f'collapsing the opens a round makes, and nothing here is being reused')
+    assert len(memos) == len({k[0] for k in memos}) <= 1, (
+        f'derived memos {memos}: one kind was built more than once for one template')
+    if family in ('travel', 'minlabor'):
+        assert len(memos) == 1, (
+            f'the {family} pool opened over a template but memoised no head matrix -- the '
+            f'second open rebuilt it, and the sharing this test pins is untested for it')
     assert bases[0] is bases[1], (
         'the two opens did not share one base dict -- each rebuilt its own prologue and '
         'the copy-on-write path is untested')

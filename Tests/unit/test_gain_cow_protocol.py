@@ -225,3 +225,29 @@ def test_every_view_is_slotted_so_a_pool_cannot_grow_state_on_it():
         inst = v({})
         with pytest.raises(AttributeError):
             inst.scratch = 1
+
+
+def test_holding_answers_what_getitem_answers_without_materializing():
+    """`_CowSets.holding` is the cart hinge's bulk membership read (`_TravelVec.boundary`):
+    the same booleans `item in view[k]` gives, for live-only, overlaid, written and absent
+    aisles, and it must copy NOTHING into the overlay -- that copy per aisle per boundary
+    was 34% of a 400k `plan_order` (`.scratch/inbound-fullscale-perf/` S10)."""
+    from collections import defaultdict
+    from Inbound.gain_cow import _CowSets
+
+    live = defaultdict(set, {1: {10, 11}, 2: {12}, 3: set(), 4: {10}})
+    view, twin = _CowSets(live), _CowSets(live)
+    view[4].add(12)                     # an aisle written through the view (overlaid)
+    twin[4].add(12)
+    view[9] = {10}                      # an aisle only the overlay knows
+    twin[9] = {10}
+    keys = [1, 2, 3, 4, 5, 9]           # 5 is in neither
+    over_before = dict(view._over)
+    for item in (10, 11, 12, 13):
+        want = [item in twin[k] for k in keys]
+        assert view.holding(keys, item) == want, item
+    assert view._over == over_before, 'holding() materialized an aisle into the overlay'
+    assert 5 not in live and 5 not in view._over, 'holding() created a key'
+    assert live == {1: {10, 11}, 2: {12}, 3: set(), 4: {10}}, 'the live dict moved'
+    # non-vacuity: the twin, read through __getitem__, DID materialize -- the thing avoided
+    assert set(twin._over) >= {1, 2, 3, 5}

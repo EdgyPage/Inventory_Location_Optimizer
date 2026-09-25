@@ -223,6 +223,28 @@ class _CowSets(_CowView):
             got = o[k] = set(src) if src is not None else set()
         return got
 
+    def holding(self, keys, item) -> list:
+        """`[item in self[k] for k in keys]` -- WITHOUT materializing a single aisle.
+
+        rank_cartlabor's run boundary asks, for every live aisle, whether the aisle already
+        holds the SKU (`_TravelVec.boundary`, the cart hinge).  Through `__getitem__` that
+        question COPIED every aisle's set into the overlay -- ~1,400 set copies per boundary
+        at campaign scale, the same blow-up this module exists to prevent, re-entered
+        through a membership test: 34% of a 400k `plan_order` (cProfile of
+        `.scratch/inbound-fullscale-perf/` S10).
+
+        The answer is the same boolean for every key: an overlay aisle answers from the
+        overlay, any other from the live set (read-only here), an aisle in neither holds
+        nothing -- exactly what `__getitem__`'s materialized copy would have answered.  The
+        copy it skips is unobservable to the pool: the live dict is not written while a
+        virtual placement is open, so an aisle the ledger later writes materializes then,
+        with the same contents it would have been copied with now.  (The LIVE-dict path --
+        the put drain -- does not come here; its `defaultdict` inserts keys that
+        `aisle_metrics` writes, so it keeps its own read.)"""
+        o, live = self._over, self._live
+        empty = ()
+        return [item in (o[k] if k in o else live.get(k, empty)) for k in keys]
+
     def union(self):
         """Every idx in any aisle of this view -- what `set().union(*self.values())` returns,
         answered from the owner's counted inverse when the live dict is the owner's

@@ -1713,24 +1713,39 @@ class _TravelVec:
 
     __slots__ = ('aids', 'mvals', 'Dh', 'Mi', 'load', 'vol', 'sc', 'best', 'slot', '_rows')
 
-    def __init__(self, by_aisle, load, vol_load):
-        aids = list(by_aisle)
+    def __init__(self, by_aisle, load, vol_load, src=None):
+        # THE MATRIX IS THE TEMPLATE'S, NOT THE OPEN'S.  It is built at the pool's first
+        # take, before any head has moved, so it is a pure function of what `by_aisle` was
+        # opened over -- and under the gain evaluator that is a round's shared template
+        # (`TierSlice` with a store), opened ~5 times per round.  `src.memo` builds it once
+        # per template; this open copies `Dh`, the one array `refresh` writes.  `aids`,
+        # `mvals` and `Mi` are never written.  Without a template store (the put drain, the
+        # eager build, tests) `memo` builds fresh, exactly as before.
+        def build():
+            aids = list(by_aisle)
+            A = len(aids)
+            K = max((len(g) for g in by_aisle.values()), default=0) or 1
+            Dh = np.full((A, K), np.inf)
+            Mi = np.zeros((A, K), dtype=np.intp)
+            mvals: list = []
+            midx: dict = {}
+            for i, aid in enumerate(aids):
+                for j, (m, h) in enumerate(by_aisle[aid].items()):
+                    k = midx.get(m)
+                    if k is None:
+                        k = midx[m] = len(mvals)
+                        mvals.append(m)
+                    Mi[i, j] = k
+                    t = h.head
+                    if t is not None:
+                        Dh[i, j] = t[0]
+            return aids, mvals, Dh, Mi
+        if src is not None and src.store is not None:
+            aids, mvals, Dh, Mi = src.memo('travel_vec', build)
+            Dh = Dh.copy()
+        else:
+            aids, mvals, Dh, Mi = build()
         A = len(aids)
-        K = max((len(g) for g in by_aisle.values()), default=0) or 1
-        Dh = np.full((A, K), np.inf)
-        Mi = np.zeros((A, K), dtype=np.intp)
-        mvals: list = []
-        midx: dict = {}
-        for i, aid in enumerate(aids):
-            for j, (m, h) in enumerate(by_aisle[aid].items()):
-                k = midx.get(m)
-                if k is None:
-                    k = midx[m] = len(mvals)
-                    mvals.append(m)
-                Mi[i, j] = k
-                t = h.head
-                if t is not None:
-                    Dh[i, j] = t[0]
         self.aids, self.mvals, self.Dh, self.Mi = aids, mvals, Dh, Mi
         self.load = np.array([load[a] for a in aids], dtype=float)
         self.vol = (np.array([vol_load[a] for a in aids], dtype=float)
@@ -1748,8 +1763,17 @@ class _TravelVec:
             sc = self.load + fq * best
         if pool._cart_on:
             ass = pool._ass
-            add = np.fromiter((0.0 if sku in ass[a] else m_s for a in self.aids),
-                              dtype=float, count=len(self.aids))
+            holding = getattr(ass, 'holding', None)
+            if holding is not None:
+                # A gain-evaluator copy-on-write view: ask it in one frame, without
+                # materializing every aisle (`gain_cow._CowSets.holding` -- same booleans).
+                add = np.where(np.array(holding(self.aids, sku), dtype=bool), 0.0, m_s)
+            else:
+                # The live dict (put drain, initial placement): `ass[a]` on its defaultdict
+                # INSERTS a missing aisle, and those keys reach `aisle_metrics`, so the read
+                # stays exactly what it was.
+                add = np.fromiter((0.0 if sku in ass[a] else m_s for a in self.aids),
+                                  dtype=float, count=len(self.aids))
             sc = sc + pool._cart_coef * np.maximum(0.0, (self.vol + add) / pool._cap_raw - 1.0)
         sc[~np.isfinite(best)] = np.inf
         self.sc, self.best, self.slot = sc, best, slot
@@ -1805,7 +1829,7 @@ class _TravelBalancedPool(_Pool):
                  '_intercept', '_per_item', '_by_aisle', '_geo_memo', '_load', '_vol_load',
                  '_cart_on', '_avs', '_svp', '_cart_coef', '_cap_raw',
                  '_run_sku', '_var', '_fq', '_m_s', '_ab_cache', '_sel', '_led', '_writer',
-                 '_pp', '_hv', '_vx')
+                 '_pp', '_hv', '_vx', '_vsrc')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_pick_load_sum, sku_pick_load_product,
@@ -1880,7 +1904,9 @@ class _TravelBalancedPool(_Pool):
             # answer `top()` / `pop_top()`, so `_aisle_best` and `take` are one code path.
             _check_tier(cands.tier, x_pace, y_pace, brackets)
             by_aisle = cands.aisle_buckets()
+            self._vsrc = cands                  # the template `_TravelVec` memoises over
         else:
+            self._vsrc = None
             geo = self._geo_memo
             if geo is None:
                 geo = {}
@@ -2032,7 +2058,8 @@ class _TravelBalancedPool(_Pool):
             vx = self._vx
             if vx is None:
                 vx = self._vx = _TravelVec(by_aisle, self._load,
-                                           self._vol_load if self._cart_on else None)
+                                           self._vol_load if self._cart_on else None,
+                                           src=self._vsrc)
             self._pp = pp = {m: per_pick(m, self._intercept, var, 1, self._per_item)
                              for m in vx.mvals}
             vx.boundary(pp, fq, sku, m_s, self)
@@ -2289,27 +2316,40 @@ class _MinLabVec:
     __slots__ = ('aids', 'mvals', 'Dh', 'Mi', 'bc', 'key', 'order', 'delta', 'maximize',
                  '_pad', '_pos', '_D_of', '_rep')
 
-    def __init__(self, by_aisle_brkt, D_of, rep, maximize: bool):
-        aids = list(by_aisle_brkt)
-        A = len(aids)
-        K = max((len(g) for g in by_aisle_brkt.values()), default=0) or 1
+    def __init__(self, by_aisle_brkt, D_of, rep, maximize: bool, src=None):
         pad = -np.inf if maximize else np.inf
-        Dh = np.full((A, K), pad)
-        Mi = np.zeros((A, K), dtype=np.intp)
-        mvals: list = []
-        midx: dict = {}
-        for i, aid in enumerate(aids):
-            for j, (m, dq) in enumerate(by_aisle_brkt[aid].items()):
-                k = midx.get(m)
-                if k is None:
-                    k = midx[m] = len(mvals)
-                    mvals.append(m)
-                Mi[i, j] = k
-                if dq:
-                    Dh[i, j] = D_of[id(rep(dq))]
+
+        # THE TEMPLATE'S MATRIX, as `_TravelVec`'s: built at the pool's first take, before
+        # any bracket end has moved, so a pure function of the template it opened over (and
+        # of `maximize`, which picks the end `rep` reads).  `src.memo` builds it once per
+        # round's template; this open copies `Dh`, the one array `update` writes.  `aids`,
+        # `mvals`, `Mi` and `pos` are never written.
+        def build():
+            aids = list(by_aisle_brkt)
+            A = len(aids)
+            K = max((len(g) for g in by_aisle_brkt.values()), default=0) or 1
+            Dh = np.full((A, K), pad)
+            Mi = np.zeros((A, K), dtype=np.intp)
+            mvals: list = []
+            midx: dict = {}
+            for i, aid in enumerate(aids):
+                for j, (m, dq) in enumerate(by_aisle_brkt[aid].items()):
+                    k = midx.get(m)
+                    if k is None:
+                        k = midx[m] = len(mvals)
+                        mvals.append(m)
+                    Mi[i, j] = k
+                    if dq:
+                        Dh[i, j] = D_of[id(rep(dq))]
+            return aids, mvals, Dh, Mi, {a: i for i, a in enumerate(aids)}
+        if src is not None and src.store is not None:
+            aids, mvals, Dh, Mi, pos = src.memo(('minlab_vec', bool(maximize)), build)
+            Dh = Dh.copy()
+        else:
+            aids, mvals, Dh, Mi, pos = build()
         self.aids, self.mvals, self.Dh, self.Mi = aids, mvals, Dh, Mi
         self.maximize, self._pad = maximize, pad
-        self._pos = {a: i for i, a in enumerate(aids)}
+        self._pos = pos
         self._D_of, self._rep = D_of, rep
         self.bc = self.key = self.order = self.delta = None
 
@@ -2406,7 +2446,7 @@ class _MinLaborPool(_Pool):
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku',
                  '_row_items', '_max_reward', '_led',
-                 '_pp', '_row', '_deltas', '_writer', '_mx')
+                 '_pp', '_row', '_deltas', '_writer', '_mx', '_vsrc')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2437,7 +2477,9 @@ class _MinLaborPool(_Pool):
             _check_tier(cands.tier, x_pace, y_pace, brackets)
             D_of = cands.tier.D_by_id
             by_aisle_brkt = cands.aisle_buckets()
+            self._vsrc = cands                  # the template `_MinLabVec` memoises over
         else:
+            self._vsrc = None
             D_of = _D_map(cands, x_pace, y_pace)
             M_of = {id(b): height_multiplier(brackets, b.y_phys) for b in cands}
             by_aisle_brkt = {}                            # {aisle: {mult: D-sorted deque}}
@@ -2606,7 +2648,8 @@ class _MinLaborPool(_Pool):
             # loop's.
             mx = self._mx
             if mx is None:
-                mx = self._mx = _MinLabVec(by_aisle_brkt, self._D_of, self._rep, maximize)
+                mx = self._mx = _MinLabVec(by_aisle_brkt, self._D_of, self._rep, maximize,
+                                           src=self._vsrc)
             self._pp = pp = {m: per_pick(m, self._intercept, var, 1, self._per_item)
                              for m in mx.mvals}
             mx.boundary(pp, fq)

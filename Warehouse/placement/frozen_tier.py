@@ -149,6 +149,18 @@ class TierSlice:
             got = store[k] = (self.excluded, self.tier, build())
         return got[2]
 
+    def memo(self, kind, build):
+        """`build()` once per (tier, excluded set) under a template store, fresh without one.
+
+        For a pool's DERIVED structure that is a pure function of the template it opens
+        over -- `_TravelVec`'s head matrix, read before the pool's first take moves any
+        head.  It shares `_template`'s key and lifetime, so it dies with the round exactly
+        as the buckets do; the caller must never write the cached object (it copies what
+        it mutates)."""
+        if self.store is None:
+            return build()
+        return self._template(('memo', kind), build)
+
     # -- the first-appearance order under exclusion ---------------------------------------
 
     def _first_live(self, appear: list):
