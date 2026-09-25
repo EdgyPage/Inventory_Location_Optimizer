@@ -842,9 +842,15 @@ class _Evaluator:
                 # spill back into a tier this placement already drew from makes a
                 # one-off set no other open can hit).  Everything else opens eagerly,
                 # exactly as it did before the template existed.
+                # A ONE-OFF set (a defer side's `B - hole`, a spill's `excluded | used`)
+                # is not memoised, but it is DERIVED from the round's nearest template
+                # (`derive=`): it differs from `taken` or `B` by a handful of bins, and
+                # under a min-labour pool nearly every defer-side open is one
+                # (inbound-fullscale-perf S10).
                 sl = (tier.slice(excluded, self._tmpl)
                       if not used and id(excluded) in self._shared_excl
-                      else tier.slice(excluded | used if used else excluded))
+                      else tier.slice(excluded | used if used else excluded,
+                                      derive=self._tmpl))
                 if not sl:
                     continue
                 pool = self._make_pool(sl, wp, sliced=True)

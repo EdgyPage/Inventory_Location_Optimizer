@@ -1216,8 +1216,11 @@ def test_the_round_shared_prologue_changes_no_plan(monkeypatch):
             'template cannot have been exercised')
 
         trailers2, view2, bundle2, _ = _frozen_scene()
+        # Withhold BOTH the store and the derive source: the reference is the eager build,
+        # with no template memoised and none derived from (inbound-fullscale-perf S10).
         monkeypatch.setattr(frozen_tier.FrozenTier, 'slice',
-                            lambda self, excluded, store=None: eager(self, excluded, None))
+                            lambda self, excluded, store=None, derive=None:
+                            eager(self, excluded, None))
         try:
             unshared = plan_order(trailers2, bundle2, view2, predicted=predicted)
         finally:

@@ -61,7 +61,8 @@ class FrozenTier:
     """
 
     __slots__ = ('bins', 'ids', 'D', 'aisle', 'D_by_id', 'x_pace', 'y_pace', 'brackets',
-                 '_aisle_appear', '_bucket_appear', '_aisle_asc', '_aisle_desc', '_bucket_asc')
+                 '_aisle_appear', '_bucket_appear', '_aisle_asc', '_aisle_desc', '_bucket_asc',
+                 '_bkey', '_pos')
 
     def __init__(self, cands, x_pace: float, y_pace: float, brackets=()):
         bins = list(cands)
@@ -74,11 +75,17 @@ class FrozenTier:
         self.x_pace, self.y_pace, self.brackets = x_pace, y_pace, tuple(brackets)
         aisle_appear: dict = {}
         bucket_appear: dict = {}
+        bkey: list = []
         for i, b in enumerate(bins):
             aid = self.aisle[i]
             aisle_appear.setdefault(aid, []).append(i)
-            bucket_appear.setdefault((aid, height_multiplier(self.brackets, b.y_phys)),
-                                     []).append(i)
+            k = (aid, height_multiplier(self.brackets, b.y_phys))
+            bkey.append(k)
+            bucket_appear.setdefault(k, []).append(i)
+        #: index -> its bucket key, and (on demand) bin id -> index: what a DERIVED
+        #: template reads to find the buckets an exclusion-set difference touches.
+        self._bkey = bkey
+        self._pos = None
         self._aisle_appear = aisle_appear
         self._bucket_appear = bucket_appear
         D = self.D
@@ -91,6 +98,12 @@ class FrozenTier:
     def __len__(self) -> int:
         return len(self.bins)
 
+    def index_of_id(self) -> tuple:
+        """`({bin id: index}, [index -> (aisle, bracket)])`, the first built once per tier."""
+        if self._pos is None:
+            self._pos = {bid: i for i, bid in enumerate(self.ids)}
+        return self._pos, self._bkey
+
     def aisle_order(self, aid: int, reverse: bool = False) -> list:
         """The aisle's bin indices in the pool's bucket order (ascending D, or the stable
         descending sort when `reverse`)."""
@@ -102,15 +115,21 @@ class FrozenTier:
                                 for a, lst in self._aisle_appear.items()}
         return self._aisle_desc[aid]
 
-    def slice(self, excluded, store=None) -> 'TierSlice':
+    def slice(self, excluded, store=None, derive=None) -> 'TierSlice':
         """The tier minus `excluded` (a set of bin ids), for one pool open.
 
         `store` is the caller's TEMPLATE STORE -- a plain dict the slice memoises its
         per-open structure into, so that the many opens a round makes over the SAME
         (tier, excluded set) build it once and open over copy-on-write copies of it.
         None (every caller but the gain evaluator) keeps the eager build, unchanged.
+
+        `derive` (a store, with `store` None) is for a ONE-OFF set no other open will hit
+        -- a defer side's `B - hole`, a spill's `excluded | used`: nothing is memoised, but
+        the structure is DERIVED from the nearest template already in that store rather
+        than built from scratch (`TierSlice._aisle_buckets_derived`), and read through a
+        copy-on-write view because it shares its parent's untouched cursors.
         """
-        return TierSlice(self, excluded, store)
+        return TierSlice(self, excluded, store, derive)
 
 
 class TierSlice:
@@ -120,14 +139,17 @@ class TierSlice:
     computed when a pool asks for its buckets, from each list's first non-excluded index.
     """
 
-    __slots__ = ('tier', 'excluded', 'store')
+    __slots__ = ('tier', 'excluded', 'store', 'derive', '_derived')
 
-    def __init__(self, tier: FrozenTier, excluded, store=None):
+    def __init__(self, tier: FrozenTier, excluded, store=None, derive=None):
         self.tier = tier
         self.excluded = excluded
         #: The caller's template store (see `FrozenTier.slice`), or None for the eager
         #: build every non-evaluator caller gets.
         self.store = store
+        #: A store to DERIVE a one-off structure from, never to memoise into (`slice`).
+        self.derive = derive if store is None else None
+        self._derived = None
 
     # -- the template store -----------------------------------------------------------
 
@@ -149,17 +171,45 @@ class TierSlice:
             got = store[k] = (self.excluded, self.tier, build())
         return got[2]
 
-    def memo(self, kind, build):
+    def memo(self, kind, build, patch=None):
         """`build()` once per (tier, excluded set) under a template store, fresh without one.
 
         For a pool's DERIVED structure that is a pure function of the template it opens
         over -- `_TravelVec`'s head matrix, read before the pool's first take moves any
         head.  It shares `_template`'s key and lifetime, so it dies with the round exactly
         as the buckets do; the caller must never write the cached object (it copies what
-        it mutates)."""
+        it mutates).
+
+        `patch(parent_value, affected_aisles, order_same)` (optional) derives the value
+        from the PARENT template's value when this slice's bucket template was derived
+        from one (`_aisle_buckets_derived`): every aisle outside `affected_aisles` has the
+        parent's buckets, only its position can have moved (and did not, when
+        `order_same`).  It returns None to decline, and `build()` runs."""
         if self.store is None:
+            # A one-off DERIVED structure patches from its parent's value when the parent
+            # template has one in the derive store; nothing is memoised either way.
+            t = self._derived
+            if patch is not None and t is not None and t.parent is not None:
+                pv = self.derive.get((('memo', kind), id(self.tier), id(t.parent.excl)))
+                if pv is not None:
+                    got = patch(pv[2], t.affected, t.order_same)
+                    if got is not None:
+                        return got
             return build()
-        return self._template(('memo', kind), build)
+
+        def make():
+            if patch is not None:
+                here = self.store.get(('buckets', id(self.tier), id(self.excluded)))
+                t = here[2] if here is not None else None
+                par = getattr(t, 'parent', None)
+                if par is not None:
+                    pv = self.store.get((('memo', kind), id(self.tier), id(par.excl)))
+                    if pv is not None:
+                        got = patch(pv[2], t.affected, t.order_same)
+                        if got is not None:
+                            return got
+            return build()
+        return self._template(('memo', kind), make)
 
     # -- the first-appearance order under exclusion ---------------------------------------
 
@@ -220,10 +270,19 @@ class TierSlice:
         `first` is unique within an aisle, so `m` is never compared.
         """
         if self.store is not None:
-            return _CowBuckets(self._template('buckets', self._aisle_buckets_eager))
+            return _CowBuckets(self._template('buckets', self._aisle_buckets_template))
+        if self.derive is not None:
+            parent = self._bucket_parent(self.derive)
+            if parent is not None:
+                got = self._aisle_buckets_derived(parent)
+                if got is not None:
+                    self._derived = got
+                    # Shares its parent's untouched cursors, so a pool must clone before
+                    # it pops -- the copy-on-write view is what makes it do so.
+                    return _CowBuckets(got)
         return self._aisle_buckets_eager()
 
-    def _aisle_buckets_eager(self) -> dict:
+    def _aisle_buckets_eager(self, keep: bool = False) -> dict:
         tier = self.tier
         ids, excl = tier.ids, self.excluded
         per_aisle: dict = {}
@@ -241,12 +300,139 @@ class TierSlice:
                 f0 = firsts.get(aid)
                 if f0 is None or first < f0:
                     firsts[aid] = first
-        out: dict = {}
+        out: dict = _BucketTemplate() if keep else {}
         for _f, aid in sorted((f, aid) for aid, f in firsts.items()):
             lst = per_aisle[aid]
             lst.sort()
             out[aid] = {m: _Cursor(tier, tier._bucket_asc[(aid, m)], excl) for _f2, m in lst}
+        if keep:
+            out.firsts, out.per_aisle, out.excl = firsts, per_aisle, excl
+            out.parent, out.affected, out.order_same = None, None, False
         return out
+
+    # -- the template, derived from a sibling (inbound-fullscale-perf S10) ---------------
+    #
+    # A round of the gain greedy builds a template per (tier, exclusion set) it opens over:
+    # the now side's `taken`, the defer side's `B`, and one `B - hole` per candidate holding
+    # a bin uniquely -- ~30 per round at campaign scale, each ~3,800 cursors, and after the
+    # pool matrices went per-template this build was ~60% of a 400k `plan_order`.  But the
+    # sets of one round differ from each other by a few dozen bins, so a template can be
+    # DERIVED from a sibling already in the store: only the buckets holding a bin in the
+    # symmetric difference change; every other bucket's cursor is reused as it stands.
+    #
+    # WHY A REUSED CURSOR IS THE EAGER ONE.  A cursor reads its exclusion set ONLY for the
+    # ids of its own bucket (`_settle_lo`, `_settle_hi`, `__len__` walk `order`, which is
+    # the bucket's index list).  A bucket untouched by `E ^ E0` has `E ∩ bucket ==
+    # E0 ∩ bucket`, so the parent's cursor settles to the same position, holds the same
+    # head and pops the same sequence as `_Cursor(tier, order, E)` would.  The invariant
+    # carries through a chain of derivations: every cursor in a template agrees with that
+    # template's set on its own bucket.  No set is mutated while the store lives -- the
+    # evaluator drops the store at every commit (`plan_order` -> `drop_templates`), the one
+    # moment `taken` moves -- and template dicts are never written (pools clone the cursor
+    # they move, `_CowBuckets.writable`).
+    #
+    # WHY THE ORDERS ARE THE EAGER ONES.  An aisle's bracket order is its buckets sorted by
+    # first live appearance, and an unaffected bucket's first live appearance is unchanged,
+    # so an affected aisle's list is rebuilt from its unaffected entries plus its
+    # recomputed ones and sorted exactly as the eager build sorts.  The aisle order is the
+    # sort of per-aisle minimum firsts; when no affected aisle's minimum moved (and none
+    # appeared or vanished) the parent's order stands and the copy keeps it, otherwise it
+    # is re-sorted from the maintained minima -- the eager sort over the same pairs.
+    # `Tests/unit/test_frozen_tier.py` drives derived templates against the eager build.
+
+    #: Derive only when at most this share of the tier's buckets moved; past it the
+    #: derivation's bookkeeping approaches the eager build and buys nothing.
+    DERIVE_SHARE = 0.25
+
+    def _aisle_buckets_template(self) -> dict:
+        parent = self._bucket_parent(self.store)
+        if parent is not None:
+            got = self._aisle_buckets_derived(parent)
+            if got is not None:
+                return got
+        return self._aisle_buckets_eager(keep=True)
+
+    def _bucket_parent(self, store):
+        """The sibling template in `store` closest to this slice's set: the round's
+        first (its `taken` or `B`) or its latest, whichever differs by fewer ids."""
+        tid = id(self.tier)
+        cands = [v[2] for k, v in store.items()
+                 if k[0] == 'buckets' and k[1] == tid and isinstance(v[2], _BucketTemplate)]
+        if not cands:
+            return None
+        E = self.excluded
+        best = None
+        for t in (cands[0], cands[-1]) if len(cands) > 1 else (cands[0],):
+            n = len(E.symmetric_difference(t.excl))
+            if best is None or n < best[0]:
+                best = (n, t)
+        return best[1]
+
+    def _aisle_buckets_derived(self, parent):
+        tier, E = self.tier, self.excluded
+        pos, bkey = tier.index_of_id()
+        affected: dict = {}
+        for bid in E.symmetric_difference(parent.excl):
+            i = pos.get(bid)
+            if i is not None:
+                aid, m = bkey[i]
+                got = affected.get(aid)
+                if got is None:
+                    affected[aid] = {m}
+                else:
+                    got.add(m)
+        if sum(len(v) for v in affected.values()) > self.DERIVE_SHARE * len(tier._bucket_appear):
+            return None
+        ids, appear_of, asc_of = tier.ids, tier._bucket_appear, tier._bucket_asc
+        firsts = dict(parent.firsts)
+        per_aisle = dict(parent.per_aisle)
+        order_same = True
+        inners: dict = {}
+        for aid, ms in affected.items():
+            lst = [fm for fm in per_aisle.get(aid, ()) if fm[1] not in ms]
+            for m in ms:
+                first = None
+                for i in appear_of[(aid, m)]:
+                    if ids[i] not in E:
+                        first = i
+                        break
+                if first is not None:
+                    lst.append((first, m))
+            lst.sort()
+            old = firsts.get(aid)
+            if lst:
+                per_aisle[aid] = lst
+                firsts[aid] = lst[0][0]
+                prev = parent.get(aid) or {}
+                inners[aid] = {m: (prev[m] if m in prev and m not in ms
+                                   else _Cursor(tier, asc_of[(aid, m)], E))
+                               for _f, m in lst}
+            else:
+                per_aisle.pop(aid, None)
+                firsts.pop(aid, None)
+            if firsts.get(aid) != old:
+                order_same = False
+        if order_same:
+            out = _BucketTemplate(parent)
+            for aid, inner in inners.items():
+                out[aid] = inner
+        else:
+            out = _BucketTemplate()
+            for _f, aid in sorted((f, a) for a, f in firsts.items()):
+                inner = inners.get(aid)
+                out[aid] = parent[aid] if inner is None else inner
+        out.firsts, out.per_aisle, out.excl = firsts, per_aisle, E
+        out.parent, out.affected, out.order_same = parent, frozenset(affected), order_same
+        return out
+
+
+class _BucketTemplate(dict):
+    """A bucket template (`{aisle: {bracket: _Cursor}}`) that remembers how it was made:
+    the per-aisle first appearances and bracket lists, the exclusion set its cursors
+    agree with, and -- when derived -- its parent, the aisles that moved and whether the
+    aisle order held.  A plain dict to every reader (`_CowBuckets` reads it as one)."""
+
+    __slots__ = ('firsts', 'per_aisle', 'excl', 'parent', 'affected', 'order_same')
 
 
 class _CowAisles:

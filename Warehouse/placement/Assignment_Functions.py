@@ -1685,6 +1685,24 @@ def _travel_balanced_impl(units, candidates_fn, affinity, wp, ledger,
     return [(u, pool.take(u)[0]) for u in pool.order(units)]
 
 
+def _gather_rows(pv, by_aisle, affected, order_same):
+    """The parent's `(aids, mvals, Dh, Mi, pos)` laid out in THIS template's aisle order,
+    as fresh arrays the caller may write: copied as they stand when the order held,
+    gathered row by row (`Dh0[src]`) when it moved.  An aisle absent from the parent must
+    be one the derivation touched (its row is rewritten by the caller); anything else
+    declines, since the row it would read does not exist."""
+    aids0, mvals0, Dh0, Mi0, pos0 = pv
+    if order_same:
+        return aids0, mvals0, Dh0.copy(), Mi0.copy(), pos0
+    aids = list(by_aisle)
+    pos = {a: i for i, a in enumerate(aids)}
+    src = np.fromiter((pos0.get(a, -1) for a in aids), dtype=np.intp, count=len(aids))
+    missing = src < 0
+    if missing.any() and any(aids[i] not in affected for i in np.flatnonzero(missing)):
+        return None
+    return aids, mvals0, Dh0[src], Mi0[src], pos
+
+
 class _TravelVec:
     """`_TravelBalancedPool`'s aisles as arrays: the head matrix, the running loads, and the
     current SKU run's score vector.
@@ -1739,12 +1757,46 @@ class _TravelVec:
                     t = h.head
                     if t is not None:
                         Dh[i, j] = t[0]
-            return aids, mvals, Dh, Mi
-        if src is not None and src.store is not None:
-            aids, mvals, Dh, Mi = src.memo('travel_vec', build)
+            return aids, mvals, Dh, Mi, {a: i for i, a in enumerate(aids)}
+
+        def patch(pv, affected, order_same):
+            # The parent template's matrix with only the moved aisles' rows rewritten
+            # (`TierSlice.memo`).  Every other aisle has the parent's buckets, so its row IS
+            # the parent's row -- at the same index when the aisle order held, gathered into
+            # the new order when it did not.  A bracket value the parent never saw declines
+            # (`mvals` would need a new column index); otherwise relabelling cannot move a
+            # float, since a cell's cost is `PP[Mi] + Dh` of that cell alone.  A row padded
+            # wider than the eager K reads +inf in the extra cells, which no argmin prefers
+            # and an all-inf row reads the same either way.
+            got = _gather_rows(pv, by_aisle, affected, order_same)
+            if got is None:
+                return None
+            aids0, mvals0, Dh1, Mi1, pos0 = got
+            K = Dh1.shape[1]
+            midx = {m: k for k, m in enumerate(mvals0)}
+            for aid in affected:
+                r = pos0.get(aid)
+                if r is None:
+                    continue
+                items = list(by_aisle[aid].items())
+                if len(items) > K:
+                    return None
+                Dh1[r, :] = np.inf
+                Mi1[r, :] = 0
+                for j, (m, h) in enumerate(items):
+                    k = midx.get(m)
+                    if k is None:
+                        return None
+                    Mi1[r, j] = k
+                    t = h.head
+                    if t is not None:
+                        Dh1[r, j] = t[0]
+            return aids0, mvals0, Dh1, Mi1, pos0
+        if src is not None and (src.store is not None or src.derive is not None):
+            aids, mvals, Dh, Mi, _pos = src.memo('travel_vec', build, patch)
             Dh = Dh.copy()
         else:
-            aids, mvals, Dh, Mi = build()
+            aids, mvals, Dh, Mi, _pos = build()
         A = len(aids)
         self.aids, self.mvals, self.Dh, self.Mi = aids, mvals, Dh, Mi
         self.load = np.array([load[a] for a in aids], dtype=float)
@@ -2342,8 +2394,35 @@ class _MinLabVec:
                     if dq:
                         Dh[i, j] = D_of[id(rep(dq))]
             return aids, mvals, Dh, Mi, {a: i for i, a in enumerate(aids)}
-        if src is not None and src.store is not None:
-            aids, mvals, Dh, Mi, pos = src.memo(('minlab_vec', bool(maximize)), build)
+
+        def patch(pv, affected, order_same):
+            # `_TravelVec`'s patch, with this matrix's pad (+inf minimising, -inf
+            # maximising) and its head read (`rep`, the near or far bracket end).
+            got = _gather_rows(pv, by_aisle_brkt, affected, order_same)
+            if got is None:
+                return None
+            aids0, mvals0, Dh1, Mi1, pos0 = got
+            K = Dh1.shape[1]
+            midx = {m: k for k, m in enumerate(mvals0)}
+            for aid in affected:
+                r = pos0.get(aid)
+                if r is None:
+                    continue
+                items = list(by_aisle_brkt[aid].items())
+                if len(items) > K:
+                    return None
+                Dh1[r, :] = pad
+                Mi1[r, :] = 0
+                for j, (m, dq) in enumerate(items):
+                    k = midx.get(m)
+                    if k is None:
+                        return None
+                    Mi1[r, j] = k
+                    if dq:
+                        Dh1[r, j] = D_of[id(rep(dq))]
+            return aids0, mvals0, Dh1, Mi1, pos0
+        if src is not None and (src.store is not None or src.derive is not None):
+            aids, mvals, Dh, Mi, pos = src.memo(('minlab_vec', bool(maximize)), build, patch)
             Dh = Dh.copy()
         else:
             aids, mvals, Dh, Mi, pos = build()
