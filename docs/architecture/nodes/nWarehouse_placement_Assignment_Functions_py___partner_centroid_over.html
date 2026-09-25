@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>_partner_centroid_over · ILO code map</title>
+<link rel="stylesheet" href="../assets/arch.css">
+</head><body>
+<header class="topbar">
+  <a class="title" href="../index.html">ILO code map</a>
+  <nav><a href="../explorer.html">Explorer</a> · <a href="../layers.html">Layers</a> · <a href="../catalog.html">Files</a> · <a href="../inefficiency.html">Inefficiency</a></nav>
+</header>
+<main>
+<article class="node" id="nWarehouse_placement_Assignment_Functions_py___partner_centroid_over" data-id="Warehouse/placement/Assignment_Functions.py::_partner_centroid_over">
+<nav class="crumbs"><a href="../layers.html">wh_placement</a> <span class="sep">›</span> <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a> <span class="sep">›</span> <span class="here"><code>_partner_centroid_over</code></span></nav>
+<h1><span class="kind kind-function">function</span> <code>_partner_centroid_over</code></h1>
+<p class="meta">layer <span class="chip">wh_placement</span> · file <a href="../files/nWarehouse_placement_Assignment_Functions_py.html"><code>Warehouse/placement/Assignment_Functions.py</code></a></p>
+
+<pre class="sig"><code>def _partner_centroid_over(partners, inner, live_inner, row, freq_by_idx)</code></pre>
+<section class="doc">`_demand_weighted_partner_centroid` over a copy-on-write aisle view (`inner`, a
+`gain_cow._CowInner`), walking only the members that can contribute.
+
+The full walk folds `inner.items()` in the view&#x27;s order -- the live keys in live
+order (the view&#x27;s copied list in place of the live one), then the keys the view
+created, in creation order -- and a member adds nothing unless the row lifts it.  So
+the same fold is: `partners` (the aisle&#x27;s LIVE members that the row lifts, in live
+order; fixed for the drain, since no virtual placement moves the live book), each read
+through the view, then the view&#x27;s created keys that the row lifts.  Same members, same
+order, same arithmetic, same floats (S10 of `.scratch/inbound-fullscale-perf/`).</section>
+<section class="rel"><h2>Callees <span class="count">(0)</span></h2></section><section class="rel"><h2>Callers <span class="count">(1)</span></h2><ul><li><a href="nWarehouse_placement_Assignment_Functions_py___MinLaborPool_take.html"><code>take</code></a> <span class="dim">Warehouse/placement/Assignment_Functions.py</span></li></ul></section>
+<p class="actions"><a class="btn" href="../explorer.html?focus=nWarehouse_placement_Assignment_Functions_py___partner_centroid_over">Open in explorer ▸</a><a class="btn" rel="external" href="https://github.com/EdgyPage/Inventory_Location_Optimizer/blob/main/Warehouse/placement/Assignment_Functions.py#:~:text=def%20_partner_centroid_over">Source ↗</a></p>
+</article>
+</main>
+</body></html>

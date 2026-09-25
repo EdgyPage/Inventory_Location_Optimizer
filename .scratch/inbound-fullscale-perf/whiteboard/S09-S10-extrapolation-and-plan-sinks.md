@@ -239,3 +239,71 @@ deep and a plan round's exclusion sets are large.  The per-take terms the drain 
 the overlay shortcut removed dominate SHALLOW drains, not the deep ones that carry the
 wall.  A third instrument error of the same kind: bench load size (12 vs 1,000 units),
 then the profile window (early vs late batches).  Next: profile a full 20-batch unit.
+
+## S10 part 3 -- the DEEP-yard plan (a 20-batch production profile, 44c70a43)
+
+The gmyopic uni winner ran 20 batches under the profiler: 4,292 s, of which
+`place_load` took 3,395 s (79%).  The terms that scale with load size are:
+
+| term | self s | cum s | why it is deep-yard |
+|---|---|---|---|
+| `_partner_deltas` (incl. 536M `set.intersection`) | 232 + 734 | 1,032 | visited EVERY aisle the pool had written, at every SKU boundary: O(units x aisles written) per open, quadratic in the load |
+| `_demand_weighted_partner_centroid` | 709 | 1,063 | winners in a deep yard are written aisles, so the drain memo cannot serve them; the walk visits every member, and the view rebuilds its merged mapping (`_view` 132 s) |
+| `_rekey` / `argsort` | 40 / 130 | 248 | a full argsort of ~2,800 aisles after EVERY take, though one row moved |
+
+Three exact fixes (uncommitted until the profile and the toys agree):
+
+1. **An added-partner index.**  The pool keeps `{matrix idx: {aisle}}` for every index its
+   view holds that the live book does not: seeded from the view at open, extended by
+   each `add_bin`.  At a boundary only the aisles it names for the row's indices are
+   refolded; the rest are the live fold's value.
+2. **The partner-only centroid walk** (`_partner_centroid_over`).  It walks the aisle's
+   live members that the row lifts, in live order (memoised for the drain), each read
+   through the view, then the view's created keys that the row lifts: the full walk's
+   members, order and arithmetic.
+3. **Incremental walk order** (`_MinLabVec._reposition`).  Row i is removed and
+   re-inserted by `searchsorted`; equal keys stay in ascending row order, which is the
+   stable argsort's tie order.
+
+Proof so far: `test_pool_drain_memo` (78) holds memo on == off and the fold == the frozen
+full refold, and shows the partner walk runs and meets created keys.  `test_frozen_tier`'s
+walk-order oracle now recomputes the KEY independently of the pool and covers maximise and
+12-aisle scenes; a sabotage that breaks the tie rule is caught.  Unit tier 3,667 passed.
+
+Two refinements came out of the 20-batch profile of those three fixes.  Profiled, the
+slowest unit went 4,292 -> 2,975 s, `place_load` 3,395 -> 2,070 s, `_partner_deltas`
+1,032 -> 53 s:
+
+* `_reposition` spent more in `np.insert`/`np.delete`'s generic axis handling (398 s)
+  than the argsort it replaced.  Two `concatenate`s now build the same arrays.
+* The centroid's first computation per (SKU, aisle) still walked every member: 1.4M
+  misses, 452 s, plus 210 s building partner lists.  A per-aisle LIVE position map, built
+  once per drain, now gives the row's partners in live order in O(row).  Untouched aisles
+  take the same partner walk; with no created keys, it IS the full walk.
+
+## Run E (400k, the final S10 code) -- the deep-yard plan, measured
+
+Root `comparison_whatif_20260925_060635`; same spec and flags as A-D; idle machine.  Toy
+digests IDENTICAL on 8 cells; **`run_digest --cell` against run A: k1_off_fifo IDENTICAL,
+k1_off_gmyopic IDENTICAL.**
+
+| | A | B | D | **E** |
+|---|---|---|---|---|
+| gmyopic uni winner total (slowest unit) | 4,459 | 2,699 | 2,539 | **1,304** |
+| its yard plan | 3,440 | 1,928 | 1,901 | **794** |
+| its dock plan | 370 | 226 | 225 | **78** |
+| gmyopic opt winner total | 3,155 | 1,987 | 1,858 | **1,142** |
+| fifo uni winner total | 746 | 643 | 497 | 493 |
+| sum of all leaf totals | 25,727 | 19,458 | 16,900 | **12,986** |
+| whole run (main leg) | 112 min | 71 min | ~62 min | **42 min** |
+
+**The slowest unit is 3.4x faster than run A, and the yard plan 4.3x.**  This time the
+production profile's per-take terms were the right target.
+
+### S09, re-projected on run E (`assets/s09_extrapolate.py`, same stated assumption)
+
+| 20260920 campaign | measured | projected on run E's code |
+|---|---|---|
+| sum of unit walls | 83.1 h | **30.9 h** (2.69x) |
+| slowest unit | 7.89 h (fsight_w5) | **2.30 h** (gforecast) |
+| sim-stage bound (12 workers) | 7.89 h | **2.58 h** -- now set by sum/12, not the slowest unit |

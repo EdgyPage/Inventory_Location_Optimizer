@@ -23401,7 +23401,7 @@
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.boundary"
     },
     {
-      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey",
+      "dst": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._reposition",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.update"
     },
@@ -23472,6 +23472,11 @@
     },
     {
       "dst": "Warehouse/placement/Assignment_Functions.py::_demand_weighted_partner_centroid",
+      "kind": "calls",
+      "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
+    },
+    {
+      "dst": "Warehouse/placement/Assignment_Functions.py::_partner_centroid_over",
       "kind": "calls",
       "src": "Warehouse/placement/Assignment_Functions.py::_MinLaborPool.take"
     },
@@ -56247,6 +56252,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._reposition",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_reposition",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.boundary",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -56987,6 +57000,14 @@
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "_gather_rows",
+      "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_partner_centroid_over",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "_partner_centroid_over",
       "public": false
     },
     {

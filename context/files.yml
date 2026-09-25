@@ -5823,6 +5823,7 @@ files:
       - {name: "test_the_drain_memo_changes_no_run_end_state", file: "Tests/unit/test_pool_drain_memo.py", kind: "function"}
       - {name: "test_the_overlay_shortcut_folds_what_the_full_overlay_folds", file: "Tests/unit/test_pool_drain_memo.py", kind: "function"}
       - {name: "test_the_shortcut_both_skips_and_refolds", file: "Tests/unit/test_pool_drain_memo.py", kind: "function"}
+      - {name: "test_the_written_aisle_centroid_walk_is_exercised", file: "Tests/unit/test_pool_drain_memo.py", kind: "function"}
     notes: ""
   "Tests/unit/test_positive_int_flags.py":
     purpose: "a count that is meaningless at zero fails at the parser."

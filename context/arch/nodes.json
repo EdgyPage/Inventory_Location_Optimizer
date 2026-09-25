@@ -27471,6 +27471,13 @@
       "kind": "function",
       "signature": "(self, fq: float) -> None"
     },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec._reposition": {
+      "decorators": [],
+      "doc": "`_rekey` for ONE moved row: the order is re-derived by moving row `i` alone.\n\n`_rekey` re-sorted every live aisle after every take -- an O(A log A) argsort per\nunit, 248 s of a 20-batch 400k unit under the profiler (`.scratch/inbound-\nfullscale-perf/` S10) -- although a take moves exactly one row's cost.  Within a SKU\nrun `fq` is fixed, so every other row's key is unchanged, and the stable argsort's\norder is the one this produces: `i` is removed, and re-inserted (if its cost is\nstill finite) after every row with a smaller key and, among rows with an EQUAL key,\nafter every smaller row index -- the stable sort's tie order over `live`, which is\nascending by index.  `key[i]` is the same scalar expression the full vector held.\n`test_frozen_tier.py` holds the order to a fresh stable argsort after every take.",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, i: int, fq: float) -> None"
+    },
     "Warehouse/placement/Assignment_Functions.py::_MinLabVec.boundary": {
       "decorators": [],
       "doc": null,
@@ -28121,6 +28128,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(pv, by_aisle, affected, order_same)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_partner_centroid_over": {
+      "decorators": [],
+      "doc": "`_demand_weighted_partner_centroid` over a copy-on-write aisle view (`inner`, a\n`gain_cow._CowInner`), walking only the members that can contribute.\n\nThe full walk folds `inner.items()` in the view's order -- the live keys in live\norder (the view's copied list in place of the live one), then the keys the view\ncreated, in creation order -- and a member adds nothing unless the row lifts it.  So\nthe same fold is: `partners` (the aisle's LIVE members that the row lifts, in live\norder; fixed for the drain, since no virtual placement moves the live book), each read\nthrough the view, then the view's created keys that the row lifts.  Same members, same\norder, same arithmetic, same floats (S10 of `.scratch/inbound-fullscale-perf/`).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(partners, inner, live_inner, row, freq_by_idx)"
     },
     "Warehouse/placement/Assignment_Functions.py::_partner_row": {
       "decorators": [],
