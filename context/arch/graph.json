@@ -24196,6 +24196,11 @@
       "src": "Warehouse/placement/frozen_tier.py::TierSlice.aisles"
     },
     {
+      "dst": "Warehouse/placement/frozen_tier.py::TierSlice._template",
+      "kind": "calls",
+      "src": "Warehouse/placement/frozen_tier.py::TierSlice.memo"
+    },
+    {
       "dst": "Warehouse/placement/frozen_tier.py::_CowInner",
       "kind": "calls",
       "src": "Warehouse/placement/frozen_tier.py::_CowBuckets.__getitem__"
@@ -26624,6 +26629,14 @@
       "module": "Inbound/gain_cow.py",
       "name": "__getitem__",
       "public": false
+    },
+    {
+      "file": "Inbound/gain_cow.py",
+      "id": "Inbound/gain_cow.py::_CowSets.holding",
+      "kind": "function",
+      "module": "Inbound/gain_cow.py",
+      "name": "holding",
+      "public": true
     },
     {
       "file": "Inbound/gain_cow.py",
@@ -56147,6 +56160,14 @@
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec.__init__.build",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
       "id": "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey",
       "kind": "function",
       "module": "Warehouse/placement/Assignment_Functions.py",
@@ -56616,6 +56637,14 @@
       "module": "Warehouse/placement/Assignment_Functions.py",
       "name": "__init__",
       "public": false
+    },
+    {
+      "file": "Warehouse/placement/Assignment_Functions.py",
+      "id": "Warehouse/placement/Assignment_Functions.py::_TravelVec.__init__.build",
+      "kind": "function",
+      "module": "Warehouse/placement/Assignment_Functions.py",
+      "name": "build",
+      "public": true
     },
     {
       "file": "Warehouse/placement/Assignment_Functions.py",
@@ -57679,6 +57708,14 @@
       "kind": "function",
       "module": "Warehouse/placement/frozen_tier.py",
       "name": "aisles",
+      "public": true
+    },
+    {
+      "file": "Warehouse/placement/frozen_tier.py",
+      "id": "Warehouse/placement/frozen_tier.py::TierSlice.memo",
+      "kind": "function",
+      "module": "Warehouse/placement/frozen_tier.py",
+      "name": "memo",
       "public": true
     },
     {

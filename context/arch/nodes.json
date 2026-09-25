@@ -1486,6 +1486,13 @@
       "kind": "function",
       "signature": "(self, k)"
     },
+    "Inbound/gain_cow.py::_CowSets.holding": {
+      "decorators": [],
+      "doc": "`[item in self[k] for k in keys]` -- WITHOUT materializing a single aisle.\n\nrank_cartlabor's run boundary asks, for every live aisle, whether the aisle already\nholds the SKU (`_TravelVec.boundary`, the cart hinge).  Through `__getitem__` that\nquestion COPIED every aisle's set into the overlay -- ~1,400 set copies per boundary\nat campaign scale, the same blow-up this module exists to prevent, re-entered\nthrough a membership test: 34% of a 400k `plan_order` (cProfile of\n`.scratch/inbound-fullscale-perf/` S10).\n\nThe answer is the same boolean for every key: an overlay aisle answers from the\noverlay, any other from the live set (read-only here), an aisle in neither holds\nnothing -- exactly what `__getitem__`'s materialized copy would have answered.  The\ncopy it skips is unobservable to the pool: the live dict is not written while a\nvirtual placement is open, so an aisle the ledger later writes materializes then,\nwith the same contents it would have been copied with now.  (The LIVE-dict path --\nthe put drain -- does not come here; its `defaultdict` inserts keys that\n`aisle_metrics` writes, so it keeps its own read.)",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, keys, item) -> list"
+    },
     "Inbound/gain_cow.py::_CowSets.union": {
       "decorators": [],
       "doc": "Every idx in any aisle of this view -- what `set().union(*self.values())` returns,\nanswered from the owner's counted inverse when the live dict is the owner's\n`_IdxSets`, so no aisle is materialized.  A live dict with no inverse (a loose dict\nin a test) gets the materializing answer, so the two are interchangeable by value.\n\nThe overlay is reconciled exactly rather than assumed empty: an idx an overlay aisle\nholds that no live aisle does is EXTRA; an idx a live aisle held that every one of\nits holders has been overridden without it is GONE.  Both are empty at every pool\nopen the evaluator makes today (`_make_pool` builds fresh views per open), and both\ncost O(overlay), never O(warehouse).",
@@ -27434,7 +27441,14 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, by_aisle_brkt, D_of, rep, maximize: bool)"
+      "signature": "(self, by_aisle_brkt, D_of, rep, maximize: bool, src=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_MinLabVec.__init__.build": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
     },
     "Warehouse/placement/Assignment_Functions.py::_MinLabVec._rekey": {
       "decorators": [],
@@ -27847,7 +27861,14 @@
       "doc": null,
       "is_async": false,
       "kind": "function",
-      "signature": "(self, by_aisle, load, vol_load)"
+      "signature": "(self, by_aisle, load, vol_load, src=None)"
+    },
+    "Warehouse/placement/Assignment_Functions.py::_TravelVec.__init__.build": {
+      "decorators": [],
+      "doc": null,
+      "is_async": false,
+      "kind": "function",
+      "signature": "()"
     },
     "Warehouse/placement/Assignment_Functions.py::_TravelVec.boundary": {
       "decorators": [],
@@ -28771,6 +28792,13 @@
       "is_async": false,
       "kind": "function",
       "signature": "(self, reverse: bool=False) -> dict"
+    },
+    "Warehouse/placement/frozen_tier.py::TierSlice.memo": {
+      "decorators": [],
+      "doc": "`build()` once per (tier, excluded set) under a template store, fresh without one.\n\nFor a pool's DERIVED structure that is a pure function of the template it opens\nover -- `_TravelVec`'s head matrix, read before the pool's first take moves any\nhead.  It shares `_template`'s key and lifetime, so it dies with the round exactly\nas the buckets do; the caller must never write the cached object (it copies what\nit mutates).",
+      "is_async": false,
+      "kind": "function",
+      "signature": "(self, kind, build)"
     },
     "Warehouse/placement/frozen_tier.py::_CowAisles": {
       "decorators": [],

@@ -5103,6 +5103,7 @@ files:
       - {name: "test_a_write_through_getitem_never_reaches_the_live_dict", file: "Tests/unit/test_gain_cow_protocol.py", kind: "function"}
       - {name: "test_the_three_views_share_one_implementation_of_the_mapping_protocol", file: "Tests/unit/test_gain_cow_protocol.py", kind: "function"}
       - {name: "test_every_view_is_slotted_so_a_pool_cannot_grow_state_on_it", file: "Tests/unit/test_gain_cow_protocol.py", kind: "function"}
+      - {name: "test_holding_answers_what_getitem_answers_without_materializing", file: "Tests/unit/test_gain_cow_protocol.py", kind: "function"}
     notes: ""
   "Tests/unit/test_gain_plan.py":
     purpose: "the gain-family ordering entries and their evaluator."
