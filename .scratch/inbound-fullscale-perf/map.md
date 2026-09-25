@@ -42,7 +42,7 @@ Plan: `~/.claude/plans/tender-roaming-dream.md`.
 | S06 | O9 fill-curve memo (found in S00) | bit-identical; >= 2.5x on the curve | MET: 3.3x (358 -> 109 s per channel), bit-identical |
 | S06b | O5/O4/O6/O7 | each IDENTICAL; together 3-10% of arm wall | |
 | S07 | O8 analysis + O0 dispatch | analysis stage -30%; sim stage within 15% of bound | |
-| S08 | run B + ladders | T exponent 3.13 -> <= 2.5 | |
+| S08 | run B + ladders | T exponent 3.13 -> <= 2.5 | meso: placements T^1.86 -> T^1.01 (O1). 400k run B **IDENTICAL** to A on every cell; wall 112 -> 71 min (1.58x), slowest unit 4,459 -> 2,699 s. The gain was O3's constant (yard plan 0.56x, put drain 0.48-0.65x, opt setup 0.5x), not a T exponent: the 400k yard empties every drain |
 | S09 | extrapolation | the 40-batch 11-cell campaign's predicted wall | |
 | S10 | vectorisation survey: picking + assignment functions (added 2026-09-24, the user's) | >= 3 candidates each >= 1% of arm wall and data-parallel | |
 | S11 | implement the survey's survivors, one commit each | each IDENTICAL; >= 1.5x on its own function | |
