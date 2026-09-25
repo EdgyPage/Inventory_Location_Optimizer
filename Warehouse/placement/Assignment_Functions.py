@@ -2525,7 +2525,7 @@ class _MinLaborPool(_Pool):
                  '_maximize', '_intercept', '_per_item', '_x_pace', '_D_of', '_by_aisle_brkt',
                  '_s2i', '_matrix', '_rep', '_drop', '_last_sku',
                  '_row_items', '_max_reward', '_led',
-                 '_pp', '_row', '_deltas', '_writer', '_mx', '_vsrc')
+                 '_pp', '_row', '_deltas', '_writer', '_mx', '_vsrc', '_cen')
 
     def __init__(self, cands, affinity, wp, aisle_sku_sets, aisle_idx_sets,
                  aisle_demand_sum, aisle_member_pos, freq_by_idx, freq_by_sku,
@@ -2585,6 +2585,8 @@ class _MinLaborPool(_Pool):
         self._pp: dict = {}
         self._row: dict = {}
         self._deltas: dict | None = None
+        #: The partner centroid per aisle for the CURRENT SKU run (see `take`).
+        self._cen: dict = {}
 
     def __len__(self):
         return sum(len(dq) for g in self._by_aisle_brkt.values() for dq in g.values())
@@ -2733,6 +2735,7 @@ class _MinLaborPool(_Pool):
                              for m in mx.mvals}
             mx.boundary(pp, fq)
             self._row = _partner_row(self._aff, sku)
+            self._cen = {}
             self._deltas = self._partner_deltas(row_items) if row_items else {}
             mx.set_delta(row_items, self._deltas, self._ais)
             self._last_sku = sku
@@ -2749,8 +2752,22 @@ class _MinLaborPool(_Pool):
         # Final bin in the winning aisle: extremal bracket end (golden-zone min-D / worst
         # max-D per height band), with the centroid term pulling toward (min) or away from
         # (max) partners.
-        _mass, cx = _demand_weighted_partner_centroid(
-            self._aff, sku, self._amp[best_aid], self._fbi, row=self._row)
+        #
+        # THE CENTROID IS MEMOISED PER AISLE FOR THE SKU RUN (`.scratch/inbound-fullscale-
+        # perf/` S10).  It walked every member of the winning aisle on every take -- ~1,000
+        # takes per placed load at 400k, 1.3M takes in an `opt_` arm's initial placement,
+        # the largest single term of both.  Within a run the row is fixed, and the ONLY
+        # write to any aisle's member positions is this take's own `add_bin` below: one x
+        # appended under THIS SKU's index in `best_aid`.  A key the row does not hold is
+        # skipped by the walk, so such a write cannot move the value; when the SKU's own
+        # index IS in its row, the entry for `best_aid` is dropped after the commit and the
+        # next take recomputes it.  Otherwise the memoised pair is the recomputed one, the
+        # same floats from the same walk over the same members.
+        cen = self._cen.get(best_aid)
+        if cen is None:
+            cen = self._cen[best_aid] = _demand_weighted_partner_centroid(
+                self._aff, sku, self._amp[best_aid], self._fbi, row=self._row)
+        _mass, cx = cen
         chosen = chosen_m = None
         cbest = None
         intercept, per_item = self._intercept, self._per_item
@@ -2791,7 +2808,10 @@ class _MinLaborPool(_Pool):
 
         if sku not in self._ass[best_aid]:
             self._led.add_sku(best_aid, sku, demand=fq)
-        self._led.add_bin(best_aid, self._s2i.get(sku), chosen.x_phys)
+        si = self._s2i.get(sku)
+        self._led.add_bin(best_aid, si, chosen.x_phys)
+        if si in self._row:                    # the write can reach this SKU's own centroid
+            self._cen.pop(best_aid, None)
         return chosen, best_score
 
 
